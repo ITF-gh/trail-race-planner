@@ -1,0 +1,6 @@
+node_modules/
+dist/
+# Real GPX files reveal where you live and train. Keep them out of git.
+*.gpx
+*.fit
+!tests/fixtures/*.gpx

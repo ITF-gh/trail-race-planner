@@ -1,0 +1,69 @@
+# Trail Race Planner
+
+Give it a race course (GPX) and one of your own recorded runs (GPX). It learns how fast you move on each kind of terrain, then predicts the race and writes a plan: pace by gradient, which climbs to hike, which descents to brake on, gel stops, checkpoints, and a heart-rate guide.
+
+Your files are read on your own machine. Nothing is uploaded.
+
+## Use it
+
+**In the browser.** Open `dist/index.html` (run `npm run build` first). Press "Try the demo" to see a full plan on made-up data, or drop in your own two files.
+
+**From a terminal.**
+
+```
+node cli.js --race course.gpx --effort my-run.gpx --start 09:00 --max-hr 190
+```
+
+Options: `--terrain smooth|mixed|technical`, `--scenario best|central|cautious`, `--hike-grade 15`, `--gel-every 45`, `--descent-boost 0.03`, `--json`. Run `node cli.js --help`.
+
+No dependencies to install. It needs Node 20 or newer.
+
+## Inputs
+
+| Input | What it is | Why |
+|---|---|---|
+| Race course GPX | The official route, with elevation | Gives every climb and descent |
+| Effort reference GPX | A recorded run of 1.5 hours or more at a steady effort, with some climbs | Your pace on each gradient, fresh and tired |
+| Start time | Race start | Clock times |
+| Terrain | smooth, mixed or technical | Race ground is slower than a training path |
+| Max heart rate (optional) | Your measured maximum | Caps the heart-rate guide |
+| Gel interval | Minutes between gels | Gel schedule |
+| Hiking threshold (optional) | Gradient where you hike | Default is learned from your cadence |
+| Endurance exponent | How fast you fade in a longer race | Default 0.07 |
+| Faster on gentle descents | 0 to 10% | Only if your quads can take it |
+
+A good reference run is long enough to show fatigue (so the second half differs from the first), contains climbs of several steepness levels, and was run at the effort you intend to hold in the race. The more it looks like the race, the better the plan.
+
+## Project layout
+
+```
+src/core/track.js      read GPX, resample to a 10 m grid
+src/core/terrain.js    gradient, climbs and descents (zigzag filter)
+src/core/effort.js     learn your pace per gradient, fresh and tired
+src/core/model.js      predict the course, three scenarios
+src/core/plan.js       climbs, descents, gels, checkpoints, heart-rate guide
+src/core/format.js     time and pace formatting
+src/core/markdown.js   plan as Markdown
+src/demo.js            made-up GPX files for the demo and the tests
+src/ui/                the browser app
+cli.js                 the command-line tool
+scripts/build.js       bundles the app into dist/index.html, no dependencies
+tests/                 node:test suite on made-up data
+docs/HOW_IT_WORKS.md   the ideas behind it, with the reasoning
+```
+
+## Commands
+
+```
+npm test         run the tests
+npm run build    build dist/index.html (one self-contained file)
+npm run dev      build, then serve it on http://localhost:5173
+```
+
+## Privacy
+
+GPX files show where you live and train. `.gitignore` excludes `*.gpx` so they do not end up in a repository by accident. The tests use made-up routes.
+
+## Status and honesty
+
+This is a first version. The model is a transparent pace table, not a physiological simulation. Treat the three scenarios as a range of plausible outcomes. Typical error for this kind of model is 5 to 10%. See "Honest limits" in `docs/HOW_IT_WORKS.md`.

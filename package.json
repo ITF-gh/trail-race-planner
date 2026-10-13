@@ -1,0 +1,13 @@
+{
+  "name": "trail-race-planner",
+  "version": "0.1.0",
+  "description": "Turn a race GPX and one of your own effort files into a gradient-by-gradient race plan.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "node --test \"tests/**/*.test.js\"",
+    "plan": "node cli.js",
+    "build": "node scripts/build.js",
+    "dev": "node scripts/serve.js"
+  }
+}
