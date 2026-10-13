@@ -40,7 +40,7 @@ export function planToMarkdown(plan, scenarioId = "central") {
   for (const c of plan.climbs) {
     L.push(`| ${c.n} | ${c.startKm.toFixed(2)} | ${Math.round(c.lenM)} m | ${Math.round(c.gain)} m | ${c.avg.toFixed(1)}% | ${Math.round(c.steep)}% | ${mmss(c.dur[sc.id] / (c.lenM / 1000))} | ${clock(st, c.start[sc.id])} | ${c.tactic} | ${LEVELS[c.level]} |`);
     for (const s of c.sections) {
-      L.push(`| ${s.n} | ${s.startKm.toFixed(2)} | ${Math.round(s.lenM)} m | ${Math.round(s.gain)} m | ${s.avg.toFixed(1)}% | ${Math.round(s.steep)}% | ${mmss(s.dur[sc.id] / (s.lenM / 1000))} | ${clock(st, s.start[sc.id])} | ${s.tactic} | section |`);
+      L.push(`| ${s.n} | ${s.startKm.toFixed(2)} | ${Math.round(s.lenM)} m | ${Math.round(s.gain)} m | ${s.avg.toFixed(1)}% | ${Math.round(s.steep)}% | ${mmss(s.dur[sc.id] / (s.lenM / 1000))} | ${clock(st, s.start[sc.id])} | ${s.tactic} | ${LEVELS[s.level]} |`);
     }
   }
   L.push("");

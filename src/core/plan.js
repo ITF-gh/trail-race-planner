@@ -163,7 +163,11 @@ export function buildPlan(raceParsed, effortParsed, userParams = {}) {
       gain: delta,
       avg: sec.avg,
       steep: sec.steep,
+      // Scored exactly like a climb of its own: gain, steepness and where it falls in the race.
+      score: climbScore(sec, total),
+      level: climbLevel(climbScore(sec, total)),
       tactic: climbTactic(sec, hikeGrade, false),
+      effortMatch: closestEffortClimb(sec, effortClimbsOf(effortCourse), effort.resampled),
       ...timing(a, b),
       a,
       b,

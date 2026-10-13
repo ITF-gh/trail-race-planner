@@ -225,7 +225,12 @@ function profileSvg(plan, sid) {
   plan.climbs.forEach((c) => {
     s += `<path class="cl cl${c.level}" d="${seg(c.startKm, c.endKm)}"><title>Climb ${c.n}, km ${c.startKm.toFixed(2)}: ${Math.round(c.gain)} m at ${c.avg.toFixed(1)}%, ${LEVELS[c.level]}</title></path>`;
     c.sections.slice(1).forEach((sc2) => { s += `<line class="cut" x1="${x(sc2.startKm).toFixed(1)}" x2="${x(sc2.startKm).toFixed(1)}" y1="${(y(elevAt(P, sc2.startKm)) - 7).toFixed(1)}" y2="${(y(elevAt(P, sc2.startKm)) + 7).toFixed(1)}"><title>Section ${sc2.n} starts, km ${sc2.startKm.toFixed(2)}</title></line>`; });
-    if (c.level >= 3) { const mid = (c.startKm + c.endKm) / 2; s += `<text class="num" x="${x(mid).toFixed(1)}" y="${(y(elevAt(P, mid)) - 9).toFixed(1)}" text-anchor="middle">${c.n}</text>`; }
+    // A split climb is drawn section by section, each in its own difficulty colour.
+    c.sections.forEach((x2) => {
+      s += `<path class="cl cl${x2.level}" d="${seg(x2.startKm, x2.endKm)}"><title>Section ${x2.n}, km ${x2.startKm.toFixed(2)}: ${Math.round(x2.gain)} m at ${x2.avg.toFixed(1)}%, ${LEVELS[x2.level]}</title></path>`;
+      if (x2.level >= 3) { const mid = (x2.startKm + x2.endKm) / 2; s += `<text class="num" x="${x(mid).toFixed(1)}" y="${(y(elevAt(P, mid)) - 9).toFixed(1)}" text-anchor="middle">${x2.n}</text>`; }
+    });
+    if (c.level >= 3 && !c.sections.length) { const mid = (c.startKm + c.endKm) / 2; s += `<text class="num" x="${x(mid).toFixed(1)}" y="${(y(elevAt(P, mid)) - 9).toFixed(1)}" text-anchor="middle">${c.n}</text>`; }
   });
   sc.checkpoints.filter((c) => c.label !== "Finish").forEach((c) => {
     s += `<line class="ck" x1="${x(c.km)}" x2="${x(c.km)}" y1="${top - 6}" y2="${base}"/><text class="tk" x="${x(c.km)}" y="${top - 12}" text-anchor="middle">${esc(c.label)} · ${clock(plan.startSec, c.sec)}</text>`;
@@ -257,11 +262,13 @@ function render() {
   const hikes = plan.climbs.filter((c) => /^Hike/.test(c.tactic));
   const hikeList = hikes.map((c) => `<li><span>#${c.n} · km ${c.startKm.toFixed(1)}</span><b>${c.avg.toFixed(0)}% · ${clock(st, c.start[sid])}</b></li>`).join("") || `<li><span>None at this threshold</span><b></b></li>`;
 
-  const maxScore = Math.max(...plan.climbs.map((c) => c.score), 1);
+  const maxScore = Math.max(...plan.climbs.flatMap((c) => [c, ...c.sections]).map((c) => c.score), 1);
+  const scoreCell = (c) => `<span class="score"><span class="chip l${c.level}">${LEVELS[c.level]}</span><span class="bar"><i style="width:${Math.round(Math.min(1, c.score / maxScore) * 100)}%"></i></span><span style="min-width:2.2em">${Math.round(c.score)}</span></span>`;
+  const matchCell = (m) => (m ? `${m.avg.toFixed(0)}% · ${Math.round(m.delta)} m<small>${mmss(m.paceSecPerKm)}${m.hr ? ` · HR ${Math.round(m.hr)}` : ""} · ${Math.round(m.minutesIn)} min in</small>` : "");
+  // A section of a long climb, coloured and scored as a climb of its own.
+  const sectionRow = (x) => `<tr class="r${x.level} sec"><td class="num">${x.n}</td><td>${x.startKm.toFixed(2)} – ${x.endKm.toFixed(2)}</td><td>${(x.lenM / 1000).toFixed(2)} km</td><td class="num">${Math.round(x.gain)} m</td><td class="num">${x.avg.toFixed(1)}%</td><td class="${x.steep >= 18 ? "steep" : ""}">${Math.round(x.steep)}%</td><td>${mmss(x.dur[sid] / (x.lenM / 1000))}</td><td>${clock(st, x.start[sid])}</td><td class="t">${esc(x.tactic)}<small>Section, ${Math.round(x.dur[sid] / 60)} min</small></td><td>${scoreCell(x)}</td><td>${matchCell(x.effortMatch)}</td></tr>`;
   const climbRows = plan.climbs.map((c) => {
-    const m = c.effortMatch;
-    const match = m ? `${m.avg.toFixed(0)}% · ${Math.round(m.delta)} m<small>${mmss(m.paceSecPerKm)}${m.hr ? ` · HR ${Math.round(m.hr)}` : ""} · ${Math.round(m.minutesIn)} min in</small>` : "";
-    return `<tr class="r${c.level}"><td class="num">${c.n}</td><td>${c.startKm.toFixed(2)} – ${c.endKm.toFixed(2)}</td><td>${c.lenM >= 1000 ? (c.lenM / 1000).toFixed(2) + " km" : Math.round(c.lenM) + " m"}</td><td class="num">${Math.round(c.gain)} m</td><td class="num">${c.avg.toFixed(1)}%</td><td class="${c.steep >= 18 ? "steep" : ""}">${Math.round(c.steep)}%</td><td>${mmss(c.dur[sid] / (c.lenM / 1000))}</td><td>${clock(st, c.start[sid])}</td><td class="t">${esc(c.tactic)}</td><td><span class="score"><span class="chip l${c.level}">${LEVELS[c.level]}</span><span class="bar"><i style="width:${Math.round(Math.min(1, c.score / maxScore) * 100)}%"></i></span><span style="min-width:2.2em">${Math.round(c.score)}</span></span></td><td>${match}</td></tr>` + c.sections.map((s) => `<tr class="r${c.level} sec"><td class="num">${s.n}</td><td>${s.startKm.toFixed(2)} – ${s.endKm.toFixed(2)}</td><td>${(s.lenM / 1000).toFixed(2)} km</td><td class="num">${Math.round(s.gain)} m</td><td class="num">${s.avg.toFixed(1)}%</td><td class="${s.steep >= 18 ? "steep" : ""}">${Math.round(s.steep)}%</td><td>${mmss(s.dur[sid] / (s.lenM / 1000))}</td><td>${clock(st, s.start[sid])}</td><td class="t">${esc(s.tactic)}</td><td>Section, ${Math.round(s.dur[sid] / 60)} min</td><td></td></tr>`).join("");
+    return `<tr class="r${c.level}"><td class="num">${c.n}</td><td>${c.startKm.toFixed(2)} – ${c.endKm.toFixed(2)}</td><td>${c.lenM >= 1000 ? (c.lenM / 1000).toFixed(2) + " km" : Math.round(c.lenM) + " m"}</td><td class="num">${Math.round(c.gain)} m</td><td class="num">${c.avg.toFixed(1)}%</td><td class="${c.steep >= 18 ? "steep" : ""}">${Math.round(c.steep)}%</td><td>${mmss(c.dur[sid] / (c.lenM / 1000))}</td><td>${clock(st, c.start[sid])}</td><td class="t">${esc(c.tactic)}</td><td>${scoreCell(c)}</td><td>${matchCell(c.effortMatch)}</td></tr>` + c.sections.map(sectionRow).join("");
   }).join("");
   const descRows = plan.descents.map((d) => `<tr class="r${d.level}"><td class="num">${d.n}</td><td>${d.startKm.toFixed(2)} – ${d.endKm.toFixed(2)}</td><td>${d.lenM >= 1000 ? (d.lenM / 1000).toFixed(2) + " km" : Math.round(d.lenM) + " m"}</td><td class="num">${Math.round(d.loss)} m</td><td class="num">${Math.abs(d.avg).toFixed(1)}%</td><td class="${d.steep <= -20 ? "steep" : ""}">${Math.abs(Math.round(d.steep))}%</td><td>${mmss(d.dur[sid] / (d.lenM / 1000))}</td><td>${clock(st, d.start[sid])}</td><td class="t">${esc(d.tactic)}</td><td><span class="chip l${d.level}">${DESCENT_LABELS[d.level]}</span></td></tr>`).join("");
 

@@ -4,7 +4,7 @@ import { parseGpx, haversine, resample } from "../src/core/track.js";
 import { analyseCourse, zigzag, bandIndex, BANDS } from "../src/core/terrain.js";
 import { analyseEffort } from "../src/core/effort.js";
 import { predictScenario, SCENARIOS } from "../src/core/model.js";
-import { buildPlan, splitClimb } from "../src/core/plan.js";
+import { buildPlan, splitClimb, climbScore, climbLevel } from "../src/core/plan.js";
 import { planToMarkdown } from "../src/core/markdown.js";
 import { mmss, hm, clock, parseDuration, parseClock } from "../src/core/format.js";
 import { makeDemoRaceGpx, makeDemoEffortGpx, DEMO_RACE_PROFILE } from "../src/demo.js";
@@ -135,6 +135,11 @@ test("buildPlan splits climbs of 3 km or more and 100 m gain or more into sectio
     if (c.lenM < 3000 || c.gain < 100) { assert.equal(c.sections.length, 0); continue; }
     assert.ok(c.sections.length >= 2, `climb ${c.n} is split`);
     assert.ok(c.sections.every((s) => s.lenM >= 1500 && s.tactic));
+    for (const s of c.sections) {
+      assert.equal(s.score, climbScore({ ...s, delta: s.gain }, plan.course.totalKm), `section ${s.n} is scored like a climb`);
+      assert.equal(s.level, climbLevel(s.score));
+      assert.ok(s.effortMatch);
+    }
     assert.equal(c.sections[0].startKm, c.startKm);
     assert.ok(Math.abs(c.sections.at(-1).endKm - c.endKm) < 1e-9);
     const sum = c.sections.reduce((t, s) => t + s.dur.central, 0);
