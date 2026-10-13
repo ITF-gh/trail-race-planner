@@ -132,6 +132,38 @@ function closestEffortClimb(c, effortClimbs, rs) {
   };
 }
 
+/**
+ * Race briefing: everything the course alone tells us, before knowing who runs it.
+ * Climbs (long ones split into sections) with their difficulty score, and descents
+ * with their risk level. Each item keeps `delta` (signed metres) and sample indices a, b.
+ */
+export function briefCourse(course, userParams = {}) {
+  const params = { ...PLAN_DEFAULTS, ...userParams };
+  const total = course.totalKm;
+  const kmAt = (idx) => (idx * course.step) / 1000;
+  const rate = (n, a, b) => {
+    const lenM = (b - a) * course.step;
+    const delta = course.ele[b] - course.ele[a];
+    const c = { n, startKm: kmAt(a), endKm: kmAt(b), lenM, delta, gain: delta, avg: (delta / lenM) * 100, steep: steepest100(course.ele, a, b, course.step), a, b };
+    // Scored the same way whether it is a whole climb or a section of one.
+    c.score = climbScore(c, total);
+    c.level = climbLevel(c.score);
+    return c;
+  };
+  const climbs = course.climbs.map((c, i) => {
+    const r = { ...rate(i + 1, c.a, c.b), steep: c.steep };
+    r.sections = c.lenM >= params.splitClimbM && c.delta >= params.splitClimbMinGain
+      ? splitClimb(course.ele, c.a, c.b, course.step, params.sectionMinM).map(([a, b], j) => rate(`${i + 1}.${j + 1}`, a, b))
+      : [];
+    return r;
+  });
+  const descents = course.descents.map((d, i) => ({
+    n: i + 1, startKm: d.startKm, endKm: d.startKm + d.lenM / 1000, lenM: d.lenM, delta: d.delta, loss: -d.delta,
+    avg: d.avg, steep: d.steep, level: descentLevel(d), a: d.a, b: d.b,
+  }));
+  return { totalKm: total, gain: course.gain, loss: course.loss, climbs, descents };
+}
+
 /** Build the plan from two already-parsed GPX tracks. */
 export function buildPlan(raceParsed, effortParsed, userParams = {}) {
   const params = { ...PLAN_DEFAULTS, ...userParams };
@@ -150,69 +182,19 @@ export function buildPlan(raceParsed, effortParsed, userParams = {}) {
     start: Object.fromEntries(SCENARIOS.map((s) => [s.id, preds[s.id].cum[a]])),
     dur: Object.fromEntries(SCENARIOS.map((s) => [s.id, preds[s.id].cum[b] - preds[s.id].cum[a]])),
   });
-  // One row per section of a long climb, each with its own tactic and clock time.
-  const sectionsOf = (c, n) => splitClimb(course.ele, c.a, c.b, course.step, params.sectionMinM).map(([a, b], j) => {
-    const lenM = (b - a) * course.step;
-    const delta = course.ele[b] - course.ele[a];
-    const sec = { startKm: kmAt(a), lenM, delta, avg: (delta / lenM) * 100, steep: steepest100(course.ele, a, b, course.step) };
-    return {
-      n: `${n}.${j + 1}`,
-      startKm: sec.startKm,
-      endKm: kmAt(b),
-      lenM,
-      gain: delta,
-      avg: sec.avg,
-      steep: sec.steep,
-      // Scored exactly like a climb of its own: gain, steepness and where it falls in the race.
-      score: climbScore(sec, total),
-      level: climbLevel(climbScore(sec, total)),
-      tactic: climbTactic(sec, hikeGrade, false),
-      effortMatch: closestEffortClimb(sec, effortClimbsOf(effortCourse), effort.resampled),
-      ...timing(a, b),
-      a,
-      b,
-    };
+  // The briefing rates the terrain; the plan adds what depends on you: tactic, timing, closest climb in your run.
+  const brief = briefCourse(course, params);
+  const forRace = (c, biggest) => ({
+    ...c,
+    tactic: climbTactic(c, hikeGrade, biggest),
+    ...timing(c.a, c.b),
+    effortMatch: closestEffortClimb(c, effortClimbsOf(effortCourse), effort.resampled),
   });
-  const climbs = course.climbs.map((c, i) => {
-    const score = climbScore(c, total);
-    const level = climbLevel(score);
-    return {
-      n: i + 1,
-      startKm: c.startKm,
-      endKm: c.startKm + c.lenM / 1000,
-      lenM: c.lenM,
-      gain: c.delta,
-      avg: c.avg,
-      steep: c.steep,
-      score,
-      level,
-      tactic: climbTactic(c, hikeGrade, c.delta === maxGain && c.delta >= 60),
-      start: Object.fromEntries(SCENARIOS.map((s) => [s.id, preds[s.id].cum[c.a]])),
-      dur: Object.fromEntries(SCENARIOS.map((s) => [s.id, preds[s.id].cum[c.b] - preds[s.id].cum[c.a]])),
-      effortMatch: closestEffortClimb(c, effortClimbsOf(effortCourse), effort.resampled),
-      sections: c.lenM >= params.splitClimbM && c.delta >= params.splitClimbMinGain ? sectionsOf(c, i + 1) : [],
-      a: c.a,
-      b: c.b,
-    };
-  });
-  const descents = course.descents.map((d, i) => {
-    const level = descentLevel(d);
-    return {
-      n: i + 1,
-      startKm: d.startKm,
-      endKm: d.startKm + d.lenM / 1000,
-      lenM: d.lenM,
-      loss: -d.delta,
-      avg: d.avg,
-      steep: d.steep,
-      level,
-      tactic: DESCENT_TACTIC[level],
-      start: Object.fromEntries(SCENARIOS.map((s) => [s.id, preds[s.id].cum[d.a]])),
-      dur: Object.fromEntries(SCENARIOS.map((s) => [s.id, preds[s.id].cum[d.b] - preds[s.id].cum[d.a]])),
-      a: d.a,
-      b: d.b,
-    };
-  });
+  const climbs = brief.climbs.map((c) => ({
+    ...forRace(c, c.delta === maxGain && c.delta >= 60),
+    sections: c.sections.map((x) => forRace(x, false)),
+  }));
+  const descents = brief.descents.map((d) => ({ ...d, tactic: DESCENT_TACTIC[d.level], ...timing(d.a, d.b) }));
 
   // Where the gel lands: every N minutes, but never in the middle of a climb or a braking descent.
   const segs = [...climbs.map((c) => ({ ...c, kind: "climb" })), ...descents.filter((d) => d.level === 4).map((d) => ({ ...d, kind: "descent" }))];
