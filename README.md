@@ -71,3 +71,10 @@ GPX files show where you live and train. `.gitignore` excludes `*.gpx` so they d
 ## Status and honesty
 
 This is a first version. The model is a transparent pace table, not a physiological simulation. Treat the three scenarios as a range of plausible outcomes. Typical error for this kind of model is 5 to 10%. See "Honest limits" in `docs/HOW_IT_WORKS.md`.
+
+## Photos
+
+The hero and section banners use free photos from [Pexels](https://www.pexels.com/license/), credited on the page:
+Artem Meletov (hero), Hobi Photography (01, mirrored), Elina Volkova (02), Jack Davis (03).
+They live in `src/ui/photos/` as WebP files cropped to the slot shape (1920×1080 hero, 900×1200 phone hero,
+1600×600 banners), and the build copies them to `dist/photos/`. Swap a file to change a photo.

@@ -33,10 +33,20 @@ const state = {
 
 /* ---------- skeleton ---------- */
 const PEAK = `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M2 27 12 9l5 8 4-5 9 15z" fill="currentColor"/><path d="m12 9 2.6 4.6L12 12l-2 2.2z" fill="#fff" opacity=".85"/></svg>`;
-const head = (num, kicker, title) => `<header class="sec-head"><div class="sec-num">${num}</div><div class="sec-kicker">${kicker}</div><h2>${title}</h2></header>`;
+// Photos come from Pexels (free licence: use and edit allowed, credit appreciated). The files sit
+// in src/ui/photos and are copied next to index.html at build; style.css points the slots at them.
+const PHOTOS = {
+  hero: { by: "Artem Meletov", url: "https://www.pexels.com/photo/person-standing-on-mountain-peak-above-clouds-8910505/" },
+  s1: { by: "Hobi Photography", url: "https://www.pexels.com/photo/hiker-with-flashlight-looking-at-starry-night-sky-27790902/" },
+  s2: { by: "Elina Volkova", url: "https://www.pexels.com/photo/misty-forest-path-in-dense-woodland-29579873/" },
+  s3: { by: "Jack Davis", url: "https://www.pexels.com/photo/back-view-of-a-woman-running-up-the-mountain-trail-8949023/" },
+};
+const credit = (key) => `<a class="photo-credit" href="${PHOTOS[key].url}" target="_blank" rel="noopener">Photo: ${PHOTOS[key].by} / Pexels</a>`;
+const head = (num, kicker, title) => `<header class="sec-head"><div class="sec-num">${num}</div><div class="sec-kicker">${kicker}</div><h2>${title}</h2>${credit("s" + Number(num))}</header>`;
 
 $("#app").innerHTML = `
 <header class="hero">
+  ${credit("hero")}
   <div class="hero-in">
     <div class="hero-row">
       <div>
@@ -104,6 +114,7 @@ $("#app").innerHTML = `
 </section>
 
 <p class="foot">How it works: your run gives a pace for every gradient band, fresh and tired. Each 10 m of the course takes the pace of its band, sliding from fresh to tired along the race, scaled for terrain and for how much longer the race is than your run. Climbs and descents come from the course elevation, smoothed to ignore GPS noise. A model like this is usually within 5 to 10%: treat the three scenarios as a range, not a promise.</p>
+<p class="foot">Photos by ${Object.values(PHOTOS).map((p) => `<a href="${p.url}" target="_blank" rel="noopener">${p.by}</a>`).join(", ")}, free to use under the <a href="https://www.pexels.com/license/" target="_blank" rel="noopener">Pexels licence</a>.</p>
 `;
 
 /* ---------- settings form ---------- */

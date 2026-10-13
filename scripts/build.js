@@ -15,7 +15,7 @@
 // name. The build checks the last two and stops with a clear message if broken. Tools like esbuild do the
 // same job with far more features; reach for them when the project outgrows this.
 
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, cpSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -53,6 +53,8 @@ const fonts = `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?fa
 const body = `<style>\n${css}\n</style>\n<div class="wrap" id="app"></div>\n<script>\n${js}\n</script>\n`;
 
 mkdirSync(join(root, "dist"), { recursive: true });
+// Photos are separate files (inlining them as base64 would make the page ~1.3x heavier and uncacheable).
+cpSync(join(root, "src/ui/photos"), join(root, "dist/photos"), { recursive: true });
 writeFileSync(join(root, "dist/fragment.html"), `<title>Trail Race Planner</title>\n${fonts}\n${body}`);
 writeFileSync(
   join(root, "dist/index.html"),
