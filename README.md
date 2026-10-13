@@ -52,6 +52,10 @@ tests/                 node:test suite on made-up data
 docs/HOW_IT_WORKS.md   the ideas behind it, with the reasoning
 ```
 
+## Live version
+
+Every push to `main` runs the tests, builds `dist/index.html` and publishes it on GitHub Pages (`.github/workflows/pages.yml`). The hosted page is only static files: GPX files you open in it are still read in your browser and never sent anywhere.
+
 ## Commands
 
 ```
