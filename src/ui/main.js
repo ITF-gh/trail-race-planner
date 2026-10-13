@@ -429,7 +429,7 @@ function renderDday() {
     </div>
   </div>
   <div class="prof-wrap">${profileSvg(plan.course.profile, brief, { ...sc, startSec: st, decision: plan.decision, aid: aidMarks })}
-    <div class="legend" style="margin-top:10px"><span class="note" style="margin:0">Orange dots: gels. Triangles: aid stations. Dotted lines: checkpoints. Shaded band: decision point between km ${plan.decision.fromKm.toFixed(0)} and ${plan.decision.toKm.toFixed(0)}.</span></div>
+    <div class="legend" style="margin-top:10px"><span class="note" style="margin:0">Red dots: gels. Triangles: aid stations. Dotted lines: checkpoints. Shaded band: decision point between km ${plan.decision.fromKm.toFixed(0)} and ${plan.decision.toKm.toFixed(0)}.</span></div>
   </div>
 
   <div class="sub-h">Race card</div>
