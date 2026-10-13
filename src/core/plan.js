@@ -16,7 +16,27 @@ export const PLAN_DEFAULTS = {
   splitClimbM: 3000, // climbs this long or longer are split into sections
   sectionMinM: 1500, // shortest section allowed
   splitClimbMinGain: 100, // ...and only if they gain at least this many metres
+  halfLifeDays: 28, // with several reference runs, a run this many days older counts half as much
+  aidStations: [], // [{km, name, stopMin}] or text, one per line: "8.5 Refuge du Lac 2"
+  gelToAidMin: 10, // a gel due within this many minutes of an aid station is taken there
 };
+
+/**
+ * Read an aid-station list typed by a person, one per line (or separated by ";"):
+ *   "8.5 Refuge du Lac 2"   km, name, minutes stopped (optional, default 0)
+ *   "12,6 km Col 3 min"     commas, "km" and "min" are fine
+ */
+export function parseAidStations(text) {
+  if (Array.isArray(text)) return [...text].sort((a, b) => a.km - b.km);
+  const out = [];
+  for (const line of String(text || "").split(/[\n;]+/)) {
+    const m = /^\s*(\d+(?:[.,]\d+)?)\s*(?:km)?\s*(.*?)\s*(?:(\d+(?:[.,]\d+)?)\s*(?:min|mn|')?)?\s*$/i.exec(line);
+    if (!m) continue;
+    const num = (v) => parseFloat(String(v).replace(",", "."));
+    out.push({ km: num(m[1]), name: m[2] || `Aid ${out.length + 1}`, stopMin: m[3] ? num(m[3]) : 0 });
+  }
+  return out.filter((a) => Number.isFinite(a.km)).sort((a, b) => a.km - b.km);
+}
 
 export const LEVELS = ["", "Easy", "Moderate", "Hard", "Crux"];
 export const DESCENT_LABELS = { 1: "Let it run", 2: "Control", 4: "Brake" };
@@ -38,9 +58,10 @@ export function descentLevel(d) {
   return 1;
 }
 
-function climbTactic(c, hikeGrade, biggest) {
+export function climbTactic(c, hikeGrade, biggest) {
   if (c.avg >= hikeGrade - 2) return "Hike";
-  if (c.steep >= hikeGrade + 4 && c.avg >= 7) return "Hike the steep part";
+  // A wall that reaches your hiking gradient over 100 m is hiked, however gentle the rest of the climb.
+  if (c.steep >= hikeGrade) return "Hike the steep part";
   if (biggest) return "Biggest climb, steady";
   if (c.delta >= 60 && c.avg < 8) return "Run evenly, do not surge";
   if (c.avg < 6.5) return "Run";
@@ -169,9 +190,28 @@ export function buildPlan(raceParsed, effortParsed, userParams = {}) {
   const params = { ...PLAN_DEFAULTS, ...userParams };
   const raceRs = resample(raceParsed, 10);
   const course = analyseCourse(raceRs);
-  const effort = analyseEffort(effortParsed);
+  const effort = analyseEffort(effortParsed, { halfLifeDays: params.halfLifeDays });
   const effortCourse = analyseCourse(effort.resampled);
   const preds = predictAll(course, effort, params);
+  const rawCentral = preds.central.cum; // moving time only, for the time-per-gradient table
+
+  // Aid stations: the stop is added to every clock time after the station.
+  const aid = parseAidStations(params.aidStations)
+    .filter((a) => a.km >= 0 && a.km <= course.totalKm)
+    .map((a) => ({ ...a, idx: Math.min(course.n - 1, Math.round((a.km * 1000) / course.step)) }));
+  if (aid.length) {
+    for (const sc of SCENARIOS) {
+      const p = preds[sc.id];
+      const cum = new Float64Array(p.cum.length);
+      let extra = 0;
+      let k = 0;
+      for (let i = 0; i < cum.length; i++) {
+        cum[i] = p.cum[i] + extra;
+        while (k < aid.length && aid[k].idx === i) { extra += aid[k].stopMin * 60; k++; }
+      }
+      preds[sc.id] = { ...p, cum, finishSec: cum[cum.length - 1] };
+    }
+  }
   const startSec = parseClock(params.startTime);
   const hikeGrade = params.hikeGrade ?? effort.hikeGrade ?? 15;
   const total = course.totalKm;
@@ -204,8 +244,15 @@ export function buildPlan(raceParsed, effortParsed, userParams = {}) {
     const gels = [];
     for (let t = params.gelEveryMin * 60; t < pr.finishSec - 15 * 60; t += params.gelEveryMin * 60) {
       let idx = indexAtTime(pr.cum, t);
+      // An aid station close in time wins: eat there, with a drink at hand.
+      const near = aid.find((a) => Math.abs(pr.cum[a.idx] - t) <= params.gelToAidMin * 60);
+      if (near) {
+        gels.push({ km: kmAt(near.idx), sec: pr.cum[near.idx], moved: true, at: near.name });
+        continue;
+      }
       const inside = segs.find((g) => idx > g.a && idx < g.b);
       if (inside) idx = inside.b; // take it at the top, or at the bottom of the descent
+      if (pr.cum[idx] > pr.finishSec - 15 * 60) break; // moved too close to the finish: not worth it
       gels.push({ km: kmAt(idx), sec: pr.cum[idx], moved: Boolean(inside) });
     }
     const checkpoints = [];
@@ -230,7 +277,7 @@ export function buildPlan(raceParsed, effortParsed, userParams = {}) {
 
   // Time on each gradient band for the central scenario.
   const bandUse = BANDS.map((b) => ({ id: b.id, label: b.label, km: 0, sec: 0 }));
-  const cc = preds.central.cum;
+  const cc = rawCentral;
   for (let i = 0; i < course.n - 1; i++) {
     const bi = bandIndex(course.grade[i]);
     bandUse[bi].km += course.step / 1000;
@@ -256,10 +303,15 @@ export function buildPlan(raceParsed, effortParsed, userParams = {}) {
       hikeGrade: effort.hikeGrade,
       drift: effort.drift,
       bands: effort.bands,
+      runs: effort.runs,
     },
     bandUse,
     hrGuide,
     decision: { fromKm: total * 0.58, toKm: total * 0.64 },
+    aidStations: aid.map((a) => ({
+      km: a.km, name: a.name, stopMin: a.stopMin,
+      arrive: Object.fromEntries(SCENARIOS.map((sc) => [sc.id, preds[sc.id].cum[a.idx]])),
+    })),
     scenarios,
     climbs,
     descents,
@@ -272,7 +324,8 @@ function effortClimbsOf(effortCourse) {
   return effortClimbCache.get(effortCourse);
 }
 
-/** Convenience: from two GPX strings. */
+/** Convenience: from GPX strings (the effort can be one string or an array of them). */
 export function planFromGpx(raceXml, effortXml, params = {}) {
-  return buildPlan(parseGpx(raceXml), parseGpx(effortXml), params);
+  const efforts = Array.isArray(effortXml) ? effortXml.map(parseGpx) : parseGpx(effortXml);
+  return buildPlan(parseGpx(raceXml), efforts, params);
 }

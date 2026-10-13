@@ -2,9 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { parseGpx, haversine, resample } from "../src/core/track.js";
 import { analyseCourse, zigzag, bandIndex, BANDS } from "../src/core/terrain.js";
-import { analyseEffort } from "../src/core/effort.js";
+import { analyseEffort, hikeThreshold } from "../src/core/effort.js";
 import { predictScenario, SCENARIOS } from "../src/core/model.js";
-import { buildPlan, splitClimb, climbScore, climbLevel } from "../src/core/plan.js";
+import { buildPlan, splitClimb, climbScore, climbLevel, climbTactic, parseAidStations } from "../src/core/plan.js";
 import { planToMarkdown } from "../src/core/markdown.js";
 import { mmss, hm, clock, parseDuration, parseClock } from "../src/core/format.js";
 import { makeDemoRaceGpx, makeDemoEffortGpx, DEMO_RACE_PROFILE } from "../src/demo.js";
@@ -148,6 +148,57 @@ test("buildPlan splits climbs of 3 km or more and 100 m gain or more into sectio
   assert.ok(plan.climbs.some((c) => c.sections.length), "the demo course has a long climb");
   assert.ok(plan.climbs.some((c) => c.lenM >= 3000 && c.gain < 100 && !c.sections.length), "a long flat-ish climb stays whole");
   assert.match(planToMarkdown(plan), /\| 5\.1 \|/);
+});
+
+test("hiking threshold: the gradient that best separates run and hike, not an average", () => {
+  // Half of the 10-15% band is run at 170 spm (12%), half hiked at 124 spm (14%): the band average (147) says "run".
+  const slices = [];
+  for (let i = 0; i < 100; i++) slices.push([5 + (i % 5), 172, 1], [12, 170, 1], [14, 124, 1], [18, 110, 1]);
+  const g = hikeThreshold(slices);
+  assert.ok(g > 12 && g <= 14, `threshold ${g}`);
+  assert.equal(hikeThreshold([[10, 170, 30], [12, 168, 30]]), null, "no hiking at all: nothing to learn");
+  // The demo run hikes its 14% stretches and runs its 12% ones.
+  const e = analyseEffort(effort);
+  assert.ok(e.hikeGrade > 11 && e.hikeGrade <= 14, `demo threshold ${e.hikeGrade}`);
+});
+
+test("a wall that reaches the hiking gradient is hiked, even inside a gentle climb", () => {
+  assert.equal(climbTactic({ avg: 5, steep: 16, delta: 90 }, 15, false), "Hike the steep part");
+  assert.equal(climbTactic({ avg: 5, steep: 12, delta: 90 }, 15, false), "Run evenly, do not surge");
+  assert.equal(climbTactic({ avg: 14, steep: 18, delta: 90 }, 15, false), "Hike");
+});
+
+test("several reference runs: the recent one weighs more", () => {
+  const recent = parseGpx(makeDemoEffortGpx({ fatigue: 0.15, startIso: "2026-10-11T08:00:00Z" }));
+  const old = parseGpx(makeDemoEffortGpx({ fatigue: 0.4, startIso: "2026-08-16T08:00:00Z" })); // 8 weeks older: weight 1/4
+  const one = analyseEffort(recent);
+  const both = analyseEffort([recent, old]);
+  const oldOnly = analyseEffort(old);
+  const flat = (x) => x.bands.find((b) => b.id === "f0").tired;
+  assert.equal(both.runs.length, 2);
+  assert.ok(Math.abs(both.runs.find((r) => r.date === "2026-08-16").weight - 0.25) < 0.01);
+  assert.ok(flat(both) > flat(one) && flat(both) < flat(oldOnly), "in between");
+  assert.ok(flat(both) - flat(one) < flat(oldOnly) - flat(both), "closer to the recent run");
+  const plan = buildPlan(race, [recent, old]);
+  assert.equal(plan.effort.runs.length, 2);
+});
+
+test("aid stations: parsed from text, stop time added after them, gels moved there", () => {
+  assert.deepEqual(parseAidStations("12,6 km Col 3 min\n8.5 Refuge du Lac 2; 18 Ferme"), [
+    { km: 8.5, name: "Refuge du Lac", stopMin: 2 },
+    { km: 12.6, name: "Col", stopMin: 3 },
+    { km: 18, name: "Ferme", stopMin: 0 },
+  ]);
+  const base = buildPlan(race, effort, { gelEveryMin: 45 });
+  const withAid = buildPlan(race, effort, { gelEveryMin: 45, aidStations: "8.5 Refuge 2\n16 Ferme 3" });
+  const c = (p) => p.scenarios.central;
+  assert.ok(Math.abs(c(withAid).finishSec - c(base).finishSec - 300) < 1e-6, "5 min of stops added to the finish");
+  const ref = withAid.aidStations[0];
+  const noStopAt85 = buildPlan(race, effort, { checkpointKm: 8.5 }).scenarios.central.checkpoints[0].sec;
+  assert.ok(Math.abs(ref.arrive.central - noStopAt85) < 1, "arrival at the first station is not delayed by its own stop");
+  assert.ok(c(withAid).gels.some((g) => g.at === "Refuge" || g.at === "Ferme"), "a gel is taken at an aid station");
+  for (const p of [base, withAid]) assert.ok(c(p).gels.every((g) => g.sec <= c(p).finishSec - 15 * 60), "no gel in the last 15 minutes");
+  assert.match(planToMarkdown(withAid), /## Aid stations/);
 });
 
 test("plan renders to Markdown", () => {

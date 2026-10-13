@@ -16,7 +16,9 @@ import { planToMarkdown } from "./src/core/markdown.js";
 const { values } = parseArgs({
   options: {
     race: { type: "string" },
-    effort: { type: "string" },
+    effort: { type: "string", multiple: true },
+    aid: { type: "string", multiple: true },
+    "half-life": { type: "string", default: "28" },
     start: { type: "string", default: "09:00" },
     terrain: { type: "string", default: "mixed" },
     scenario: { type: "string", default: "central" },
@@ -29,8 +31,8 @@ const { values } = parseArgs({
   },
 });
 
-if (values.help || !values.race || !values.effort) {
-  console.log(`Usage: node cli.js --race course.gpx --effort run.gpx [options]
+if (values.help || !values.race || !values.effort?.length) {
+  console.log(`Usage: node cli.js --race course.gpx --effort run.gpx [--effort older-run.gpx ...] [options]
 
 Options:
   --start 09:00         race start time
@@ -40,11 +42,15 @@ Options:
   --hike-grade 15       override the hiking threshold (%), default learned from your effort file
   --gel-every 45        minutes between gels
   --descent-boost 0.03  fraction faster on mild descents (0 to 0.1)
+  --aid "8.5 Refuge 2"  aid station: km, name, minutes stopped (repeat for each)
+  --half-life 28        with several --effort runs, days until an older run counts half
   --json                print the full plan as JSON`);
   process.exit(values.help ? 0 : 1);
 }
 
-const plan = planFromGpx(readFileSync(values.race, "utf8"), readFileSync(values.effort, "utf8"), {
+const plan = planFromGpx(readFileSync(values.race, "utf8"), values.effort.map((f) => readFileSync(f, "utf8")), {
+  aidStations: (values.aid || []).join("\n"),
+  halfLifeDays: Number(values["half-life"]),
   startTime: values.start,
   terrain: values.terrain,
   maxHr: values["max-hr"] ? Number(values["max-hr"]) : null,

@@ -13,7 +13,8 @@ export function planToMarkdown(plan, scenarioId = "central") {
   L.push(`Scenarios: ${Object.values(plan.scenarios).map((s) => `${s.label} ${hm(s.finishSec)}`).join(", ")}. Tables below use **${sc.label}**.`);
   L.push("");
   L.push(`## Your effort profile`);
-  L.push(`Reference run: ${plan.effort.distKm.toFixed(1)} km in ${hm(plan.effort.durationSec)}, flat pace ${mmss(plan.effort.flatPace)}/km${plan.effort.flatHr ? ` at HR ${Math.round(plan.effort.flatHr)}` : ""}.`);
+  if (plan.effort.runs && plan.effort.runs.length > 1) L.push(`Reference runs: ${plan.effort.runs.map((r) => `${r.date} ${r.distKm.toFixed(1)} km (weight ${r.weight.toFixed(2)})`).join(", ")}.`);
+  L.push(`Reference run${plan.effort.runs && plan.effort.runs.length > 1 ? "s (weighted average)" : ""}: ${plan.effort.distKm.toFixed(1)} km in ${hm(plan.effort.durationSec)}, flat pace ${mmss(plan.effort.flatPace)}/km${plan.effort.flatHr ? ` at HR ${Math.round(plan.effort.flatHr)}` : ""}.`);
   if (plan.effort.drift) {
     const d = plan.effort.drift;
     L.push(`Flat drift: ${mmss(d.firstPace)} at HR ${Math.round(d.firstHr)} early, ${mmss(d.secondPace)} at HR ${Math.round(d.secondHr)} late (${d.decouplingPct.toFixed(1)}% less speed per heartbeat).`);
@@ -26,8 +27,13 @@ export function planToMarkdown(plan, scenarioId = "central") {
   L.push(`## Checkpoints`);
   for (const c of sc.checkpoints) L.push(`- ${c.label}: ${clock(st, c.sec)} (${hm(c.sec)})`);
   L.push("");
+  if (plan.aidStations.length) {
+    L.push(`## Aid stations`);
+    for (const a of plan.aidStations) L.push(`- km ${a.km.toFixed(1)} ${a.name}: arrive ${clock(st, a.arrive[sc.id])}${a.stopMin ? `, ${a.stopMin} min stop` : ""}`);
+    L.push("");
+  }
   L.push(`## Gels (every ${plan.params.gelEveryMin} min, moved off climbs)`);
-  for (const g of sc.gels) L.push(`- km ${g.km.toFixed(1)}: ${clock(st, g.sec)}`);
+  for (const g of sc.gels) L.push(`- km ${g.km.toFixed(1)}: ${clock(st, g.sec)}${g.at ? ` (at ${g.at})` : ""}`);
   L.push("");
   if (plan.hrGuide) {
     L.push(`## Heart-rate guide`);

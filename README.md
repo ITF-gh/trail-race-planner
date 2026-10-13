@@ -14,7 +14,7 @@ Your files are read on your own machine. Nothing is uploaded.
 node cli.js --race course.gpx --effort my-run.gpx --start 09:00 --max-hr 190
 ```
 
-Options: `--terrain smooth|mixed|technical`, `--scenario best|central|cautious`, `--hike-grade 15`, `--gel-every 45`, `--descent-boost 0.03`, `--json`. Run `node cli.js --help`.
+Give several runs with `--effort` more than once (recent ones count more), and aid stations with `--aid "8.5 Refuge du Lac 2"` (km, name, minutes stopped). Other options: `--terrain smooth|mixed|technical`, `--scenario best|central|cautious`, `--hike-grade 15`, `--gel-every 45`, `--descent-boost 0.03`, `--json`. Run `node cli.js --help`.
 
 No dependencies to install. It needs Node 20 or newer.
 

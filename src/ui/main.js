@@ -24,7 +24,7 @@ const store = {
 
 const state = {
   race: null, // {name, parsed, course, profile}
-  effort: null, // {name, parsed, info}
+  effort: null, // {runs: [{name, parsed}], info}
   settings: { ...PLAN_DEFAULTS, ...(store.get("trp.settings") || {}) },
   scenario: store.get("trp.scenario") || "central",
   tab: "c",
@@ -42,15 +42,15 @@ $("#app").innerHTML = `
       <div>
         <div class="brand">${PEAK}Trail Race Planner</div>
         <h1 style="margin-top:14px">Know the course.<br><em>Own the day.</em></h1>
-        <p class="lead">Drop one of your own runs and the race GPX. The planner learns how you move on every gradient, reads every climb of the course, and builds your race-day plan: pace, hikes, gels, checkpoints. Your files never leave this page.</p>
+        <p class="lead">Drop one or more of your own runs and the race GPX. The planner learns how you move on every gradient, reads every climb of the course, and builds your race-day plan: pace, hikes, gels, checkpoints. Your files never leave this page.</p>
       </div>
       <button class="btn primary" id="demo" type="button">Try the demo</button>
     </div>
     <div class="drops">
       <div class="drop" id="dropEffort">
-        <h3><span class="tag">01</span>Your run</h3>
-        <p>A recorded run of 1.5 h or more at a steady effort, with some climbs. Heart rate and cadence are a bonus.</p>
-        <div><label class="btn ghost" for="fileEffort">Choose GPX</label><input type="file" id="fileEffort" accept=".gpx,application/gpx+xml,text/xml"></div>
+        <h3><span class="tag">01</span>Your runs</h3>
+        <p>One or more recorded runs of 1.5 h or more at a steady effort, with some climbs. Recent runs count more. Heart rate and cadence are a bonus.</p>
+        <div class="actions"><label class="btn ghost" for="fileEffort">Add GPX</label><input type="file" id="fileEffort" multiple accept=".gpx,application/gpx+xml,text/xml"><button class="btn ghost" id="clearRuns" type="button" hidden>Clear</button></div>
         <div class="status" id="stEffort" aria-live="polite"></div>
       </div>
       <div class="drop" id="dropRace">
@@ -86,6 +86,7 @@ $("#app").innerHTML = `
       </label>
       <label class="f">Max heart rate (optional)<input type="number" id="maxHr" min="120" max="230" placeholder="for example 190"></label>
       <label class="f">Gel every (minutes)<input type="number" id="gelEveryMin" min="20" max="90"></label>
+      <label class="f" style="grid-column:1 / -1">Aid stations<textarea id="aidStations" rows="3" placeholder="One per line: km, name, minutes stopped&#10;8.5 Refuge du Lac 2&#10;16 Ferme des Crêtes 3"></textarea><span class="hint">Stops are added to every clock time after the station. A gel due within ${PLAN_DEFAULTS.gelToAidMin} minutes of a station is taken there.</span></label>
     </div>
     <details class="adv">
       <summary>Advanced</summary>
@@ -93,6 +94,7 @@ $("#app").innerHTML = `
         <label class="f">Checkpoint every (km)<input type="number" id="checkpointKm" min="2" max="25"></label>
         <label class="f">Hiking threshold (% gradient)<input type="number" id="hikeGrade" min="6" max="30" placeholder="learned from your run"><span class="hint">Leave blank to learn it from your cadence.</span></label>
         <label class="f">Endurance exponent<input type="number" id="enduranceExp" step="0.01" min="0.03" max="0.15"><span class="hint">How fast you fade when the race is longer than your run. 0.07 is typical.</span></label>
+        <label class="f">Run half-life (days)<input type="number" id="halfLifeDays" min="3" max="365"><span class="hint">With several runs: a run this many days older counts half as much.</span></label>
         <label class="f">Faster on gentle descents (%)<input type="number" id="descentBoost" step="1" min="0" max="10"><span class="hint">Only if your quads can take it. 0 is safe.</span></label>
       </div>
     </details>
@@ -105,7 +107,7 @@ $("#app").innerHTML = `
 `;
 
 /* ---------- settings form ---------- */
-const FIELDS = ["startTime", "terrain", "maxHr", "gelEveryMin", "checkpointKm", "hikeGrade", "enduranceExp", "descentBoost"];
+const FIELDS = ["startTime", "terrain", "maxHr", "gelEveryMin", "aidStations", "checkpointKm", "hikeGrade", "enduranceExp", "halfLifeDays", "descentBoost"];
 function writeSettings() {
   const s = state.settings;
   $("#startTime").value = s.startTime;
@@ -116,6 +118,8 @@ function writeSettings() {
   $("#hikeGrade").value = s.hikeGrade ?? "";
   $("#enduranceExp").value = s.enduranceExp;
   $("#descentBoost").value = Math.round((s.descentBoost || 0) * 100);
+  $("#aidStations").value = Array.isArray(s.aidStations) ? s.aidStations.map((a) => `${a.km} ${a.name} ${a.stopMin}`).join("\n") : s.aidStations || "";
+  $("#halfLifeDays").value = s.halfLifeDays;
 }
 function readSettings() {
   const n = (id) => { const v = parseFloat($("#" + id).value); return Number.isFinite(v) ? v : null; };
@@ -129,11 +133,16 @@ function readSettings() {
     hikeGrade: n("hikeGrade"),
     enduranceExp: n("enduranceExp") ?? 0.07,
     descentBoost: (n("descentBoost") || 0) / 100,
+    aidStations: $("#aidStations").value,
+    halfLifeDays: n("halfLifeDays") || 28,
   };
   store.set("trp.settings", state.settings);
 }
 writeSettings();
-FIELDS.forEach((id) => $("#" + id).addEventListener("change", () => { readSettings(); compute(); }));
+FIELDS.forEach((id) => $("#" + id).addEventListener("change", () => {
+  readSettings();
+  if (id === "halfLifeDays" && state.effort) setRuns(state.effort.runs); else compute();
+}));
 
 /* ---------- files ---------- */
 function setStatus(which, html, ok) {
@@ -156,36 +165,56 @@ function loadRace(xml, label) {
   compute();
 }
 
-function loadEffort(xml, label) {
-  try {
-    const parsed = parseGpx(xml);
-    const info = analyseEffort(parsed);
-    state.effort = { name: label || parsed.name || "Effort", parsed, info };
-    setStatus("effort", `<span class="ok">✓ ${esc(state.effort.name)}</span> · ${info.distKm.toFixed(1)} km in ${hm(info.durationSec)}`, true);
-  } catch (e) {
-    state.effort = null;
-    setStatus("effort", `<div class="err">${esc(e.message)}</div>`);
+/** Add runs to the reference set. Each new file joins the ones already loaded. */
+function loadEfforts(files) {
+  const runs = state.effort ? [...state.effort.runs] : [];
+  const bad = [];
+  for (const { xml, label } of files) {
+    try { const parsed = parseGpx(xml); runs.push({ name: label || parsed.name || `Run ${runs.length + 1}`, parsed }); } catch (e) { bad.push(`${label}: ${e.message}`); }
   }
+  setRuns(runs, bad);
+}
+function setRuns(runs, bad = []) {
+  state.effort = null;
+  $("#clearRuns").hidden = !runs.length;
+  if (runs.length) {
+    try {
+      const info = analyseEffort(runs.map((r) => r.parsed), { halfLifeDays: state.settings.halfLifeDays });
+      state.effort = { runs, info };
+    } catch (e) { bad.push(e.message); }
+  }
+  const list = state.effort ? state.effort.info.runs.map((r, i) => `<span class="ok">✓ ${esc(runs[i].name)}</span> · ${r.date} · ${r.distKm.toFixed(1)} km${runs.length > 1 ? ` · weight ${Math.round(r.weight * 100)}%` : ""}`).join("<br>") : "";
+  setStatus("effort", list + bad.map((b) => `<div class="err">${esc(b)}</div>`).join(""), Boolean(state.effort));
   compute();
 }
 
 function wireDrop(boxId, inputId, loader) {
   const box = $(boxId);
   const input = $(inputId);
-  const handle = async (file) => {
-    if (!file) return;
-    try { loader(await file.text(), file.name.replace(/\.gpx$/i, "")); } catch (e) { loader("", file.name); }
+  const handle = async (fileList) => {
+    const files = [...(fileList || [])];
+    if (!files.length) return;
+    const read = await Promise.all(files.map(async (f) => ({ xml: await f.text().catch(() => ""), label: f.name.replace(/\.gpx$/i, "") })));
+    loader(read);
+    input.value = ""; // so choosing the same file again still triggers a change
   };
-  input.addEventListener("change", () => handle(input.files[0]));
+  input.addEventListener("change", () => handle(input.files));
   box.addEventListener("dragover", (e) => { e.preventDefault(); box.classList.add("over"); });
   box.addEventListener("dragleave", () => box.classList.remove("over"));
-  box.addEventListener("drop", (e) => { e.preventDefault(); box.classList.remove("over"); handle(e.dataTransfer.files[0]); });
+  box.addEventListener("drop", (e) => { e.preventDefault(); box.classList.remove("over"); handle(e.dataTransfer.files); });
 }
-wireDrop("#dropRace", "#fileRace", loadRace);
-wireDrop("#dropEffort", "#fileEffort", loadEffort);
+wireDrop("#dropRace", "#fileRace", (files) => loadRace(files[0].xml, files[0].label));
+wireDrop("#dropEffort", "#fileEffort", loadEfforts);
+$("#clearRuns").addEventListener("click", () => setRuns([]));
 
 $("#demo").addEventListener("click", () => {
-  loadEffort(makeDemoEffortGpx(), "Demo run (made up)");
+  // Two made-up runs, six weeks apart, so the weighting shows; and two aid stations if none are set.
+  state.effort = null;
+  loadEfforts([
+    { xml: makeDemoEffortGpx(), label: "Demo long run (made up)" },
+    { xml: makeDemoEffortGpx({ fatigue: 0.3, startIso: "2026-08-30T08:00:00Z" }), label: "Demo older run (made up)" },
+  ]);
+  if (!$("#aidStations").value.trim()) { $("#aidStations").value = "8.5 Refuge du Lac 2\n16 Ferme des Crêtes 3"; readSettings(); }
   loadRace(makeDemoRaceGpx(), "Demo trail 24K (made up)");
   $("#s1").scrollIntoView({ behavior: "smooth", block: "start" });
 });
@@ -196,7 +225,7 @@ function compute() {
   $("#planErr").innerHTML = "";
   if (state.race && state.effort) {
     try {
-      state.plan = buildPlan(state.race.parsed, state.effort.parsed, state.settings);
+      state.plan = buildPlan(state.race.parsed, state.effort.runs.map((r) => r.parsed), state.settings);
     } catch (e) {
       $("#planErr").innerHTML = `<div class="err">${esc(e.message)}</div>`;
     }
@@ -270,6 +299,10 @@ function profileSvg(P, brief, race) {
     race.checkpoints.filter((c) => c.label !== "Finish").forEach((c) => {
       s += `<line class="ck" x1="${x(c.km)}" x2="${x(c.km)}" y1="${top - 6}" y2="${base}"/><text class="tk" x="${x(c.km)}" y="${top - 12}" text-anchor="middle">${esc(c.label)} · ${clock(race.startSec, c.sec)}</text>`;
     });
+    (race.aid || []).forEach((a) => {
+      const yy = y(elevAt(P, a.km));
+      s += `<path class="aid" d="M${x(a.km).toFixed(1)},${(yy - 6).toFixed(1)} l-7,-12 h14 z"><title>${esc(a.name)}, km ${a.km.toFixed(1)}: ${clock(race.startSec, a.sec)}</title></path>`;
+    });
     race.gels.forEach((g) => {
       s += `<circle class="gel" cx="${x(g.km)}" cy="${base + 48}" r="9"/><text class="gelt" x="${x(g.km)}" y="${base + 51}" text-anchor="middle">G</text><text x="${x(g.km)}" y="${base + 70}" text-anchor="middle">${clock(race.startSec, g.sec)}</text>`;
     });
@@ -288,11 +321,13 @@ function renderEngine() {
   const steep = bands.filter((b) => b.vam && b.vam > 50 && b.source !== "estimated").sort((a, b) => b.vam - a.vam)[0];
   const hike = state.settings.hikeGrade ?? e.hikeGrade;
   const tiles = [
-    tile("Distance · time", `${e.distKm.toFixed(1)}<small>km</small>`, hm(e.durationSec)),
+    e.runs.length > 1
+      ? tile("Runs", `${e.runs.length}`, `weighted, half-life ${state.settings.halfLifeDays} days`)
+      : tile("Distance · time", `${e.distKm.toFixed(1)}<small>km</small>`, hm(e.durationSec)),
     tile("Flat pace", `${mmss(e.flatPace)}<small>/km</small>`, e.flatHr ? `at HR ${Math.round(e.flatHr)}` : "no heart rate"),
     tile("Cadence", e.flatCad ? `${Math.round(e.flatCad)}<small>spm</small>` : "–", e.cadenceWasPerFoot ? "doubled from per-foot" : "on the flat"),
     tile("Best climb rate", steep ? `${Math.round(steep.vam)}<small>m/h</small>` : "–", steep ? steep.label : "not enough climbing"),
-    tile("Hiking from", hike ? `${hike}<small>%</small>` : "15<small>%</small>", e.hikeGrade ? "learned from your cadence" : "default, not learned"),
+    tile("Hiking from", hike ? `${hike}<small>%</small>` : "15<small>%</small>", state.settings.hikeGrade ? "set by you" : e.hikeGrade ? "learned from your cadence" : "default, no hiking in your runs"),
     tile("Flat drift", e.drift ? `${e.drift.decouplingPct.toFixed(1)}<small>%</small>` : "–", e.drift ? `${mmss(e.drift.firstPace)} → ${mmss(e.drift.secondPace)} /km` : "needs heart rate"),
   ].join("");
   const maxPace = Math.max(...bands.map((b) => b.tired));
@@ -306,6 +341,7 @@ function renderEngine() {
   }).join("");
   box.innerHTML = `
     <div class="tiles">${tiles}</div>
+    ${e.runs.length > 1 ? `<div class="sub-h">Your runs</div><div class="panel"><div class="paces">${e.runs.map((r, i) => `<div class="pace"><div class="lab">${esc(state.effort.runs[i].name)}<small>${r.date} · ${r.distKm.toFixed(1)} km · ${hm(r.durationSec)}</small></div><div class="bars"><i class="fr" style="width:${(r.weight * 100).toFixed(1)}%"></i></div><div class="num"><b>${Math.round(r.weight * 100)}%</b> weight</div></div>`).join("")}</div><p class="note">Each run counts with a weight that halves every ${state.settings.halfLifeDays} days of age, measured from your most recent run (an exponential decay, like a half-life). The paces below are the weighted average.</p></div>` : ""}
     <div class="sub-h">Pace by gradient</div>
     <div class="panel">
       <div class="keyline"><span><i style="background:var(--accent)"></i>Fresh (first half of your run)</span><span><i style="background:color-mix(in srgb,var(--fg) 35%,transparent)"></i>Tired (second half)</span><span>Longer bar = slower. Pace in min/km.</span></div>
@@ -366,13 +402,14 @@ function renderDday() {
   const sc = plan.scenarios[sid];
   const st = plan.startSec;
   const brief = { totalKm: plan.course.totalKm, climbs: plan.climbs, descents: plan.descents };
+  const aidMarks = plan.aidStations.map((a) => ({ km: a.km, name: a.name, sec: a.arrive[sid] }));
 
   const seg = SCENARIOS.map((s) => `<button type="button" data-s="${s.id}" aria-pressed="${s.id === sid}">${s.label}<small>${hm(plan.scenarios[s.id].finishSec)}</small></button>`).join("");
   const ckList = sc.checkpoints.map((c) => `<li><span>${esc(c.label)}</span><b>${clock(st, c.sec)} · ${hm(c.sec)}</b></li>`).join("");
-  const gelList = sc.gels.map((g) => `<li><span>km ${g.km.toFixed(1)}${g.moved ? " · top of climb" : ""}</span><b>${clock(st, g.sec)}</b></li>`).join("") || `<li><span>No gel needed for this length</span><b></b></li>`;
+  const gelList = sc.gels.map((g) => `<li><span>km ${g.km.toFixed(1)}${g.at ? ` · ${esc(g.at)}` : g.moved ? " · top of climb" : ""}</span><b>${clock(st, g.sec)}</b></li>`).join("") || `<li><span>No gel needed for this length</span><b></b></li>`;
   const hrList = plan.hrGuide ? plan.hrGuide.map((h) => `<li><span>km ${h.fromKm.toFixed(0)} to ${h.toKm.toFixed(0)}</span><b>${esc(h.text)}</b></li>`).join("") : `<li><span>No heart rate in your run</span><b></b></li>`;
   const hikes = plan.climbs.flatMap((c) => [c, ...c.sections]).filter((c) => /^Hike/.test(c.tactic));
-  const hikeList = hikes.map((c) => `<li><span>#${c.n} · km ${c.startKm.toFixed(1)}</span><b>${c.avg.toFixed(0)}% · ${clock(st, c.start[sid])}</b></li>`).join("") || `<li><span>None at this threshold</span><b></b></li>`;
+  const hikeList = hikes.map((c) => `<li><span>#${c.n} · km ${c.startKm.toFixed(1)}</span><b>${/steep part/.test(c.tactic) ? `${Math.round(c.steep)}% pitch` : `${c.avg.toFixed(0)}%`} · ${clock(st, c.start[sid])}</b></li>`).join("") || `<li><span>None at this threshold</span><b></b></li>`;
 
   const raceRow = (x, sec, chip) => `<div class="row v${x.level} ${sec ? "sec" : ""}">
       <div class="n">${x.n}</div>${cell("Km", kmRange(x))}${cell("Arrive", clock(st, x.start[sid]))}${cell("Time on it", `${Math.max(1, Math.round(x.dur[sid] / 60))} min`)}${cell("Pace", `${mmss(x.dur[sid] / (x.lenM / 1000))}/km`)}${cell("Tactic", esc(x.tactic), "w")}<div class="diff">${chip}</div>
@@ -391,16 +428,17 @@ function renderDday() {
       <p class="note" style="margin:0">Race pace is ${((sc.factor - 1) * 100).toFixed(0)}% slower than your run on the same gradients: terrain factor plus the fade for a longer effort. Every clock time on this page follows the scenario you pick.</p>
     </div>
   </div>
-  <div class="prof-wrap">${profileSvg(plan.course.profile, brief, { ...sc, startSec: st, decision: plan.decision })}
-    <div class="legend" style="margin-top:10px"><span class="note" style="margin:0">Orange dots: gels. Dotted lines: checkpoints. Shaded band: decision point between km ${plan.decision.fromKm.toFixed(0)} and ${plan.decision.toKm.toFixed(0)}.</span></div>
+  <div class="prof-wrap">${profileSvg(plan.course.profile, brief, { ...sc, startSec: st, decision: plan.decision, aid: aidMarks })}
+    <div class="legend" style="margin-top:10px"><span class="note" style="margin:0">Orange dots: gels. Triangles: aid stations. Dotted lines: checkpoints. Shaded band: decision point between km ${plan.decision.fromKm.toFixed(0)} and ${plan.decision.toKm.toFixed(0)}.</span></div>
   </div>
 
   <div class="sub-h">Race card</div>
   <div class="grid">
     <div class="panel card"><h3>Checkpoints</h3><ul class="kv">${ckList}</ul></div>
-    <div class="panel card"><h3>Gels</h3><ul class="kv">${gelList}</ul><p class="note">Every ${plan.params.gelEveryMin} min, moved to the top when one would land on a climb.</p></div>
+    ${plan.aidStations.length ? `<div class="panel card"><h3>Aid stations</h3><ul class="kv">${plan.aidStations.map((a) => `<li><span>km ${a.km.toFixed(1)} · ${esc(a.name)}</span><b>${clock(st, a.arrive[sid])}${a.stopMin ? ` → ${clock(st, a.arrive[sid] + a.stopMin * 60)}` : ""}</b></li>`).join("")}</ul><p class="note">Arrival → departure. ${plan.aidStations.reduce((t, a) => t + a.stopMin, 0)} min of stops in total, included in the finish time.</p></div>` : ""}
+    <div class="panel card"><h3>Gels</h3><ul class="kv">${gelList}</ul><p class="note">Every ${plan.params.gelEveryMin} min, taken at an aid station when one is close, or moved to the top when it would land on a climb.</p></div>
     <div class="panel card"><h3>Heart rate</h3><ul class="kv">${hrList}</ul><p class="note">At the decision point: on pace with HR mid-guide, you can push later. Above it, hold and eat.</p></div>
-    <div class="panel card"><h3>Hike these</h3><ul class="kv">${hikeList}</ul><p class="note">Hiking from ${plan.params.hikeGrade}% (${plan.effort.hikeGrade ? "learned from your cadence" : "default"}).</p></div>
+    <div class="panel card"><h3>Hike these</h3><ul class="kv">${hikeList}</ul><p class="note">Hiking from ${plan.params.hikeGrade}% (${state.settings.hikeGrade ? "set by you" : plan.effort.hikeGrade ? "learned from your cadence" : "default"}). A climb is hiked when its average is within 2 points of that, or just its steep part when a 100 m stretch reaches it.</p></div>
   </div>
 
   <div class="sub-h">Climb by climb</div>

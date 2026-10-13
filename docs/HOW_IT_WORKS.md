@@ -40,7 +40,11 @@ Bands with under a minute of data fall back to typical ratios to your flat pace 
 
 - **Cadence per foot.** Many devices record 85 instead of 170. If the median cadence while running is under 120, the app doubles it.
 - **Heart-rate drift.** Compare speed per heartbeat on the flat in the first and second half. A drop above about 5% (called cardiac decoupling) means your aerobic durability or fuelling limits you.
-- **Hiking threshold.** The first uphill band where your cadence falls below 145 steps per minute. When running turns into hiking, cadence collapses; that is where your own data says hiking starts.
+- **Hiking threshold.** When running turns into hiking, cadence collapses below about 145 steps per minute. Every uphill slice of your run is labelled run or hike by its cadence, and the app looks for the one gradient that best separates the two with the rule "hike when it is this steep or steeper": the gradient that misclassifies the fewest seconds. This is a **decision stump**, the simplest classifier in machine learning. An earlier version averaged cadence per gradient band, which failed on a band you half run and half hike (170 and 124 average to 147, which is neither).
+
+### Several reference runs
+
+You can give several runs. Each one counts with a weight that halves every 28 days of age, measured from the most recent run (an **exponential decay**, written w = 0.5^(age / half-life)). A run from 8 weeks before your latest counts a quarter. Every slice of every run goes into the same gradient bands with its weight, so the paces are weighted averages, and bands that one run barely touched get more data from the others.
 
 ## 4. The golden rule: measure on both sides the same way (`GRADE_HALF_WINDOW`)
 
@@ -71,10 +75,11 @@ The duration rule is a cousin of the **Riegel formula** (time2 = time1 × (dista
 ## 6. From numbers to a plan (`src/core/plan.js`)
 
 - **Difficulty score** of a climb: gain × steepness factor (average gradient ÷ 8%, capped between 0.5 and 2) × fatigue factor (1.00 early, 1.15 mid-race, 1.35 late). The fatigue factor is there because your data shows climbs cost more late in a run. The score is a guide for deciding where to save energy, not a physical quantity.
-- **Tactics** come from simple rules: hike if the average gradient is within 2 points of your hiking threshold, hike the steep part if a 100 m pitch is well above it, run gentle climbs, steady in between.
+- **Tactics** come from simple rules: hike if the average gradient is within 2 points of your hiking threshold, hike the steep part if any 100 m stretch reaches the threshold (even inside a gentle climb), run gentle climbs, steady in between.
 - **Long climbs are split into sections.** A climb of 3 km or more that gains at least 100 m (`splitClimbMinGain`) is too long to manage as one effort, so it is cut into sections of at least 1.5 km (`splitClimbM`, `sectionMinM`); a long but nearly flat "climb" stays whole. The number of sections is as many as fit; where to cut is chosen by **dynamic programming**: among all allowed cut positions, pick the one where each section's 10 m gradients scatter least around that section's own average (lowest sum of squared deviations, computed in constant time per section from **prefix sums**). Cuts therefore land where the slope changes character, such as a runnable ramp turning into a wall. Each section gets its own tactic, pace and clock time.
 - **Descents** are tagged Brake (steepest 100 m of 20% or more, or average 12% or more), Control, or Let it run.
-- **Gels** go every N minutes of race time, moved to the top of a climb when one would land mid-climb. Eating while climbing hard is harder than eating on easy ground.
+- **Gels** go every N minutes of race time. A gel due within 10 minutes of an aid station is taken there; otherwise it moves to the top of a climb when it would land mid-climb (eating while climbing hard is harder than on easy ground). No gel in the last 15 minutes.
+- **Aid stations** are typed as "km name minutes". Each stop is added to every clock time after the station, so checkpoints and the finish include them. The race-length fade is computed on moving time only.
 - **Heart-rate guide** is anchored on the average heart rate of your reference run: lower early, around the reference in the middle, a few beats higher late if the legs allow. If you give a max heart rate, the guide is capped at 92% of it.
 
 ## 7. Two front ends, one core (`cli.js`, `src/ui/`)
@@ -84,8 +89,6 @@ Every file in `src/core/` is a **pure function**: text and numbers in, numbers o
 ## Ideas for what to build next
 
 - Save an analysed effort profile so you do not re-upload the file.
-- Use several reference runs and weight the recent ones.
 - Fit the fatigue curve on elapsed time, not on position.
 - Add weather and temperature to the pace factor.
 - Read FIT files directly (the binary format Garmin watches record).
-- Add an aid-station list with planned stop times.
