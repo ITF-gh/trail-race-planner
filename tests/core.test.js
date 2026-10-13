@@ -4,7 +4,7 @@ import { parseGpx, haversine, resample } from "../src/core/track.js";
 import { analyseCourse, zigzag, bandIndex, BANDS } from "../src/core/terrain.js";
 import { analyseEffort } from "../src/core/effort.js";
 import { predictScenario, SCENARIOS } from "../src/core/model.js";
-import { buildPlan } from "../src/core/plan.js";
+import { buildPlan, splitClimb } from "../src/core/plan.js";
 import { planToMarkdown } from "../src/core/markdown.js";
 import { mmss, hm, clock, parseDuration, parseClock } from "../src/core/format.js";
 import { makeDemoRaceGpx, makeDemoEffortGpx, DEMO_RACE_PROFILE } from "../src/demo.js";
@@ -115,6 +115,33 @@ test("buildPlan caps the heart-rate guide at 92% of max HR", () => {
   const plan = buildPlan(race, effort, { maxHr: 150 });
   const top = Number(/\d+/.exec(plan.hrGuide[2].text)[0]);
   assert.ok(top <= Math.round(150 * 0.92));
+});
+
+test("splitClimb cuts where the gradient changes and respects the minimum length", () => {
+  // 2 km at 3% then 1.5 km at 12%, on a 10 m grid.
+  const ele = [0];
+  for (let i = 0; i < 350; i++) ele.push(ele[i] + (i < 200 ? 0.3 : 1.2));
+  assert.deepEqual(splitClimb(ele, 0, 350, 10, 1500), [[0, 200], [200, 350]]);
+  assert.deepEqual(splitClimb(ele, 0, 290, 10, 1500), [[0, 290]], "under 3 km: one piece");
+  const four = splitClimb(ele.concat(ele.slice(1).map((e) => e + ele[350])), 0, 700, 10, 1500);
+  assert.equal(four.length, 4);
+  assert.ok(four.every(([a, b]) => (b - a) * 10 >= 1500));
+  for (let i = 1; i < four.length; i++) assert.equal(four[i][0], four[i - 1][1], "sections are contiguous");
+});
+
+test("buildPlan splits climbs of 3 km or more into sections", () => {
+  const plan = buildPlan(race, effort);
+  for (const c of plan.climbs) {
+    if (c.lenM < 3000) { assert.equal(c.sections.length, 0); continue; }
+    assert.ok(c.sections.length >= 2, `climb ${c.n} is split`);
+    assert.ok(c.sections.every((s) => s.lenM >= 1500 && s.tactic));
+    assert.equal(c.sections[0].startKm, c.startKm);
+    assert.ok(Math.abs(c.sections.at(-1).endKm - c.endKm) < 1e-9);
+    const sum = c.sections.reduce((t, s) => t + s.dur.central, 0);
+    assert.ok(Math.abs(sum - c.dur.central) < 1e-6, "section times add up to the climb");
+  }
+  assert.ok(plan.climbs.some((c) => c.sections.length), "the demo course has a long climb");
+  assert.match(planToMarkdown(plan), /\| 5\.1 \|/);
 });
 
 test("plan renders to Markdown", () => {

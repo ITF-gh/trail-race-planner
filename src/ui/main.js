@@ -224,6 +224,7 @@ function profileSvg(plan, sid) {
   plan.descents.forEach((dd) => { if (dd.level === 4) s += `<path class="dl" d="${seg(dd.startKm, dd.endKm)}"><title>Descent ${dd.n}, km ${dd.startKm.toFixed(2)}: ${Math.round(dd.loss)} m at ${Math.abs(dd.avg).toFixed(1)}%</title></path>`; });
   plan.climbs.forEach((c) => {
     s += `<path class="cl cl${c.level}" d="${seg(c.startKm, c.endKm)}"><title>Climb ${c.n}, km ${c.startKm.toFixed(2)}: ${Math.round(c.gain)} m at ${c.avg.toFixed(1)}%, ${LEVELS[c.level]}</title></path>`;
+    c.sections.slice(1).forEach((sc2) => { s += `<line class="cut" x1="${x(sc2.startKm).toFixed(1)}" x2="${x(sc2.startKm).toFixed(1)}" y1="${(y(elevAt(P, sc2.startKm)) - 7).toFixed(1)}" y2="${(y(elevAt(P, sc2.startKm)) + 7).toFixed(1)}"><title>Section ${sc2.n} starts, km ${sc2.startKm.toFixed(2)}</title></line>`; });
     if (c.level >= 3) { const mid = (c.startKm + c.endKm) / 2; s += `<text class="num" x="${x(mid).toFixed(1)}" y="${(y(elevAt(P, mid)) - 9).toFixed(1)}" text-anchor="middle">${c.n}</text>`; }
   });
   sc.checkpoints.filter((c) => c.label !== "Finish").forEach((c) => {
@@ -260,7 +261,7 @@ function render() {
   const climbRows = plan.climbs.map((c) => {
     const m = c.effortMatch;
     const match = m ? `${m.avg.toFixed(0)}% · ${Math.round(m.delta)} m<small>${mmss(m.paceSecPerKm)}${m.hr ? ` · HR ${Math.round(m.hr)}` : ""} · ${Math.round(m.minutesIn)} min in</small>` : "";
-    return `<tr class="r${c.level}"><td class="num">${c.n}</td><td>${c.startKm.toFixed(2)} – ${c.endKm.toFixed(2)}</td><td>${c.lenM >= 1000 ? (c.lenM / 1000).toFixed(2) + " km" : Math.round(c.lenM) + " m"}</td><td class="num">${Math.round(c.gain)} m</td><td class="num">${c.avg.toFixed(1)}%</td><td class="${c.steep >= 18 ? "steep" : ""}">${Math.round(c.steep)}%</td><td>${mmss(c.dur[sid] / (c.lenM / 1000))}</td><td>${clock(st, c.start[sid])}</td><td class="t">${esc(c.tactic)}</td><td><span class="score"><span class="chip l${c.level}">${LEVELS[c.level]}</span><span class="bar"><i style="width:${Math.round(Math.min(1, c.score / maxScore) * 100)}%"></i></span><span style="min-width:2.2em">${Math.round(c.score)}</span></span></td><td>${match}</td></tr>`;
+    return `<tr class="r${c.level}"><td class="num">${c.n}</td><td>${c.startKm.toFixed(2)} – ${c.endKm.toFixed(2)}</td><td>${c.lenM >= 1000 ? (c.lenM / 1000).toFixed(2) + " km" : Math.round(c.lenM) + " m"}</td><td class="num">${Math.round(c.gain)} m</td><td class="num">${c.avg.toFixed(1)}%</td><td class="${c.steep >= 18 ? "steep" : ""}">${Math.round(c.steep)}%</td><td>${mmss(c.dur[sid] / (c.lenM / 1000))}</td><td>${clock(st, c.start[sid])}</td><td class="t">${esc(c.tactic)}</td><td><span class="score"><span class="chip l${c.level}">${LEVELS[c.level]}</span><span class="bar"><i style="width:${Math.round(Math.min(1, c.score / maxScore) * 100)}%"></i></span><span style="min-width:2.2em">${Math.round(c.score)}</span></span></td><td>${match}</td></tr>` + c.sections.map((s) => `<tr class="r${c.level} sec"><td class="num">${s.n}</td><td>${s.startKm.toFixed(2)} – ${s.endKm.toFixed(2)}</td><td>${(s.lenM / 1000).toFixed(2)} km</td><td class="num">${Math.round(s.gain)} m</td><td class="num">${s.avg.toFixed(1)}%</td><td class="${s.steep >= 18 ? "steep" : ""}">${Math.round(s.steep)}%</td><td>${mmss(s.dur[sid] / (s.lenM / 1000))}</td><td>${clock(st, s.start[sid])}</td><td class="t">${esc(s.tactic)}</td><td>Section, ${Math.round(s.dur[sid] / 60)} min</td><td></td></tr>`).join("");
   }).join("");
   const descRows = plan.descents.map((d) => `<tr class="r${d.level}"><td class="num">${d.n}</td><td>${d.startKm.toFixed(2)} – ${d.endKm.toFixed(2)}</td><td>${d.lenM >= 1000 ? (d.lenM / 1000).toFixed(2) + " km" : Math.round(d.lenM) + " m"}</td><td class="num">${Math.round(d.loss)} m</td><td class="num">${Math.abs(d.avg).toFixed(1)}%</td><td class="${d.steep <= -20 ? "steep" : ""}">${Math.abs(Math.round(d.steep))}%</td><td>${mmss(d.dur[sid] / (d.lenM / 1000))}</td><td>${clock(st, d.start[sid])}</td><td class="t">${esc(d.tactic)}</td><td><span class="chip l${d.level}">${DESCENT_LABELS[d.level]}</span></td></tr>`).join("");
 
@@ -288,7 +289,7 @@ function render() {
       <div class="scroll"><div class="prof">${profileSvg(plan, sid)}</div></div>
       <div class="legend" style="margin-top:10px">
         <span class="chip l1">Easy</span><span class="chip l2">Moderate</span><span class="chip l3">Hard</span><span class="chip l4">Crux</span>
-        <span class="note" style="margin:0 0 0 6px">Dashed red line: descent to brake on. Circles: gel stops. Shaded band: decision point. Heights are stretched so the climbs are visible.</span>
+        <span class="note" style="margin:0 0 0 6px">Dashed red line: descent to brake on. Circles: gel stops. Short ticks: where a long climb changes section. Shaded band: decision point. Heights are stretched so the climbs are visible.</span>
       </div>
     </div>
   </section>
@@ -320,7 +321,7 @@ function render() {
     </div>
     <div id="paneC" ${state.tab === "c" ? "" : "hidden"}>
       <div class="legend"><span class="chip l1">Easy · run</span><span class="chip l2">Moderate · steady</span><span class="chip l3">Hard · manage effort</span><span class="chip l4">Crux · hike the steep part</span></div>
-      <p class="how">Score = elevation gain × steepness factor (average gradient ÷ 8%, capped between 0.5 and 2) × fatigue factor (1.00 in the first 35% of the race, 1.15 up to 69%, 1.35 after). Easy is under 30, Moderate 30 to 60, Hard 60 to 90, Crux 90 and above. The last column is the climb in your reference run closest in gradient and size.</p>
+      <p class="how">Score = elevation gain × steepness factor (average gradient ÷ 8%, capped between 0.5 and 2) × fatigue factor (1.00 in the first 35% of the race, 1.15 up to 69%, 1.35 after). Easy is under 30, Moderate 30 to 60, Hard 60 to 90, Crux 90 and above. The last column is the climb in your reference run closest in gradient and size. Climbs of ${(plan.params.splitClimbM / 1000).toFixed(1)} km or more are split into sections of at least ${(plan.params.sectionMinM / 1000).toFixed(1)} km (rows 5.1, 5.2...), cut where the gradient changes, each with its own tactic and clock time.</p>
       <div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>#</th><th>Km</th><th>Length</th><th>Gain</th><th>Avg</th><th>Steepest 100 m</th><th>Pace</th><th>Clock</th><th class="t">Tactic</th><th>Difficulty</th><th>Closest climb in your run</th></tr></thead><tbody>${climbRows}</tbody></table></div>
     </div>
     <div id="paneD" ${state.tab === "d" ? "" : "hidden"}>

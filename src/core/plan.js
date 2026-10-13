@@ -1,7 +1,7 @@
 // plan.js: put it all together. Race GPX + effort GPX + a few settings => a plan.
 
 import { parseGpx, resample } from "./track.js";
-import { analyseCourse, BANDS, bandIndex } from "./terrain.js";
+import { analyseCourse, BANDS, bandIndex, steepest100 } from "./terrain.js";
 import { analyseEffort } from "./effort.js";
 import { predictAll, SCENARIOS, MODEL_DEFAULTS } from "./model.js";
 import { parseClock } from "./format.js";
@@ -13,6 +13,8 @@ export const PLAN_DEFAULTS = {
   hikeGrade: null, // null = learn from the effort file, else a number in %
   gelEveryMin: 45,
   checkpointKm: 10,
+  splitClimbM: 3000, // climbs this long or longer are split into sections
+  sectionMinM: 1500, // shortest section allowed
 };
 
 export const LEVELS = ["", "Easy", "Moderate", "Hard", "Crux"];
@@ -44,6 +46,55 @@ function climbTactic(c, hikeGrade, biggest) {
   return "Steady";
 }
 const DESCENT_TACTIC = { 1: "Let it run, recover", 2: "Quick steps, stay light", 4: "Brake, short steps" };
+
+/**
+ * Split a long climb into sections that each hold a fairly even gradient.
+ *
+ * The number of sections is fixed by the length (as many as fit at sectionMinM
+ * each); dynamic programming then picks where to cut. The cost of a section is
+ * how much its 10 m gradients scatter around the section's own average (a sum
+ * of squared deviations), so cuts land where the slope changes character, for
+ * example between a runnable ramp and a steep wall.
+ * Returns [[a, b], ...] sample indices, contiguous from the climb's a to b.
+ */
+export function splitClimb(ele, a, b, step, minM = 1500) {
+  const m = b - a; // number of 10 m steps in the climb
+  const k = Math.floor((m * step) / minM);
+  if (k < 2) return [[a, b]];
+  const minN = Math.ceil(minM / step);
+  // Prefix sums of gradient and gradient squared: any section's cost in O(1).
+  const S = new Float64Array(m + 1);
+  const Q = new Float64Array(m + 1);
+  for (let i = 0; i < m; i++) {
+    const g = ((ele[a + i + 1] - ele[a + i]) / step) * 100;
+    S[i + 1] = S[i] + g;
+    Q[i + 1] = Q[i] + g * g;
+  }
+  const cost = (p, q) => Q[q] - Q[p] - ((S[q] - S[p]) ** 2) / (q - p);
+  // best[j][q]: lowest cost to cut steps 0..q into j sections; from[j][q]: where the last one starts.
+  const best = [new Float64Array(m + 1).fill(Infinity)];
+  best[0][0] = 0;
+  const from = [null];
+  for (let j = 1; j <= k; j++) {
+    const bj = new Float64Array(m + 1).fill(Infinity);
+    const fj = new Int32Array(m + 1);
+    for (let q = j * minN; q <= m - (k - j) * minN; q++) {
+      for (let p = (j - 1) * minN; p <= q - minN; p++) {
+        if (best[j - 1][p] === Infinity) continue;
+        const c = best[j - 1][p] + cost(p, q);
+        if (c < bj[q]) { bj[q] = c; fj[q] = p; }
+      }
+    }
+    best.push(bj);
+    from.push(fj);
+  }
+  const cuts = [m];
+  for (let j = k, q = m; j > 1; j--) { q = from[j][q]; cuts.unshift(q); }
+  cuts.unshift(0);
+  const out = [];
+  for (let i = 0; i + 1 < cuts.length; i++) out.push([a + cuts[i], a + cuts[i + 1]]);
+  return out;
+}
 
 /** Index of the sample where cumulative time first reaches `sec`. */
 function indexAtTime(cum, sec) {
@@ -94,6 +145,29 @@ export function buildPlan(raceParsed, effortParsed, userParams = {}) {
   const kmAt = (idx) => (idx * course.step) / 1000;
 
   const maxGain = Math.max(...course.climbs.map((c) => c.delta), 0);
+  const timing = (a, b) => ({
+    start: Object.fromEntries(SCENARIOS.map((s) => [s.id, preds[s.id].cum[a]])),
+    dur: Object.fromEntries(SCENARIOS.map((s) => [s.id, preds[s.id].cum[b] - preds[s.id].cum[a]])),
+  });
+  // One row per section of a long climb, each with its own tactic and clock time.
+  const sectionsOf = (c, n) => splitClimb(course.ele, c.a, c.b, course.step, params.sectionMinM).map(([a, b], j) => {
+    const lenM = (b - a) * course.step;
+    const delta = course.ele[b] - course.ele[a];
+    const sec = { startKm: kmAt(a), lenM, delta, avg: (delta / lenM) * 100, steep: steepest100(course.ele, a, b, course.step) };
+    return {
+      n: `${n}.${j + 1}`,
+      startKm: sec.startKm,
+      endKm: kmAt(b),
+      lenM,
+      gain: delta,
+      avg: sec.avg,
+      steep: sec.steep,
+      tactic: climbTactic(sec, hikeGrade, false),
+      ...timing(a, b),
+      a,
+      b,
+    };
+  });
   const climbs = course.climbs.map((c, i) => {
     const score = climbScore(c, total);
     const level = climbLevel(score);
@@ -111,6 +185,7 @@ export function buildPlan(raceParsed, effortParsed, userParams = {}) {
       start: Object.fromEntries(SCENARIOS.map((s) => [s.id, preds[s.id].cum[c.a]])),
       dur: Object.fromEntries(SCENARIOS.map((s) => [s.id, preds[s.id].cum[c.b] - preds[s.id].cum[c.a]])),
       effortMatch: closestEffortClimb(c, effortClimbsOf(effortCourse), effort.resampled),
+      sections: c.lenM >= params.splitClimbM ? sectionsOf(c, i + 1) : [],
       a: c.a,
       b: c.b,
     };

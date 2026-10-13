@@ -107,6 +107,9 @@ tr.r1 td{background:color-mix(in srgb,var(--e-bg) 55%,var(--surface))}
 tr.r2 td{background:color-mix(in srgb,var(--m-bg) 55%,var(--surface))}
 tr.r3 td{background:color-mix(in srgb,var(--h-bg) 70%,var(--surface))}
 tr.r4 td{background:color-mix(in srgb,var(--c-bg) 80%,var(--surface))}
+tr.sec td{font-size:13px;color:var(--muted);padding-top:5px;padding-bottom:5px}
+tr.sec td:first-child{padding-left:30px}
+svg .cut{stroke:var(--fg);stroke-width:2}
 .score{display:inline-flex;align-items:center;gap:8px;justify-content:flex-end}
 .bar{width:54px;height:7px;border-radius:4px;background:color-mix(in srgb,var(--fg) 12%,transparent);overflow:hidden}
 .bar i{display:block;height:100%}

@@ -90,6 +90,22 @@ export function zigzag(S, threshold) {
 }
 
 /**
+ * Steepest gradient (%) over any 100 m between samples a and b: the highest for
+ * a climb (`up` true), the lowest (most negative) for a descent.
+ */
+export function steepest100(ele, a, b, step, up = true) {
+  const hundred = Math.max(1, Math.round(100 / step));
+  let steep = up ? -Infinity : Infinity;
+  const last = Math.max(a + 1, b - hundred);
+  for (let i = a; i < last; i++) {
+    const j = Math.min(b, i + hundred);
+    const pct = ((ele[j] - ele[i]) / ((j - i) * step)) * 100;
+    steep = up ? Math.max(steep, pct) : Math.min(steep, pct);
+  }
+  return steep;
+}
+
+/**
  * Analyse a resampled course.
  * Returns smoothed elevation, gradient per sample, climbs and descents.
  * Each segment: {kind, a, b (sample indices), startKm, lenM, delta (m, +gain / -loss),
@@ -100,7 +116,6 @@ export function analyseCourse(rs, opts = {}) {
   const ele = smooth(rs.ele, eleWin);
   const grade = gradeSeries(ele, rs.step, gradeWin);
   const ext = zigzag(ele, hysteresis);
-  const hundred = Math.max(1, Math.round(100 / rs.step));
   const climbs = [];
   const descents = [];
   let gain = 0;
@@ -116,13 +131,7 @@ export function analyseCourse(rs, opts = {}) {
     const delta = ele[b] - ele[a];
     if (Math.abs(delta) < minDelta) continue;
     const lenM = (b - a) * rs.step;
-    let steep = delta > 0 ? -Infinity : Infinity;
-    const last = Math.max(a + 1, b - hundred);
-    for (let i = a; i < last; i++) {
-      const s = ele[Math.min(b, i + hundred)] - ele[i];
-      const pct = (s / (Math.min(b, i + hundred) - i) / rs.step) * 100;
-      steep = delta > 0 ? Math.max(steep, pct) : Math.min(steep, pct);
-    }
+    const steep = steepest100(ele, a, b, rs.step, delta > 0);
     const seg = {
       kind: delta > 0 ? "climb" : "descent",
       a,

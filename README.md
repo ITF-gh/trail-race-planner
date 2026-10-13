@@ -41,7 +41,7 @@ src/core/track.js      read GPX, resample to a 10 m grid
 src/core/terrain.js    gradient, climbs and descents (zigzag filter)
 src/core/effort.js     learn your pace per gradient, fresh and tired
 src/core/model.js      predict the course, three scenarios
-src/core/plan.js       climbs, descents, gels, checkpoints, heart-rate guide
+src/core/plan.js       climbs (long ones split into sections), descents, gels, checkpoints, heart-rate guide
 src/core/format.js     time and pace formatting
 src/core/markdown.js   plan as Markdown
 src/demo.js            made-up GPX files for the demo and the tests
