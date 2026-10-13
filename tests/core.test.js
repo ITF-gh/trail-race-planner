@@ -129,10 +129,10 @@ test("splitClimb cuts where the gradient changes and respects the minimum length
   for (let i = 1; i < four.length; i++) assert.equal(four[i][0], four[i - 1][1], "sections are contiguous");
 });
 
-test("buildPlan splits climbs of 3 km or more into sections", () => {
+test("buildPlan splits climbs of 3 km or more and 100 m gain or more into sections", () => {
   const plan = buildPlan(race, effort);
   for (const c of plan.climbs) {
-    if (c.lenM < 3000) { assert.equal(c.sections.length, 0); continue; }
+    if (c.lenM < 3000 || c.gain < 100) { assert.equal(c.sections.length, 0); continue; }
     assert.ok(c.sections.length >= 2, `climb ${c.n} is split`);
     assert.ok(c.sections.every((s) => s.lenM >= 1500 && s.tactic));
     assert.equal(c.sections[0].startKm, c.startKm);
@@ -141,6 +141,7 @@ test("buildPlan splits climbs of 3 km or more into sections", () => {
     assert.ok(Math.abs(sum - c.dur.central) < 1e-6, "section times add up to the climb");
   }
   assert.ok(plan.climbs.some((c) => c.sections.length), "the demo course has a long climb");
+  assert.ok(plan.climbs.some((c) => c.lenM >= 3000 && c.gain < 100 && !c.sections.length), "a long flat-ish climb stays whole");
   assert.match(planToMarkdown(plan), /\| 5\.1 \|/);
 });
 

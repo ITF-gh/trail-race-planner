@@ -15,6 +15,7 @@ export const PLAN_DEFAULTS = {
   checkpointKm: 10,
   splitClimbM: 3000, // climbs this long or longer are split into sections
   sectionMinM: 1500, // shortest section allowed
+  splitClimbMinGain: 100, // ...and only if they gain at least this many metres
 };
 
 export const LEVELS = ["", "Easy", "Moderate", "Hard", "Crux"];
@@ -185,7 +186,7 @@ export function buildPlan(raceParsed, effortParsed, userParams = {}) {
       start: Object.fromEntries(SCENARIOS.map((s) => [s.id, preds[s.id].cum[c.a]])),
       dur: Object.fromEntries(SCENARIOS.map((s) => [s.id, preds[s.id].cum[c.b] - preds[s.id].cum[c.a]])),
       effortMatch: closestEffortClimb(c, effortClimbsOf(effortCourse), effort.resampled),
-      sections: c.lenM >= params.splitClimbM ? sectionsOf(c, i + 1) : [],
+      sections: c.lenM >= params.splitClimbM && c.delta >= params.splitClimbMinGain ? sectionsOf(c, i + 1) : [],
       a: c.a,
       b: c.b,
     };
