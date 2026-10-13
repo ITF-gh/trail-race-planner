@@ -32,8 +32,8 @@ export function planToMarkdown(plan, scenarioId = "central") {
     for (const a of plan.aidStations) L.push(`- km ${a.km.toFixed(1)} ${a.name}: arrive ${clock(st, a.arrive[sc.id])}${a.stopMin ? `, ${a.stopMin} min stop` : ""}`);
     L.push("");
   }
-  L.push(`## Gels (every ${plan.params.gelEveryMin} min, moved off climbs)`);
-  for (const g of sc.gels) L.push(`- km ${g.km.toFixed(1)}: ${clock(st, g.sec)}${g.at ? ` (at ${g.at})` : ""}`);
+  L.push(`## Gels (every ${plan.params.gelEveryMin} min, moved off climbs and technical descents)`);
+  for (const g of sc.gels) L.push(`- km ${g.km.toFixed(1)}: ${clock(st, g.sec)}${g.at ? ` (at ${g.at})` : g.where ? ` (${g.where})` : ""}`);
   L.push("");
   if (plan.hrGuide) {
     L.push(`## Heart-rate guide`);

@@ -17,6 +17,41 @@ export const DEMO_RACE_PROFILE = [
   [1500, 3], [300, 16], [800, -10], [2000, 0], [1000, 6], [700, -5],
 ];
 
+/**
+ * The demo button's race: a made-up mountain ultra of 78.4 km and about 3,800 m of climbing,
+ * from a 650 m valley over four big climbs (the longest gains 650 m over 8.5 km) with steep,
+ * technical descents (down to -24%) and a short sharp kicker late in the race. Long climbs
+ * change gradient on the way up, so the planner splits them into sections.
+ */
+export const DEMO_ULTRA_PROFILE = [
+  [1500, 0], [1500, 6], [2000, 13], [1200, 16], [1500, 8], [800, 20], [1500, 2], [800, -4], [1000, 3],
+  [1200, -14], [1500, -22], [2000, -9], [1500, 0],
+  [2500, 5], [3000, 9], [1500, 4], [1000, 13], [1500, 15], [2000, 0], [600, -6], [900, 7],
+  [3000, -14], [1500, -9], [1500, 0],
+  [1500, 12], [1000, 25], [1200, 18], [1500, 12], [700, 22], [1500, -3], [1000, 6], [800, -2],
+  [2000, -18], [2500, -11], [1500, -24], [1500, 0],
+  [1500, 3], [2000, 8], [1500, 14], [1500, 10], [800, 17], [1500, -10], [2000, -15], [1500, -5],
+  [1000, 18], [1000, -16], [1200, 8], [900, -6], [1500, 2], [2500, -12], [2000, -13], [1500, -11], [800, 0],
+];
+
+/** Aid stations of the demo ultra, as typed in the settings: km, name, minutes stopped. */
+export const DEMO_ULTRA_AID = [
+  "16.5 Le Moulin 3",
+  "29.5 Refuge des Aiguilles 4",
+  "37 Combe-Basse (bag drop) 10",
+  "46 Col de la Brèche 2",
+  "53.7 Les Granges 6",
+  "64.5 Chalet du Pré 4",
+  "71.6 La Crête 2",
+].join("\n");
+
+/** A 30 km mountain long run with 1,230 m of climbing, the demo's reference runs for the ultra. */
+export const DEMO_LONG_RUN_PROFILE = [
+  [2000, 0], [1500, 6], [1500, 11], [800, 16], [700, -8], [1200, -14], [2500, 0], [2000, 9], [1000, 14],
+  [600, 20], [1500, -12], [1000, -18], [2000, 0], [1500, 5], [1200, 13], [1000, -10], [1200, -6],
+  [2500, 0], [800, 22], [800, -20], [3000, -10.5],
+];
+
 /** Pace (s/km) by gradient for the generated effort file, fresh. */
 export function demoPace(grade) {
   if (grade < -20) return 400;
@@ -48,27 +83,29 @@ function gpxHeader(name) {
 const GPX_FOOTER = `</trkseg></trk></gpx>\n`;
 
 /** A planned route: one point every 20 m, elevation, no timestamps. */
-export function makeDemoRaceGpx(profile = DEMO_RACE_PROFILE) {
+export function makeDemoRaceGpx(profile = DEMO_RACE_PROFILE, { name = "Demo Trail 20K", startEle = 200 } = {}) {
   const total = profile.reduce((s, [l]) => s + l, 0);
-  let xml = gpxHeader("Demo Trail 20K");
+  let xml = gpxHeader(name);
   for (let d = 0; d <= total; d += 20) {
     const lat = LAT0 + d / M_PER_DEG_LAT;
-    xml += `<trkpt lat="${lat.toFixed(6)}" lon="${LON0.toFixed(6)}"><ele>${eleAt(profile, d, 200).toFixed(1)}</ele></trkpt>\n`;
+    xml += `<trkpt lat="${lat.toFixed(6)}" lon="${LON0.toFixed(6)}"><ele>${eleAt(profile, d, startEle).toFixed(1)}</ele></trkpt>\n`;
   }
   return xml + GPX_FOOTER;
 }
+
+/** The 17.7 km rolling loop of the original demo run (the tests use it). */
+const DEMO_EFFORT_PROFILE = [
+  [3000, 0], [800, 5], [400, -5], [500, 8], [300, -8], [2500, 0],
+  [400, 12], [300, -12], [400, 12], [300, -12], [3000, 0],
+  [700, 6], [700, -6], [2000, 0], [500, 14], [400, -14], [1500, 0],
+];
 
 /**
  * A recorded effort: one point per second. Pace follows demoPace(grade), slowing
  * by `fatigue` (for example 0.15 = 15% slower) linearly over the run. Heart rate
  * rises from 150 to 160. Cadence is stored per foot (about 85), like many watches.
  */
-export function makeDemoEffortGpx({ fatigue = 0.15, startIso = "2026-10-11T08:00:00Z" } = {}) {
-  const profile = [
-    [3000, 0], [800, 5], [400, -5], [500, 8], [300, -8], [2500, 0],
-    [400, 12], [300, -12], [400, 12], [300, -12], [3000, 0],
-    [700, 6], [700, -6], [2000, 0], [500, 14], [400, -14], [1500, 0],
-  ];
+export function makeDemoEffortGpx({ fatigue = 0.15, startIso = "2026-10-11T08:00:00Z", profile = DEMO_EFFORT_PROFILE } = {}) {
   const total = profile.reduce((s, [l]) => s + l, 0);
   const t0 = Date.parse(startIso);
   let d = 0;

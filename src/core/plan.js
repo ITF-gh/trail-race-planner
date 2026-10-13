@@ -19,6 +19,7 @@ export const PLAN_DEFAULTS = {
   halfLifeDays: 28, // with several reference runs, a run this many days older counts half as much
   aidStations: [], // [{km, name, stopMin}] or text, one per line: "8.5 Refuge du Lac 2"
   gelToAidMin: 10, // a gel due within this many minutes of an aid station is taken there
+  gelMaxDelayMin: 20, // a gel waits for the top of a climb at most this long, else it is eaten on the way up
 };
 
 /**
@@ -242,18 +243,33 @@ export function buildPlan(raceParsed, effortParsed, userParams = {}) {
   for (const s of SCENARIOS) {
     const pr = preds[s.id];
     const gels = [];
-    for (let t = params.gelEveryMin * 60; t < pr.finishSec - 15 * 60; t += params.gelEveryMin * 60) {
+    // the clock restarts at each gel actually taken, so a gel moved earlier or later shifts the next ones
+    const every = params.gelEveryMin * 60;
+    for (let t = every; t < pr.finishSec - 15 * 60; t = Math.max(t, gels.length ? gels[gels.length - 1].sec : 0) + every) {
       let idx = indexAtTime(pr.cum, t);
       // An aid station close in time wins: eat there, with a drink at hand.
       const near = aid.find((a) => Math.abs(pr.cum[a.idx] - t) <= params.gelToAidMin * 60);
+      const last = gels.length ? gels[gels.length - 1].sec : -Infinity;
       if (near) {
-        gels.push({ km: kmAt(near.idx), sec: pr.cum[near.idx], moved: true, at: near.name });
+        if (pr.cum[near.idx] > last) gels.push({ km: kmAt(near.idx), sec: pr.cum[near.idx], moved: true, at: near.name });
         continue;
       }
+      // Take it at the top, or at the bottom of the descent; on a climb too long to wait for the
+      // top (more than gelMaxDelayMin away), at the end of the current section, else right there.
+      // A gel moved earlier or later than another one is never taken twice at the same spot.
       const inside = segs.find((g) => idx > g.a && idx < g.b);
-      if (inside) idx = inside.b; // take it at the top, or at the bottom of the descent
+      let where = null; // why it moved: "top", "bottom", "section", "before descent", or "on the climb"
+      if (inside) {
+        const soon = (j) => pr.cum[j] - t <= params.gelMaxDelayMin * 60;
+        const sec = (inside.sections || []).find((x) => idx > x.a && idx < x.b);
+        if (soon(inside.b)) [idx, where] = [inside.b, inside.kind === "climb" ? "top" : "bottom"];
+        else if (inside.kind === "descent") [idx, where] = [inside.a, "before descent"]; // a long technical descent: eat just before dropping in
+        else if (sec && soon(sec.b)) [idx, where] = [sec.b, "section"];
+        else where = "on the climb";
+      }
       if (pr.cum[idx] > pr.finishSec - 15 * 60) break; // moved too close to the finish: not worth it
-      gels.push({ km: kmAt(idx), sec: pr.cum[idx], moved: Boolean(inside) });
+      if (pr.cum[idx] <= last) continue; // already eating there
+      gels.push({ km: kmAt(idx), sec: pr.cum[idx], moved: idx !== indexAtTime(pr.cum, t), where });
     }
     const checkpoints = [];
     for (let km = params.checkpointKm; km < total - 1; km += params.checkpointKm) {

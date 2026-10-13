@@ -6,7 +6,7 @@ Your files are read on your own machine. Nothing is uploaded.
 
 ## Use it
 
-**In the browser.** Open `dist/index.html` (run `npm run build` first). Press "Try the demo" to see a full plan on made-up data, or drop in your own two files.
+**In the browser.** Open `dist/index.html` (run `npm run build` first). Press "Try the demo" to see a full plan on made-up data (a 78 km mountain ultra with 3,800 m of climbing and seven aid stations, planned from two 30 km mountain long runs), or drop in your own two files.
 
 **From a terminal.**
 

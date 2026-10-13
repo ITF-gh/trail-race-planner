@@ -125,9 +125,16 @@ export function analyseCourse(rs, opts = {}) {
     if (d > 0) gain += d;
     else loss -= d;
   }
+  // Turning points sit at the very first metre of a flat valley or plateau, so a climb would start
+  // with the flat run-in before it. Trim both ends until the next (or last) 100 m tilt by 0.5% or more.
+  const W = Math.max(1, Math.round(100 / rs.step));
+  const tilt = (i, j, sign) => (sign * (ele[j] - ele[i])) / ((j - i) * rs.step) >= 0.005;
   for (let k = 0; k + 1 < ext.length; k++) {
-    const a = ext[k];
-    const b = ext[k + 1];
+    let a = ext[k];
+    let b = ext[k + 1];
+    const sign = Math.sign(ele[b] - ele[a]);
+    while (b - a > W && !tilt(a, a + W, sign)) a++;
+    while (b - a > W && !tilt(b - W, b, sign)) b--;
     const delta = ele[b] - ele[a];
     if (Math.abs(delta) < minDelta) continue;
     const lenM = (b - a) * rs.step;

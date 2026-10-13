@@ -7,7 +7,7 @@ import { predictScenario, SCENARIOS } from "../src/core/model.js";
 import { buildPlan, splitClimb, climbScore, climbLevel, climbTactic, parseAidStations } from "../src/core/plan.js";
 import { planToMarkdown } from "../src/core/markdown.js";
 import { mmss, hm, clock, parseDuration, parseClock } from "../src/core/format.js";
-import { makeDemoRaceGpx, makeDemoEffortGpx, DEMO_RACE_PROFILE } from "../src/demo.js";
+import { makeDemoRaceGpx, makeDemoEffortGpx, DEMO_RACE_PROFILE, DEMO_ULTRA_PROFILE, DEMO_ULTRA_AID, DEMO_LONG_RUN_PROFILE } from "../src/demo.js";
 
 const race = parseGpx(makeDemoRaceGpx());
 const effort = parseGpx(makeDemoEffortGpx());
@@ -98,7 +98,9 @@ test("buildPlan: checkpoints, gels and tactics are coherent", () => {
   assert.ok(sc.gels.length >= 1);
   for (const g of sc.gels) {
     const inside = plan.climbs.find((c) => g.km > c.startKm + 0.01 && g.km < c.endKm - 0.01);
-    assert.equal(inside, undefined, `gel at km ${g.km} lands inside climb ${inside && inside.n}`);
+    // inside a climb only when its top was too far to wait for
+    const atBreak = inside && (inside.sections || []).some((x) => Math.abs(x.endKm - g.km) < 0.02);
+    if (inside) assert.ok(atBreak || inside.start.central + inside.dur.central - g.sec > 20 * 60 - 1, `gel at km ${g.km} lands inside climb ${inside.n}`);
   }
   // With a low hiking threshold, every climb steeper than (threshold - 2)% is a hike.
   const low = buildPlan(race, effort, { hikeGrade: 9 });
@@ -146,7 +148,8 @@ test("buildPlan splits climbs of 3 km or more and 100 m gain or more into sectio
     assert.ok(Math.abs(sum - c.dur.central) < 1e-6, "section times add up to the climb");
   }
   assert.ok(plan.climbs.some((c) => c.sections.length), "the demo course has a long climb");
-  assert.ok(plan.climbs.some((c) => c.lenM >= 3000 && c.gain < 100 && !c.sections.length), "a long flat-ish climb stays whole");
+  const drag = buildPlan(parseGpx(makeDemoRaceGpx([[500, 0], [4000, 2], [500, -8], [500, 0]])), effort);
+  assert.ok(drag.climbs.some((c) => c.lenM >= 3000 && c.gain < 100 && !c.sections.length), "a long flat-ish climb stays whole");
   assert.match(planToMarkdown(plan), /\| 5\.1 \|/);
 });
 
@@ -199,6 +202,29 @@ test("aid stations: parsed from text, stop time added after them, gels moved the
   assert.ok(c(withAid).gels.some((g) => g.at === "Refuge" || g.at === "Ferme"), "a gel is taken at an aid station");
   for (const p of [base, withAid]) assert.ok(c(p).gels.every((g) => g.sec <= c(p).finishSec - 15 * 60), "no gel in the last 15 minutes");
   assert.match(planToMarkdown(withAid), /## Aid stations/);
+});
+
+test("climbs start where the slope starts, not at the start of the flat before it", () => {
+  const plan = buildPlan(parseGpx(makeDemoRaceGpx([[2000, 0], [1500, 8], [1500, 0], [1500, -8], [500, 0]])), effort);
+  assert.equal(plan.climbs.length, 1);
+  assert.ok(Math.abs(plan.climbs[0].startKm - 2) < 0.15 && Math.abs(plan.climbs[0].endKm - 3.5) < 0.15, `${plan.climbs[0].startKm} to ${plan.climbs[0].endKm}`);
+  assert.ok(Math.abs(plan.descents.at(-1).startKm - 5) < 0.15);
+});
+
+test("demo ultra: long climbs split into sections, no two gels at once, none left without food for long", () => {
+  const ultra = parseGpx(makeDemoRaceGpx(DEMO_ULTRA_PROFILE, { startEle: 650 }));
+  const run = parseGpx(makeDemoEffortGpx({ profile: DEMO_LONG_RUN_PROFILE }));
+  const plan = buildPlan(ultra, run, { aidStations: DEMO_ULTRA_AID });
+  assert.ok(plan.course.totalKm > 75 && plan.course.gain > 3500);
+  assert.ok(plan.climbs.filter((c) => c.sections?.length > 1).length >= 3);
+  assert.equal(plan.aidStations.length, 7);
+  for (const s of Object.values(plan.scenarios)) {
+    for (let i = 1; i < s.gels.length; i++) {
+      const gap = s.gels[i].sec - s.gels[i - 1].sec;
+      assert.ok(gap > 0, `${s.id}: two gels at ${s.gels[i].km} km`);
+      assert.ok(gap <= (45 + 20) * 60 + 60, `${s.id}: ${Math.round(gap / 60)} min without a gel before ${s.gels[i].km} km`);
+    }
+  }
 });
 
 test("plan renders to Markdown", () => {

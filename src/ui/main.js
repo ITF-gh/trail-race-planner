@@ -12,7 +12,7 @@ import { buildPlan, briefCourse, PLAN_DEFAULTS, LEVELS, DESCENT_LABELS } from ".
 import { TERRAIN, SCENARIOS } from "../core/model.js";
 import { planToMarkdown } from "../core/markdown.js";
 import { mmss, hm, clock, parseDuration } from "../core/format.js";
-import { makeDemoRaceGpx, makeDemoEffortGpx } from "../demo.js";
+import { makeDemoRaceGpx, makeDemoEffortGpx, DEMO_ULTRA_PROFILE, DEMO_ULTRA_AID, DEMO_LONG_RUN_PROFILE } from "../demo.js";
 
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -219,14 +219,21 @@ wireDrop("#dropEffort", "#fileEffort", loadEfforts);
 $("#clearRuns").addEventListener("click", () => setRuns([]));
 
 $("#demo").addEventListener("click", () => {
-  // Two made-up runs, six weeks apart, so the weighting shows; and two aid stations if none are set.
+  // A made-up mountain ultra (78 km, 3,800 m up, seven aid stations) and two made-up 30 km
+  // mountain long runs six weeks apart, so the weighting shows. Aid stations and start time
+  // are filled in unless you typed your own.
   state.effort = null;
   loadEfforts([
-    { xml: makeDemoEffortGpx(), label: "Demo long run (made up)" },
-    { xml: makeDemoEffortGpx({ fatigue: 0.3, startIso: "2026-08-30T08:00:00Z" }), label: "Demo older run (made up)" },
+    { xml: makeDemoEffortGpx({ profile: DEMO_LONG_RUN_PROFILE, startIso: "2026-10-11T07:00:00Z" }), label: "Demo mountain long run (made up)" },
+    { xml: makeDemoEffortGpx({ profile: DEMO_LONG_RUN_PROFILE, fatigue: 0.3, startIso: "2026-08-30T07:00:00Z" }), label: "Demo older long run (made up)" },
   ]);
-  if (!$("#aidStations").value.trim()) { $("#aidStations").value = "8.5 Refuge du Lac 2\n16 Ferme des Crêtes 3"; readSettings(); }
-  loadRace(makeDemoRaceGpx(), "Demo trail 24K (made up)");
+  const aid = $("#aidStations").value.trim();
+  if (!aid || aid === "8.5 Refuge du Lac 2\n16 Ferme des Crêtes 3") {
+    $("#aidStations").value = DEMO_ULTRA_AID;
+    if ($("#startTime").value === PLAN_DEFAULTS.startTime) $("#startTime").value = "06:00";
+    readSettings();
+  }
+  loadRace(makeDemoRaceGpx(DEMO_ULTRA_PROFILE, { name: "Ultra des Crêtes 78K", startEle: 650 }), "Ultra des Crêtes 78K (made up)");
   $("#s1").scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
@@ -417,7 +424,8 @@ function renderDday() {
 
   const seg = SCENARIOS.map((s) => `<button type="button" data-s="${s.id}" aria-pressed="${s.id === sid}">${s.label}<small>${hm(plan.scenarios[s.id].finishSec)}</small></button>`).join("");
   const ckList = sc.checkpoints.map((c) => `<li><span>${esc(c.label)}</span><b>${clock(st, c.sec)} · ${hm(c.sec)}</b></li>`).join("");
-  const gelList = sc.gels.map((g) => `<li><span>km ${g.km.toFixed(1)}${g.at ? ` · ${esc(g.at)}` : g.moved ? " · top of climb" : ""}</span><b>${clock(st, g.sec)}</b></li>`).join("") || `<li><span>No gel needed for this length</span><b></b></li>`;
+  const GEL_WHERE = { top: "top of climb", bottom: "foot of descent", section: "end of a climb section", "before descent": "before the descent", "on the climb": "on the climb, walking" };
+  const gelList = sc.gels.map((g) => `<li><span>km ${g.km.toFixed(1)}${g.at ? ` · ${esc(g.at)}` : g.where ? ` · ${GEL_WHERE[g.where]}` : ""}</span><b>${clock(st, g.sec)}</b></li>`).join("") || `<li><span>No gel needed for this length</span><b></b></li>`;
   const hrList = plan.hrGuide ? plan.hrGuide.map((h) => `<li><span>km ${h.fromKm.toFixed(0)} to ${h.toKm.toFixed(0)}</span><b>${esc(h.text)}</b></li>`).join("") : `<li><span>No heart rate in your run</span><b></b></li>`;
   const hikes = plan.climbs.flatMap((c) => [c, ...c.sections]).filter((c) => /^Hike/.test(c.tactic));
   const hikeList = hikes.map((c) => `<li><span>#${c.n} · km ${c.startKm.toFixed(1)}</span><b>${/steep part/.test(c.tactic) ? `${Math.round(c.steep)}% pitch` : `${c.avg.toFixed(0)}%`} · ${clock(st, c.start[sid])}</b></li>`).join("") || `<li><span>None at this threshold</span><b></b></li>`;
@@ -447,7 +455,7 @@ function renderDday() {
   <div class="grid">
     <div class="panel card"><h3>Checkpoints</h3><ul class="kv">${ckList}</ul></div>
     ${plan.aidStations.length ? `<div class="panel card"><h3>Aid stations</h3><ul class="kv">${plan.aidStations.map((a) => `<li><span>km ${a.km.toFixed(1)} · ${esc(a.name)}</span><b>${clock(st, a.arrive[sid])}${a.stopMin ? ` → ${clock(st, a.arrive[sid] + a.stopMin * 60)}` : ""}</b></li>`).join("")}</ul><p class="note">Arrival → departure. ${plan.aidStations.reduce((t, a) => t + a.stopMin, 0)} min of stops in total, included in the finish time.</p></div>` : ""}
-    <div class="panel card"><h3>Gels</h3><ul class="kv">${gelList}</ul><p class="note">Every ${plan.params.gelEveryMin} min, taken at an aid station when one is close, or moved to the top when it would land on a climb.</p></div>
+    <div class="panel card"><h3>Gels</h3><ul class="kv">${gelList}</ul><p class="note">Every ${plan.params.gelEveryMin} min after the last one, taken at an aid station when one is close, else moved off climbs and technical descents. When the top is more than ${plan.params.gelMaxDelayMin} min away, it is taken at a change of slope or while walking.</p></div>
     <div class="panel card"><h3>Heart rate</h3><ul class="kv">${hrList}</ul><p class="note">At the decision point: on pace with HR mid-guide, you can push later. Above it, hold and eat.</p></div>
     <div class="panel card"><h3>Hike these</h3><ul class="kv">${hikeList}</ul><p class="note">Hiking from ${plan.params.hikeGrade}% (${state.settings.hikeGrade ? "set by you" : plan.effort.hikeGrade ? "learned from your cadence" : "default"}). A climb is hiked when its average is within 2 points of that, or just its steep part when a 100 m stretch reaches it.</p></div>
   </div>
