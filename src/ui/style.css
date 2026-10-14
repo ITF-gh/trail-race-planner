@@ -170,7 +170,7 @@ svg{display:block;width:100%;height:auto}
 .leaflet-container svg{width:auto;height:auto;display:inline} /* Leaflet sizes its own SVG layer */
 svg text{font-family:var(--f-body);fill:var(--muted);font-size:11px}
 svg .area{fill:var(--area)} svg .ln{fill:none;stroke:var(--fg);stroke-width:1.2;opacity:.55}
-svg .axis{stroke:var(--line);stroke-width:1} svg .zone{fill:var(--accent);opacity:.12}
+svg .axis{stroke:var(--line);stroke-width:1} svg .zone{fill:var(--sun);opacity:.13} svg .zk{fill:var(--sun);font-weight:700;font-size:12px}
 svg .ck{stroke:var(--muted);stroke-width:1;stroke-dasharray:3 4}
 svg .cl{fill:none;stroke-width:5.5;stroke-linecap:round;stroke-linejoin:round}
 svg .cl1{stroke:var(--e-bar)} svg .cl2{stroke:var(--m-bar)} svg .cl3{stroke:var(--h-bar)} svg .cl4{stroke:var(--c-bar)}
@@ -359,3 +359,21 @@ label.chk input{width:18px;height:18px;accent-color:var(--sun)}
   .tn-sum{display:none}
 }
 @media (prefers-reduced-motion: reduce){ .runner,.rp-cue.pulse{animation:none} }
+
+/* ---------- key zones ---------- */
+.zones{display:flex;flex-direction:column;gap:10px}
+.zone-card{display:grid;grid-template-columns:auto 1fr auto;gap:6px 16px;align-items:start;background:linear-gradient(100deg,rgba(255,201,40,.12),var(--surface) 55%);border:1px solid rgba(255,201,40,.45);border-left:6px solid var(--sun);border-radius:var(--r);padding:12px 16px}
+.zone-card .zn{font-family:var(--f-display);font-weight:800;font-style:italic;font-size:30px;line-height:1;color:var(--sun)}
+.zone-card .zt{display:flex;flex-wrap:wrap;gap:2px 12px;align-items:baseline}
+.zone-card .zt b{font-family:var(--f-display);font-weight:700;font-size:19px;letter-spacing:.02em}
+.zone-card .zt span{color:var(--muted);font-size:13.5px}
+.zone-card p{margin:4px 0 0;font-size:14.5px}
+.zone-card .zh{color:var(--muted)}
+.zone-card .zs{text-align:right;line-height:1.05}
+.zone-card .zs b{display:block;font-family:var(--f-display);font-weight:800;font-style:italic;font-size:30px;color:var(--sun);font-variant-numeric:tabular-nums}
+.zone-card .zs small{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+@media (max-width:640px){ .zone-card{grid-template-columns:auto 1fr} .zone-card .zs{grid-column:2;text-align:left;display:flex;gap:8px;align-items:baseline} }
+.rt-key{stroke:#ffc928;stroke-width:18;stroke-opacity:.45;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.chip.keyc{background:var(--sun);color:#1a1300}
+.rp-next li.key b,.rp-next li.key span{color:var(--sun)}
+.k-key .ic{background:var(--sun);color:#1a1300}

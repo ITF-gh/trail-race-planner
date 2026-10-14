@@ -1,6 +1,6 @@
 // replay.js: section 04, the race-day replay. Plays the plan back in time: a runner moves
 // along the map and the elevation profile, the clock runs at the predicted pace, and every
-// key moment (climbs, gels, aid stations, decision point) shows a short cue to rehearse.
+// key moment (climbs, gels, aid stations, key zones) shows a short cue to rehearse.
 //
 // Animation: requestAnimationFrame calls `frame` before each screen refresh (about 60 times
 // a second). Each frame moves race time forward by (real seconds since the last frame x
@@ -18,7 +18,7 @@ const SPEEDS = [
   { v: 360, label: "1 h in 10 s" },
   { v: 900, label: "1 h in 4 s" },
 ];
-const ICON = { start: "▶", climb: "▲", top: "⛰", descent: "▼", gel: "G", aid: "⛺", phase: "◐", decision: "!", finish: "🏁" };
+const ICON = { start: "▶", climb: "▲", top: "⛰", descent: "▼", gel: "G", aid: "⛺", phase: "◐", key: "★", finish: "🏁" };
 
 // Survives re-renders (a scenario switch, a settings change), so the replay keeps its place.
 const rp = { key: "", sec: 0, playing: false, speed: 360, pauseAt: true, follow: true, raf: 0, map: null };
@@ -96,10 +96,12 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key }) {
     } else if (s.descent) now = `<span class="chip l${s.descent.level}">${DESCENT_LABELS[s.descent.level]}</span> <b>Descent ${s.descent.n}</b> · ${escR(s.descent.tactic)}`;
     else if (s.sec >= sc.finishSec) now = `<span class="chip l1">Done</span> <b>Finished</b> · ${hm(sc.finishSec)}`;
     else now = `<span class="chip flat">Runnable</span> <b>Between climbs</b> · relax, drink, run tall`;
+    if (s.keyZone && !s.aid) now = `<span class="chip keyc">★ Key zone ${s.keyZone.n}</span> ${now}`;
     if (now !== lastNowHtml) { els.now.innerHTML = now; lastNowHtml = now; }
 
     const until = (sec) => { const m = Math.max(0, Math.round((sec - s.sec) / 60)); return m >= 60 ? hm(m * 60) : `${m} min`; };
     const next = [
+      s.keyZone ? `<li class="key"><span>★ Key zone ${s.keyZone.n}</span><b>until km ${s.keyZone.toKm.toFixed(1)}</b></li>` : s.nextKey ? `<li><span>Next key zone · ${s.nextKey.n}</span><b>km ${s.nextKey.fromKm.toFixed(1)} · ${clock(st, secAtKm(plan, sid, s.nextKey.fromKm))}</b></li>` : "",
       s.nextGel ? `<li><span>Next gel</span><b>in ${until(s.nextGel.sec)} · km ${s.nextGel.km.toFixed(1)}</b></li>` : "",
       s.nextAid ? `<li><span>Next aid · ${escR(s.nextAid.name)}</span><b>${(s.nextAid.km - s.km).toFixed(1)} km · ${clock(st, s.nextAid.arrive[sid])}</b></li>` : "",
       s.nextClimb ? `<li><span>Next climb · #${s.nextClimb.n}</span><b>${Math.round(s.nextClimb.gain)} m · in ${until(s.nextClimb.start[sid])}</b></li>` : "",

@@ -2,7 +2,7 @@
 
 Give it a race course (GPX) and one of your own recorded runs (GPX). It learns how fast you move on each kind of terrain, then predicts the race and writes a plan: pace by gradient, which climbs to hike, which descents to brake on, gel stops, checkpoints, and a heart-rate guide.
 
-Then it lets you **rehearse race day**: the course on an OpenStreetMap map, and a replay where a runner moves along the map and the profile at your predicted pace, stopping at each climb, gel and aid station with a short cue of what to do there.
+Then it lets you **rehearse race day**: the course on an OpenStreetMap map, and a replay where a runner moves along the map and the profile at your predicted pace, stopping at each climb, gel and aid station with a short cue of what to do there. It also marks the **key zones**, the stretches where the race is played, ranked by the minutes at stake.
 
 Your files are read on your own machine. Nothing is uploaded.
 
@@ -46,6 +46,7 @@ src/core/model.js      predict the course, three scenarios
 src/core/plan.js       climbs (long ones split into sections), descents, gels, checkpoints, heart-rate guide
 src/core/format.js     time and pace formatting
 src/core/markdown.js   plan as Markdown
+src/core/keyzones.js   key zones: where the race is played, and how many minutes are at stake
 src/core/script.js     the race in time: key moments with cues, and where you are at any second
 src/demo.js            made-up GPX files for the demo and the tests
 src/ui/                the browser app (main.js, map.js for the map, replay.js for race day)

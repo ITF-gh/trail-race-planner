@@ -92,9 +92,23 @@ Every file in `src/core/` is a **pure function**: text and numbers in, numbers o
 
 **Timeline.** The model already knows the clock time at every 10 m. The plan keeps it every 100 m per scenario (`timeline`), aid-station stops included. Going from a clock time to a position is then a *binary search* in that sorted list (halve the range until one 100 m step is left) and a linear interpolation inside the step.
 
-**Script.** `raceScript` turns the plan into moments in time order (start, each climb and its top, braking descents, gels, aid stations, halfway, the decision point, the finish), each with a short cue. `raceStateAt` answers "where am I at second t": km, altitude, gradient, pace, the climb or section you are on, the next gel and aid station.
+**Script.** `raceScript` turns the plan into moments in time order (start, each climb and its top, braking descents, gels, aid stations, halfway, the key zones, the finish), each with a short cue. `raceStateAt` answers "where am I at second t": km, altitude, gradient, pace, the climb or section you are on, the next gel and aid station.
 
 **Replay.** `requestAnimationFrame` runs a function before each screen refresh. Each frame advances race time by the real time elapsed times the speed (one race hour in 10 s by default), and redraws only what changed. With "Stop at each moment" on, the replay pauses when it crosses a moment, so you can read the cue and picture the place. Rehearsing like this is a form of *mental imagery*, which athletes use to make race day feel familiar.
+
+## 9. Key zones: where the race is played (`src/core/keyzones.js`)
+
+A key zone is a stretch where a runner who paced well can make a difference, and where one who did not loses the most. Each candidate stretch gets a number of **minutes at stake**:
+
+    stake = time on the stretch × spread(when) × weight(kind)
+
+- **Time on the stretch** comes from your prediction. Before both files are loaded it comes from **Tobler's hiking function** (speed = 6·e^(−3.5·|slope + 0.05|) km/h, fastest on a gentle 5% descent), scaled for a runner: a classic model of how slope changes walking speed.
+- **Spread** is how much runners of the same level differ at that point: 3% at the start, growing with the square of the distance covered to 18% at the finish. Fresh legs all look alike; tired legs do not (*fatigue divergence*). That is why the same climb matters more late than early.
+- **Weight** by kind of ground: a climb turns effort straight into time (1.0); a long runnable stretch late in the race separates those who can still run from those who walk (0.9); a descent depends on quads, more and more as they tire (0.5 early to 0.9 late). The **last big climb** (the last with 40% or more of the biggest climb's gain) gets ×1.4: races are often decided there.
+
+Candidates are climbs of 80 m or more, descents of 250 m or more and runnable stretches of 2.5 km or more after the first third. The best are kept without overlapping (a *greedy selection*), one per 20 km of race (1 to 5), and none under a fifth of the best one's stake. So the race length sets how many zones, the profile sets where, and the timing sets how much each is worth. An aid station at the start of a zone is flagged: a fast stop there is time gained.
+
+Not modelled yet, but they would move zones: night and dawn (from the start time and the date), heat and altitude, technical ground (OpenStreetMap trail tags), narrow single track where overtaking is hard, and cut-off times.
 
 ## Ideas for what to build next
 

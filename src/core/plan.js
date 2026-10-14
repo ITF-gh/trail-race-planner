@@ -5,6 +5,7 @@ import { analyseCourse, BANDS, bandIndex, steepest100 } from "./terrain.js";
 import { analyseEffort } from "./effort.js";
 import { predictAll, SCENARIOS, MODEL_DEFAULTS } from "./model.js";
 import { parseClock } from "./format.js";
+import { keyZones, clockFromTimeline } from "./keyzones.js";
 
 export const PLAN_DEFAULTS = {
   ...MODEL_DEFAULTS,
@@ -338,7 +339,8 @@ export function buildPlan(raceParsed, effortParsed, userParams = {}) {
     },
     bandUse,
     hrGuide,
-    decision: { fromKm: total * 0.58, toKm: total * 0.64 },
+    // Where the race is played, from your predicted (central) time on each stretch.
+    keyZones: keyZones({ totalKm: total, climbs, descents }, profile, aid, clockFromTimeline(profile, scenarios.central.timeline)),
     aidStations: aid.map((a) => ({
       km: a.km, name: a.name, stopMin: a.stopMin,
       arrive: Object.fromEntries(SCENARIOS.map((sc) => [sc.id, preds[sc.id].cum[a.idx]])),

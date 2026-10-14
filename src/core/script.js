@@ -90,7 +90,10 @@ export function raceScript(plan, sid) {
     add({ kind: "phase", sec: secAtKm(plan, sid, hr[2].fromKm), km: hr[2].fromKm, title: "Final third", cue: `Heart rate ${hr[2].text}. From here, effort you saved is time you gain.` });
   }
   add({ kind: "phase", sec: secAtKm(plan, sid, total / 2), km: total / 2, title: "Halfway", cue: `Halfway at ${at(secAtKm(plan, sid, total / 2))}, ${hm(secAtKm(plan, sid, total / 2))} on course. Check in: fuel, feet, chafing. The second half is the race.` });
-  add({ kind: "decision", sec: secAtKm(plan, sid, plan.decision.fromKm), km: plan.decision.fromKm, title: "Decision point", cue: "On plan and heart rate in range: you can lift the pace from here. Behind or heart rate high: hold, eat, and wait for the last climb." });
+  // Key zones come last so that, at the same spot as a climb, the key-zone cue is the one shown.
+  (plan.keyZones || []).forEach((z) => {
+    add({ kind: "key", sec: secAtKm(plan, sid, z.fromKm), km: z.fromKm, level: 4, title: `Key zone ${z.n} · ${z.title}`, cue: `${z.why} ${z.how}` });
+  });
   add({ kind: "finish", sec: sc.finishSec, km: total, title: "Finish", cue: `Finish at ${at(sc.finishSec)}, ${hm(sc.finishSec)} on course. Picture the arch, the clock, the people. You earned it climb by climb.` });
 
   return ev.sort((a, b) => a.sec - b.sec || a.km - b.km);
@@ -120,7 +123,10 @@ export function raceStateAt(plan, sid, sec) {
   const nextGel = sc.gels.find((g) => g.sec > t) || null;
   const nextAid = plan.aidStations.find((a) => a.arrive[sid] > t) || null;
   const nextClimb = plan.climbs.find((c) => c.startKm > km && (c.gain >= 40 || c.level >= 2)) || null;
+  const zones = plan.keyZones || [];
+  const keyZone = zones.find((z) => km >= z.fromKm && km < z.toKm) || null;
+  const nextKey = zones.find((z) => z.fromKm > km) || null;
   const frac = km / plan.course.totalKm;
   const phase = plan.hrGuide ? plan.hrGuide.find((h) => km >= h.fromKm && km <= h.toKm) || null : null;
-  return { sec: t, km, ele, grade, pace, frac, aid, climb, section, descent, nextGel, nextAid, nextClimb, phase };
+  return { sec: t, km, ele, grade, pace, frac, aid, climb, section, descent, nextGel, nextAid, nextClimb, keyZone, nextKey, phase };
 }

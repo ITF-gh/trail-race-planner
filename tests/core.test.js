@@ -7,6 +7,7 @@ import { predictScenario, SCENARIOS } from "../src/core/model.js";
 import { buildPlan, splitClimb, climbScore, climbLevel, climbTactic, parseAidStations } from "../src/core/plan.js";
 import { planToMarkdown } from "../src/core/markdown.js";
 import { raceScript, raceStateAt, secAtKm } from "../src/core/script.js";
+import { keyZones, toblerClock, spreadAt } from "../src/core/keyzones.js";
 import { mmss, hm, clock, parseDuration, parseClock } from "../src/core/format.js";
 import { makeDemoRaceGpx, makeDemoEffortGpx, DEMO_RACE_PROFILE, DEMO_ULTRA_PROFILE, DEMO_ULTRA_AID, DEMO_LONG_RUN_PROFILE } from "../src/demo.js";
 
@@ -271,6 +272,34 @@ test("race-day replay: timeline, script and position follow the plan", () => {
   const mid = raceStateAt(plan, "central", c.start.central + c.dur.central / 2);
   assert.equal(mid.climb.n, c.n);
   assert.ok(mid.grade > 0);
+});
+
+test("key zones: more on a longer race, the last big climb among them, never overlapping", () => {
+  const ultra = parseGpx(makeDemoRaceGpx(DEMO_ULTRA_PROFILE, { startEle: 650 }));
+  const run = parseGpx(makeDemoEffortGpx({ profile: DEMO_LONG_RUN_PROFILE }));
+  const plan = buildPlan(ultra, run, { aidStations: DEMO_ULTRA_AID });
+  const z = plan.keyZones;
+  assert.ok(z.length >= 3 && z.length <= 5, `${z.length} zones on 78 km`);
+  for (let i = 1; i < z.length; i++) assert.ok(z[i].fromKm >= z[i - 1].toKm, "in course order, no overlap");
+  assert.ok(z.some((x) => /Last big climb/.test(x.title)));
+  assert.ok(z.every((x) => x.stakeMin >= 1 && x.why && x.how));
+  // A short race gets a single zone; it appears in the replay script.
+  const short = buildPlan(race, effort);
+  assert.equal(short.keyZones.length, 1);
+  assert.equal(raceScript(short, "central").filter((e) => e.kind === "key").length, 1);
+  // Later counts more: runners spread apart as the race goes on.
+  assert.ok(spreadAt(0.9) > 4 * spreadAt(0.1));
+});
+
+test("key zones from the course alone: Tobler's hiking function as a typical runner's clock", () => {
+  const P = [[0, 100], [1, 100], [2, 300], [3, 100]]; // flat, +20%, -20%
+  const t = toblerClock(P);
+  const flat = t(1) - t(0), up = t(2) - t(1), down = t(3) - t(2);
+  assert.ok(up > 2 * flat && down > flat && up > down, `${flat} ${up} ${down}`);
+  const brief = { totalKm: 3, climbs: [{ n: 1, startKm: 1, endKm: 2, gain: 200, avg: 20, lenM: 1000 }], descents: [] };
+  const zones = keyZones(brief, P, [], t);
+  assert.equal(zones.length, 1);
+  assert.equal(zones[0].kind, "climb");
 });
 
 test("plan renders to Markdown", () => {
