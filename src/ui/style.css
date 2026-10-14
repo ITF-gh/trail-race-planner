@@ -317,7 +317,7 @@ svg .pcur line{stroke:var(--sun);stroke-width:2} svg .pcur circle{fill:var(--sun
 label.f.inline{flex-direction:row;align-items:center;gap:8px} label.f.inline select{width:auto}
 label.chk{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted);font-weight:600;cursor:pointer;min-height:44px}
 label.chk input{width:18px;height:18px;accent-color:var(--sun)}
-.rp-prof svg{cursor:pointer;touch-action:pan-y}
+.rp-prof svg{cursor:pointer}
 .rp-script{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:560px;overflow-y:auto;overscroll-behavior:contain;padding-right:4px}
 .rp-script button{width:100%;display:grid;grid-template-columns:auto minmax(150px,220px) 1fr;gap:6px 14px;align-items:center;text-align:left;background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font:inherit;font-size:14px}
 .rp-script .ic{width:30px;height:30px;font-size:14px}
@@ -380,3 +380,5 @@ label.chk input{width:18px;height:18px;accent-color:var(--sun)}
 .zone-card .mode{font-family:var(--f-display);font-weight:700;text-transform:uppercase;letter-spacing:.1em;font-size:11.5px;padding:2px 9px;border-radius:999px;align-self:center}
 .mode.m-attack{background:var(--accent);color:#fff} .mode.m-prepare{background:#2a6fb0;color:#fff} .mode.m-manage{background:#3fd06a;color:#06231a}
 .zone-card.m-prepare{border-left-color:#4a9be0} .zone-card.m-manage{border-left-color:#3fd06a}
+.map-recenter{font:700 13px/1 var(--f-display);letter-spacing:.06em;text-transform:uppercase;padding:9px 12px;border-radius:999px;border:2px solid #fff;background:#0a1530;color:#fff;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.4);min-height:36px}
+.map-recenter.on{background:var(--accent);animation:cue .6s ease-out}

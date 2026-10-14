@@ -179,10 +179,14 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key }) {
       const vx = ((ev.clientX - b.left) / b.width) * 1000;
       return prof.km(vx);
     };
-    let dragging = false;
-    svg.addEventListener("pointerdown", (ev) => { dragging = true; pause(); seek(secAtKm(plan, sid, toKm(ev))); });
-    svg.addEventListener("pointermove", (ev) => { if (dragging) seek(secAtKm(plan, sid, toKm(ev))); });
-    ["pointerup", "pointercancel", "pointerleave"].forEach((t) => svg.addEventListener(t, () => { dragging = false; }));
+    // A tap or click jumps there; a drag is left to the browser, so the profile scrolls freely.
+    let down = null;
+    svg.addEventListener("pointerdown", (ev) => { down = { x: ev.clientX, y: ev.clientY }; });
+    svg.addEventListener("pointercancel", () => { down = null; });
+    svg.addEventListener("pointerup", (ev) => {
+      if (down && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) < 8) { pause(); seek(secAtKm(plan, sid, toKm(ev))); }
+      down = null;
+    });
   }
   // Keyboard: space plays or pauses, arrows step between moments (only while the replay is on screen).
   rp.onKey = (ev) => {

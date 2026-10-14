@@ -118,9 +118,36 @@ function leafletMap(L, el, { route, totalKm, paint = [], marks = [] }) {
     if (m.kind !== "km") mk.bindTooltip(m.title || m.label, { direction: "top", offset: [0, -8] });
   });
   const runner = L.marker(route[0], { icon: L.divIcon({ className: "mk-wrap", html: `<div class="runner"><i></i></div>`, iconSize: null }), interactive: false, zIndexOffset: 1000 });
-  let following = false;
+  let following = false; // the replay wants the map to follow the runner
+  let zoomed = false;
+  let free = false; // ...but you moved the map yourself: it stays where you put it
   const fit = () => map.fitBounds(line.getBounds(), { padding: [18, 18] });
   fit();
+  // Recenter button: brings the runner back into view and resumes following.
+  const Recenter = L.Control.extend({
+    onAdd() {
+      const b = L.DomUtil.create("button", "map-recenter");
+      b.type = "button";
+      b.innerHTML = "◎ Recenter";
+      b.title = "Back to the runner";
+      L.DomEvent.disableClickPropagation(b);
+      L.DomEvent.on(b, "click", () => {
+        free = false;
+        b.classList.remove("on");
+        if (map.hasLayer(runner)) map.setView(runner.getLatLng(), Math.max(map.getZoom(), 14));
+        else fit();
+      });
+      return b;
+    },
+  });
+  const recenter = new Recenter({ position: "bottomright" });
+  // Dragging the map is your move: stop following until you press Recenter. Zooming keeps
+  // following (the map re-centres only if the runner leaves the view).
+  map.on("dragstart", () => {
+    if (!following) return;
+    free = true;
+    recenter.getContainer() && recenter.getContainer().classList.add("on");
+  });
   return {
     setRunner(km) {
       const p = pointAt(route, totalKm, km);
@@ -128,11 +155,15 @@ function leafletMap(L, el, { route, totalKm, paint = [], marks = [] }) {
       if (!map.hasLayer(runner)) runner.addTo(map);
       // Following: re-centre only when the runner leaves the middle of the view, so the map
       // holds still most of the time instead of sliding on every frame.
-      if (following && !map.getBounds().pad(-0.25).contains(p)) map.panTo(p, { animate: false });
+      if (following && !free && !map.getBounds().pad(-0.25).contains(p)) map.panTo(p, { animate: false });
     },
     follow(on) {
       following = on;
-      if (on && map.hasLayer(runner)) map.setView(runner.getLatLng(), Math.max(map.getZoom(), 14), { animate: false });
+      free = false;
+      if (on && !recenter.getContainer()) recenter.addTo(map);
+      if (recenter.getContainer()) recenter.getContainer().classList.remove("on");
+      // Zoom in on the runner the first time only; after that your zoom level is kept.
+      if (on && map.hasLayer(runner)) { map.setView(runner.getLatLng(), zoomed ? map.getZoom() : Math.max(map.getZoom(), 14), { animate: false }); zoomed = true; }
       else if (!on) fit();
     },
     fit,
