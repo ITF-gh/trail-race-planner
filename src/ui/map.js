@@ -11,6 +11,8 @@
 // without the internet; only the tile images need the network. With no tiles you still get
 // the course line, the markers and the runner on a plain background.
 
+import { trackEvent } from "./analytics.js";
+
 const LEAFLET_JS = "vendor/leaflet/leaflet.js";
 const LEAFLET_CSS = "vendor/leaflet/leaflet.css";
 
@@ -104,6 +106,9 @@ function leafletMap(L, el, { route, totalKm, paint = [], marks = [] }) {
   const layers = Object.fromEntries(Object.entries(TILES).map(([k, t]) => [t.label, L.tileLayer(t.url, { maxZoom: t.maxZoom, attribution: t.attribution, subdomains: "abc", crossOrigin: true })]));
   layers.Map.addTo(map);
   L.control.layers(layers, null, { position: "topright" }).addTo(map);
+  // Leaflet also fires baselayerchange when the first layer is (re)attached: count real switches only.
+  let base = "Map";
+  map.on("baselayerchange", (e) => { if (e.name !== base) { base = e.name; trackEvent("map-layer", e.name); } });
   L.control.scale({ imperial: false }).addTo(map);
   // Wheel zoom only after a click on the map, so scrolling the page never gets stuck in it.
   map.on("click", () => map.scrollWheelZoom.enable());
@@ -132,6 +137,7 @@ function leafletMap(L, el, { route, totalKm, paint = [], marks = [] }) {
       b.title = "Back to the runner";
       L.DomEvent.disableClickPropagation(b);
       L.DomEvent.on(b, "click", () => {
+        trackEvent("map-recenter");
         free = false;
         b.classList.remove("on");
         if (map.hasLayer(runner)) map.setView(runner.getLatLng(), Math.max(map.getZoom(), 14));
