@@ -6,6 +6,7 @@ import { analyseEffort, hikeThreshold } from "../src/core/effort.js";
 import { predictScenario, SCENARIOS } from "../src/core/model.js";
 import { buildPlan, splitClimb, climbScore, climbLevel, climbTactic, parseAidStations } from "../src/core/plan.js";
 import { planToMarkdown } from "../src/core/markdown.js";
+import { raceScript, raceStateAt, secAtKm } from "../src/core/script.js";
 import { mmss, hm, clock, parseDuration, parseClock } from "../src/core/format.js";
 import { makeDemoRaceGpx, makeDemoEffortGpx, DEMO_RACE_PROFILE, DEMO_ULTRA_PROFILE, DEMO_ULTRA_AID, DEMO_LONG_RUN_PROFILE } from "../src/demo.js";
 
@@ -225,6 +226,51 @@ test("demo ultra: long climbs split into sections, no two gels at once, none lef
       assert.ok(gap <= (45 + 20) * 60 + 60, `${s.id}: ${Math.round(gap / 60)} min without a gel before ${s.gels[i].km} km`);
     }
   }
+});
+
+test("demo loop: the map course closes on itself and keeps the profile's length", () => {
+  const loop = parseGpx(makeDemoRaceGpx(DEMO_ULTRA_PROFILE, { startEle: 650, loop: true, center: [45.05, 5.7] }));
+  const rs = resample(loop, 10);
+  const want = DEMO_ULTRA_PROFILE.reduce((s, [l]) => s + l, 0);
+  assert.ok(Math.abs(rs.totalM - want) / want < 0.005, `${rs.totalM} m for ${want} m`);
+  assert.ok(haversine(loop.points[0], loop.points.at(-1)) < 30, "finish back at the start");
+  assert.ok(Math.abs(rs.lat[0] - 45.05) < 1e-6 && Math.abs(rs.lon[0] - 5.7) < 1e-6);
+});
+
+test("race-day replay: timeline, script and position follow the plan", () => {
+  const ultra = parseGpx(makeDemoRaceGpx(DEMO_ULTRA_PROFILE, { startEle: 650, loop: true, center: [45.05, 5.7] }));
+  const run = parseGpx(makeDemoEffortGpx({ profile: DEMO_LONG_RUN_PROFILE }));
+  const plan = buildPlan(ultra, run, { aidStations: DEMO_ULTRA_AID, startTime: "06:00" });
+  const P = plan.course.profile;
+  assert.equal(plan.course.route.length, P.length);
+  assert.ok(Math.abs(P.at(-1)[0] - plan.course.totalKm) < 1e-9, "profile reaches the finish");
+  for (const s of Object.values(plan.scenarios)) {
+    assert.equal(s.timeline.length, P.length);
+    assert.equal(s.timeline[0], 0);
+    assert.ok(Math.abs(s.timeline.at(-1) - s.finishSec) <= 1);
+    for (let i = 1; i < s.timeline.length; i++) assert.ok(s.timeline[i] >= s.timeline[i - 1]);
+  }
+  const script = raceScript(plan, "central");
+  for (let i = 1; i < script.length; i++) assert.ok(script[i].sec >= script[i - 1].sec, "in time order");
+  assert.equal(script[0].kind, "start");
+  assert.equal(script.at(-1).kind, "finish");
+  assert.equal(script.filter((e) => e.kind === "aid").length, 7);
+  assert.equal(script.filter((e) => e.kind === "gel").length, plan.scenarios.central.gels.length);
+  // Halfway in distance is reached at the time the plan says, and the state agrees.
+  const half = secAtKm(plan, "central", plan.course.totalKm / 2);
+  assert.ok(Math.abs(raceStateAt(plan, "central", half).km - plan.course.totalKm / 2) < 0.05);
+  // Standing at an aid station: the clock runs, the runner does not move.
+  const a = plan.aidStations.find((x) => x.stopMin >= 5);
+  const t0 = a.arrive.central + 60, t1 = a.arrive.central + a.stopMin * 60 - 60;
+  const s0 = raceStateAt(plan, "central", t0), s1 = raceStateAt(plan, "central", t1);
+  assert.equal(s0.aid.name, a.name);
+  assert.equal(s0.km, s1.km);
+  assert.equal(s0.pace, null);
+  // On a climb, the state names it.
+  const c = plan.climbs.find((x) => x.level >= 3);
+  const mid = raceStateAt(plan, "central", c.start.central + c.dur.central / 2);
+  assert.equal(mid.climb.n, c.n);
+  assert.ok(mid.grade > 0);
 });
 
 test("plan renders to Markdown", () => {

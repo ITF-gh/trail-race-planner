@@ -86,6 +86,16 @@ The duration rule is a cousin of the **Riegel formula** (time2 = time1 × (dista
 
 Every file in `src/core/` is a **pure function**: text and numbers in, numbers out, no reading of files, no drawing. That is why the command line and the browser app share the calculation, and why the tests run in plain Node without a browser. The thin layers around the core only read input and show output. When you extend the project, put new maths in `src/core/` with a test, and keep the UI thin.
 
+## 8. Seeing it: map and race-day replay (`src/ui/map.js`, `src/core/script.js`, `src/ui/replay.js`)
+
+**Map.** Every GPX point has a latitude and longitude. The resampling step interpolates them like elevation, and the plan keeps one point every 100 m (`course.route`). A web map is a mosaic of 256 px images ("tiles") cut for each zoom level; Leaflet downloads the tiles in view and draws the course on top as SVG lines, using the same projection as the tiles (Web Mercator). Each climb is painted in its difficulty colour, so the map and the profile read the same way.
+
+**Timeline.** The model already knows the clock time at every 10 m. The plan keeps it every 100 m per scenario (`timeline`), aid-station stops included. Going from a clock time to a position is then a *binary search* in that sorted list (halve the range until one 100 m step is left) and a linear interpolation inside the step.
+
+**Script.** `raceScript` turns the plan into moments in time order (start, each climb and its top, braking descents, gels, aid stations, halfway, the decision point, the finish), each with a short cue. `raceStateAt` answers "where am I at second t": km, altitude, gradient, pace, the climb or section you are on, the next gel and aid station.
+
+**Replay.** `requestAnimationFrame` runs a function before each screen refresh. Each frame advances race time by the real time elapsed times the speed (one race hour in 10 s by default), and redraws only what changed. With "Stop at each moment" on, the replay pauses when it crosses a moment, so you can read the cue and picture the place. Rehearsing like this is a form of *mental imagery*, which athletes use to make race day feel familiar.
+
 ## Ideas for what to build next
 
 - Save an analysed effort profile so you do not re-upload the file.

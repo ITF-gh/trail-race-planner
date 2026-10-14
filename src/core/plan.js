@@ -119,6 +119,17 @@ export function splitClimb(ele, a, b, step, minM = 1500) {
   return out;
 }
 
+/**
+ * Every 10th sample (one per 100 m on the 10 m grid) plus the last one: the resolution of
+ * the profile, the map route and the race-day replay timeline.
+ */
+export function coarseIndices(n, every = 10) {
+  const idx = [];
+  for (let i = 0; i < n; i += every) idx.push(i);
+  if (idx[idx.length - 1] !== n - 1) idx.push(n - 1);
+  return idx;
+}
+
 /** Index of the sample where cumulative time first reaches `sec`. */
 function indexAtTime(cum, sec) {
   let lo = 0;
@@ -239,6 +250,7 @@ export function buildPlan(raceParsed, effortParsed, userParams = {}) {
 
   // Where the gel lands: every N minutes, but never in the middle of a climb or a braking descent.
   const segs = [...climbs.map((c) => ({ ...c, kind: "climb" })), ...descents.filter((d) => d.level === 4).map((d) => ({ ...d, kind: "descent" }))];
+  const coarse = coarseIndices(course.n);
   const scenarios = {};
   for (const s of SCENARIOS) {
     const pr = preds[s.id];
@@ -276,7 +288,9 @@ export function buildPlan(raceParsed, effortParsed, userParams = {}) {
       checkpoints.push({ km, sec: pr.cum[Math.min(course.n - 1, Math.round((km * 1000) / course.step))], label: `km ${km}` });
     }
     checkpoints.push({ km: total, sec: pr.finishSec, label: "Finish" });
-    scenarios[s.id] = { id: s.id, label: s.label, finishSec: pr.finishSec, factor: pr.factor, durationFactor: pr.durationFactor, gels, checkpoints };
+    // Clock (seconds since the start, stops included) every 100 m: what the race-day replay plays back.
+    const timeline = coarse.map((i) => Math.round(pr.cum[i]));
+    scenarios[s.id] = { id: s.id, label: s.label, finishSec: pr.finishSec, factor: pr.factor, durationFactor: pr.durationFactor, gels, checkpoints, timeline };
   }
 
   // Heart-rate guide anchored on the average HR of the effort file.
@@ -300,13 +314,14 @@ export function buildPlan(raceParsed, effortParsed, userParams = {}) {
     bandUse[bi].sec += cc[i + 1] - cc[i];
   }
 
-  const profile = [];
-  for (let i = 0; i < course.n; i += 10) profile.push([kmAt(i), course.ele[i]]);
+  const profile = coarse.map((i) => [kmAt(i), course.ele[i]]);
+  // [lat, lon] at the same points as the profile, for the map. Null when the GPX has no positions.
+  const route = raceRs.lat ? coarse.map((i) => [+raceRs.lat[i].toFixed(6), +raceRs.lon[i].toFixed(6)]) : null;
 
   return {
     params: { ...params, hikeGrade },
     startSec,
-    course: { totalKm: total, gain: course.gain, loss: course.loss, climbCount: climbs.length, descentCount: descents.length, profile },
+    course: { totalKm: total, gain: course.gain, loss: course.loss, climbCount: climbs.length, descentCount: descents.length, profile, route },
     effort: {
       durationSec: effort.durationSec,
       distKm: effort.distKm,

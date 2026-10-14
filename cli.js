@@ -60,7 +60,7 @@ const plan = planFromGpx(readFileSync(values.race, "utf8"), values.effort.map((f
 });
 
 if (values.json) {
-  const slim = JSON.parse(JSON.stringify(plan, (k, v) => (k === "profile" ? undefined : v)));
+  const slim = JSON.parse(JSON.stringify(plan, (k, v) => (["profile", "route", "timeline"].includes(k) ? undefined : v)));
   console.log(JSON.stringify(slim, null, 2));
 } else {
   console.log(planToMarkdown(plan, values.scenario));

@@ -2,6 +2,8 @@
 
 Give it a race course (GPX) and one of your own recorded runs (GPX). It learns how fast you move on each kind of terrain, then predicts the race and writes a plan: pace by gradient, which climbs to hike, which descents to brake on, gel stops, checkpoints, and a heart-rate guide.
 
+Then it lets you **rehearse race day**: the course on an OpenStreetMap map, and a replay where a runner moves along the map and the profile at your predicted pace, stopping at each climb, gel and aid station with a short cue of what to do there.
+
 Your files are read on your own machine. Nothing is uploaded.
 
 ## Use it
@@ -44,8 +46,10 @@ src/core/model.js      predict the course, three scenarios
 src/core/plan.js       climbs (long ones split into sections), descents, gels, checkpoints, heart-rate guide
 src/core/format.js     time and pace formatting
 src/core/markdown.js   plan as Markdown
+src/core/script.js     the race in time: key moments with cues, and where you are at any second
 src/demo.js            made-up GPX files for the demo and the tests
-src/ui/                the browser app
+src/ui/                the browser app (main.js, map.js for the map, replay.js for race day)
+src/vendor/leaflet/    Leaflet 1.9.4, the map library (BSD-2 licence), copied to dist/vendor/
 cli.js                 the command-line tool
 scripts/build.js       bundles the app into dist/index.html, no dependencies
 tests/                 node:test suite on made-up data
@@ -71,6 +75,10 @@ GPX files show where you live and train. `.gitignore` excludes `*.gpx` so they d
 ## Status and honesty
 
 This is a first version. The model is a transparent pace table, not a physiological simulation. Treat the three scenarios as a range of plausible outcomes. Typical error for this kind of model is 5 to 10%. See "Honest limits" in `docs/HOW_IT_WORKS.md`.
+
+## Map
+
+The map uses [Leaflet](https://leafletjs.com) with tiles from [OpenStreetMap](https://www.openstreetmap.org/copyright) (or [OpenTopoMap](https://opentopomap.org) for contour lines), credited in the map corner. Leaflet ships with the page and loads only when a map is shown. Without a network the tiles are missing but the course, markers and runner still draw; if Leaflet itself cannot load, a plain drawing of the course shape takes its place. The demo course is drawn as a made-up loop over the Vercors: its profile does not match the real ground there.
 
 ## Photos
 

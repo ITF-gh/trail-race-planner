@@ -52,7 +52,7 @@ export function haversine(a, b) {
 /**
  * Re-sample a parsed track onto a regular distance grid.
  * Returns parallel arrays, one entry per `step` metres:
- *   ele (m), time (ms or null), hr (bpm or null), cad (spm or null).
+ *   ele (m), lat and lon (degrees, for the map), time (ms or null), hr (bpm or null), cad (spm or null).
  */
 export function resample(parsed, step = 10) {
   const pts = parsed.points;
@@ -74,6 +74,8 @@ export function resample(parsed, step = 10) {
     n,
     totalM: total,
     ele: new Array(n),
+    lat: new Array(n),
+    lon: new Array(n),
     time: hasTime ? new Array(n) : null,
     hr: hasHr ? new Array(n) : null,
     cad: hasCad ? new Array(n) : null,
@@ -87,6 +89,8 @@ export function resample(parsed, step = 10) {
     const a = keep[j];
     const b = keep[j + 1];
     out.ele[k] = a.ele + f * (b.ele - a.ele);
+    out.lat[k] = a.lat + f * (b.lat - a.lat);
+    out.lon[k] = a.lon + f * (b.lon - a.lon);
     if (hasTime) out.time[k] = a.time + f * (b.time - a.time);
     if (hasHr) out.hr[k] = lerpNullable(a.hr, b.hr, f);
     if (hasCad) out.cad[k] = lerpNullable(a.cad, b.cad, f);

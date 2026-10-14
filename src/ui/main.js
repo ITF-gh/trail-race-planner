@@ -3,15 +3,19 @@
 //   01 Your engine     what your own run says about you (effort GPX only)
 //   02 Race briefing   what the course says, before knowing who runs it (race GPX only)
 //   03 D-day plan      both files plus your settings: clock times, tactics, gels
-// Each section renders as soon as the files it needs are loaded.
+//   04 Race day        the plan played back in time on the map and profile, to rehearse it
+// Each section renders as soon as the files it needs are loaded. A sticky bar on top jumps
+// between sections and shows which one you are reading.
 
 import { parseGpx, resample } from "../core/track.js";
 import { analyseCourse } from "../core/terrain.js";
 import { analyseEffort } from "../core/effort.js";
-import { buildPlan, briefCourse, PLAN_DEFAULTS, LEVELS, DESCENT_LABELS } from "../core/plan.js";
+import { buildPlan, briefCourse, coarseIndices, parseAidStations, PLAN_DEFAULTS, LEVELS, DESCENT_LABELS } from "../core/plan.js";
 import { TERRAIN, SCENARIOS } from "../core/model.js";
 import { planToMarkdown } from "../core/markdown.js";
 import { mmss, hm, clock, parseDuration } from "../core/format.js";
+import { courseMap } from "./map.js";
+import { mountReplay, stopReplay } from "./replay.js";
 import { makeDemoRaceGpx, makeDemoEffortGpx, DEMO_ULTRA_PROFILE, DEMO_ULTRA_AID, DEMO_LONG_RUN_PROFILE } from "../demo.js";
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -27,7 +31,8 @@ const state = {
   effort: null, // {runs: [{name, parsed}], info}
   settings: { ...PLAN_DEFAULTS, ...(store.get("trp.settings") || {}) },
   scenario: store.get("trp.scenario") || "central",
-  tab: "c",
+  tab: "c", // D-day list: climbs or descents
+  btab: "c", // briefing list: climbs or descents
   plan: null,
 };
 
@@ -42,10 +47,11 @@ const PHOTOS = {
   s3: { by: "Jack Davis", url: "https://www.pexels.com/photo/back-view-of-a-woman-running-up-the-mountain-trail-8949023/" },
 };
 const credit = (key) => `<a class="photo-credit" href="${PHOTOS[key].url}" target="_blank" rel="noopener">Photo: ${PHOTOS[key].by} / Pexels</a>`;
-const head = (num, kicker, title) => `<header class="sec-head"><div class="sec-num">${num}</div><div class="sec-kicker">${kicker}</div><h2>${title}</h2>${credit("s" + Number(num))}</header>`;
+const head = (num, kicker, title) => `<header class="sec-head"><div class="sec-num">${num}</div><div class="sec-kicker">${kicker}</div><h2>${title}</h2>${PHOTOS["s" + Number(num)] ? credit("s" + Number(num)) : ""}</header>`;
+const NAV = [["s1", "01", "Engine"], ["s2", "02", "Briefing"], ["s3", "03", "D-day"], ["s4", "04", "Race day"]];
 
 $("#app").innerHTML = `
-<header class="hero">
+<header class="hero" id="top">
   ${credit("hero")}
   <div class="hero-in">
     <div class="hero-row">
@@ -72,6 +78,15 @@ $("#app").innerHTML = `
     </div>
   </div>
 </header>
+
+<nav class="topnav" id="topnav" aria-label="Sections">
+  <div class="topnav-in">
+    <a class="tn-brand" href="#top" aria-label="Back to top">${PEAK}</a>
+    <div class="tn-links">${NAV.map(([id, n, t]) => `<a href="#${id}" data-sec="${id}"><b>${n}</b>${t}</a>`).join("")}</div>
+    <div class="tn-sum" id="tnSum"></div>
+  </div>
+  <div class="tn-prog" aria-hidden="true"><i id="tnProg"></i></div>
+</nav>
 
 <section id="s1">
   ${head("01", "From your run", "Your engine")}
@@ -111,6 +126,12 @@ $("#app").innerHTML = `
     <div id="planErr"></div>
   </div>
   <div id="s3body" style="margin-top:22px"></div>
+</section>
+
+<section id="s4">
+  ${head("04", "Rehearse it", "Race day")}
+  <p class="sec-intro">Live the race before you run it. Press play and follow yourself along the course: the clock runs at your predicted pace, and every climb, gel and aid station shows what to do there. Replay it until the plan feels familiar.</p>
+  <div id="s4body"></div>
 </section>
 
 <p class="foot">How it works: your run gives a pace for every gradient band, fresh and tired. Each 10 m of the course takes the pace of its band, sliding from fresh to tired along the race, scaled for terrain and for how much longer the race is than your run. Climbs and descents come from the course elevation, smoothed to ignore GPS noise. A model like this is usually within 5 to 10%: treat the three scenarios as a range, not a promise.</p>
@@ -164,10 +185,12 @@ function setStatus(which, html, ok) {
 function loadRace(xml, label) {
   try {
     const parsed = parseGpx(xml);
-    const course = analyseCourse(resample(parsed, 10));
-    const profile = [];
-    for (let i = 0; i < course.n; i += 10) profile.push([(i * course.step) / 1000, course.ele[i]]);
-    state.race = { name: label || parsed.name || "Race", parsed, course, profile };
+    const rs = resample(parsed, 10);
+    const course = analyseCourse(rs);
+    const idx = coarseIndices(course.n);
+    const profile = idx.map((i) => [(i * course.step) / 1000, course.ele[i]]);
+    const route = idx.map((i) => [rs.lat[i], rs.lon[i]]);
+    state.race = { name: label || parsed.name || "Race", parsed, course, profile, route };
     setStatus("race", `<span class="ok">✓ ${esc(state.race.name)}</span> · ${course.totalKm.toFixed(1)} km · ${Math.round(course.gain)} m D+`, true);
   } catch (e) {
     state.race = null;
@@ -233,7 +256,9 @@ $("#demo").addEventListener("click", () => {
     if ($("#startTime").value === PLAN_DEFAULTS.startTime) $("#startTime").value = "06:00";
     readSettings();
   }
-  loadRace(makeDemoRaceGpx(DEMO_ULTRA_PROFILE, { name: "Ultra des Crêtes 78K", startEle: 650 }), "Ultra des Crêtes 78K (made up)");
+  // The course is drawn as a loop over the Vercors so the map has something to show; the
+  // profile does not match the real ground there.
+  loadRace(makeDemoRaceGpx(DEMO_ULTRA_PROFILE, { name: "Ultra des Crêtes 78K", startEle: 650, loop: true, center: [45.05, 5.7] }), "Ultra des Crêtes 78K (made up)");
   $("#s1").scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
@@ -251,6 +276,8 @@ function compute() {
   renderEngine();
   renderBriefing();
   renderDday();
+  renderReplay();
+  renderNav();
 }
 
 /* ---------- shared pieces ---------- */
@@ -272,11 +299,10 @@ function elevAt(profile, km) {
 }
 
 /**
- * Elevation profile. `brief` gives the climbs and descents; `race` (optional) adds
- * checkpoints, gels and the decision zone for one scenario.
+ * Where things sit on the profile drawing (SVG units, viewBox 1000 wide): x(km), y(altitude),
+ * and km(x) back from a click. Shared by the drawing and by the cursors that move on it.
  */
-function profileSvg(P, brief, race) {
-  const TOT = brief.totalKm;
+function profGeom(P, TOT, race) {
   const eles = P.map((p) => p[1]);
   const EMIN = Math.min(...eles), EMAX = Math.max(...eles);
   const W = 1000, l = 52, r = 14, top = race ? 34 : 18, base = race ? 205 : 190;
@@ -284,6 +310,19 @@ function profileSvg(P, brief, race) {
   const H = race ? 285 : 222;
   const x = (km) => l + (km / TOT) * (W - l - r);
   const y = (e) => base - 24 - ((e - EMIN) / Math.max(1, EMAX - EMIN)) * plotH;
+  const km = (vx) => Math.max(0, Math.min(TOT, ((vx - l) / (W - l - r)) * TOT));
+  return { EMIN, EMAX, W, l, r, top, base, plotH, H, x, y, km };
+}
+
+/**
+ * Elevation profile. `brief` gives the climbs and descents; `race` (optional) adds
+ * checkpoints, gels and the decision zone for one scenario. Returns {html, x, y, km};
+ * the html has a hidden `.pcur` cursor (a line and a dot) to move with translate().
+ */
+function profileView(P, brief, race) {
+  const TOT = brief.totalKm;
+  const g = profGeom(P, TOT, race);
+  const { EMIN, EMAX, W, l, r, top, base, H, x, y } = g;
   let s = "";
   if (race) s += `<rect class="zone" x="${x(race.decision.fromKm)}" y="${top}" width="${x(race.decision.toKm) - x(race.decision.fromKm)}" height="${base - top}"/>`;
   let d = `M${x(0)},${base}`;
@@ -325,7 +364,8 @@ function profileSvg(P, brief, race) {
       s += `<circle class="gel" cx="${x(g.km)}" cy="${base + 48}" r="9"/><text class="gelt" x="${x(g.km)}" y="${base + 51}" text-anchor="middle">G</text><text x="${x(g.km)}" y="${base + 70}" text-anchor="middle">${clock(race.startSec, g.sec)}</text>`;
     });
   }
-  return `<div class="prof-scroll"><svg viewBox="0 0 1000 ${H}" role="img" aria-label="Elevation profile with climbs coloured by difficulty">${s}</svg></div>`;
+  s += `<g class="pcur" style="display:none"><line x1="0" x2="0" y1="${top - 4}" y2="${base}"/><circle cx="0" cy="${base}" r="6"/></g>`;
+  return { ...g, html: `<div class="prof-scroll"><svg viewBox="0 0 1000 ${H}" role="img" aria-label="Elevation profile with climbs coloured by difficulty">${s}</svg></div>` };
 }
 
 const LEGEND = `<div class="legend" style="margin-top:10px"><span class="chip l1">Easy</span><span class="chip l2">Moderate</span><span class="chip l3">Hard</span><span class="chip l4">Crux</span><span class="note" style="margin:0 0 0 4px">Dashed red: descent to brake on. Short ticks: where a long climb changes section.</span></div>`;
@@ -368,12 +408,28 @@ function renderEngine() {
     </div>`;
 }
 
+/* ---------- map styling shared by the briefing and the replay ---------- */
+/** Coloured stretches (climbs by difficulty, braking descents) and markers for courseMap. */
+function mapStyle(brief, aid) {
+  const paint = [];
+  brief.climbs.forEach((c) => (c.sections.length ? c.sections : [c]).forEach((p) => paint.push({ fromKm: p.startKm, toKm: p.endKm, cls: `rt-cl rt-cl${p.level}`, title: `Climb ${p.n} · km ${p.startKm.toFixed(1)} · ${Math.round(p.gain)} m at ${p.avg.toFixed(1)}% · ${LEVELS[p.level]}` })));
+  brief.descents.filter((d) => d.level === 4).forEach((d) => paint.push({ fromKm: d.startKm, toKm: d.endKm, cls: "rt-dl", title: `Descent ${d.n} · km ${d.startKm.toFixed(1)} · ${Math.round(d.loss)} m at ${Math.abs(d.avg).toFixed(1)}% · brake` }));
+  const marks = [{ km: 0, kind: "start", label: "Start" }];
+  const every = brief.totalKm > 60 ? 10 : 5;
+  for (let k = every; k < brief.totalKm - 1; k += every) marks.push({ km: k, kind: "km", label: String(k) });
+  aid.forEach((a) => marks.push({ km: a.km, kind: "aid", label: esc(a.name), title: `${esc(a.name)} · km ${a.km.toFixed(1)}${a.time ? ` · ${a.time}` : ""}` }));
+  return { paint, marks };
+}
+const jumps = (items) => `<nav class="jumps" aria-label="In this section">${items.map(([href, t, cls]) => `<a href="#${href}" class="${cls || ""}">${t}</a>`).join("")}</nav>`;
+let briefMap = null;
+
 /* ---------- 02 race briefing ---------- */
 function diffCell(c, maxScore) {
   return `<div class="diff"><span class="chip l${c.level}">${LEVELS[c.level]}</span><span class="bar"><i style="width:${Math.round(Math.min(1, c.score / maxScore) * 100)}%"></i></span><span class="sc">${Math.round(c.score)}</span></div>`;
 }
 function renderBriefing() {
   const box = $("#s2body");
+  if (briefMap) { briefMap.destroy(); briefMap = null; }
   if (!state.race) { box.innerHTML = empty(`<b>Drop the race GPX above</b> to get the course briefing.`); return; }
   const brief = briefCourse(state.race.course, state.settings);
   const P = state.race.profile;
@@ -395,16 +451,51 @@ function renderBriefing() {
   const descents = brief.descents.map((d) => `<div class="row v${d.level}">
       <div class="n">${d.n}</div>${cell("Km", kmRange(d))}${cell("Length", len(d.lenM))}${cell("Loss", `${Math.round(d.loss)} m`)}${cell("Average", `${Math.abs(d.avg).toFixed(1)}%`)}${cell("Steepest 100 m", `${Math.abs(Math.round(d.steep))}%`)}<div class="diff"><span class="chip l${d.level}">${DESCENT_LABELS[d.level]}</span></div>
     </div>`).join("");
+  const view = profileView(P, brief);
   box.innerHTML = `
+    ${jumps([["b-map", "Map"], ["b-prof", "Profile"], ["b-list", `Climbs and descents`]])}
     <div class="tiles">${tiles}</div>
-    <div class="sub-h">Profile</div>
-    <div class="prof-wrap">${profileSvg(P, brief)}${LEGEND}</div>
-    <div class="sub-h">Climbs</div>
+    <div class="sub-h" id="b-map">Map</div>
+    <div class="b-map" id="briefMap"></div>
+    <p class="note">Coloured like the profile: climbs by difficulty, dashed red for descents to brake on. Triangles are aid stations, numbers are km. Hover the profile to see where you are on the map.</p>
+    <div class="sub-h" id="b-prof">Profile</div>
+    <div class="prof-wrap" id="briefProf">${view.html}${LEGEND}</div>
+    <div class="sub-h" id="b-list">Climbs and descents</div>
+    <div class="tabs" role="tablist" aria-label="Segments">
+      <button type="button" role="tab" data-t="c" aria-selected="${state.btab === "c"}">Climbs · ${brief.climbs.length}</button>
+      <button type="button" role="tab" data-t="d" aria-selected="${state.btab === "d"}">Descents · ${brief.descents.length}</button>
+    </div>
+    <div ${state.btab === "c" ? "" : "hidden"}>
     <p class="note" style="margin:-4px 0 12px">Difficulty = gain × steepness (average ÷ 8%, between 0.5 and 2) × fatigue (1.00 early, 1.15 mid-race, 1.35 late). Climbs of ${(state.settings.splitClimbM / 1000).toFixed(0)} km or more with ${state.settings.splitClimbMinGain} m of gain are split into sections of at least ${(state.settings.sectionMinM / 1000).toFixed(1)} km, each rated on its own.</p>
     <div class="rows">${climbs || empty("No climbs over 10 m.")}</div>
-    <div class="sub-h">Descents</div>
+    </div>
+    <div ${state.btab === "d" ? "" : "hidden"}>
     <p class="note" style="margin:-4px 0 12px">Brake: a 100 m stretch of 20% or more, or 12% on average. Control: 6% on average, or a 15% stretch. Let it run: everything else.</p>
-    <div class="rows">${descents || empty("No descents over 10 m.")}</div>`;
+    <div class="rows">${descents || empty("No descents over 10 m.")}</div>
+    </div>`;
+  box.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => {
+    state.btab = b.dataset.t;
+    box.querySelectorAll(".tabs button").forEach((x) => x.setAttribute("aria-selected", String(x === b)));
+    const [c, d] = box.querySelectorAll(".tabs ~ div");
+    c.hidden = state.btab !== "c";
+    d.hidden = state.btab !== "d";
+  }));
+
+  const aid = parseAidStations(state.settings.aidStations).filter((a) => a.km <= brief.totalKm);
+  briefMap = courseMap($("#briefMap"), { route: state.race.route, totalKm: brief.totalKm, ...mapStyle(brief, aid) });
+  // Hover (or touch) the profile: a cursor there, and a dot at the same km on the map.
+  const svg = $("#briefProf svg");
+  const cur = svg.querySelector(".pcur");
+  const show = (ev) => {
+    const b = svg.getBoundingClientRect();
+    const km = view.km(((ev.clientX - b.left) / b.width) * 1000);
+    cur.style.display = "";
+    cur.setAttribute("transform", `translate(${view.x(km).toFixed(1)},0)`);
+    cur.querySelector("circle").setAttribute("cy", view.y(elevAt(P, km)).toFixed(1));
+    briefMap.setRunner(km);
+  };
+  svg.addEventListener("pointermove", show);
+  svg.addEventListener("pointerdown", show);
 }
 
 /* ---------- 03 D-day ---------- */
@@ -440,6 +531,7 @@ function renderDday() {
   const logMode = store.get("trp.logMode") || "race";
 
   out.innerHTML = `
+  ${jumps([["d-card", "Race card"], ["d-climbs", "Climb by climb"], ["d-log", "Plan versus actual"], ["d-export", "Export"], ["s4", "▶ Rehearse race day", "go"]])}
   <div class="dday-top">
     ${tile(`Finish · ${sc.label.toLowerCase()}`, clock(st, sc.finishSec), `${hm(sc.finishSec)} on course · start ${clock(st, 0)}`, "big")}
     <div class="panel" style="display:flex;flex-direction:column;gap:12px;justify-content:center">
@@ -447,11 +539,11 @@ function renderDday() {
       <p class="note" style="margin:0">Race pace is ${((sc.factor - 1) * 100).toFixed(0)}% slower than your run on the same gradients: terrain factor plus the fade for a longer effort. Every clock time on this page follows the scenario you pick.</p>
     </div>
   </div>
-  <div class="prof-wrap">${profileSvg(plan.course.profile, brief, { ...sc, startSec: st, decision: plan.decision, aid: aidMarks })}
+  <div class="prof-wrap">${profileView(plan.course.profile, brief, { ...sc, startSec: st, decision: plan.decision, aid: aidMarks }).html}
     <div class="legend" style="margin-top:10px"><span class="note" style="margin:0">Red dots: gels. Triangles: aid stations. Dotted lines: checkpoints. Shaded band: decision point between km ${plan.decision.fromKm.toFixed(0)} and ${plan.decision.toKm.toFixed(0)}.</span></div>
   </div>
 
-  <div class="sub-h">Race card</div>
+  <div class="sub-h" id="d-card">Race card</div>
   <div class="grid">
     <div class="panel card"><h3>Checkpoints</h3><ul class="kv">${ckList}</ul></div>
     ${plan.aidStations.length ? `<div class="panel card"><h3>Aid stations</h3><ul class="kv">${plan.aidStations.map((a) => `<li><span>km ${a.km.toFixed(1)} · ${esc(a.name)}</span><b>${clock(st, a.arrive[sid])}${a.stopMin ? ` → ${clock(st, a.arrive[sid] + a.stopMin * 60)}` : ""}</b></li>`).join("")}</ul><p class="note">Arrival → departure. ${plan.aidStations.reduce((t, a) => t + a.stopMin, 0)} min of stops in total, included in the finish time.</p></div>` : ""}
@@ -460,7 +552,7 @@ function renderDday() {
     <div class="panel card"><h3>Hike these</h3><ul class="kv">${hikeList}</ul><p class="note">Hiking from ${plan.params.hikeGrade}% (${state.settings.hikeGrade ? "set by you" : plan.effort.hikeGrade ? "learned from your cadence" : "default"}). A climb is hiked when its average is within 2 points of that, or just its steep part when a 100 m stretch reaches it.</p></div>
   </div>
 
-  <div class="sub-h">Climb by climb</div>
+  <div class="sub-h" id="d-climbs">Climb by climb</div>
   <div class="tabs" role="tablist" aria-label="Segments">
     <button type="button" role="tab" data-t="c" aria-selected="${state.tab === "c"}">Climbs</button>
     <button type="button" role="tab" data-t="d" aria-selected="${state.tab === "d"}">Descents</button>
@@ -468,7 +560,7 @@ function renderDday() {
   <div class="rows" ${state.tab === "c" ? "" : "hidden"}>${climbRows}</div>
   <div class="rows" ${state.tab === "d" ? "" : "hidden"}>${descRows}</div>
 
-  <div class="sub-h">Plan versus actual</div>
+  <div class="sub-h" id="d-log">Plan versus actual</div>
   <div class="panel">
     <div class="actions" style="margin-bottom:8px">
       <label class="f" style="flex-direction:row;align-items:center;gap:8px">Log for
@@ -481,7 +573,7 @@ function renderDday() {
     <p class="note">Type the first checkpoint as minutes and seconds if it is under an hour (56:30), the others as hours and minutes (1:55).</p>
   </div>
 
-  <div class="sub-h">Take it with you</div>
+  <div class="sub-h" id="d-export">Take it with you</div>
   <div class="actions">
     <button class="btn primary" id="copyMd" type="button">Copy plan as Markdown</button>
     <button class="btn" id="copyJson" type="button">Copy as JSON</button>
@@ -489,13 +581,80 @@ function renderDday() {
   </div>`;
 
   /* wiring */
-  out.querySelectorAll("#scen button").forEach((b) => b.addEventListener("click", () => { state.scenario = b.dataset.s; store.set("trp.scenario", state.scenario); renderDday(); }));
+  out.querySelectorAll("#scen button").forEach((b) => b.addEventListener("click", () => { state.scenario = b.dataset.s; store.set("trp.scenario", state.scenario); renderDday(); renderReplay(); renderNav(); }));
   out.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => { state.tab = b.dataset.t; renderDday(); }));
   $("#logsel").addEventListener("change", (ev) => { store.set("trp.logMode", ev.target.value); drawLog(plan, logKey); });
   drawLog(plan, logKey);
   $("#copyMd").addEventListener("click", () => copyText(planToMarkdown(plan, sid)));
   $("#copyJson").addEventListener("click", () => copyText(JSON.stringify(slimPlan(plan, sid), null, 2)));
 }
+
+/* ---------- 04 race day replay ---------- */
+function renderReplay() {
+  const box = $("#s4body");
+  const plan = state.plan;
+  if (!plan) {
+    stopReplay();
+    box.innerHTML = empty(`<b>Build your plan first</b> (both files, or press Try the demo), then come back to play your race day.`);
+    return;
+  }
+  const sid = plan.scenarios[state.scenario] ? state.scenario : "central";
+  const sc = plan.scenarios[sid];
+  const brief = { totalKm: plan.course.totalKm, climbs: plan.climbs, descents: plan.descents };
+  const aidMarks = plan.aidStations.map((a) => ({ km: a.km, name: a.name, sec: a.arrive[sid], time: clock(plan.startSec, a.arrive[sid]) }));
+  const prof = profileView(plan.course.profile, brief, { ...sc, startSec: plan.startSec, decision: plan.decision, aid: aidMarks });
+  mountReplay(box, {
+    plan, sid, prof, ...(() => { const m = mapStyle(brief, aidMarks); return { mapPaint: m.paint, mapMarks: m.marks }; })(),
+    key: `${state.race && state.race.name}|${plan.course.totalKm.toFixed(2)}`,
+  });
+}
+
+/* ---------- sticky navigation ---------- */
+// Which section is on screen: an IntersectionObserver reports when each section crosses a thin
+// band across the middle of the viewport, without listening to every scroll event.
+function renderNav() {
+  const plan = state.plan;
+  const ready = { s1: Boolean(state.effort), s2: Boolean(state.race), s3: Boolean(plan), s4: Boolean(plan) };
+  document.querySelectorAll(".tn-links a").forEach((a) => a.classList.toggle("ready", ready[a.dataset.sec]));
+  const sum = $("#tnSum");
+  if (plan) {
+    const sc = plan.scenarios[state.scenario] || plan.scenarios.central;
+    sum.innerHTML = `<span class="tn-fin"><small>Finish · ${esc(sc.label.toLowerCase())}</small><b>${clock(plan.startSec, sc.finishSec)}</b></span><a class="btn primary sm" href="#s4">▶ Race day</a>`;
+  } else sum.innerHTML = `<button class="btn ghost sm" type="button" id="tnDemo">Try the demo</button>`;
+  const d = $("#tnDemo");
+  if (d) d.addEventListener("click", () => $("#demo").click());
+}
+(function wireNav() {
+  const links = [...document.querySelectorAll(".tn-links a")];
+  const setActive = (id) => links.forEach((a) => {
+    const on = a.dataset.sec === id;
+    a.classList.toggle("on", on);
+    // On a narrow screen the links scroll sideways: keep the active one in view.
+    const box = a.parentElement;
+    if (on && (a.offsetLeft < box.scrollLeft || a.offsetLeft + a.offsetWidth > box.scrollLeft + box.clientWidth)) box.scrollTo({ left: a.offsetLeft - 8 });
+  });
+  if ("IntersectionObserver" in window) {
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => { if (e.isIntersecting) setActive(e.target.id); });
+    }, { rootMargin: "-45% 0px -50% 0px" });
+    NAV.forEach(([id]) => io.observe($("#" + id)));
+  }
+  // Reading progress along the page: a thin bar under the navigation.
+  const bar = $("#tnProg");
+  let queued = false;
+  const onScroll = () => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => {
+      queued = false;
+      const h = document.documentElement.scrollHeight - window.innerHeight;
+      bar.style.width = `${h > 0 ? Math.min(100, (window.scrollY / h) * 100) : 0}%`;
+      $("#topnav").classList.toggle("stuck", $("#topnav").getBoundingClientRect().top <= 0);
+    });
+  };
+  window.addEventListener("scroll", onScroll, { passive: true });
+  onScroll();
+})();
 
 /* ---------- plan vs actual ---------- */
 function drawLog(plan, logKey) {
@@ -533,7 +692,7 @@ function drawLog(plan, logKey) {
 
 /* ---------- export ---------- */
 function slimPlan(plan, sid) {
-  return JSON.parse(JSON.stringify({ ...plan, scenarioShown: sid, course: { ...plan.course, profile: undefined } }));
+  return JSON.parse(JSON.stringify({ ...plan, scenarioShown: sid, course: { ...plan.course, profile: undefined, route: undefined } }, (k, v) => (k === "timeline" ? undefined : v)));
 }
 function setExportStatus(t) { const el = $("#exportStat"); if (el) el.textContent = t; }
 function copyText(text) {

@@ -82,15 +82,51 @@ function gpxHeader(name) {
 }
 const GPX_FOOTER = `</trkseg></trk></gpx>\n`;
 
-/** A planned route: one point every 20 m, elevation, no timestamps. */
-export function makeDemoRaceGpx(profile = DEMO_RACE_PROFILE, { name = "Demo Trail 20K", startEle = 200 } = {}) {
+/**
+ * A planned route: one point every 20 m, elevation, no timestamps.
+ * `loop` gives it a map shape: instead of a straight line north, the course winds
+ * around a closed loop that starts and finishes at `center` (made up, like the profile).
+ */
+export function makeDemoRaceGpx(profile = DEMO_RACE_PROFILE, { name = "Demo Trail 20K", startEle = 200, loop = false, center = [LAT0, LON0] } = {}) {
   const total = profile.reduce((s, [l]) => s + l, 0);
+  const at = loop ? loopPath(total, center) : (d) => [LAT0 + d / M_PER_DEG_LAT, LON0];
   let xml = gpxHeader(name);
   for (let d = 0; d <= total; d += 20) {
-    const lat = LAT0 + d / M_PER_DEG_LAT;
-    xml += `<trkpt lat="${lat.toFixed(6)}" lon="${LON0.toFixed(6)}"><ele>${eleAt(profile, d, startEle).toFixed(1)}</ele></trkpt>\n`;
+    const [lat, lon] = at(d);
+    xml += `<trkpt lat="${lat.toFixed(6)}" lon="${lon.toFixed(6)}"><ele>${eleAt(profile, d, startEle).toFixed(1)}</ele></trkpt>\n`;
   }
   return xml + GPX_FOOTER;
+}
+
+/**
+ * A closed, wiggly loop of length `total` metres: a circle whose radius wobbles with a few
+ * sine waves (r = R(1 + 0.2 sin 2t + 0.12 sin 5t + 0.05 sin 11t)), stretched east-west.
+ * The radius never gets close to zero, so the loop never crosses itself. Points are placed
+ * by arc length (measured on a dense polyline), so 20 m along the profile is 20 m on the map.
+ * Returns d (metres) -> [lat, lon], with d = 0 and d = total at `start`.
+ */
+function loopPath(total, [lat0, lon0]) {
+  const N = 4000;
+  const xy = [];
+  for (let i = 0; i <= N; i++) {
+    const t = (i / N) * 2 * Math.PI;
+    const r = 1 + 0.2 * Math.sin(2 * t + 0.6) + 0.12 * Math.sin(5 * t + 1.3) + 0.05 * Math.sin(11 * t);
+    xy.push([1.35 * r * Math.cos(t), r * Math.sin(t)]);
+  }
+  const cum = [0];
+  for (let i = 1; i <= N; i++) cum.push(cum[i - 1] + Math.hypot(xy[i][0] - xy[i - 1][0], xy[i][1] - xy[i - 1][1]));
+  const scale = total / cum[N]; // unit curve -> metres
+  const mPerDegLon = M_PER_DEG_LAT * Math.cos((lat0 * Math.PI) / 180);
+  let j = 0;
+  return (d) => {
+    const u = Math.min(d, total) / scale;
+    if (u < cum[j]) j = 0;
+    while (j < N - 1 && cum[j + 1] < u) j++;
+    const f = (u - cum[j]) / (cum[j + 1] - cum[j] || 1);
+    const x = (xy[j][0] + f * (xy[j + 1][0] - xy[j][0]) - xy[0][0]) * scale;
+    const y = (xy[j][1] + f * (xy[j + 1][1] - xy[j][1]) - xy[0][1]) * scale;
+    return [lat0 + y / M_PER_DEG_LAT, lon0 + x / mPerDegLon];
+  };
 }
 
 /** The 17.7 km rolling loop of the original demo run (the tests use it). */

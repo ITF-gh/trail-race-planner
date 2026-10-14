@@ -55,6 +55,9 @@ const body = `<style>\n${css}\n</style>\n<div class="wrap" id="app"></div>\n<scr
 mkdirSync(join(root, "dist"), { recursive: true });
 // Photos are separate files (inlining them as base64 would make the page ~1.3x heavier and uncacheable).
 cpSync(join(root, "src/ui/photos"), join(root, "dist/photos"), { recursive: true });
+// Leaflet (the map library, BSD-2 licence) ships next to the page and is loaded only when a map
+// is shown, so the page stays light and the map code works offline.
+cpSync(join(root, "src/vendor/leaflet"), join(root, "dist/vendor/leaflet"), { recursive: true });
 writeFileSync(join(root, "dist/fragment.html"), `<title>Trail Race Planner</title>\n${fonts}\n${body}`);
 writeFileSync(
   join(root, "dist/index.html"),
