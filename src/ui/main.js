@@ -429,14 +429,14 @@ function mapStyle(brief, aid, zones = []) {
 /** The key zones as a list; with `when` (km -> clock text) each one shows when you get there. */
 function zoneList(zones, when) {
   if (!zones.length) return empty("No stretch stands out: an even course, run it evenly.");
-  return `<div class="zones">${zones.map((z) => `<div class="zone-card k-${z.kind}">
+  return `<div class="zones">${zones.map((z) => `<div class="zone-card m-${z.mode}">
     <div class="zn">★${z.n}</div>
-    <div class="zb"><div class="zt"><b>${esc(z.title)}</b><span>km ${z.fromKm.toFixed(1)} → ${z.toKm.toFixed(1)}${when ? ` · ${when(z.fromKm)}` : ""}</span></div>
+    <div class="zb"><div class="zt"><span class="mode m-${z.mode}">${z.modeLabel}</span><b>${esc(z.title)}</b><span>km ${z.fromKm.toFixed(1)} → ${z.toKm.toFixed(1)}${when ? ` · ${when(z.fromKm)}` : ""}</span></div>
     <p>${esc(z.why)}</p><p class="zh">${esc(z.how)}</p></div>
-    <div class="zs"><b>${z.stakeMin}</b><small>min at stake</small></div>
+    <div class="zs"><b>${z.stakeMin}</b><small>min in play</small></div>
   </div>`).join("")}</div>`;
 }
-const ZONE_NOTE = `Minutes at stake = time on the stretch × how much runners differ at that point of the race (3% at the start, growing to 18% at the finish as fatigue spreads the field) × the kind of ground (climbs count fully, runnable stretches 0.9, descents 0.5 early to 0.9 late; the last big climb ×1.4). The best stretches are kept, one per 20 km of race.`;
+const ZONE_NOTE = `Key zones are short stretches where how you run changes your race. <b>Attack</b>: push, time is won here. <b>Prepare</b>: set up what comes next (eat, drink, let your heart rate drop). <b>Manage</b>: protect your effort for later. Minutes in play = the typical gap, on that stretch and what follows, between runners of your level who run it well and those who do not: time on it × how much runners differ at that point (3% at the start to 18% at the finish, as fatigue spreads the field) × the kind of zone. One zone per 13 km of race.`;
 const jumps = (items) => `<nav class="jumps" aria-label="In this section">${items.map(([href, t, cls]) => `<a href="#${href}" class="${cls || ""}">${t}</a>`).join("")}</nav>`;
 let briefMap = null;
 

@@ -98,17 +98,23 @@ Every file in `src/core/` is a **pure function**: text and numbers in, numbers o
 
 ## 9. Key zones: where the race is played (`src/core/keyzones.js`)
 
-A key zone is a stretch where a runner who paced well can make a difference, and where one who did not loses the most. Each candidate stretch gets a number of **minutes at stake**:
+A key zone is a **short stretch** where how you run changes your race. It is not only about gaining time but about managing effort, so each zone has a mode:
 
-    stake = time on the stretch × spread(when) × weight(kind)
+- **Attack**: push, time is won here. A climb *section* (a whole climb only when all its sections are key and merge), a long runnable stretch late in the race, the steep part of a late descent.
+- **Prepare**: set up what comes next. The 0.8 to 2.5 km of easy ground before a big climb: eat, drink, let your heart rate drop, arrive at the foot fresh.
+- **Manage**: protect your effort for later. The start (going out too fast is paid back at the end), a wall (the steepest 400 m of a climb at 18% or more, where over-pushing costs the rest of the climb), the restart after a long descent (heavy legs want to walk), the steep part of an early descent (save the quads).
 
-- **Time on the stretch** comes from your prediction. Before both files are loaded it comes from **Tobler's hiking function** (speed = 6·e^(−3.5·|slope + 0.05|) km/h, fastest on a gentle 5% descent), scaled for a runner: a classic model of how slope changes walking speed.
-- **Spread** is how much runners of the same level differ at that point: 3% at the start, growing with the square of the distance covered to 18% at the finish. Fresh legs all look alike; tired legs do not (*fatigue divergence*). That is why the same climb matters more late than early.
-- **Weight** by kind of ground: a climb turns effort straight into time (1.0); a long runnable stretch late in the race separates those who can still run from those who walk (0.9); a descent depends on quads, more and more as they tire (0.5 early to 0.9 late). The **last big climb** (the last with 40% or more of the biggest climb's gain) gets ×1.4: races are often decided there.
+Each candidate gets **minutes in play**: the typical gap, on that stretch and what follows, between runners of your level who run it well and those who do not.
 
-Candidates are climbs of 80 m or more, descents of 250 m or more and runnable stretches of 2.5 km or more after the first third. The best are kept without overlapping (a *greedy selection*), one per 20 km of race (1 to 5), and none under a fifth of the best one's stake. So the race length sets how many zones, the profile sets where, and the timing sets how much each is worth. An aid station at the start of a zone is flagged: a fast stop there is time gained.
+    in play = time on the stretch × spread(when) × weight(kind)
 
-Not modelled yet, but they would move zones: night and dawn (from the start time and the date), heat and altitude, technical ground (OpenStreetMap trail tags), narrow single track where overtaking is hard, and cut-off times.
+- **Time on the stretch** comes from your prediction. Before both files are loaded it comes from **Tobler's hiking function** (speed = 6·e^(−3.5·|slope + 0.05|) km/h), scaled for a runner.
+- **Spread** is how much runners differ at that point: 3% at the start, growing with the square of the distance covered to 18% at the finish (*fatigue divergence*: fresh legs all look alike, tired legs do not).
+- **Weight**: climb sections 1.0 (×1.3 on the last big climb), runnable stretches and restarts 2.0 (running versus walking is a bigger gap than the usual spread), descents 0.5 early to 0.9 late. A Prepare zone or a wall is worth 40% of what its climb puts in play (what you protect), the start 0.6% of the finish time.
+
+The best are kept without overlapping (a *greedy selection*), one per 13 km of race (1 to 7). So length sets how many zones, the profile sets where, and your timing sets how much each is worth.
+
+Not modelled yet, but they would move zones: night and dawn (start time and date), heat and altitude, technical ground (OpenStreetMap trail tags), narrow single track where overtaking is hard, and cut-off times.
 
 ## Ideas for what to build next
 

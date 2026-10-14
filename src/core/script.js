@@ -92,7 +92,7 @@ export function raceScript(plan, sid) {
   add({ kind: "phase", sec: secAtKm(plan, sid, total / 2), km: total / 2, title: "Halfway", cue: `Halfway at ${at(secAtKm(plan, sid, total / 2))}, ${hm(secAtKm(plan, sid, total / 2))} on course. Check in: fuel, feet, chafing. The second half is the race.` });
   // Key zones come last so that, at the same spot as a climb, the key-zone cue is the one shown.
   (plan.keyZones || []).forEach((z) => {
-    add({ kind: "key", sec: secAtKm(plan, sid, z.fromKm), km: z.fromKm, level: 4, title: `Key zone ${z.n} · ${z.title}`, cue: `${z.why} ${z.how}` });
+    add({ kind: "key", sec: secAtKm(plan, sid, z.fromKm), km: z.fromKm, level: 4, title: `Key zone ${z.n} · ${z.modeLabel} · ${z.title}`, cue: `${z.why} ${z.how}` });
   });
   add({ kind: "finish", sec: sc.finishSec, km: total, title: "Finish", cue: `Finish at ${at(sc.finishSec)}, ${hm(sc.finishSec)} on course. Picture the arch, the clock, the people. You earned it climb by climb.` });
 

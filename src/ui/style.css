@@ -377,3 +377,6 @@ label.chk input{width:18px;height:18px;accent-color:var(--sun)}
 .chip.keyc{background:var(--sun);color:#1a1300}
 .rp-next li.key b,.rp-next li.key span{color:var(--sun)}
 .k-key .ic{background:var(--sun);color:#1a1300}
+.zone-card .mode{font-family:var(--f-display);font-weight:700;text-transform:uppercase;letter-spacing:.1em;font-size:11.5px;padding:2px 9px;border-radius:999px;align-self:center}
+.mode.m-attack{background:var(--accent);color:#fff} .mode.m-prepare{background:#2a6fb0;color:#fff} .mode.m-manage{background:#3fd06a;color:#06231a}
+.zone-card.m-prepare{border-left-color:#4a9be0} .zone-card.m-manage{border-left-color:#3fd06a}

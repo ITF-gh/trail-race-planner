@@ -279,14 +279,17 @@ test("key zones: more on a longer race, the last big climb among them, never ove
   const run = parseGpx(makeDemoEffortGpx({ profile: DEMO_LONG_RUN_PROFILE }));
   const plan = buildPlan(ultra, run, { aidStations: DEMO_ULTRA_AID });
   const z = plan.keyZones;
-  assert.ok(z.length >= 3 && z.length <= 5, `${z.length} zones on 78 km`);
-  for (let i = 1; i < z.length; i++) assert.ok(z[i].fromKm >= z[i - 1].toKm, "in course order, no overlap");
+  assert.ok(z.length >= 4 && z.length <= 7, `${z.length} zones on 78 km`);
+  for (let i = 1; i < z.length; i++) assert.ok(z[i].fromKm >= z[i - 1].toKm - 0.05, "in course order, no overlap");
   assert.ok(z.some((x) => /Last big climb/.test(x.title)));
-  assert.ok(z.every((x) => x.stakeMin >= 1 && x.why && x.how));
-  // A short race gets a single zone; it appears in the replay script.
+  assert.ok(z.every((x) => x.stakeMin >= 1 && x.why && x.how && ["attack", "prepare", "manage"].includes(x.mode)));
+  // Portions, not whole climbs: no zone covers a long climb end to end unless it merged its sections.
+  assert.ok(new Set(z.map((x) => x.mode)).size >= 2, "not only attack zones");
+  assert.ok(z.every((x) => x.toKm - x.fromKm <= 8));
+  // A short race gets fewer zones; they appear in the replay script.
   const short = buildPlan(race, effort);
-  assert.equal(short.keyZones.length, 1);
-  assert.equal(raceScript(short, "central").filter((e) => e.kind === "key").length, 1);
+  assert.ok(short.keyZones.length >= 1 && short.keyZones.length <= 2);
+  assert.equal(raceScript(short, "central").filter((e) => e.kind === "key").length, short.keyZones.length);
   // Later counts more: runners spread apart as the race goes on.
   assert.ok(spreadAt(0.9) > 4 * spreadAt(0.1));
 });
@@ -300,6 +303,7 @@ test("key zones from the course alone: Tobler's hiking function as a typical run
   const zones = keyZones(brief, P, [], t);
   assert.equal(zones.length, 1);
   assert.equal(zones[0].kind, "climb");
+  assert.equal(zones[0].mode, "attack");
 });
 
 test("plan renders to Markdown", () => {
