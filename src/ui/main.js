@@ -19,7 +19,7 @@ import { analyseEffort } from "../core/effort.js";
 import { buildPlan, judgeTarget, briefCourse, coarseIndices, parseAidStations, PLAN_DEFAULTS, LEVELS, DESCENT_LABELS } from "../core/plan.js";
 import { TERRAIN, SCENARIOS } from "../core/model.js";
 import { planToMarkdown } from "../core/markdown.js";
-import { watchPanelHtml, mountWatch, watchPoints, downloadCourse } from "./watch.js";
+import { watchPanelHtml, mountWatch, watchPoints, downloadCourse, pimpBadge } from "./watch.js";
 import { prepHeroHtml, initPrepRun } from "./preprun.js";
 import { mmss, hm, clock, parseDuration } from "../core/format.js";
 import { keyZones, toblerClock } from "../core/keyzones.js";
@@ -708,12 +708,13 @@ function renderDday() {
 
   out.innerHTML = `
   ${jumps([["d-map", "Map"], ["d-key", "★ Key zones"], ["d-card", "Race card"], ["d-climbs", "Climb by climb"], ["d-log", "Plan versus actual"], ["d-export", "Export"], ["s-pimp", "05 Pimp my GPX"], ["rpCockpit", "▶ Rehearse race day", "go"]])}
-  <div class="dday-top">
+  <div class="dday-top has-pimp">
     ${tile(`Estimated duration · ${sc.label.toLowerCase()}`, hm(sc.finishSec), `finish at ${clock(st, sc.finishSec)} · start ${clock(st, 0)}`, "big")}
     <div class="panel" style="display:flex;flex-direction:column;gap:12px;justify-content:center">
       <div class="seg" role="group" aria-label="Scenario" id="scen">${seg}</div>
       <p class="note" style="margin:0">Race pace is ${((sc.factor - 1) * 100).toFixed(0)}% slower than your run on the same gradients: terrain factor plus the fade for a longer effort. Every clock time on this page follows the scenario you pick.</p>
     </div>
+    ${pimpBadge("#s-pimp")}
   </div>
   ${targetHtml}
   <div class="prof-wrap">${profileView(plan.course.profile, brief, { ...sc, startSec: st, aid: aidMarks }, plan.keyZones).html}
@@ -764,8 +765,7 @@ function renderDday() {
     <button class="btn primary" id="copyMd" type="button">Copy plan as Markdown</button>
     <button class="btn" id="copyJson" type="button">Copy as JSON</button>
     <span class="status" id="exportStat" aria-live="polite"></span>
-  </div>
-  <a class="pimp-link" href="#s-pimp"><span class="pl-tag">Bonus</span><b>Pimp my GPX</b><span class="pl-sub">Put this plan on your watch →</span></a>`;
+  </div>`;
 
   /* wiring */
   out.querySelectorAll("#scen button").forEach((b) => b.addEventListener("click", () => { state.scenario = b.dataset.s; trackEvent("scenario", state.scenario); store.set("trp.scenario", state.scenario); renderDday(); renderReplay(); renderPimp(); renderNav(); }));
@@ -778,7 +778,7 @@ function renderDday() {
   // The race on a map, coloured like the profile, with your aid stations and key zones.
   if (state.race && state.race.route) ddayMap = courseMap($("#ddayMap"), { route: state.race.route, totalKm: plan.course.totalKm, ...mapStyle(brief, parseAidStations(state.settings.aidStations).filter((a) => a.km <= plan.course.totalKm), plan.keyZones) });
   else $("#ddayMap").remove();
-  $(".pimp-link").addEventListener("click", () => trackEvent("nav", "pimp-link"));
+  $("#s3body .pimp-link").addEventListener("click", () => trackEvent("nav", "pimp-badge"));
 }
 
 /* ---------- 05 pimp my GPX: the watch messages and the course for the watch ---------- */

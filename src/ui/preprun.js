@@ -13,7 +13,7 @@ import { buildPlan } from "../core/plan.js";
 import { prepRunPlan } from "../core/preprun.js";
 import { hm, parseDuration } from "../core/format.js";
 import { makeDemoRaceGpx, DEMO_LONG_RUN_PROFILE } from "../demo.js";
-import { watchPanelHtml, mountWatch, watchPoints, downloadCourse } from "./watch.js";
+import { watchPanelHtml, mountWatch, watchPoints, downloadCourse, pimpBadge } from "./watch.js";
 import { trackEvent } from "./analytics.js";
 
 const prEsc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -96,6 +96,7 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
     const body = $p("#sPrepBody");
     body.innerHTML = `
   <div class="panel prep-sum prep-ready">
+    ${pimpBadge("#prep-pimp", "Your run on your watch →")}
     <div class="prep-facts"><b>${prEsc(st.name)}</b><span>${plan.course.totalKm.toFixed(1)} km</span><span>+${Math.round(plan.course.gain)} m</span><span>-${Math.round(plan.course.loss)} m</span><span>${plan.climbs.length} climbs</span><span>${(plan.keyZones || []).length} key zones</span><span>about <b>${hm(finish)}</b></span></div>
     <p class="note">Times come from ${SOURCE[source]}.</p>
     <div class="prep-opts">
@@ -107,10 +108,10 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
   <div class="sub-h">Your run, section by section</div>
   <div id="prepCockpit"></div>
 
-  <div class="sub-h">Watch messages</div>
+  <div class="sub-h" id="prep-pimp">◆ Pimp my GPX · watch messages</div>
   <div id="prepWatch">${watchPanelHtml(plan)}</div>
 
-  <div class="sub-h">Take it with you</div>
+  <div class="sub-h">Your pimped GPX</div>
   <div class="actions">
     <button class="btn primary" id="prepFit" type="button">Garmin course (.fit)</button>
     <button class="btn" id="prepGpx" type="button">GPX with messages</button>
@@ -121,6 +122,7 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
     mountWatch($p("#prepWatch"), { plan, sid, key, say });
     st.plan = plan; st.key = key;
     showCockpit();
+    $p("#sPrepBody .pimp-link").addEventListener("click", () => trackEvent("nav", "pimp-badge-prep"));
     $p("#prepTarget").addEventListener("change", (ev) => {
       const v = ev.target.value.trim();
       const t = v ? parseDuration(v, false) : 0;
