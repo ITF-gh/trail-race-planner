@@ -11,7 +11,7 @@
 import { parseGpx } from "../core/track.js";
 import { analyseRun, runStateAt, runLegAt, runSecAtKm, runTarget, parseTarget, runStats, runPaceLine } from "../core/review.js";
 import { courseMap } from "./map.js";
-import { fitPanel } from "./replay.js";
+import { fitPanel, alignBar } from "./replay.js";
 import { mmss, hm, hms, clock } from "../core/format.js";
 import { trackEvent, trackOnce } from "./analytics.js";
 import { makeDemoRunGpx } from "../demo.js";
@@ -283,6 +283,7 @@ export function mountRun(box, run) {
   const els = { leg: $v("#rvLeg"), legNow: $v("#rvLegNow"), legPos: $v("#rvLegPos"), legBtns: [...box.querySelectorAll("#rvLegs .lg")], clock: $v("#rvClock"), el: $v("#rvElapsed"), bar: $v("#rvBar"), km: $v("#rvKm"), now: $v("#rvNow"), next: $v("#rvNext"), cue: $v("#rvCue"), play: $v("#rvPlay"), seek: $v("#rvSeek"), cur: $v("#rvProf .pcur"), list: $v("#rvScript") };
   // A window resize changes the room in the panel: fit the "coming next" list again.
   if (typeof ResizeObserver === "function") new ResizeObserver(() => fitPanel(els.next)).observe($v(".rp-hud"));
+  alignBar($v(".rp-legbar"), $v("#rvProf svg"), prof.x(0), prof.x(TOT));
   const m = rvMapStyle(run);
   rv.map = courseMap($v("#rvMap"), { route: run.route, totalKm: TOT, paint: m.paint, marks: m.marks });
   rv.map.follow(rv.follow && rv.sec > 0);
