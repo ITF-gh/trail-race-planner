@@ -3,23 +3,22 @@ import assert from "node:assert/strict";
 import { parseGpx } from "../src/core/track.js";
 import { buildPlan } from "../src/core/plan.js";
 import { raceLegs, secAtKm } from "../src/core/script.js";
-import { coursePoints, courseFit, courseGpx, fitCrc, pointName, POINT_NAME_MAX, MIN_GAP_M, MIN_GAP_SEC } from "../src/core/garmin.js";
+import { coursePoints, strategyBlocks, courseFit, courseGpx, fitCrc, pointName, POINT_NAME_MAX, MIN_GAP_M, MIN_GAP_SEC } from "../src/core/garmin.js";
 import { makeDemoRaceGpx, makeDemoEffortGpx, DEMO_ULTRA_PROFILE, DEMO_ULTRA_AID, DEMO_LONG_RUN_PROFILE } from "../src/demo.js";
 
 const ultra = parseGpx(makeDemoRaceGpx(DEMO_ULTRA_PROFILE, { startEle: 650, loop: true, center: [45.05, 5.7] }));
 const run = parseGpx(makeDemoEffortGpx({ profile: DEMO_LONG_RUN_PROFILE }));
 const plan = buildPlan(ultra, run, { aidStations: DEMO_ULTRA_AID, startTime: "06:00" });
 
-test("course points: facts then strategy for every section, two per key zone, short names", () => {
+test("course points: one per strategy change, one per key zone, short names, spaced out", () => {
   const pts = coursePoints(plan, "central");
-  const legs = raceLegs(plan, "central");
-  assert.equal(pts.length, 2 * legs.length + 2 * plan.keyZones.length);
-  for (const l of legs) {
-    const facts = pts.find((p) => p.name.startsWith(`${l.i} `) && p.name.includes("+"));
-    assert.ok(facts, `section ${l.i} has its facts point`);
-    assert.match(facts.name, new RegExp(`^${l.i} [\\d.]+k \\+${Math.round(l.up)}-${Math.round(l.down)}$`));
-  }
-  for (const z of plan.keyZones) assert.equal(pts.filter((p) => p.name.startsWith(`K${z.n} `)).length, 2);
+  const blocks = strategyBlocks(plan, "central");
+  const zones = plan.keyZones;
+  assert.ok(pts.length < raceLegs(plan, "central").length, "fewer alerts than sections");
+  assert.equal(pts.filter((p) => p.name.startsWith("!")).length, zones.length, "one ! alert per key zone");
+  for (let i = 1; i < blocks.length; i++) assert.notEqual(blocks[i].word, blocks[i - 1].word, "a block starts only when the strategy changes");
+  const hike = pts.find((p) => /^HIKE \d/.test(p.name));
+  assert.match(hike.name, /^HIKE [\d.]+k \+\d+$/, "strategy, length, D+");
   for (const p of pts) assert.ok(p.name.length <= POINT_NAME_MAX && /^[\x20-\x7e]+$/.test(p.name), p.name);
   for (let i = 1; i < pts.length; i++) {
     assert.ok((pts[i].km - pts[i - 1].km) * 1000 >= MIN_GAP_M - 0.5, `${pts[i].name} at least 200 m after ${pts[i - 1].name}`);

@@ -645,7 +645,7 @@ function renderDday() {
     <button class="btn" id="dlGpx" type="button">GPX with cues</button>
     <span class="status" id="exportStat" aria-live="polite"></span>
   </div>
-  <p class="note">The course files carry this scenario's plan to your watch: at the start of every section, its number, length, D+ and D- then its strategy (for example "12 1.8k +320-40", then "12 HIKE"), and at every key zone its length and what to do ("K3 0.4k MANAGE", then "K3 HIKE IT"). Import the .fit in Garmin Connect (Courses, Import) or copy it to the watch's GARMIN/NewFiles folder, then follow the course: the watch alerts you as each point comes up. The GPX works with other brands too.</p>`;
+  <p class="note">The course files carry this scenario's plan to your watch, with few alerts: one each time the strategy changes (for example "HIKE 5.5k +726": hike the next 5.5 km, 726 m up) and one at every key zone, marked with "!" ("!POWER HIKE 2.3k"). Alerts are at least 200 m and 1 minute apart. Import the .fit in Garmin Connect (Courses, Import) or copy it to the watch's GARMIN/NewFiles folder, then follow the course. The GPX works with other brands too.</p>`;
 
   /* wiring */
   out.querySelectorAll("#scen button").forEach((b) => b.addEventListener("click", () => { state.scenario = b.dataset.s; trackEvent("scenario", state.scenario); store.set("trp.scenario", state.scenario); renderDday(); renderReplay(); renderNav(); }));

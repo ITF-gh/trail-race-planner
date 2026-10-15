@@ -1,8 +1,8 @@
 // garmin.js: the race plan as a course for a GPS watch, with the plan's cues along the way.
 //
 // A watch follows a course (the route) and shows "course points" on it: named spots that
-// trigger an alert as you approach them ("12 HIKE steep · 0.2 km"). We write two at the start
-// of every race section (its facts, then its strategy) and two at every key zone.
+// trigger an alert as you approach them ("HIKE 5.5k +726 · 0.2 km"). We write one each time
+// the strategy changes and one at every key zone: few alerts, each worth reading.
 //
 //   coursePoints(plan, sid)              the points: km, FIT icon type, short name, long text
 //   courseFit(plan, sid, track, opts)    a FIT course file (Garmin's binary format), as bytes
@@ -32,20 +32,20 @@ export const POINT_NAME_MAX = 15;
  */
 export const CP = { generic: 0, summit: 1, valley: 2, danger: 5 };
 
+// Strategy words, short enough to leave room for the length and the climb or drop.
 const CLIMB_SHORT = {
   "Hike": "HIKE",
-  "Hike the steep part": "HIKE steep",
-  "Biggest climb, steady": "BIG: steady",
-  "Run evenly, do not surge": "RUN even",
+  "Hike the steep part": "RUN/HIKE",
+  "Biggest climb, steady": "STEADY",
+  "Run evenly, do not surge": "EVEN",
   "Run": "RUN",
   "Steady": "STEADY",
 };
-const DESCENT_SHORT = { 1: "LET IT RUN", 2: "QUICK STEPS", 4: "BRAKE" };
-const MODE_SHORT = { attack: "ATTACK", prepare: "PREPARE", manage: "MANAGE" };
+const DESCENT_SHORT = { 1: "LET GO", 2: "QUICK", 4: "BRAKE" };
 
 /** Watch-safe text: plain ASCII (accents dropped), at most POINT_NAME_MAX characters. */
 export function pointName(s, max = POINT_NAME_MAX) {
-  return s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^\x20-\x7e]/g, "").trim().slice(0, max).trim();
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\x20-\x7e]/g, "").trim().slice(0, max).trim();
 }
 
 /** "1.8k" under 10 km, "12k" above: a length that fits in a short name. */
@@ -53,22 +53,28 @@ function kmShort(km) {
   return km < 9.95 ? `${km.toFixed(1)}k` : `${Math.round(km)}k`;
 }
 
+/** The first of these names that fits on the watch (they go from airy to packed). */
+function fitName(...tries) {
+  const ok = tries.map((t) => pointName(t, 99)).find((t) => t.length <= POINT_NAME_MAX);
+  return ok || pointName(tries[tries.length - 1]);
+}
+
 /** Strategy of a race section in a few characters. */
 function legShort(l) {
   if (l.kind === "climb") return CLIMB_SHORT[l.tactic] || l.tactic.split(/[ ,]/)[0].toUpperCase();
   if (l.kind === "descent") return DESCENT_SHORT[l.level] || "CONTROL";
-  return "RUN+FUEL";
+  return "RUN+EAT";
 }
 
 /** What to do in a key zone, in a few characters (the long version is z.how). */
 function keyShort(z) {
   switch (z.kind) {
     case "climb": return /power-hike/.test(z.how) ? "POWER HIKE" : "RUN/HIKE";
-    case "start": return "START SLOW";
-    case "approach": return "EAT+EASE OFF";
-    case "wall": return "HIKE IT";
+    case "start": return "GO SLOW";
+    case "approach": return "EAT+EASE";
+    case "wall": return "HIKE";
     case "restart": return "RUN AGAIN";
-    case "descent": return z.mode === "attack" ? "LET IT GO" : "SAVE QUADS";
+    case "descent": return z.mode === "attack" ? "LET GO" : "SAVE QUADS";
     default: return "RUN TALL";
   }
 }
@@ -78,36 +84,60 @@ function keyShort(z) {
 export const MIN_GAP_M = 200;
 export const MIN_GAP_SEC = 60;
 
+const EASY = ["RUN", "LET GO", "RUN+EAT"];
+const EASY_MAX_M = 60; // an easy section climbing or dropping less than this is plain running
+
 /**
- * Course points for scenario `sid`, in course order: {km, type, name, text}.
- * Per section: "12 1.8k +320-40" (number, length, D+, D-) then "12 HIKE steep" (strategy).
- * Per key zone: "K1 2.4k ATTACK" (length, mode) then "K1 POWER HIKE" (what to do).
+ * The race sections grouped by strategy: neighbouring sections with the same strategy word
+ * (three HIKE sections in a row) make one block, with their lengths, D+ and D- added up.
+ */
+export function strategyBlocks(plan, sid) {
+  const blocks = [];
+  for (const l of raceLegs(plan, sid)) {
+    let word = legShort(l);
+    // Gentle ground (an easy run, a short let-it-run drop, a runnable stretch) is just "RUN":
+    // three of them in a row make one alert, not three.
+    if (EASY.includes(word) && l.up < EASY_MAX_M && l.down < EASY_MAX_M) word = "RUN";
+    const prev = blocks[blocks.length - 1];
+    if (prev && prev.word === word) { prev.endKm = l.endKm; prev.km += l.km; prev.up += l.up; prev.down += l.down; prev.legs.push(l); }
+    else blocks.push({ word, kind: l.kind, level: l.level, startKm: l.startKm, endKm: l.endKm, km: l.km, up: l.up, down: l.down, startSec: l.startSec, legs: [l] });
+  }
+  return blocks;
+}
+
+/**
+ * Course points for scenario `sid`, in course order: {km, type, name, text}. Few and relevant:
+ *   one alert each time the strategy changes: "HIKE 5.5k +726", "BRAKE 4.7k -675", "RUN+EAT 1.4k"
+ *   one alert per key zone, marked "!": "!POWER HIKE 2.3k". A key zone that starts where a
+ *   strategy block starts takes that block's place (one alert, not two at the same spot).
+ * The full sentence (section numbers, tactic, arrival time, why the key zone matters) is the note.
  */
 export function coursePoints(plan, sid) {
-  const legs = raceLegs(plan, sid);
   const st = plan.startSec;
+  const zones = plan.keyZones || [];
   const pts = [];
-  legs.forEach((l) => {
-    const up = Math.round(l.up), down = Math.round(l.down);
-    const facts = `${l.i} ${kmShort(l.km)} +${up}-${down}`;
-    const type = l.kind === "climb" ? CP.summit : l.kind === "descent" ? (l.level === 4 ? CP.danger : CP.valley) : CP.generic;
-    const head = `Section ${l.i}/${legs.length} · ${l.title}${l.kind === "flat" ? "" : ` · ${l.label}`}`;
-    pts.push({ km: l.startKm, order: 0, type, name: pointName(facts.length <= POINT_NAME_MAX ? facts : `${l.i} +${up}-${down}`), text: `${head}: ${l.km.toFixed(1)} km, +${up} m / -${down} m, arrive ${clock(st, l.startSec)}.` });
-    pts.push({ km: l.startKm, order: 1, type: CP.generic, name: pointName(`${l.i} ${legShort(l)}`), text: `${head}: ${l.tactic}.` });
+  strategyBlocks(plan, sid).forEach((b) => {
+    if (zones.some((z) => Math.abs(z.fromKm - b.startKm) < MIN_GAP_M / 1000)) return; // the key zone speaks here
+    const up = Math.round(b.up), down = Math.round(b.down);
+    const len = kmShort(b.km);
+    const elev = b.word === "RUN" ? (up >= 20 || down >= 20 ? `+${up}-${down}` : "") : b.kind === "climb" ? `+${up}` : b.kind === "descent" ? `-${down}` : "";
+    const type = b.word === "RUN" ? CP.generic : b.kind === "climb" ? CP.summit : b.kind === "descent" ? (b.level === 4 ? CP.danger : CP.valley) : CP.generic;
+    const name = elev ? fitName(`${b.word} ${len} ${elev}`, `${b.word} ${len}${elev}`, `${b.word} ${elev}`) : fitName(`${b.word} ${len}`);
+    const secs = b.legs.length > 1 ? `Sections ${b.legs[0].i}-${b.legs[b.legs.length - 1].i}` : `Section ${b.legs[0].i}`;
+    pts.push({ km: b.startKm, type, name, text: `${secs}: ${b.word === "RUN" && b.legs.length > 1 ? "Gentle ground, just run" : b.legs[0].tactic}. ${b.km.toFixed(1)} km, +${up} m / -${down} m, arrive ${clock(st, b.startSec)}.` });
   });
-  (plan.keyZones || []).forEach((z) => {
-    const len = z.toKm - z.fromKm;
-    pts.push({ km: z.fromKm, order: 2, type: CP.danger, name: pointName(`K${z.n} ${kmShort(len)} ${MODE_SHORT[z.mode] || ""}`), text: `Key zone ${z.n} · ${z.modeLabel} · ${z.title}: ${len.toFixed(1)} km. ${z.why}` });
-    pts.push({ km: z.fromKm, order: 3, type: CP.danger, name: pointName(`K${z.n} ${keyShort(z)}`), text: `Key zone ${z.n}: ${z.how}` });
+  zones.forEach((z) => {
+    const len = kmShort(z.toKm - z.fromKm);
+    pts.push({ km: z.fromKm, type: CP.danger, name: fitName(`!${keyShort(z)} ${len}`, `!${keyShort(z)}${len}`, `!${keyShort(z)}`), text: `Key zone ${z.n} · ${z.modeLabel} · ${z.title}. ${z.how}` });
   });
-  pts.sort((a, b) => a.km - b.km || a.order - b.order);
+  pts.sort((a, b) => a.km - b.km);
   const total = plan.course.totalKm;
   for (let i = 1; i < pts.length; i++) {
     const prev = pts[i - 1].km;
     const oneMin = raceStateAt(plan, sid, secAtKm(plan, sid, prev) + MIN_GAP_SEC).km; // where you are a minute later
     pts[i].km = Math.max(pts[i].km, prev + MIN_GAP_M / 1000, oneMin);
   }
-  return pts.map(({ order, ...p }) => ({ ...p, km: Math.min(p.km, total) }));
+  return pts.map((p) => ({ ...p, km: Math.min(p.km, total) }));
 }
 
 /**
