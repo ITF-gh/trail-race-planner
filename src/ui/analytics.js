@@ -16,7 +16,7 @@
 
 export const ANALYTICS = {
   provider: "goatcounter", // "goatcounter", "plausible", "cloudflare", or "" to switch off
-  site: "", // goatcounter: the site code (the "xxx" of xxx.goatcounter.com); plausible: the
+  site: "trail-race-planner", // goatcounter: the site code (the "xxx" of xxx.goatcounter.com); plausible: the
   // domain registered there; cloudflare: the beacon token
 };
 

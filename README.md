@@ -80,7 +80,7 @@ GPX files and plans never leave the browser. The only thing the page sends out i
 
 The live page counts visits and a fixed set of events with [GoatCounter](https://www.goatcounter.com): no cookies, no personal data, so no cookie banner. Everything is in `src/ui/analytics.js`:
 
-- `ANALYTICS.site` is the GoatCounter site code. Empty means analytics is off: no script is loaded and nothing is sent.
+- `ANALYTICS.site` is the GoatCounter site code (`trail-race-planner`, dashboard at https://trail-race-planner.goatcounter.com). Empty means analytics is off: no script is loaded and nothing is sent.
 - `ANALYTICS.provider` switches to `"plausible"` (site = your domain) or `"cloudflare"` (site = beacon token; page views only, Cloudflare Web Analytics has no custom events).
 - The app calls `trackEvent(name, label)` and `trackOnce(name, label)`. Names and labels come from the code only, never from file names or what the runner typed.
 
