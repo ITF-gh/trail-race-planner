@@ -300,9 +300,10 @@ export function buildPlan(raceParsed, effortParsed, userParams = {}) {
     const ceiling = params.maxHr ? Math.round(params.maxHr * 0.92) : Infinity;
     const avg = Math.round(effort.avgHr);
     hrGuide = [
-      { fromKm: 0, toKm: total * 0.35, text: `${Math.min(avg - 5, ceiling)} or lower` },
-      { fromKm: total * 0.35, toKm: total * 0.69, text: `${Math.min(avg - 5, ceiling)} to ${Math.min(avg, ceiling)}` },
-      { fromKm: total * 0.69, toKm: total, text: `up to ${Math.min(avg + 4, ceiling)} if legs allow` },
+      // bpm: the value to expect in that phase (the middle of the band), for the race-day forecast
+      { fromKm: 0, toKm: total * 0.35, text: `${Math.min(avg - 5, ceiling)} or lower`, bpm: Math.min(avg - 5, ceiling) },
+      { fromKm: total * 0.35, toKm: total * 0.69, text: `${Math.min(avg - 5, ceiling)} to ${Math.min(avg, ceiling)}`, bpm: Math.min(Math.round(avg - 2.5), ceiling) },
+      { fromKm: total * 0.69, toKm: total, text: `up to ${Math.min(avg + 4, ceiling)} if legs allow`, bpm: Math.min(avg + 2, ceiling) },
     ];
   }
 

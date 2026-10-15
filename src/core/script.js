@@ -7,9 +7,13 @@
 //                           yourself (what is coming, how to run it, what to eat)
 //   raceStateAt(plan, sid, sec)   where you are at any second of the race: km, altitude,
 //                           gradient, pace, the climb you are on, the next gel and aid station
+//   raceLegs(plan, sid)     the whole course cut into numbered sections, end to end: every
+//                           climb (or climb section) and descent of the briefing, with the
+//                           runnable stretches between them, each with its own targets
+//   raceTotals(plan, sid)   the targets for the whole race: finish, pace, gels, heart rate
 // Both work in Node (tests) and in the browser (the replay plays them back).
 
-import { LEVELS } from "./plan.js";
+import { LEVELS, DESCENT_LABELS } from "./plan.js";
 import { clock, hm } from "./format.js";
 
 /** First index i with arr[i] > v (arr sorted ascending): a binary search. */
@@ -129,4 +133,124 @@ export function raceStateAt(plan, sid, sec) {
   const frac = km / plan.course.totalKm;
   const phase = plan.hrGuide ? plan.hrGuide.find((h) => km >= h.fromKm && km <= h.toKm) || null : null;
   return { sec: t, km, ele, grade, pace, frac, aid, climb, section, descent, nextGel, nextAid, nextClimb, keyZone, nextKey, phase };
+}
+
+/** Altitude at `km` on the profile (linear between the 100 m points). */
+function eleAtKm(P, km) {
+  const kms = P.map((p) => p[0]);
+  const i = Math.max(0, Math.min(P.length - 2, upperBound(kms, km) - 1));
+  const f = Math.max(0, Math.min(1, (km - P[i][0]) / (P[i + 1][0] - P[i][0] || 1)));
+  return P[i][1] + f * (P[i + 1][1] - P[i][1]);
+}
+
+/** Metres up and down on the profile between two km. */
+function gainLoss(P, a, b) {
+  let up = 0, down = 0, prev = eleAtKm(P, a);
+  for (const [k, e] of P) {
+    if (k <= a || k >= b) continue;
+    const d = e - prev;
+    if (d > 0) up += d; else down -= d;
+    prev = e;
+  }
+  const d = eleAtKm(P, b) - prev;
+  if (d > 0) up += d; else down -= d;
+  return { up, down };
+}
+
+const RUNNABLE_MIN_KM = 0.3; // a gap shorter than this between two climbs is part of the one before
+
+/**
+ * The course cut into sections, start to finish with no gap: the climbs (split ones section by
+ * section) and descents of the briefing, and "runnable" stretches where nothing climbs or drops
+ * for long. Each section: {i (1..n), kind, n (its number in the briefing), level, title, label,
+ * startKm, endKm, km, up, down, avg, startSec, endSec, durSec, stopSec, pace (moving, s/km),
+ * tactic, gels, aids, keyZone, hr}. In course order, so section i+1 starts where i ends.
+ */
+export function raceLegs(plan, sid) {
+  const P = plan.course.profile;
+  const total = plan.course.totalKm;
+  const sc = plan.scenarios[sid];
+  const parts = [];
+  plan.climbs.forEach((c) => (c.sections.length ? c.sections : [c]).forEach((x) => parts.push({
+    kind: "climb", n: x.n, level: x.level, startKm: x.startKm, endKm: x.endKm,
+    title: `${c.sections.length ? "Climb section" : "Climb"} ${x.n}`, label: LEVELS[x.level], tactic: x.tactic,
+  })));
+  plan.descents.forEach((d) => parts.push({
+    kind: "descent", n: d.n, level: d.level, startKm: d.startKm, endKm: d.endKm,
+    title: `Descent ${d.n}`, label: DESCENT_LABELS[d.level], tactic: d.tactic,
+  }));
+  parts.sort((a, b) => a.startKm - b.startKm);
+  const runnable = (a, b) => ({ kind: "flat", n: null, level: 0, startKm: a, endKm: b, title: "Runnable", label: "Runnable", tactic: "Run tall and relaxed, drink, eat on time" });
+  const legs = [];
+  let at = 0;
+  for (const p of parts) {
+    const from = Math.max(at, p.startKm);
+    if (from >= p.endKm) continue; // fully inside the previous one (should not happen)
+    if (from - at >= RUNNABLE_MIN_KM) legs.push(runnable(at, from));
+    else if (legs.length) legs[legs.length - 1].endKm = from; // a short gap joins the section before
+    legs.push({ ...p, startKm: legs.length ? from : 0 });
+    at = p.endKm;
+  }
+  if (total - at >= RUNNABLE_MIN_KM || !legs.length) legs.push(runnable(at, total));
+  else legs[legs.length - 1].endKm = total;
+
+  const zones = plan.keyZones || [];
+  return legs.map((l, k) => {
+    const startSec = secAtKm(plan, sid, l.startKm);
+    const endSec = k === legs.length - 1 ? sc.finishSec : secAtKm(plan, sid, l.endKm);
+    const km = l.endKm - l.startKm;
+    const inLeg = (x) => x >= l.startKm && (x < l.endKm || (k === legs.length - 1 && x <= l.endKm));
+    const aids = plan.aidStations.filter((a) => inLeg(a.km));
+    const stopSec = aids.reduce((t, a) => t + a.stopMin * 60, 0);
+    const { up, down } = gainLoss(P, l.startKm, l.endKm);
+    const mid = (l.startKm + l.endKm) / 2;
+    return {
+      ...l, i: k + 1, km, up, down,
+      avg: ((eleAtKm(P, l.endKm) - eleAtKm(P, l.startKm)) / Math.max(1, km * 1000)) * 100,
+      startSec, endSec, durSec: endSec - startSec, stopSec,
+      pace: km > 0 ? Math.max(0, endSec - startSec - stopSec) / km : null,
+      gels: sc.gels.filter((g) => inLeg(g.km)),
+      aids,
+      keyZone: zones.find((z) => z.fromKm < l.endKm && z.toKm > l.startKm) || null,
+      hr: plan.hrGuide ? plan.hrGuide.find((h) => mid >= h.fromKm && mid <= h.toKm) || null : null,
+    };
+  });
+}
+
+/** Index (0-based) of the leg that contains `km`. */
+export function legAtKm(legs, km) {
+  let i = 0;
+  while (i < legs.length - 1 && km >= legs[i].endKm) i++;
+  return i;
+}
+
+/**
+ * Targets for the whole race in scenario `sid`: {finishSec, durationSec, km, gain, loss,
+ * paceSec (finish time / km, stops included), movingPaceSec (stops left out), stopSec,
+ * gels, gelEveryMin, aids, hrAvg, hrMin, hrMax}. hrAvg is null when the runs had no heart rate:
+ * otherwise the time-weighted mean of the value expected in each phase of the heart-rate guide.
+ */
+export function raceTotals(plan, sid) {
+  const sc = plan.scenarios[sid];
+  const km = plan.course.totalKm;
+  const stopSec = plan.aidStations.reduce((t, a) => t + a.stopMin * 60, 0);
+  let hrAvg = null, hrMin = null, hrMax = null;
+  const hr = plan.hrGuide;
+  if (hr && hr.every((h) => Number.isFinite(h.bpm))) {
+    let sum = 0, w = 0;
+    for (const h of hr) {
+      const dt = secAtKm(plan, sid, Math.min(km, h.toKm)) - secAtKm(plan, sid, h.fromKm);
+      sum += h.bpm * dt;
+      w += dt;
+    }
+    hrAvg = w > 0 ? Math.round(sum / w) : null;
+    hrMin = Math.min(...hr.map((h) => h.bpm));
+    hrMax = Math.max(...hr.map((h) => h.bpm));
+  }
+  return {
+    finishSec: sc.finishSec, durationSec: sc.finishSec, km, gain: plan.course.gain, loss: plan.course.loss,
+    paceSec: sc.finishSec / km, movingPaceSec: (sc.finishSec - stopSec) / km, stopSec,
+    gels: sc.gels.length, gelEveryMin: plan.params.gelEveryMin, aids: plan.aidStations.length,
+    hrAvg, hrMin, hrMax,
+  };
 }

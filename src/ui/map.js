@@ -58,15 +58,18 @@ const TILES = {
  *   totalKm course length
  *   paint   [{fromKm, toKm, cls, title}] coloured stretches (climbs by level, braking descents)
  *   marks   [{km, kind: "aid"|"km"|"gel", label}] markers along the course
- * Returns a controller: setRunner(km) moves the runner dot, follow(on), fit(), destroy().
+ * Returns a controller: setRunner(km) moves the runner dot, highlight(cur, next) lights up the
+ * section you are on ({fromKm, toKm}, or null) and outlines the next one, follow(on), fit(), destroy().
  * Leaflet loads in the background, so the controller works before the map is ready.
  */
 export function courseMap(el, opts) {
-  const ctl = { km: null, following: false, impl: null, dead: false };
+  const ctl = { km: null, hl: null, following: false, impl: null, dead: false };
   el.classList.add("map");
   el.innerHTML = `<div class="map-loading">Loading map…</div>`;
   const api = {
     setRunner(km) { ctl.km = km; if (ctl.impl) ctl.impl.setRunner(km); },
+    highlight(cur, next) { ctl.hl = [cur, next]; if (ctl.impl) ctl.impl.highlight(cur, next); },
+    show(fromKm, toKm) { if (ctl.impl) ctl.impl.show(fromKm, toKm); },
     follow(on) { ctl.following = on; if (ctl.impl) ctl.impl.follow(on); },
     fit() { if (ctl.impl) ctl.impl.fit(); },
     destroy() { ctl.dead = true; if (ctl.impl) ctl.impl.destroy(); },
@@ -74,6 +77,7 @@ export function courseMap(el, opts) {
   loadLeaflet().then((L) => {
     if (ctl.dead || !el.isConnected) return;
     ctl.impl = L ? leafletMap(L, el, opts) : svgMap(el, opts);
+    if (ctl.hl) ctl.impl.highlight(...ctl.hl);
     if (ctl.km !== null) ctl.impl.setRunner(ctl.km);
     if (ctl.following) ctl.impl.follow(true);
   });
@@ -122,12 +126,21 @@ function leafletMap(L, el, { route, totalKm, paint = [], marks = [] }) {
     const mk = L.marker(pointAt(route, totalKm, m.km), { icon, keyboard: false, zIndexOffset: m.kind === "aid" ? 500 : 0 }).addTo(map);
     if (m.kind !== "km") mk.bindTooltip(m.title || m.label, { direction: "top", offset: [0, -8] });
   });
+  // The section you are on: a wide glowing line drawn over everything else on the course, and
+  // the next one as a dashed outline. Both are made once and only get new points when you change section.
+  const nextLine = L.polyline([], { className: "rt-next", interactive: false }).addTo(map);
+  const curGlow = L.polyline([], { className: "rt-cur-glow", interactive: false }).addTo(map);
+  const curLine = L.polyline([], { className: "rt-cur", interactive: false }).addTo(map);
   const runner = L.marker(route[0], { icon: L.divIcon({ className: "mk-wrap", html: `<div class="runner"><i></i></div>`, iconSize: null }), interactive: false, zIndexOffset: 1000 });
   let following = false; // the replay wants the map to follow the runner
   let zoomed = false;
   let free = false; // ...but you moved the map yourself: it stays where you put it
   const fit = () => map.fitBounds(line.getBounds(), { padding: [18, 18] });
   fit();
+  // The box can change size after the map is drawn (the panel next to it grows with its text):
+  // tell Leaflet, or it keeps placing things for the old size.
+  const resize = typeof ResizeObserver === "function" ? new ResizeObserver(() => map.invalidateSize({ pan: false })) : null;
+  if (resize) resize.observe(el);
   // Recenter button: brings the runner back into view and resumes following.
   const Recenter = L.Control.extend({
     onAdd() {
@@ -163,6 +176,22 @@ function leafletMap(L, el, { route, totalKm, paint = [], marks = [] }) {
       // holds still most of the time instead of sliding on every frame.
       if (following && !free && !map.getBounds().pad(-0.25).contains(p)) map.panTo(p, { animate: false });
     },
+    // Zoom the map onto a stretch of the course (a section picked on the bar of sections).
+    show(fromKm, toKm) {
+      const pts = slice(route, totalKm, fromKm, toKm);
+      if (pts.length < 2) return;
+      // Like a drag: the map stays on that stretch until you press Recenter or Play.
+      if (following) { free = true; recenter.getContainer() && recenter.getContainer().classList.add("on"); }
+      map.invalidateSize({ pan: false });
+      map.fitBounds(L.latLngBounds(pts), { padding: [40, 40], maxZoom: 14 });
+    },
+    highlight(cur, next) {
+      const pts = (x) => (x ? slice(route, totalKm, x.fromKm, x.toKm) : []);
+      curGlow.setLatLngs(pts(cur));
+      curLine.setLatLngs(pts(cur));
+      nextLine.setLatLngs(pts(next));
+      nextLine.bringToFront(); curGlow.bringToFront(); curLine.bringToFront();
+    },
     follow(on) {
       following = on;
       free = false;
@@ -173,7 +202,7 @@ function leafletMap(L, el, { route, totalKm, paint = [], marks = [] }) {
       else if (!on) fit();
     },
     fit,
-    destroy() { map.remove(); },
+    destroy() { if (resize) resize.disconnect(); map.remove(); },
   };
 }
 
@@ -197,12 +226,19 @@ function svgMap(el, { route, totalKm, paint = [], marks = [] }) {
     if (m.kind === "aid") s += `<path class="aid" d="M${x.toFixed(1)},${(y - 4).toFixed(1)} l-7,-12 h14 z"><title>${m.title || m.label}</title></path>`;
     else s += `<g class="kmk"><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="11"/><text x="${x.toFixed(1)}" y="${(y + 4).toFixed(1)}" text-anchor="middle">${m.label}</text></g>`;
   });
+  s += `<path class="rt-next" d=""/><path class="rt-cur-glow" d=""/><path class="rt-cur" d=""/>`;
   s += `<g class="runner-svg" style="display:none"><circle r="13" class="halo"/><circle r="7"/></g>`;
   el.innerHTML = `<svg class="map-svg" viewBox="0 0 ${W} ${H.toFixed(0)}" role="img" aria-label="Course map">${s}</svg><div class="map-off">Map tiles unavailable offline: course shape only.</div>`;
   const dot = el.querySelector(".runner-svg");
+  const hl = { cur: el.querySelector(".rt-cur"), glow: el.querySelector(".rt-cur-glow"), next: el.querySelector(".rt-next") };
   return {
+    highlight(cur, next) {
+      const d = (x) => (x ? path(slice(route, totalKm, x.fromKm, x.toKm)) : "");
+      hl.cur.setAttribute("d", d(cur)); hl.glow.setAttribute("d", d(cur)); hl.next.setAttribute("d", d(next));
+    },
     setRunner(km) { const [x, y] = pt(pointAt(route, totalKm, km)); dot.style.display = ""; dot.setAttribute("transform", `translate(${x.toFixed(1)},${y.toFixed(1)})`); },
     follow() {},
+    show() {},
     fit() {},
     destroy() {},
   };

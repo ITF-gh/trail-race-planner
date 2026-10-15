@@ -260,7 +260,7 @@ details.adv summary{cursor:pointer;font-family:var(--f-display);font-weight:700;
 .jumps a.go{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 
 /* ---------- maps ---------- */
-.map{position:relative;border-radius:var(--r);overflow:hidden;border:1px solid var(--line);background:var(--pine-2)}
+.map{position:relative;isolation:isolate;border-radius:var(--r);overflow:hidden;border:1px solid var(--line);background:var(--pine-2)}
 .b-map{height:clamp(300px,52vh,480px)}
 .map.leaflet-container{background:#d9dfe6;font-family:var(--f-body)}
 .map-loading{display:grid;place-items:center;height:100%;color:var(--muted);font-size:14px}
@@ -287,8 +287,9 @@ details.adv summary{cursor:pointer;font-family:var(--f-display);font-weight:700;
 svg .pcur line{stroke:var(--sun);stroke-width:2} svg .pcur circle{fill:var(--sun);stroke:var(--bg);stroke-width:2}
 
 /* ---------- 04 race day replay ---------- */
-.rp-stage{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(280px,1fr);gap:14px;align-items:stretch}
-.rp-map{min-height:440px;height:100%}
+.rp-stage{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(280px,1fr);gap:14px;align-items:start}
+/* the panel next to the map is long: the map stays in view while you read it */
+.rp-map{position:sticky;top:72px;height:min(78vh,700px);min-height:440px}
 .rp-hud{display:flex;flex-direction:column;gap:12px}
 .rp-clock{display:flex;flex-direction:column}
 .rp-clock .k,.rp-stats .k{font-family:var(--f-display);font-weight:700;text-transform:uppercase;letter-spacing:.12em;font-size:12px;color:var(--muted)}
@@ -318,6 +319,56 @@ label.f.inline{flex-direction:row;align-items:center;gap:8px} label.f.inline sel
 label.chk{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted);font-weight:600;cursor:pointer;min-height:44px}
 label.chk input{width:18px;height:18px;accent-color:var(--sun)}
 .rp-prof svg{cursor:pointer}
+/* race targets, the bar of sections above the map, the section you are on */
+.rp-totals{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:14px}
+.rp-tot{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:10px;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--sun);min-width:0}
+.rp-tot .k,.rp-leg .k{font-family:var(--f-display);font-weight:700;text-transform:uppercase;letter-spacing:.1em;font-size:11.5px;color:var(--muted)}
+.rp-tot b{font-family:var(--f-display);font-weight:800;font-style:italic;font-size:28px;line-height:1;font-variant-numeric:tabular-nums}
+.rp-tot b small{font-size:14px;font-style:normal;color:var(--muted);margin-left:2px}
+.rp-tot>small{font-size:12.5px;color:var(--muted)}
+.rp-legbar{margin-bottom:10px}
+.rp-legs{position:relative;height:26px;border-radius:6px;background:rgba(255,255,255,.06);margin-top:10px}
+.rp-legs .lg{position:absolute;top:3px;bottom:3px;padding:0;margin:0;border:0;border-right:1px solid var(--bg);cursor:pointer;background:rgba(255,255,255,.18);transition:top .15s,bottom .15s,opacity .15s,filter .15s}
+.rp-legs .lg.l1{background:var(--e-bar)} .rp-legs .lg.l2{background:var(--m-bar)} .rp-legs .lg.l3{background:var(--h-bar)} .rp-legs .lg.l4{background:var(--c-bar)}
+.rp-legs .lg.k-descent{background:repeating-linear-gradient(135deg,#5c7bb8 0 4px,#3a5288 4px 8px)}
+.rp-legs .lg.k-descent.l2{background:repeating-linear-gradient(135deg,#d9a400 0 4px,#6b5200 4px 8px)}
+.rp-legs .lg.k-descent.l4{background:repeating-linear-gradient(135deg,var(--c-bar) 0 4px,#7a1020 4px 8px)}
+.rp-legs .lg.kz{box-shadow:inset 0 3px 0 var(--sun)}
+.rp-legs .lg.past{opacity:.45}
+.rp-legs .lg.nx{top:1px;bottom:1px;outline:1px dashed rgba(255,255,255,.7);outline-offset:-1px}
+.rp-legs .lg.on{top:-5px;bottom:-5px;opacity:1;z-index:2;border-radius:3px;outline:2px solid #fff;outline-offset:0;box-shadow:0 0 14px 2px rgba(255,201,40,.75)}
+.rp-legs .lg:hover{filter:brightness(1.25)}
+.rp-legs .lg-aid{position:absolute;top:-10px;width:0;height:0;margin-left:-5px;border:5px solid transparent;border-top:7px solid #9fd2ff;pointer-events:none;z-index:3}
+.rp-legs .lg-pos{position:absolute;top:-9px;bottom:-9px;width:3px;margin-left:-1.5px;background:var(--sun);border-radius:2px;box-shadow:0 0 0 1.5px var(--bg);pointer-events:none;z-index:4}
+.rp-legnow{margin-top:10px;font-size:14px;display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
+.rp-legnow b{font-family:var(--f-display);font-weight:800;font-style:italic;text-transform:uppercase;font-size:17px;letter-spacing:.03em;color:var(--sun)}
+.rp-legnow .left{color:var(--muted)}
+.rp-leg{padding:12px;border-radius:10px;background:rgba(255,201,40,.08);border:1px solid rgba(255,201,40,.45);border-left:6px solid var(--sun)}
+.rp-leg.lv1{border-left-color:var(--e-bar)} .rp-leg.lv2{border-left-color:var(--m-bar)} .rp-leg.lv3{border-left-color:var(--h-bar)} .rp-leg.lv4{border-left-color:var(--c-bar)}
+.rp-leg-h{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.rp-leg-n{display:flex;white-space:nowrap;flex:none;align-items:baseline;gap:4px;font-family:var(--f-display);font-style:italic}
+.rp-leg-n small{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;font-style:normal;font-weight:700}
+.rp-leg-n b{font-size:40px;font-weight:800;line-height:.9;color:var(--sun);font-variant-numeric:tabular-nums}
+.rp-leg-t{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.rp-leg-t>b{font-family:var(--f-display);font-weight:800;font-style:italic;text-transform:uppercase;font-size:21px;letter-spacing:.02em;line-height:1.05}
+.rp-leg-g{display:grid;grid-template-columns:repeat(2,1fr);gap:8px 12px}
+.rp-leg-g b{display:block;font-family:var(--f-display);font-weight:700;font-size:17px;font-variant-numeric:tabular-nums;line-height:1.15}
+.rp-leg-tac{margin:10px 0 0;font-size:14px}
+.rp-leg-next{margin:8px 0 0;padding-top:8px;border-top:1px dashed var(--line);font-size:13.5px;color:var(--muted)}
+.rp-leg-next b{color:var(--fg)} .rp-leg .chip,.rp-legnow .chip,.rp-leg-next .chip{font-size:11px;padding:2px 8px 2px 7px}
+/* the section on the profile and on the map */
+svg .pl-cur{fill:var(--sun);opacity:.3;stroke:var(--sun);stroke-width:1.5} svg .pl-next{fill:none;stroke:#fff;stroke-opacity:.55;stroke-dasharray:5 5;stroke-width:1.2}
+svg .pl-line{fill:none;stroke:var(--sun);stroke-width:5;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 5px rgba(255,201,40,.9))}
+svg .pl-t{fill:var(--sun);font-weight:800;font-size:13px} svg .pl-tn{fill:var(--fg);opacity:.7;font-weight:600;font-size:11px}
+.rt-cur{stroke:var(--sun);stroke-width:6;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.rt-cur-glow{stroke:#fff;stroke-width:15;stroke-opacity:.95;filter:drop-shadow(0 0 6px rgba(255,201,40,.9));fill:none;stroke-linecap:round;stroke-linejoin:round}
+.rt-next{stroke:#fff;stroke-width:3;stroke-dasharray:2 8;fill:none;stroke-linecap:round;stroke-opacity:.95}
+@media (prefers-reduced-motion: no-preference){
+  .rt-cur-glow{animation:glow 1.6s ease-in-out infinite}
+  svg .pl-cur{animation:glowband 1.6s ease-in-out infinite}
+}
+@keyframes glow{50%{stroke-opacity:.45}}
+@keyframes glowband{50%{opacity:.15}}
 .rp-script{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:560px;overflow-y:auto;overscroll-behavior:contain;padding-right:4px}
 .rp-script button{width:100%;display:grid;grid-template-columns:auto minmax(150px,220px) 1fr;gap:6px 14px;align-items:center;text-align:left;background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font:inherit;font-size:14px}
 .rp-script .ic{width:30px;height:30px;font-size:14px}
@@ -329,14 +380,14 @@ label.chk input{width:18px;height:18px;accent-color:var(--sun)}
 .rp-script button:hover{border-color:var(--muted)}
 @media (max-width:900px){
   .rp-stage{grid-template-columns:1fr}
-  .rp-map{min-height:0;height:min(60vh,420px)}
+  .rp-map{position:relative;top:auto;min-height:0;height:min(60vh,420px)}
 }
 @media (max-width:640px){
   /* phone: map, then the cue, then the controls (pinned to the bottom of the screen while the
      replay is in view), then the numbers; the script list shows the cue of the current moment only */
   #s4body{display:flex;flex-direction:column}
   .rp-stage{display:contents}
-  .rp-map{order:1} .rp-cue{order:2;margin:12px 0 0} .rp-controls{order:3} .rp-hud{order:4} .rp-prof{order:5;margin-top:14px} #rp-script{order:6} .rp-script{order:7}
+  .rp-totals{order:0} .rp-legbar{order:0} .rp-map{order:1} .rp-cue{order:2;margin:12px 0 0} .rp-controls{order:3} .rp-hud{order:4} .rp-prof{order:5;margin-top:14px} #rp-script{order:6} .rp-script{order:7}
   .rp-controls{position:sticky;bottom:0;z-index:900;margin:0 -16px;padding:10px 16px calc(10px + env(safe-area-inset-bottom));background:rgba(20,10,24,.94);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border-top:1px solid var(--line);gap:8px 10px}
   .rp-controls input[type=range]{order:-1;flex:1 1 100%}
   .rp-controls label.f.inline,.rp-controls label.chk{font-size:12.5px;min-height:34px;gap:6px}
@@ -348,6 +399,13 @@ label.chk input{width:18px;height:18px;accent-color:var(--sun)}
   .rp-clock b{font-size:44px}
   .rp-stats{grid-template-columns:repeat(4,1fr);gap:8px}
   .rp-stats b{font-size:18px}
+  .rp-totals{grid-template-columns:repeat(3,1fr);gap:6px}
+  .rp-tot{padding:7px 8px;border-left-width:3px}
+  .rp-tot .k{font-size:10px;letter-spacing:.06em}
+  .rp-tot b{font-size:20px}
+  .rp-tot b small{font-size:11px}
+  .rp-tot>small{font-size:11px;line-height:1.25}
+  .rp-leg-n b{font-size:32px}
   .rp-cue{padding:12px 14px;gap:10px}
   .rp-cue .rp-cue-h b{font-size:20px}
   .rp-cue p{font-size:15px}
