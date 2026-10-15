@@ -245,14 +245,16 @@ export function courseFit(plan, sid, track, opts = {}) {
 /* ---------- GPX ---------- */
 
 const xmlEsc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-const GPX_SYM = { [CP.summit]: "Summit", [CP.danger]: "Danger Area", [CP.valley]: "Flag, Blue", [CP.generic]: "Information" };
+// Garmin Connect's own GPX export writes a course point as <name>, <cmt> (the point's note) and
+// <type> (the FIT icon name in capitals, e.g. INFO), and reads the same back on import.
+const GPX_TYPE = { [CP.generic]: "GENERIC", [CP.summit]: "SUMMIT", [CP.valley]: "VALLEY", [CP.danger]: "DANGER" };
 
-/** The course as GPX 1.1: one waypoint per course point (short name, long text) and the track. */
+/** The course as GPX 1.1: one waypoint per course point (short name, long text as its note, icon type) and the track. */
 export function courseGpx(plan, sid, track, name = "Race") {
   const T = courseTrack(plan, track);
   const wpts = coursePoints(plan, sid).map((q) => {
     const at = trackAt(T, q.km);
-    return `  <wpt lat="${at.lat.toFixed(6)}" lon="${at.lon.toFixed(6)}"><ele>${at.ele.toFixed(1)}</ele><name>${xmlEsc(q.name)}</name><desc>${xmlEsc(q.text)}</desc><sym>${GPX_SYM[q.type] || "Waypoint"}</sym></wpt>`;
+    return `  <wpt lat="${at.lat.toFixed(6)}" lon="${at.lon.toFixed(6)}"><ele>${at.ele.toFixed(1)}</ele><name>${xmlEsc(q.name)}</name><cmt>${xmlEsc(q.text)}</cmt><type>${GPX_TYPE[q.type] || "GENERIC"}</type></wpt>`;
   });
   const trkpts = T.map((p) => `      <trkpt lat="${p.lat.toFixed(6)}" lon="${p.lon.toFixed(6)}"><ele>${p.ele.toFixed(1)}</ele></trkpt>`);
   return `<?xml version="1.0" encoding="UTF-8"?>
