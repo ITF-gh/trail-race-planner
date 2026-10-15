@@ -11,6 +11,7 @@ import { raceScript, raceStateAt, secAtKm } from "../core/script.js";
 import { LEVELS, DESCENT_LABELS } from "../core/plan.js";
 import { courseMap } from "./map.js";
 import { mmss, hm, clock } from "../core/format.js";
+import { trackEvent, trackOnce } from "./analytics.js";
 
 const escR = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const SPEEDS = [
@@ -158,15 +159,18 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key }) {
     if (list[0]) { pause(); seek(list[0].sec + 1); }
   };
 
-  els.play.addEventListener("click", () => (rp.playing ? pause() : play()));
-  $r("#rpPrev").addEventListener("click", () => jump(-1));
-  $r("#rpNextBtn").addEventListener("click", () => jump(1));
+  els.play.addEventListener("click", () => { trackEvent(rp.playing ? "replay-pause" : "replay-play"); rp.playing ? pause() : play(); });
+  $r("#rpPrev").addEventListener("click", () => { trackEvent("replay-step", "prev"); jump(-1); });
+  $r("#rpNextBtn").addEventListener("click", () => { trackEvent("replay-step", "next"); jump(1); });
   els.seek.addEventListener("input", () => seek(Number(els.seek.value)));
-  $r("#rpSpeed").addEventListener("change", (e) => { rp.speed = Number(e.target.value); });
-  $r("#rpPause").addEventListener("change", (e) => { rp.pauseAt = e.target.checked; });
+  els.seek.addEventListener("change", () => trackEvent("replay-seek"));
+  $r("#rpSpeed").addEventListener("change", (e) => { rp.speed = Number(e.target.value); trackEvent("replay-speed", e.target.value); });
+  $r("#rpPause").addEventListener("change", (e) => { rp.pauseAt = e.target.checked; trackEvent("replay-pause-at", e.target.checked ? "on" : "off"); });
   const fol = $r("#rpFollow");
-  if (fol) fol.addEventListener("change", (e) => { rp.follow = e.target.checked; if (rp.map) rp.map.follow(rp.follow); });
+  if (fol) fol.addEventListener("change", (e) => { rp.follow = e.target.checked; trackEvent("replay-follow", rp.follow ? "on" : "off"); if (rp.map) rp.map.follow(rp.follow); });
   els.list.querySelectorAll("li button").forEach((b) => b.addEventListener("click", () => {
+    // Which kind of moment was opened: a key zone, a climb, an aid station, a gel...
+    trackEvent("replay-moment", script[Number(b.parentElement.dataset.i)].kind);
     pause();
     seek(script[Number(b.parentElement.dataset.i)].sec + 1);
     $r(".rp-stage").scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -184,7 +188,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key }) {
     svg.addEventListener("pointerdown", (ev) => { down = { x: ev.clientX, y: ev.clientY }; });
     svg.addEventListener("pointercancel", () => { down = null; });
     svg.addEventListener("pointerup", (ev) => {
-      if (down && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) < 8) { pause(); seek(secAtKm(plan, sid, toKm(ev))); }
+      if (down && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) < 8) { trackEvent("replay-profile-tap"); pause(); seek(secAtKm(plan, sid, toKm(ev))); }
       down = null;
     });
   }
@@ -195,6 +199,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key }) {
     if (["input", "select", "textarea"].includes(tag) && ev.target.type !== "range" && ev.target.type !== "checkbox") return;
     const r = box.getBoundingClientRect();
     if (r.bottom < 0 || r.top > window.innerHeight) return;
+    if ([" ", "ArrowLeft", "ArrowRight"].includes(ev.key)) trackOnce("replay-keyboard");
     if (ev.key === " " && tag !== "button") { ev.preventDefault(); rp.playing ? pause() : play(); }
     else if (ev.key === "ArrowRight" && tag !== "input") { ev.preventDefault(); jump(1); }
     else if (ev.key === "ArrowLeft" && tag !== "input") { ev.preventDefault(); jump(-1); }

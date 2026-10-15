@@ -18,6 +18,7 @@ import { keyZones, toblerClock } from "../core/keyzones.js";
 import { secAtKm } from "../core/script.js";
 import { courseMap } from "./map.js";
 import { mountReplay, stopReplay } from "./replay.js";
+import { startAnalytics, trackEvent, trackOnce, analyticsOn, analyticsName } from "./analytics.js";
 import { makeDemoRaceGpx, makeDemoEffortGpx, DEMO_ULTRA_PROFILE, DEMO_ULTRA_AID, DEMO_LONG_RUN_PROFILE } from "../demo.js";
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -137,7 +138,7 @@ $("#app").innerHTML = `
 </section>
 
 <p class="foot">How it works: your run gives a pace for every gradient band, fresh and tired. Each 10 m of the course takes the pace of its band, sliding from fresh to tired along the race, scaled for terrain and for how much longer the race is than your run. Climbs and descents come from the course elevation, smoothed to ignore GPS noise. A model like this is usually within 5 to 10%: treat the three scenarios as a range, not a promise.</p>
-<p class="foot">Photos by ${Object.values(PHOTOS).map((p) => `<a href="${p.url}" target="_blank" rel="noopener">${p.by}</a>`).join(", ")}, free to use under the <a href="https://www.pexels.com/license/" target="_blank" rel="noopener">Pexels licence</a>.</p>
+${analyticsOn ? `<p class="foot">Visits are counted anonymously with ${analyticsName}: no cookies, no personal data. Your GPX files and plans never leave your browser.</p>\n` : ""}<p class="foot">Photos by ${Object.values(PHOTOS).map((p) => `<a href="${p.url}" target="_blank" rel="noopener">${p.by}</a>`).join(", ")}, free to use under the <a href="https://www.pexels.com/license/" target="_blank" rel="noopener">Pexels licence</a>.</p>
 `;
 
 /* ---------- settings form ---------- */
@@ -175,6 +176,7 @@ function readSettings() {
 writeSettings();
 FIELDS.forEach((id) => $("#" + id).addEventListener("change", () => {
   readSettings();
+  trackEvent("setting", id);
   if (id === "halfLifeDays" && state.effort) setRuns(state.effort.runs); else compute();
 }));
 
@@ -196,6 +198,7 @@ function loadRace(xml, label) {
     setStatus("race", `<span class="ok">✓ ${esc(state.race.name)}</span> · ${course.totalKm.toFixed(1)} km · ${Math.round(course.gain)} m D+`, true);
   } catch (e) {
     state.race = null;
+    trackEvent("gpx-error", "race");
     setStatus("race", `<div class="err">${esc(e.message)}</div>`);
   }
   compute();
@@ -206,7 +209,7 @@ function loadEfforts(files) {
   const runs = state.effort ? [...state.effort.runs] : [];
   const bad = [];
   for (const { xml, label } of files) {
-    try { const parsed = parseGpx(xml); runs.push({ name: label || parsed.name || `Run ${runs.length + 1}`, parsed }); } catch (e) { bad.push(`${label}: ${e.message}`); }
+    try { const parsed = parseGpx(xml); runs.push({ name: label || parsed.name || `Run ${runs.length + 1}`, parsed }); } catch (e) { bad.push(`${label}: ${e.message}`); trackEvent("gpx-error", "run"); }
   }
   setRuns(runs, bad);
 }
@@ -230,6 +233,7 @@ function wireDrop(boxId, inputId, loader) {
   const handle = async (fileList) => {
     const files = [...(fileList || [])];
     if (!files.length) return;
+    trackEvent("gpx-upload", boxId === "#dropRace" ? "race" : "run");
     const read = await Promise.all(files.map(async (f) => ({ xml: await f.text().catch(() => ""), label: f.name.replace(/\.gpx$/i, "") })));
     loader(read);
     input.value = ""; // so choosing the same file again still triggers a change
@@ -241,9 +245,10 @@ function wireDrop(boxId, inputId, loader) {
 }
 wireDrop("#dropRace", "#fileRace", (files) => loadRace(files[0].xml, files[0].label));
 wireDrop("#dropEffort", "#fileEffort", loadEfforts);
-$("#clearRuns").addEventListener("click", () => setRuns([]));
+$("#clearRuns").addEventListener("click", () => { trackEvent("runs-clear"); setRuns([]); });
 
 $("#demo").addEventListener("click", () => {
+  trackEvent("demo");
   // A made-up mountain ultra (78 km, 3,800 m up, seven aid stations) and two made-up 30 km
   // mountain long runs six weeks apart, so the weighting shows. Aid stations and start time
   // are filled in unless you typed your own.
@@ -271,6 +276,8 @@ function compute() {
   if (state.race && state.effort) {
     try {
       state.plan = buildPlan(state.race.parsed, state.effort.runs.map((r) => r.parsed), state.settings);
+      // Once per visit: did this visitor get a plan, from the demo or from their own files?
+      trackOnce("plan-built", /\(made up\)$/.test(state.race.name) ? "demo" : "own");
     } catch (e) {
       $("#planErr").innerHTML = `<div class="err">${esc(e.message)}</div>`;
     }
@@ -498,6 +505,7 @@ function renderBriefing() {
     </div>`;
   box.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => {
     state.btab = b.dataset.t;
+    trackEvent("briefing-tab", state.btab === "c" ? "climbs" : "descents");
     box.querySelectorAll(".tabs button").forEach((x) => x.setAttribute("aria-selected", String(x === b)));
     const [c, d] = box.querySelectorAll(".tabs ~ div");
     c.hidden = state.btab !== "c";
@@ -607,12 +615,12 @@ function renderDday() {
   </div>`;
 
   /* wiring */
-  out.querySelectorAll("#scen button").forEach((b) => b.addEventListener("click", () => { state.scenario = b.dataset.s; store.set("trp.scenario", state.scenario); renderDday(); renderReplay(); renderNav(); }));
-  out.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => { state.tab = b.dataset.t; renderDday(); }));
-  $("#logsel").addEventListener("change", (ev) => { store.set("trp.logMode", ev.target.value); drawLog(plan, logKey); });
+  out.querySelectorAll("#scen button").forEach((b) => b.addEventListener("click", () => { state.scenario = b.dataset.s; trackEvent("scenario", state.scenario); store.set("trp.scenario", state.scenario); renderDday(); renderReplay(); renderNav(); }));
+  out.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => { state.tab = b.dataset.t; trackEvent("dday-tab", state.tab); renderDday(); }));
+  $("#logsel").addEventListener("change", (ev) => { trackEvent("log-mode", ev.target.value); store.set("trp.logMode", ev.target.value); drawLog(plan, logKey); });
   drawLog(plan, logKey);
-  $("#copyMd").addEventListener("click", () => copyText(planToMarkdown(plan, sid)));
-  $("#copyJson").addEventListener("click", () => copyText(JSON.stringify(slimPlan(plan, sid), null, 2)));
+  $("#copyMd").addEventListener("click", () => { trackEvent("export", "markdown"); copyText(planToMarkdown(plan, sid)); });
+  $("#copyJson").addEventListener("click", () => { trackEvent("export", "json"); copyText(JSON.stringify(slimPlan(plan, sid), null, 2)); });
 }
 
 /* ---------- 04 race day replay ---------- */
@@ -649,9 +657,12 @@ function renderNav() {
   } else sum.innerHTML = `<button class="btn ghost sm" type="button" id="tnDemo">Try the demo</button>`;
   const d = $("#tnDemo");
   if (d) d.addEventListener("click", () => $("#demo").click());
+  const go = sum.querySelector('a[href="#s4"]');
+  if (go) go.addEventListener("click", () => trackEvent("nav", "race-day-button"));
 }
 (function wireNav() {
   const links = [...document.querySelectorAll(".tn-links a")];
+  links.forEach((a) => a.addEventListener("click", () => trackEvent("nav", a.dataset.sec)));
   const setActive = (id) => links.forEach((a) => {
     const on = a.dataset.sec === id;
     a.classList.toggle("on", on);
@@ -661,7 +672,8 @@ function renderNav() {
   });
   if ("IntersectionObserver" in window) {
     const io = new IntersectionObserver((entries) => {
-      entries.forEach((e) => { if (e.isIntersecting) setActive(e.target.id); });
+      // Which sections a visit actually reaches, counted once each per visit.
+      entries.forEach((e) => { if (e.isIntersecting) { setActive(e.target.id); trackOnce("section-reached", e.target.id); } });
     }, { rootMargin: "-45% 0px -50% 0px" });
     NAV.forEach(([id]) => io.observe($("#" + id)));
   }
@@ -711,6 +723,7 @@ function drawLog(plan, logKey) {
       const o = {};
       $("#logrows").querySelectorAll("input").forEach((x) => { o[x.dataset.i] = x.value.trim(); });
       store.set(key, o);
+      trackOnce("log-time-entered");
     });
   });
   update();
@@ -734,3 +747,4 @@ function copyText(text) {
   else fallback();
 }
 compute();
+startAnalytics();

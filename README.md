@@ -49,7 +49,8 @@ src/core/markdown.js   plan as Markdown
 src/core/keyzones.js   key zones: where the race is played, and how many minutes are at stake
 src/core/script.js     the race in time: key moments with cues, and where you are at any second
 src/demo.js            made-up GPX files for the demo and the tests
-src/ui/                the browser app (main.js, map.js for the map, replay.js for race day)
+src/ui/                the browser app (main.js, map.js for the map, replay.js for race day,
+                       analytics.js for anonymous visit and event counts)
 src/vendor/leaflet/    Leaflet 1.9.4, the map library (BSD-2 licence), copied to dist/vendor/
 cli.js                 the command-line tool
 scripts/build.js       bundles the app into dist/index.html, no dependencies
@@ -72,6 +73,20 @@ npm run dev      build, then serve it on http://localhost:5173
 ## Privacy
 
 GPX files show where you live and train. `.gitignore` excludes `*.gpx` so they do not end up in a repository by accident. The tests use made-up routes.
+
+GPX files and plans never leave the browser. The only thing the page sends out is anonymous visit and event counts (see Analytics).
+
+## Analytics
+
+The live page counts visits and a fixed set of events with [GoatCounter](https://www.goatcounter.com): no cookies, no personal data, so no cookie banner. Everything is in `src/ui/analytics.js`:
+
+- `ANALYTICS.site` is the GoatCounter site code (`trail-race-planner`, dashboard at https://trail-race-planner.goatcounter.com). Empty means analytics is off: no script is loaded and nothing is sent.
+- `ANALYTICS.provider` switches to `"plausible"` (site = your domain) or `"cloudflare"` (site = beacon token; page views only, Cloudflare Web Analytics has no custom events).
+- The app calls `trackEvent(name, label)` and `trackOnce(name, label)`. Names and labels come from the code only, never from file names or what the runner typed.
+
+Events: `demo`, `plan-built/demo|own` (once per visit), `gpx-upload/race|run`, `gpx-error/race|run`, `runs-clear`, `setting/<field>`, `section-reached/s1..s4` (once per visit), `nav/s1..s4`, `nav/race-day-button`, `briefing-tab/climbs|descents`, `scenario/<id>`, `dday-tab/<id>`, `log-mode/<mode>`, `log-time-entered` (once), `export/markdown|json`, `map-layer/<layer>`, `map-recenter`, `replay-play`, `replay-pause`, `replay-step/prev|next`, `replay-seek`, `replay-speed/<x>`, `replay-pause-at/on|off`, `replay-follow/on|off`, `replay-moment/<kind>` (`key` is a key zone), `replay-profile-tap`, `replay-keyboard` (once).
+
+GoatCounter does not count `localhost`, so local testing stays out of the numbers. To leave out your own visits on the live site, open it once with `#toggle-goatcounter` at the end of the address.
 
 ## Status and honesty
 
