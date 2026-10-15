@@ -817,7 +817,9 @@ html[data-theme="sky"] .pimp-link b{color:#fff}
 html[data-theme="sky"] svg .ln{opacity:.7}
 .tn-theme{flex:none;white-space:nowrap}
 @media (max-width:640px){ .tn-theme{padding:4px 9px;font-size:12px} }
-html[data-theme="sky"] .rp-legs .lg{background:rgba(15,39,71,.16)}
+/* :where() keeps this at the weight of ".rp-legs .lg", so the coloured sections (.lg.l1, .k-descent, .rv-good...) still win */
+:where(html[data-theme="sky"]) .rp-legs .lg{background:rgba(15,39,71,.16)}
+html[data-theme="sky"] .rp-legs .lg.past{opacity:.6}
 html[data-theme="sky"] .rp-legend .sw.k-flat,html[data-theme="sky"] .rp-legend .sw:not([class*=" "]){outline:1px solid var(--line)}
 html[data-theme="sky"] .topnav .btn.ghost{color:var(--fg);border-color:var(--line);background:#fff}
 .tn-theme{border-color:var(--sun) !important}
