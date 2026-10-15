@@ -56,12 +56,10 @@ const PEAK = `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M2 27 12 9l5 
 // Plan mode keeps the nature and adventure look; "Review a run" mode gets sport shots. No face is
 // recognisable in any of them: people are seen from behind, far away or as silhouettes.
 /* ---------- Sky mode: a bright theme, blue skies, white and sunrise tones ---------- */
-// The choice is kept in this browser; on a first visit a light system setting picks Sky.
+// Night is the default; the choice of Sky is kept in this browser.
 const THEME_KEY = "trp.theme";
 function initialTheme() {
-  const saved = store.get(THEME_KEY);
-  if (saved === "sky" || saved === "night") return saved;
-  try { return window.matchMedia("(prefers-color-scheme: light)").matches ? "sky" : "night"; } catch (e) { return "night"; }
+  return store.get(THEME_KEY) === "sky" ? "sky" : "night";
 }
 function applyTheme(t) {
   document.documentElement.dataset.theme = t;
