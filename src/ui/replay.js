@@ -52,8 +52,9 @@ const rp = { key: "", sec: 0, playing: false, speed: 360, pauseAt: true, follow:
 /**
  * Mount the replay in `box`. `prof` draws the profile: {html, x(km), y(ele)} in SVG units of a
  * viewBox 1000 wide, with a `.pcur` group to move. `mapPaint` / `mapMarks` style the route.
+ * `noun` names what plays ("Race", or "Run" in Prep my run).
  */
-export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key }) {
+export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, noun = "Race" }) {
   stopReplay();
   if (rp.key !== key) { rp.key = key; rp.sec = 0; }
   const st = plan.startSec;
@@ -73,14 +74,14 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key }) {
   // CSS grid places them; the map takes whatever height is left, so it shrinks on small screens.
   box.innerHTML = `
   <div class="rp-cockpit${hasMap ? "" : " nomap"}" id="rpCockpit">
-  <div class="rp-totals" aria-label="Race targets">
+  <div class="rp-totals" aria-label="${noun} targets">
     ${totTile("Duration", hm(tot.durationSec), `${Math.round(tot.stopSec / 60)} min of stops`)}
     ${totTile("Distance", `${TOT_KM.toFixed(1)}<small>km</small>`, `${Math.round(tot.gain)} m D+ · ${legs.length} sections`)}
     ${totTile("Average pace", `${mmss(tot.paceSec)}<small>/km</small>`, `moving ${mmss(tot.movingPaceSec)}/km`)}
     ${totTile(`Finish · ${escR(sc.label.toLowerCase())}`, clock(st, tot.finishSec), `start ${clock(st, 0)}`)}
   </div>
   <div class="rp-legbar">
-    <div class="rp-legs" id="rpLegs" role="group" aria-label="Race sections">${legs.map((l) => `<button type="button" class="lg ${legCls(l)}${l.keyZone ? " kz" : ""}" data-i="${l.i - 1}" style="left:${pct(l.startKm)};width:${pct(l.endKm - l.startKm)}" title="${l.i}. ${escR(l.title)} · ${escR(l.label)} · km ${l.startKm.toFixed(1)} → ${l.endKm.toFixed(1)}" aria-label="Section ${l.i}: ${escR(l.title)}"></button>`).join("")}
+    <div class="rp-legs" id="rpLegs" role="group" aria-label="${noun} sections">${legs.map((l) => `<button type="button" class="lg ${legCls(l)}${l.keyZone ? " kz" : ""}" data-i="${l.i - 1}" style="left:${pct(l.startKm)};width:${pct(l.endKm - l.startKm)}" title="${l.i}. ${escR(l.title)} · ${escR(l.label)} · km ${l.startKm.toFixed(1)} → ${l.endKm.toFixed(1)}" aria-label="Section ${l.i}: ${escR(l.title)}"></button>`).join("")}
       ${plan.aidStations.map((a) => `<i class="lg-aid" style="left:${pct(a.km)}" title="${escR(a.name)}"></i>`).join("")}
       <i class="lg-pos" id="rpLegPos"></i>
     </div>
@@ -106,13 +107,13 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key }) {
     <button class="btn icon" type="button" id="rpPrev" aria-label="Previous moment" title="Previous moment (←)">⏮</button>
     <button class="btn primary rp-play" type="button" id="rpPlay"></button>
     <button class="btn icon" type="button" id="rpNextBtn" aria-label="Next moment" title="Next moment (→)">⏭</button>
-    <input type="range" id="rpSeek" min="0" max="${Math.round(sc.finishSec)}" step="10" aria-label="Race time">
+    <input type="range" id="rpSeek" min="0" max="${Math.round(sc.finishSec)}" step="10" aria-label="${noun} time">
     <label class="f inline">Speed<select id="rpSpeed" aria-label="Replay speed">${SPEEDS.map((s) => `<option value="${s.v}" ${s.v === rp.speed ? "selected" : ""}>${s.label}</option>`).join("")}</select></label>
     <label class="chk"><input type="checkbox" id="rpPause" ${rp.pauseAt ? "checked" : ""}> Stop at each moment</label>
     ${hasMap ? `<label class="chk"><input type="checkbox" id="rpFollow" ${rp.follow ? "checked" : ""}> Follow the runner</label>` : ""}
   </div>
   </div>
-  <div class="sub-h" id="rp-script">Race script · ${script.length} moments</div>
+  <div class="sub-h" id="rp-script">${noun} script · ${script.length} moments</div>
   <ol class="rp-script" id="rpScript">${script.map((e, i) => `<li data-i="${i}" class="k-${e.kind} lv${e.level}"><button type="button"><span class="ic">${ICON[e.kind] || "•"}</span><span class="t"><b>${escR(e.title)}</b><small>km ${e.km.toFixed(1)} · ${clock(st, e.sec)}</small></span><span class="cue">${escR(e.cue)}</span></button></li>`).join("")}</ol>`;
 
   const $r = (s) => box.querySelector(s);
@@ -222,7 +223,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key }) {
     const pct = l.km > 0 ? Math.round((Math.min(l.km, Math.max(0, s.km - l.startKm)) / l.km) * 100) : 100;
     els.tn.Pct.innerHTML = `${pct}% <small>${leftKm.toFixed(1)} km left</small>`;
     els.tn.Time.innerHTML = `${inMin} min <small>${leftSec >= 3600 ? hm(leftSec) : `${Math.round(leftSec / 60)} min`} left</small>`;
-    els.play.innerHTML = rp.playing ? "❚❚ Pause" : rp.sec >= sc.finishSec ? "↺ Replay" : rp.sec > 0 ? "▶ Resume" : "▶ Play race day";
+    els.play.innerHTML = rp.playing ? "❚❚ Pause" : rp.sec >= sc.finishSec ? "↺ Replay" : rp.sec > 0 ? "▶ Resume" : `▶ Play ${noun === "Race" ? "race day" : "your run"}`;
 
     // The section card says what you are on; this line only flags a stop or the finish.
     let now = "";
