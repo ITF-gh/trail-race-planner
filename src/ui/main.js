@@ -65,7 +65,7 @@ const PHOTOS = {
 };
 const credit = (key, cls = "") => `<a class="photo-credit${cls ? " " + cls : ""}" href="${PHOTOS[key].url}" target="_blank" rel="noopener">Photo: ${PHOTOS[key].by} / Pexels</a>`;
 const head = (num, kicker, title, key = "s" + Number(num)) => `<header class="sec-head"><div class="sec-num">${num}</div><div class="sec-kicker">${kicker}</div><h2>${title}</h2>${PHOTOS[key] ? credit(key) : ""}</header>`;
-const NAV = [["s1", "01", "Engine"], ["s2", "02", "Briefing"], ["s3", "03", "D-day"], ["s4", "04", "Race day"], ["s-prep", "◆", "Prep my run"], ["s5", "▶", "See my run"]];
+const NAV = [["s1", "01", "Engine"], ["s2", "02", "Briefing"], ["s3", "03", "D-day"], ["s4", "04", "Race day"], ["s-pimp", "05", "Pimp my GPX"], ["s-prep", "◆", "Prep my run"], ["s5", "▶", "See my run"]];
 /** The modes, in switch order: data-mode value, label, and the class that only it shows. */
 const MODES = [["plan", "Prep my race", "plan-only"], ["prep", "Prep my run", "prep-only"], ["run", "See my run", "review-only"]];
 const navClass = (id) => (id === "s5" ? "review-only" : id === "s-prep" ? "prep-only" : "plan-only");
@@ -174,6 +174,12 @@ $("#app").innerHTML = `
   ${head("04", "Rehearse it", "Race day")}
   <p class="sec-intro">Live the race before you run it. Press play and follow yourself along the course: the clock runs at your predicted pace, and every climb, gel and aid station shows what to do there. Replay it until the plan feels familiar.</p>
   <div id="s4body"></div>
+</section>
+
+<section id="s-pimp" class="plan-only">
+  ${head("05", "Your plan on your watch", "Pimp my GPX", "none")}
+  <p class="sec-intro">The race GPX given back with your plan on it: the messages your watch shows along the course (hike here, brake there, the key zones). Check them, edit them, then download the course for your watch.</p>
+  <div id="sPimpBody"></div>
 </section>
 
 <section id="s-prep" class="prep-only">
@@ -339,6 +345,7 @@ function compute() {
   renderBriefing();
   renderDday();
   renderReplay();
+  renderPimp();
   renderNav();
 }
 
@@ -639,7 +646,7 @@ function renderDday() {
   })() : state.settings.targetTime ? `<div class="panel target-card t-warn" id="d-target"><p>Write the targeted duration as hours:minutes, for example 10:15.</p></div>` : "";
 
   out.innerHTML = `
-  ${jumps([["d-key", "★ Key zones"], ["d-card", "Race card"], ["d-climbs", "Climb by climb"], ["d-log", "Plan versus actual"], ["d-watch", "Watch messages"], ["d-export", "Export"], ["rpCockpit", "▶ Rehearse race day", "go"]])}
+  ${jumps([["d-key", "★ Key zones"], ["d-card", "Race card"], ["d-climbs", "Climb by climb"], ["d-log", "Plan versus actual"], ["d-export", "Export"], ["s-pimp", "05 Pimp my GPX"], ["rpCockpit", "▶ Rehearse race day", "go"]])}
   <div class="dday-top">
     ${tile(`Finish · ${sc.label.toLowerCase()}`, clock(st, sc.finishSec), `${hm(sc.finishSec)} on course · start ${clock(st, 0)}`, "big")}
     <div class="panel" style="display:flex;flex-direction:column;gap:12px;justify-content:center">
@@ -686,29 +693,46 @@ function renderDday() {
     <p class="note">Type the first checkpoint as minutes and seconds if it is under an hour (56:30), the others as hours and minutes (1:55).</p>
   </div>
 
-  <div class="sub-h" id="d-watch">Watch messages</div>
-  <div id="dWatch">${watchPanelHtml(plan)}</div>
-
   <div class="sub-h" id="d-export">Take it with you</div>
   <div class="actions">
     <button class="btn primary" id="copyMd" type="button">Copy plan as Markdown</button>
     <button class="btn" id="copyJson" type="button">Copy as JSON</button>
-    <button class="btn" id="dlFit" type="button">Garmin course (.fit)</button>
-    <button class="btn" id="dlGpx" type="button">GPX with cues</button>
     <span class="status" id="exportStat" aria-live="polite"></span>
   </div>
-  <p class="note">The course files carry this scenario's plan and your watch messages above: for example "HIKE 5.5k +726" (hike the next 5.5 km, 726 m up) or "!POWER HIKE 2.3k" at a key zone. Messages are at least 200 m and 1 minute apart. Import the .fit in Garmin Connect (Courses, Import) or copy it to the watch's GARMIN/NewFiles folder, then follow the course. The GPX works with other brands too.</p>`;
+  <a class="panel pimp-link" href="#s-pimp"><b>Put this plan on your watch →</b><span>Your watch messages and the course for your watch (.fit, or GPX with messages) are in <b>05 Pimp my GPX</b>.</span></a>`;
 
   /* wiring */
-  out.querySelectorAll("#scen button").forEach((b) => b.addEventListener("click", () => { state.scenario = b.dataset.s; trackEvent("scenario", state.scenario); store.set("trp.scenario", state.scenario); renderDday(); renderReplay(); renderNav(); }));
+  out.querySelectorAll("#scen button").forEach((b) => b.addEventListener("click", () => { state.scenario = b.dataset.s; trackEvent("scenario", state.scenario); store.set("trp.scenario", state.scenario); renderDday(); renderReplay(); renderPimp(); renderNav(); }));
   out.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => { state.tab = b.dataset.t; trackEvent("dday-tab", state.tab); renderDday(); }));
   $("#logsel").addEventListener("change", (ev) => { trackEvent("log-mode", ev.target.value); store.set("trp.logMode", ev.target.value); drawLog(plan, logKey); });
   drawLog(plan, logKey);
   $("#copyMd").addEventListener("click", () => { trackEvent("export", "markdown"); copyText(planToMarkdown(plan, sid)); });
   $("#copyJson").addEventListener("click", () => { trackEvent("export", "json"); copyText(JSON.stringify(slimPlan(plan, sid), null, 2)); });
-  mountWatch($("#dWatch"), { plan, sid, key: watchKey(plan, sid), say: setExportStatus });
-  $("#dlFit").addEventListener("click", () => exportCourse("fit", plan, sid));
-  $("#dlGpx").addEventListener("click", () => exportCourse("gpx", plan, sid));
+  $(".pimp-link").addEventListener("click", () => trackEvent("nav", "pimp-link"));
+}
+
+/* ---------- 05 pimp my GPX: the watch messages and the course for the watch ---------- */
+function renderPimp() {
+  const box = $("#sPimpBody");
+  const plan = state.plan;
+  if (!plan) { box.innerHTML = empty(`<b>Build your plan first</b> (both files, or press Try the demo), then get the race GPX back with your plan on it.`); return; }
+  const sid = plan.scenarios[state.scenario] ? state.scenario : "central";
+  box.innerHTML = `
+  <p class="note" style="margin-top:0">Timed on your <b>${esc(plan.scenarios[sid].label.toLowerCase())}</b> scenario (change it in 03 D-day).</p>
+  <div class="sub-h" id="d-watch">Watch messages</div>
+  <div id="dWatch">${watchPanelHtml(plan)}</div>
+
+  <div class="sub-h" id="d-pimp">Your pimped GPX</div>
+  <div class="actions">
+    <button class="btn primary" id="dlFit" type="button">Garmin course (.fit)</button>
+    <button class="btn" id="dlGpx" type="button">GPX with messages</button>
+    <span class="status" id="pimpStat" aria-live="polite"></span>
+  </div>
+  <p class="note">The course files carry this scenario's plan and your watch messages above: for example "HIKE 5.5k +726" (hike the next 5.5 km, 726 m up) or "!POWER HIKE 2.3k" at a key zone. Messages are at least 200 m and 1 minute apart. Import the .fit in Garmin Connect (Courses, Import) or copy it to the watch's GARMIN/NewFiles folder, then follow the course. The GPX works with other brands too.</p>`;
+  const say = (t) => { $("#pimpStat").textContent = t; };
+  mountWatch($("#dWatch"), { plan, sid, key: watchKey(plan, sid), say });
+  $("#dlFit").addEventListener("click", () => exportCourse("fit", plan, sid, say));
+  $("#dlGpx").addEventListener("click", () => exportCourse("gpx", plan, sid, say));
 }
 
 /* ---------- 04 race day replay ---------- */
@@ -738,7 +762,7 @@ function mountCockpit(box, plan, sid, key, noun = "Race") {
 // band across the middle of the viewport, without listening to every scroll event.
 function renderNav() {
   const plan = state.plan;
-  const ready = { s1: Boolean(state.effort), s2: Boolean(state.race), s3: Boolean(plan), s4: Boolean(plan), s5: Boolean($("#rvCockpit")), "s-prep": Boolean($("#sPrepBody .prep-ready")) };
+  const ready = { s1: Boolean(state.effort), s2: Boolean(state.race), s3: Boolean(plan), s4: Boolean(plan), "s-pimp": Boolean(plan), s5: Boolean($("#rvCockpit")), "s-prep": Boolean($("#sPrepBody .prep-ready")) };
   document.querySelectorAll(".tn-links a").forEach((a) => a.classList.toggle("ready", ready[a.dataset.sec]));
   const sum = $("#tnSum");
   if (plan) {
@@ -828,13 +852,13 @@ function setExportStatus(t) { const el = $("#exportStat"); if (el) el.textConten
 const watchKey = (plan, sid) => `trp.watch.${(state.race && state.race.name) || "race"}.${plan.course.totalKm.toFixed(1)}.${sid}`;
 
 /** Save the plan as a watch course: FIT (Garmin) or GPX with waypoints (any brand). */
-function exportCourse(kind, plan, sid) {
+function exportCourse(kind, plan, sid, say) {
   const name = (state.race && state.race.name) || "Race";
   const track = state.race && state.race.parsed ? state.race.parsed.points : null;
   try {
     const file = downloadCourse(kind, { plan, sid, track, name, points: watchPoints(plan, sid, watchKey(plan, sid)) });
-    setExportStatus(`Saved ${file}.`);
-  } catch (e) { setExportStatus(`Could not make the course: ${e.message}`); }
+    say(`Saved ${file}.`);
+  } catch (e) { say(`Could not make the course: ${e.message}`); }
 }
 
 function copyText(text) {
