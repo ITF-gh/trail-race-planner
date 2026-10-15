@@ -14,7 +14,6 @@
 // the section number with the last one and touches the DOM only then.
 
 import { raceScript, raceStateAt, secAtKm, raceLegs, raceTotals, legAtKm } from "../core/script.js";
-import { LEVELS, DESCENT_LABELS } from "../core/plan.js";
 import { courseMap } from "./map.js";
 import { mmss, hm, clock } from "../core/format.js";
 import { trackEvent, trackOnce } from "./analytics.js";
@@ -71,21 +70,21 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key }) {
       ${plan.aidStations.map((a) => `<i class="lg-aid" style="left:${pct(a.km)}" title="${escR(a.name)}"></i>`).join("")}
       <i class="lg-pos" id="rpLegPos"></i>
     </div>
-    <div class="rp-legnow" id="rpLegNow" aria-live="polite"></div>
+    <div class="rp-legfoot">
+      <div class="rp-legnow" id="rpLegNow" aria-live="polite"></div>
+      <div class="rp-legend" aria-label="Legend"><span><i class="sw l1"></i>Easy</span><span><i class="sw l2"></i>Moderate</span><span><i class="sw l3"></i>Hard</span><span><i class="sw l4"></i>Crux</span><span><i class="sw fl"></i>Runnable</span><span><i class="sw ds"></i>Descent</span><span><i class="sw ds4"></i>Brake</span><span><i class="sw kz"></i>Key zone</span><span><i class="sw ad"></i>Aid</span></div>
+    </div>
   </div>
   <div class="rp-stage">
     ${hasMap ? `<div class="rp-map" id="rpMap"></div>` : ""}
     <div class="panel rp-hud">
-      <div class="rp-leg" id="rpLeg"></div>
-      <div class="rp-clock"><span class="k">Clock</span><b id="rpClock"></b><span id="rpElapsed"></span></div>
-      <div class="rp-prog" aria-hidden="true"><i id="rpBar"></i></div>
-      <div class="rp-stats">
-        <div><span class="k">Km</span><b id="rpKm"></b></div>
-        <div><span class="k">Altitude</span><b id="rpEle"></b></div>
-        <div><span class="k">Gradient</span><b id="rpGrade"></b></div>
-        <div><span class="k">Pace</span><b id="rpPace"></b></div>
+      <div class="rp-top">
+        <div class="rp-clock"><span class="k">Clock</span><b id="rpClock"></b></div>
+        <div class="rp-run"><span id="rpElapsed"></span><span id="rpKm"></span></div>
       </div>
-      <div class="rp-now" id="rpNow"></div>
+      <div class="rp-prog" aria-hidden="true"><i id="rpBar"></i></div>
+      <div class="rp-leg" id="rpLeg"></div>
+      <div class="rp-now" id="rpNow" hidden></div>
       <ul class="kv rp-next" id="rpNext"></ul>
     </div>
   </div>
@@ -104,7 +103,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key }) {
   <ol class="rp-script" id="rpScript">${script.map((e, i) => `<li data-i="${i}" class="k-${e.kind} lv${e.level}"><button type="button"><span class="ic">${ICON[e.kind] || "•"}</span><span class="t"><b>${escR(e.title)}</b><small>km ${e.km.toFixed(1)} · ${clock(st, e.sec)}</small></span><span class="cue">${escR(e.cue)}</span></button></li>`).join("")}</ol>`;
 
   const $r = (s) => box.querySelector(s);
-  const els = { leg: $r("#rpLeg"), legNow: $r("#rpLegNow"), legPos: $r("#rpLegPos"), legBtns: [...box.querySelectorAll("#rpLegs .lg")], clock: $r("#rpClock"), el: $r("#rpElapsed"), bar: $r("#rpBar"), km: $r("#rpKm"), ele: $r("#rpEle"), grade: $r("#rpGrade"), pace: $r("#rpPace"), now: $r("#rpNow"), next: $r("#rpNext"), cue: $r("#rpCue"), play: $r("#rpPlay"), seek: $r("#rpSeek"), cur: $r("#rpProf .pcur"), list: $r("#rpScript") };
+  const els = { leg: $r("#rpLeg"), legNow: $r("#rpLegNow"), legPos: $r("#rpLegPos"), legBtns: [...box.querySelectorAll("#rpLegs .lg")], clock: $r("#rpClock"), el: $r("#rpElapsed"), bar: $r("#rpBar"), km: $r("#rpKm"), now: $r("#rpNow"), next: $r("#rpNext"), cue: $r("#rpCue"), play: $r("#rpPlay"), seek: $r("#rpSeek"), cur: $r("#rpProf .pcur"), list: $r("#rpScript") };
   if (hasMap) {
     rp.map = courseMap($r("#rpMap"), { route: plan.course.route, totalKm: plan.course.totalKm, paint: mapPaint, marks: mapMarks });
     rp.map.follow(rp.follow && rp.sec > 0);
@@ -157,10 +156,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key }) {
     els.clock.textContent = clock(st, s.sec);
     els.el.textContent = `${hm(s.sec)} on course · ${Math.round(s.frac * 100)}%`;
     els.bar.style.width = `${(s.frac * 100).toFixed(2)}%`;
-    els.km.textContent = `${s.km.toFixed(1)} / ${plan.course.totalKm.toFixed(1)}`;
-    els.ele.textContent = `${Math.round(s.ele)} m`;
-    els.grade.textContent = s.aid ? "–" : `${s.grade > 0 ? "+" : ""}${s.grade.toFixed(0)}%`;
-    els.pace.textContent = s.pace ? `${mmss(s.pace)}/km` : "stopped";
+    els.km.textContent = `km ${s.km.toFixed(1)} / ${plan.course.totalKm.toFixed(1)}`;
     els.seek.value = Math.round(s.sec);
     // The section you are on: lit up everywhere when it changes, its countdown on every frame.
     const li = legAtKm(legs, s.km);
@@ -170,38 +166,46 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key }) {
       drawLeg(li);
       const n = legs[li + 1];
       els.leg.className = `rp-leg k-${l.kind} lv${l.level}`;
+      // Target (the plan for this section) next to Now (where the replay is): the Now column is
+      // filled on every frame, the rest only when the section changes.
+      const row = (k, target, id) => `<tr><th>${k}</th><td>${target}</td><td class="now" ${id ? `id="${id}"` : ""}>${id ? "" : "–"}</td></tr>`;
       els.leg.innerHTML = `
         <div class="rp-leg-h"><span class="rp-leg-n"><small>Section</small><b>${l.i}</b><small>/ ${legs.length}</small></span>
-          <span class="rp-leg-t"><b>${escR(l.title)}</b>${legChip(l)}${l.keyZone ? ` <span class="chip keyc">★ ${l.keyZone.n}</span>` : ""}</span></div>
-        <div class="rp-leg-g">
-          <div><span class="k">Km</span><b>${l.startKm.toFixed(1)} → ${l.endKm.toFixed(1)}</b></div>
-          <div><span class="k">Length</span><b>${l.km.toFixed(2)} km</b></div>
-          <div><span class="k">Up / down</span><b>+${Math.round(l.up)} / −${Math.round(l.down)} m</b></div>
-          <div><span class="k">Average</span><b>${gradeTxt(l)}</b></div>
-          <div><span class="k">Target pace</span><b>${l.pace ? `${mmss(l.pace)}/km` : "–"}</b></div>
-          <div><span class="k">Time on it</span><b>${hm(l.durSec)}</b></div>
-          <div><span class="k">In → out</span><b>${clock(st, l.startSec)} → ${clock(st, l.endSec)}</b></div>
-          <div><span class="k">Heart rate</span><b>${l.hr ? escR(l.hr.text) : "–"}</b></div>
-        </div>
+          <span class="rp-leg-t"><b>${escR(l.title)}</b>${legChip(l)}${l.keyZone ? ` <span class="chip keyc">★ Key zone ${l.keyZone.n}</span>` : ""}</span></div>
+        <table class="rp-tg">
+          <thead><tr><th></th><th>Target</th><th class="now">Now</th></tr></thead>
+          <tbody>
+            ${row("Clock", `${clock(st, l.startSec)} → ${clock(st, l.endSec)}`, "tnClock")}
+            ${row("Time", hm(l.durSec), "tnTime")}
+            ${row("Km", `${l.startKm.toFixed(1)} → ${l.endKm.toFixed(1)} <small>${l.km.toFixed(2)} km</small>`, "tnKm")}
+            ${row("Pace", l.pace ? `${mmss(l.pace)}/km` : "–", "tnPace")}
+            ${row("Gradient", `${gradeTxt(l)} <small>avg</small>`, "tnGrade")}
+            ${row("Altitude", `+${Math.round(l.up)} / −${Math.round(l.down)} m`, "tnEle")}
+            ${row("Heart rate", l.hr ? escR(l.hr.text) : "–", "")}
+          </tbody>
+        </table>
         <p class="rp-leg-tac">${escR(l.tactic)}${l.gels.length ? ` · ${l.gels.length} gel${l.gels.length > 1 ? "s" : ""} here` : ""}${l.aids.length ? ` · ⛺ ${l.aids.map((a) => escR(a.name)).join(", ")}` : ""}</p>
         <p class="rp-leg-next">${n ? `Next · <b>${n.i}. ${escR(n.title)}</b> ${legChip(n)} ${n.km.toFixed(1)} km · +${Math.round(n.up)} / −${Math.round(n.down)} m · ${hm(n.durSec)}` : "Next · <b>the finish line</b>"}</p>`;
+      els.tn = Object.fromEntries(["Clock", "Time", "Km", "Pace", "Grade", "Ele"].map((k) => [k, els.leg.querySelector(`#tn${k}`)]));
     }
     const leftKm = Math.max(0, l.endKm - s.km);
     const leftSec = Math.max(0, l.endSec - s.sec);
     els.legNow.innerHTML = `<b>Section ${l.i}/${legs.length}</b> · ${escR(l.title)} ${legChip(l)} <span class="left">${leftKm.toFixed(1)} km · ${leftSec >= 3600 ? hm(leftSec) : `${Math.round(leftSec / 60)} min`} to go in it</span>`;
     els.legPos.style.left = `${(s.frac * 100).toFixed(2)}%`;
+    const inMin = Math.max(0, Math.round((s.sec - l.startSec) / 60));
+    els.tn.Clock.textContent = clock(st, s.sec);
+    els.tn.Time.textContent = `${inMin} min in · ${leftSec >= 3600 ? hm(leftSec) : Math.round(leftSec / 60)} left`;
+    els.tn.Km.textContent = `${s.km.toFixed(1)} · ${leftKm.toFixed(1)} left`;
+    els.tn.Pace.textContent = s.pace ? `${mmss(s.pace)}/km` : "stopped";
+    els.tn.Grade.textContent = s.aid ? "–" : `${s.grade > 0 ? "+" : ""}${s.grade.toFixed(0)}%`;
+    els.tn.Ele.textContent = `${Math.round(s.ele)} m`;
     els.play.innerHTML = rp.playing ? "❚❚ Pause" : rp.sec >= sc.finishSec ? "↺ Replay" : rp.sec > 0 ? "▶ Resume" : "▶ Play race day";
 
-    let now;
+    // The section card says what you are on; this line only flags a stop or the finish.
+    let now = "";
     if (s.aid) now = `<span class="chip aidc">Aid station</span> <b>${escR(s.aid.name)}</b> · out at ${clock(st, s.aid.arrive[sid] + s.aid.stopMin * 60)}`;
-    else if (s.climb) {
-      const x = s.section || s.climb;
-      now = `<span class="chip l${x.level}">${LEVELS[x.level]}</span> <b>${s.section ? "Section" : "Climb"} ${x.n}</b> · ${escR(x.tactic)} · top at ${clock(st, s.climb.start[sid] + s.climb.dur[sid])}`;
-    } else if (s.descent) now = `<span class="chip l${s.descent.level}">${DESCENT_LABELS[s.descent.level]}</span> <b>Descent ${s.descent.n}</b> · ${escR(s.descent.tactic)}`;
     else if (s.sec >= sc.finishSec) now = `<span class="chip l1">Done</span> <b>Finished</b> · ${hm(sc.finishSec)}`;
-    else now = `<span class="chip flat">Runnable</span> <b>Between climbs</b> · relax, drink, run tall`;
-    if (s.keyZone && !s.aid) now = `<span class="chip keyc">★ Key zone ${s.keyZone.n}</span> ${now}`;
-    if (now !== lastNowHtml) { els.now.innerHTML = now; lastNowHtml = now; }
+    if (now !== lastNowHtml) { els.now.innerHTML = now; els.now.hidden = !now; lastNowHtml = now; }
 
     const until = (sec) => { const m = Math.max(0, Math.round((sec - s.sec) / 60)); return m >= 60 ? hm(m * 60) : `${m} min`; };
     const next = [
@@ -209,7 +213,6 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key }) {
       s.nextGel ? `<li><span>Next gel</span><b>in ${until(s.nextGel.sec)} · km ${s.nextGel.km.toFixed(1)}</b></li>` : "",
       s.nextAid ? `<li><span>Next aid · ${escR(s.nextAid.name)}</span><b>${(s.nextAid.km - s.km).toFixed(1)} km · ${clock(st, s.nextAid.arrive[sid])}</b></li>` : "",
       s.nextClimb ? `<li><span>Next climb · #${s.nextClimb.n}</span><b>${Math.round(s.nextClimb.gain)} m · in ${until(s.nextClimb.start[sid])}</b></li>` : "",
-      s.phase ? `<li><span>Heart rate</span><b>${escR(s.phase.text)}</b></li>` : "",
     ].join("") || `<li><span>Nothing left but the finish</span><b></b></li>`;
     if (next !== lastNextHtml) { els.next.innerHTML = next; lastNextHtml = next; }
 
