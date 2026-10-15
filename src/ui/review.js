@@ -22,6 +22,8 @@ const RV_SPEEDS = [
   { v: 180, label: "1 h in 20 s" },
   { v: 480, label: "1 h in 7.5 s" },
 ];
+// Length and climb of a section, written out under its title.
+const rvLegData = (l) => `${(l.endKm - l.startKm).toFixed(1)} km · +${Math.round(l.up)} / −${Math.round(l.down)} m`;
 const RV_ICON = { start: "▶", finish: "🏁", climb: "▲", descent: "▼", flat: "➜", stop: "❚❚", fade: "↘", even: "=", "finish-strong": "↗", "finish-weak": "↘", drift: "♥", hr: "♥", walk: "⋯" };
 const RV_TONE = { good: "Went well", bad: "Cost you", info: "Worth knowing" };
 const RV_FORM = ["", "Much weaker", "Weaker", "Your average", "Stronger", "Much stronger"];
@@ -271,7 +273,10 @@ export function mountRun(box, run) {
       els.leg.innerHTML = `
         <div class="rp-leg-h"><span class="rp-leg-n"><small>Section</small><b>${l.i}</b><small>/ ${legs.length}</small></span>
           <span class="rp-leg-t"><b>${rvEsc(l.title)}</b>${legChip(l)}</span></div>
-        <div class="rp-leg-strat k-${l.kind}"><span class="ic">${RV_ICON[l.kind] || "➜"}</span><b>${l.vsPct ? `${Math.abs(l.vsPct)}% ${l.vsPct > 0 ? "faster" : "slower"} than your average` : "On your average"} on ${KIND[l.kind]}</b><span class="nx">Next · ${n ? `<b>${n.i}. ${rvEsc(n.title)}</b>` : "<b>finish</b>"}</span></div>
+        <div class="rp-leg-info">
+          <p class="k-${l.kind}"><span class="ic">${RV_ICON[l.kind] || "➜"}</span><b>${l.vsPct ? `${Math.abs(l.vsPct)}% ${l.vsPct > 0 ? "faster" : "slower"} than your average` : "On your average"} on ${KIND[l.kind]}</b><span class="d">${rvLegData(l)}</span></p>
+          <p class="nx ${n ? `k-${n.kind}` : ""}"><span class="lab">Next</span>${n ? `<span class="ic">${RV_ICON[n.kind] || "➜"}</span><b>${n.i}. ${rvEsc(n.title)}</b><span class="d">${rvLegData(n)}</span>` : `<span class="ic">${RV_ICON.finish}</span><b>Finish</b>`}</p>
+        </div>
         <table class="rp-tg">
           <thead><tr><th></th><th>Section</th><th class="now">Now</th></tr></thead>
           <tbody>
