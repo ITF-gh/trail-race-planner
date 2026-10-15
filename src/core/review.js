@@ -1,4 +1,4 @@
-// review.js: what a run you just did says about it, for the "My run" mode.
+// review.js: what a run you just did says about it, for the "Check my run" mode.
 //
 // The planner looks forward (how should I run this race?). This module looks back: given the GPX
 // your watch recorded, where were you strong, where did it cost you, where did you stop, when did

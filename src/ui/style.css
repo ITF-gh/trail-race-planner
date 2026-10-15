@@ -476,7 +476,7 @@ svg .pl-t{fill:var(--sun);font-weight:800;font-size:13px} svg .pl-tn{fill:var(--
   .rp-cockpit .rp-tg thead{display:none} .rp-cockpit>.rp-hud{gap:4px;padding:8px 10px} .rp-cockpit .rp-tg td{font-size:13.5px}
   .rp-cockpit .rp-cue .rp-cue-h b{font-size:15px} .rp-cockpit .rp-cue p{font-size:12.5px}
   .rp-cockpit .rp-tg th,.rp-cockpit .rp-tg td{line-height:1.15}
-  /* My run: the clock row repeats the big clock above it */
+  /* Check my run: the clock row repeats the big clock above it */
   .rv-cockpit .rp-tg tbody tr:first-child{display:none} }
 @media (max-width:900px){
   /* phone and tablet: one column, still one screen high; the panel keeps only the numbers */
@@ -565,7 +565,7 @@ svg .pl-t{fill:var(--sun);font-weight:800;font-size:13px} svg .pl-tn{fill:var(--
 .map-recenter{font:700 13px/1 var(--f-display);letter-spacing:.06em;text-transform:uppercase;padding:9px 12px;border-radius:999px;border:2px solid #fff;background:#0a1530;color:#fff;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.4);min-height:36px}
 .map-recenter.on{background:var(--accent);animation:cue .6s ease-out}
 
-/* ---------- mode: plan a race / review a run (My run) ---------- */
+/* ---------- mode: plan a race / review a run (Check my run) ---------- */
 /* One page, three modes: data-mode on <html> hides what belongs to the other ones (no
    data-mode yet, before the script runs, counts as Prep my race). */
 html[data-mode="run"] .plan-only,html[data-mode="prep"] .plan-only{display:none!important}
@@ -633,7 +633,7 @@ svg .rv-pin-p text{fill:#fff;font-weight:800;font-size:13px}
 .target-card.t-good .tg-chip{background:#173d2a;color:#8ff0a8} .target-card.t-warn .tg-chip{background:rgba(255,201,40,.18);color:var(--sun)} .target-card.t-bad .tg-chip{background:#541522;color:#ff96a3}
 #s-prep .sec-head{--photo:var(--photo-s4);--photo-pos:50% 22%;--photo-y:60%;--banner:radial-gradient(circle at 85% 30%,rgba(255,201,40,.45),transparent 45%),linear-gradient(120deg,#1c1640,#8a2c2c 70%,#c8641f)}
 
-/* My run: against your target */
+/* Check my run: against your target */
 .rv-tgt{display:flex;flex-direction:column;gap:14px}
 .rv-tgt-form{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px}
 .rv-tgt-form input{width:11ch}

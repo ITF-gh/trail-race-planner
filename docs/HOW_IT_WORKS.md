@@ -120,9 +120,9 @@ The best are kept without overlapping (a *greedy selection*), one per 13 km of r
 
 Not modelled yet, but they would move zones: night and dawn (start time and date), heat and altitude, technical ground (OpenStreetMap trail tags), narrow single track where overtaking is hard, and cut-off times.
 
-## 10. Looking back: the My run mode (`src/core/review.js`, `src/ui/review.js`)
+## 10. Looking back: the Check my run mode (`src/core/review.js`, `src/ui/review.js`)
 
-The rest of the app looks forward. My run looks back at one recorded run and asks: where was I strong, where did it cost me?
+The rest of the app looks forward. Check my run looks back at one recorded run and asks: where was I strong, where did it cost me?
 
 **Grade-adjusted pace (GAP).** 7:00/km on a 15% climb is a harder effort than 5:00/km on the flat, so raw pace cannot compare them. Minetti and colleagues (2002) measured the energy cost of running on slopes from -45% to +45%: a polynomial C(i), in joules per kg per metre, with C(0) = 3.6. One metre at +10% costs C(0.10) / C(0) = 1.66 flat metres. Every 10 m of the run is converted into flat-equivalent metres that way, and GAP = moving time / flat-equivalent distance: the flat pace that would have cost the same energy. Downhill the lab curve promises savings of up to 50%, but on a trail you brake (rocks, roots, quads), so only half of the saving is kept.
 
@@ -155,6 +155,6 @@ The Garmin file is **FIT** (Flexible and Interoperable Data Transfer), a binary 
 
 ## Modes and the targeted duration
 
-Three modes share one page: Prep my race (no `mode` in the address), Prep my run (`?mode=prep`, section `s-prep`, ui/preprun.js) and See my run (`?mode=run`, ui/review.js). `setMode` in main.js sets `data-mode` on `<html>` (CSS hides `.plan-only`, `.prep-only`, `.review-only` outside their mode), stops whatever replay is not on screen, keeps the address in step and sends a `trp-mode` event other modules can follow.
+Three modes share one page: Prep my race (no `mode` in the address), Prep my run (`?mode=prep`, section `s-prep`, ui/preprun.js) and Check my run (`?mode=run`, ui/review.js). `setMode` in main.js sets `data-mode` on `<html>` (CSS hides `.plan-only`, `.prep-only`, `.review-only` outside their mode), stops whatever replay is not on screen, keeps the address in step and sends a `trp-mode` event other modules can follow.
 
 **Targeted duration.** In D-day, an optional h:mm goal is checked by `judgeTarget` (plan.js) against the three scenarios, which span best (−3.5%) to cautious (+3.5%) around the central prediction. Inside that range it is *realistic*; up to 5% faster than the best case it is *ambitious* (the model itself is usually within 5 to 10%, so a great day can get there); more than 5% faster than the best case it is *not backed by your runs*; slower than the cautious case it is *comfortable*. The card also gives the average pace the goal needs, stops included, next to the central one.
