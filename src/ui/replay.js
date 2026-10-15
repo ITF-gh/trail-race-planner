@@ -13,7 +13,7 @@
 // the panel next to the map. Those only change when you enter a new section, so draw() compares
 // the section number with the last one and touches the DOM only then.
 
-import { raceScript, raceStateAt, secAtKm, raceLegs, raceTotals, legAtKm } from "../core/script.js";
+import { raceScript, raceStateAt, secAtKm, raceLegs, raceTotals, legAtKm, gainLoss } from "../core/script.js";
 import { courseMap } from "./map.js";
 import { mmss, hm, clock } from "../core/format.js";
 import { trackEvent, trackOnce } from "./analytics.js";
@@ -109,8 +109,8 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key }) {
     rp.map.follow(rp.follow && rp.sec > 0);
   }
 
-  // Profile: a band over the section you are on (the line on it drawn bright) and a dashed band
-  // over the next one, in a group placed under the cursor.
+  // Profile: a soft band over the section you are on, and a glow drawn UNDER the coloured line
+  // (inserted right after the area fill), so the section keeps its own colours and only shines.
   const svgEl = $r("#rpProf svg");
   const P = plan.course.profile;
   const linePts = (a, b) => {
@@ -118,10 +118,18 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key }) {
     return pts.map((p, i) => `${i ? "L" : "M"}${prof.x(p[0]).toFixed(1)},${prof.y(p[1]).toFixed(1)}`).join("");
   };
   let legG = null;
+  let glowG = null;
   if (svgEl && els.cur) {
-    legG = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    const NS = "http://www.w3.org/2000/svg";
+    legG = document.createElementNS(NS, "g");
     legG.setAttribute("class", "pleg");
     svgEl.insertBefore(legG, els.cur);
+    glowG = document.createElementNS(NS, "g");
+    glowG.setAttribute("class", "pglow");
+    const area = svgEl.querySelector(".area");
+    svgEl.insertBefore(glowG, area ? area.nextSibling : svgEl.firstChild);
+    // The hover pop-up says it all: no native tooltips on top of it.
+    svgEl.querySelectorAll("title").forEach((t) => t.remove());
   }
   const drawLeg = (li) => {
     const l = legs[li];
@@ -129,9 +137,8 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key }) {
     const band = (x, cls) => `<rect class="${cls}" x="${prof.x(x.startKm).toFixed(1)}" y="${prof.top - 4}" width="${Math.max(2, prof.x(x.endKm) - prof.x(x.startKm)).toFixed(1)}" height="${prof.base - prof.top + 4}"/>`;
     if (legG) {
       const lx = (prof.x(l.startKm) + prof.x(l.endKm)) / 2;
-      legG.innerHTML = (n ? band(n, "pl-next") : "") + band(l, "pl-cur") + `<path class="pl-line" d="${linePts(l.startKm, l.endKm)}"/>`
-        + `<text class="pl-t" x="${lx.toFixed(1)}" y="${prof.base - 6}" text-anchor="middle">${l.i}</text>`
-        + (n && prof.x(n.endKm) - prof.x(n.startKm) >= 34 ? `<text class="pl-t pl-tn" x="${((prof.x(n.startKm) + prof.x(n.endKm)) / 2).toFixed(1)}" y="${prof.base - 6}" text-anchor="middle">next</text>` : "");
+      legG.innerHTML = band(l, "pl-cur") + `<text class="pl-t" x="${lx.toFixed(1)}" y="${prof.base - 6}" text-anchor="middle">${l.i}</text>`;
+      glowG.innerHTML = `<path class="pl-glow" d="${linePts(l.startKm, l.endKm)}"/>`;
     }
     // On a phone the profile is wider than the screen: bring the section into view.
     if (profScroll && profScroll.scrollWidth > profScroll.clientWidth + 4) {
@@ -139,7 +146,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key }) {
       const mid = ((prof.x(l.startKm) + prof.x((n || l).endKm)) / 2) * k;
       profScroll.scrollLeft = Math.max(0, mid - profScroll.clientWidth / 2);
     }
-    if (rp.map) rp.map.highlight({ fromKm: l.startKm, toKm: l.endKm }, n ? { fromKm: n.startKm, toKm: n.endKm } : null);
+    if (rp.map) rp.map.highlight({ fromKm: l.startKm, toKm: l.endKm });
     els.legBtns.forEach((b, k) => { b.classList.toggle("on", k === li); b.classList.toggle("past", k < li); b.classList.toggle("nx", k === li + 1); });
   };
   const gradeTxt = (l) => `${l.avg > 0 ? "+" : ""}${l.avg.toFixed(1)}%`;
@@ -175,30 +182,30 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key }) {
         <table class="rp-tg">
           <thead><tr><th></th><th>Target</th><th class="now">Now</th></tr></thead>
           <tbody>
-            ${row("Clock", `${clock(st, l.startSec)} → ${clock(st, l.endSec)}`, "tnClock")}
-            ${row("Time", hm(l.durSec), "tnTime")}
-            ${row("Km", `${l.startKm.toFixed(1)} → ${l.endKm.toFixed(1)} <small>${l.km.toFixed(2)} km</small>`, "tnKm")}
             ${row("Pace", l.pace ? `${mmss(l.pace)}/km` : "–", "tnPace")}
             ${row("Gradient", `${gradeTxt(l)} <small>avg</small>`, "tnGrade")}
-            ${row("Altitude", `+${Math.round(l.up)} / −${Math.round(l.down)} m`, "tnEle")}
-            ${row("Heart rate", l.hr ? escR(l.hr.text) : "–", "")}
+            ${row("Elevation done", `+${Math.round(l.up)} / −${Math.round(l.down)} m`, "tnEle")}
+            ${row("Section done", `${l.km.toFixed(2)} km`, "tnPct")}
+            ${row("Section time", hm(l.durSec), "tnTime")}
           </tbody>
         </table>
         <p class="rp-leg-tac">${escR(l.tactic)}${l.gels.length ? ` · ${l.gels.length} gel${l.gels.length > 1 ? "s" : ""} here` : ""}${l.aids.length ? ` · ⛺ ${l.aids.map((a) => escR(a.name)).join(", ")}` : ""}</p>
         <p class="rp-leg-next">${n ? `Next · <b>${n.i}. ${escR(n.title)}</b> ${legChip(n)} ${n.km.toFixed(1)} km · +${Math.round(n.up)} / −${Math.round(n.down)} m · ${hm(n.durSec)}` : "Next · <b>the finish line</b>"}</p>`;
-      els.tn = Object.fromEntries(["Clock", "Time", "Km", "Pace", "Grade", "Ele"].map((k) => [k, els.leg.querySelector(`#tn${k}`)]));
+      els.tn = Object.fromEntries(["Pace", "Grade", "Ele", "Pct", "Time"].map((k) => [k, els.leg.querySelector(`#tn${k}`)]));
     }
     const leftKm = Math.max(0, l.endKm - s.km);
     const leftSec = Math.max(0, l.endSec - s.sec);
     els.legNow.innerHTML = `<b>Section ${l.i}/${legs.length}</b> · ${escR(l.title)} ${legChip(l)} <span class="left">${leftKm.toFixed(1)} km · ${leftSec >= 3600 ? hm(leftSec) : `${Math.round(leftSec / 60)} min`} to go in it</span>`;
     els.legPos.style.left = `${(s.frac * 100).toFixed(2)}%`;
     const inMin = Math.max(0, Math.round((s.sec - l.startSec) / 60));
-    els.tn.Clock.textContent = clock(st, s.sec);
-    els.tn.Time.textContent = `${inMin} min in · ${leftSec >= 3600 ? hm(leftSec) : Math.round(leftSec / 60)} left`;
-    els.tn.Km.textContent = `${s.km.toFixed(1)} · ${leftKm.toFixed(1)} left`;
     els.tn.Pace.textContent = s.pace ? `${mmss(s.pace)}/km` : "stopped";
     els.tn.Grade.textContent = s.aid ? "–" : `${s.grade > 0 ? "+" : ""}${s.grade.toFixed(0)}%`;
-    els.tn.Ele.textContent = `${Math.round(s.ele)} m`;
+    // Climbed and dropped since the section started, against what the whole section holds.
+    const done = gainLoss(P, l.startKm, Math.max(l.startKm, Math.min(l.endKm, s.km)));
+    els.tn.Ele.textContent = `+${Math.round(done.up)} / −${Math.round(done.down)} m`;
+    const pct = l.km > 0 ? Math.round((Math.min(l.km, Math.max(0, s.km - l.startKm)) / l.km) * 100) : 100;
+    els.tn.Pct.innerHTML = `${pct}% <small>${leftKm.toFixed(1)} km left</small>`;
+    els.tn.Time.innerHTML = `${inMin} min <small>${leftSec >= 3600 ? hm(leftSec) : `${Math.round(leftSec / 60)} min`} left</small>`;
     els.play.innerHTML = rp.playing ? "❚❚ Pause" : rp.sec >= sc.finishSec ? "↺ Replay" : rp.sec > 0 ? "▶ Resume" : "▶ Play race day";
 
     // The section card says what you are on; this line only flags a stop or the finish.
@@ -297,6 +304,28 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key }) {
       const vx = ((ev.clientX - b.left) / b.width) * 1000;
       return prof.km(vx);
     };
+    // Hovering a section shows a pop-up with its length and its real metres up and down.
+    const profBox = $r("#rpProf");
+    const tip = document.createElement("div");
+    tip.className = "rp-ptip";
+    tip.hidden = true;
+    profBox.appendChild(tip);
+    let tipLeg = -1;
+    svg.addEventListener("pointermove", (ev) => {
+      if (ev.pointerType === "touch") return;
+      const li = legAtKm(legs, toKm(ev));
+      const l = legs[li];
+      if (li !== tipLeg) {
+        tipLeg = li;
+        tip.innerHTML = `<b>${l.i}. ${escR(l.title)}</b><span><i>Length</i>${l.km.toFixed(2)} km</span><span><i>D+</i>${Math.round(l.up)} m</span><span><i>D−</i>${Math.round(l.down)} m</span>`;
+      }
+      tip.hidden = false;
+      const pb = profBox.getBoundingClientRect();
+      const x = Math.max(4, Math.min(pb.width - tip.offsetWidth - 4, ev.clientX - pb.left - tip.offsetWidth / 2));
+      tip.style.left = `${x}px`;
+      tip.style.top = `${Math.max(2, ev.clientY - pb.top - tip.offsetHeight - 14)}px`;
+    });
+    svg.addEventListener("pointerleave", () => { tip.hidden = true; tipLeg = -1; });
     // A tap or click jumps there; a drag is left to the browser, so the profile scrolls freely.
     let down = null;
     svg.addEventListener("pointerdown", (ev) => { down = { x: ev.clientX, y: ev.clientY }; });
