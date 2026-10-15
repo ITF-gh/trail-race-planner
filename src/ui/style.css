@@ -287,9 +287,6 @@ details.adv summary{cursor:pointer;font-family:var(--f-display);font-weight:700;
 svg .pcur line{stroke:var(--sun);stroke-width:2} svg .pcur circle{fill:var(--sun);stroke:var(--bg);stroke-width:2}
 
 /* ---------- 04 race day replay ---------- */
-.rp-stage{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(280px,1fr);gap:14px;align-items:start}
-/* the panel next to the map is long: the map stays in view while you read it */
-.rp-map{position:sticky;top:72px;height:min(66vh,560px);min-height:400px}
 .rp-hud{display:flex;flex-direction:column;gap:10px}
 .rp-clock{display:flex;flex-direction:column}
 .rp-clock .k{font-family:var(--f-display);font-weight:700;text-transform:uppercase;letter-spacing:.12em;font-size:12px;color:var(--muted)}
@@ -319,11 +316,12 @@ label.chk input{width:18px;height:18px;accent-color:var(--sun)}
 .rp-prof svg{cursor:pointer}
 /* race targets, the bar of sections above the map, the section you are on */
 .rp-totals{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:6px;margin-bottom:10px}
-.rp-tot{display:flex;flex-direction:column;gap:1px;padding:7px 10px;border-radius:10px;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--sun);min-width:0}
+.rp-tot{display:flex;flex-direction:column;gap:1px;padding:2px 10px;background:none;border:0;border-left:1px solid rgba(255,255,255,.12);min-width:0}
+.rp-tot:first-child{border-left:0;padding-left:0}
 .rp-tot .k,.rp-leg .k{font-family:var(--f-display);font-weight:700;text-transform:uppercase;letter-spacing:.1em;font-size:11.5px;color:var(--muted)}
-.rp-tot b{font-family:var(--f-display);font-weight:800;font-style:italic;font-size:23px;line-height:1;font-variant-numeric:tabular-nums}
-.rp-tot b small{font-size:14px;font-style:normal;color:var(--muted);margin-left:2px}
-.rp-tot>small{font-size:11.5px;color:var(--muted);line-height:1.25}
+.rp-tot b{font-family:var(--f-display);font-weight:800;font-style:italic;font-size:23px;line-height:1;font-variant-numeric:tabular-nums;color:#fff8e0;text-shadow:0 0 10px rgba(255,201,40,.55),0 0 2px rgba(255,201,40,.8)}
+.rp-tot b small{font-size:14px;font-style:normal;color:var(--muted);margin-left:2px;text-shadow:none}
+.rp-tot>small{font-size:11.5px;color:var(--muted);opacity:.75;line-height:1.25}
 .rp-legbar{margin-bottom:10px}
 .rp-legs{position:relative;height:26px;border-radius:6px;background:rgba(255,255,255,.06);margin-top:10px}
 .rp-legs .lg{position:absolute;top:3px;bottom:3px;padding:0;margin:0;border:0;border-right:1px solid var(--bg);cursor:pointer;background:rgba(255,255,255,.18);transition:top .15s,bottom .15s,opacity .15s,filter .15s}
@@ -395,42 +393,110 @@ svg .pl-t{fill:var(--sun);font-weight:800;font-size:13px} svg .pl-tn{fill:var(--
 .rp-script li.past button{opacity:.6}
 .rp-script li.on button{border-color:var(--sun);background:rgba(255,201,40,.1);opacity:1}
 .rp-script button:hover{border-color:var(--muted)}
+/* The race-day cockpit: one screen high (under the top bar), everything you need while it plays
+   in one frame. CSS grid with named areas; the map row is 1fr, so the map takes the height that is
+   left and shrinks first on a small screen. The panel scrolls inside itself if it ever overflows. */
+.rp-cockpit{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(310px,1fr);grid-template-rows:auto auto minmax(0,1fr) auto auto;
+  grid-template-areas:"tot tot" "bar bar" "map hud" "prof hud" "ctl ctl";gap:8px 12px;height:calc(100vh - 64px);height:calc(100svh - 64px);min-height:600px;scroll-margin-top:62px;margin-bottom:18px}
+.rp-cockpit.nomap{grid-template-areas:"tot tot" "bar bar" "prof hud" "prof hud" "ctl ctl"}
+.rp-cockpit>.rp-totals{grid-area:tot;margin:0} .rp-cockpit>.rp-legbar{grid-area:bar;margin:0}
+.rp-cockpit>.rp-map{grid-area:map;min-height:150px;height:auto}
+.rp-cockpit>.rp-hud{grid-area:hud;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:12px}
+.rp-hud>*{flex:none}
+.rp-cockpit>.rp-prof{grid-area:prof;padding:6px 8px 2px}
+.rp-cockpit>.rp-controls{grid-area:ctl;margin:0}
+.rp-cockpit .rp-legs{margin-top:8px}
+.rp-cockpit .rp-legfoot{margin-top:6px}
+.rp-cockpit .rp-tot{padding:2px 10px} .rp-cockpit .rp-tot:first-child{padding-left:2px}
+.rp-cockpit .rp-tot b{font-size:20px}
+.rp-cockpit .rp-tot>small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rp-cockpit .rp-clock b{font-size:38px}
+.rp-cockpit .rp-tg th,.rp-cockpit .rp-tg td{padding:3px 6px}
+.rp-cockpit .rp-tg td{font-size:15px}
+.rp-cockpit .rp-cue{margin:0;padding:8px 12px;gap:10px}
+.rp-cockpit .rp-cue .ic{width:30px;height:30px;font-size:14px}
+.rp-cockpit .rp-cue .rp-cue-h b{font-size:17px}
+.rp-cockpit .rp-cue p{font-size:13.5px;margin-top:2px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.rp-cockpit .rp-next{font-size:13px} .rp-cockpit .rp-next li{padding:4px 0}
+.rp-cockpit .rp-controls .btn{min-height:40px}
+.rp-cockpit .rp-controls label.chk{min-height:36px}
+@media (min-width:901px) and (max-height:940px){
+  /* laptop screens: tighter panel so clock, section, target vs now and the cue all stay in view */
+  .rp-cockpit .rp-clock{flex-direction:row;align-items:baseline;gap:10px}
+  .rp-cockpit .rp-clock b{font-size:30px}
+  .rp-cockpit>.rp-hud{gap:6px;padding:10px}
+  .rp-cockpit .rp-leg{padding:8px 10px}
+  .rp-cockpit .rp-leg-h{margin-bottom:4px}
+  .rp-cockpit .rp-leg-n b{font-size:26px}
+  .rp-cockpit .rp-tg th,.rp-cockpit .rp-tg td{padding:2px 6px}
+  .rp-cockpit .rp-tg td{font-size:14px}
+  .rp-cockpit .rp-leg-tac{margin-top:4px;font-size:12.5px}
+  .rp-cockpit .rp-leg-next{margin-top:4px;padding-top:4px;font-size:12.5px}
+  .rp-cockpit .rp-cue p{-webkit-line-clamp:2}
+  .rp-cockpit .rp-tot>small{display:none}
+}
+@media (min-width:901px) and (max-height:800px){ .rp-cockpit .rp-next{display:none} .rp-cockpit .rp-legend{font-size:11px} }
 @media (max-width:900px){
-  .rp-stage{grid-template-columns:1fr}
-  .rp-map{position:relative;top:auto;min-height:0;height:min(60vh,420px)}
+  /* phone and tablet: one column, still one screen high; the panel keeps only the numbers */
+  .rp-cockpit{gap:5px;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(90px,1fr) auto auto auto;
+    grid-template-areas:"tot" "bar" "map" "hud" "prof" "ctl";height:calc(100vh - 54px);height:calc(100svh - 54px);min-height:560px;scroll-margin-top:52px}
+  .rp-cockpit.nomap{grid-template-rows:auto auto auto minmax(0,1fr) auto;grid-template-areas:"tot" "bar" "hud" "prof" "ctl"}
+  .rp-cockpit>.rp-hud{overflow:visible;min-height:auto;padding:8px 10px;gap:5px}
+  .rp-cockpit>.rp-map{min-height:0}
+  .rp-cockpit .rp-totals{grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}
+  .rp-cockpit .rp-tot.opt{display:none}
+  .rp-cockpit .rp-leg-t{flex-wrap:nowrap;min-width:0;overflow:hidden}
+  .rp-cockpit .rp-leg-t>b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rp-cockpit .rp-leg .chip{font-size:9.5px;padding:1px 6px;gap:4px} .rp-cockpit .rp-leg .chip::before{width:6px;height:6px}
+  .rp-cockpit .rp-tot{padding:1px 5px}
+  .rp-cockpit .rp-tot .k{font-size:9px;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rp-cockpit .rp-tot b{font-size:15px} .rp-cockpit .rp-tot b small{font-size:10px}
+  .rp-cockpit .rp-tot>small{display:none}
+  .rp-cockpit .rp-legs{height:20px;margin-top:8px}
+  .rp-cockpit .rp-legend{display:none}
+  .rp-cockpit .rp-legnow{font-size:12px;gap:2px 6px} .rp-cockpit .rp-legnow b{font-size:14px}
+  .rp-cockpit .rp-legnow .left{display:none}
+  .rp-cockpit .rp-top{align-items:center}
+  .rp-cockpit .rp-clock{flex-direction:row;align-items:baseline;gap:8px}
+  .rp-cockpit .rp-clock b{font-size:26px}
+  .rp-cockpit .rp-run{flex-direction:row;gap:8px;font-size:11.5px}
+  .rp-cockpit .rp-prog{height:4px}
+  .rp-cockpit .rp-leg{padding:6px 8px;border-left-width:4px}
+  .rp-cockpit .rp-leg-h{margin-bottom:4px;gap:8px}
+  .rp-cockpit .rp-leg-n b{font-size:22px} .rp-cockpit .rp-leg-n small{font-size:10px}
+  .rp-cockpit .rp-leg-t>b{font-size:15px}
+  .rp-cockpit .rp-tg thead{display:none}
+  .rp-cockpit .rp-tg tbody{display:grid;grid-template-columns:1fr 1fr;column-gap:10px}
+  .rp-cockpit .rp-tg tr{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:6px;border-bottom:1px solid rgba(255,255,255,.07);padding:2px 0}
+  .rp-cockpit .rp-tg th,.rp-cockpit .rp-tg td{padding:0;border:0;background:none}
+  .rp-cockpit .rp-tg tbody th{grid-row:1 / 3;align-self:center;font-size:9.5px;width:46px;white-space:normal;line-height:1.1}
+  .rp-cockpit .rp-tg td{font-size:12.5px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rp-cockpit .rp-tg td.now{font-size:13.5px}
+  .rp-cockpit .rp-tg td small{display:none}
+  .rp-cockpit .rp-tg tr:last-child{grid-column:1 / -1;grid-template-columns:auto 1fr;grid-template-rows:auto;border-bottom:0}
+  .rp-cockpit .rp-tg tr:last-child th{grid-row:auto} .rp-cockpit .rp-tg tr:last-child td.now{display:none}
+  .rp-cockpit .rp-leg-tac{display:none}
+  .rp-cockpit .rp-leg-next{margin:4px 0 0;padding-top:4px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rp-cockpit .rp-now{padding:4px 8px;font-size:12.5px}
+  .rp-cockpit .rp-cue{padding:5px 8px;gap:8px}
+  .rp-cockpit .rp-cue .ic{width:24px;height:24px;font-size:12px}
+  .rp-cockpit .rp-cue .rp-cue-h b{font-size:14px} .rp-cockpit .rp-cue small{font-size:11px}
+  .rp-cockpit .rp-cue p{font-size:12px;-webkit-line-clamp:2}
+  .rp-cockpit .rp-next{display:none}
+  .rp-cockpit>.rp-prof{padding:2px 4px 0;border-radius:8px}
+  .rp-cockpit .rp-prof .prof-scroll{overflow:hidden} .rp-cockpit .rp-prof svg{min-width:0;width:100%;display:block}
+  .rp-cockpit .rp-controls{gap:4px 8px}
+  .rp-cockpit .rp-controls input[type=range]{order:-1;flex:1 1 100%;min-height:22px}
+  .rp-cockpit .rp-controls .btn{min-height:40px}
+  .rp-cockpit .rp-controls label.f.inline{font-size:0} .rp-cockpit .rp-controls label.f.inline select{font-size:13px;min-height:38px;padding:4px 6px}
+  .rp-cockpit .rp-controls label.chk{font-size:11.5px;min-height:28px;gap:5px} .rp-cockpit .rp-controls label.chk input{width:16px;height:16px}
+  .rp-play{min-width:0;flex:1 1 0;white-space:nowrap;font-size:15px}
 }
 @media (max-width:640px){
-  /* phone: map, then the cue, then the controls (pinned to the bottom of the screen while the
-     replay is in view), then the numbers; the script list shows the cue of the current moment only */
-  #s4body{display:flex;flex-direction:column}
-  .rp-stage{display:contents}
-  .rp-totals{order:0} .rp-legbar{order:0} .rp-map{order:1} .rp-cue{order:2;margin:12px 0 0} .rp-controls{order:3} .rp-hud{order:4} .rp-prof{order:5;margin-top:14px} #rp-script{order:6} .rp-script{order:7}
-  .rp-controls{position:sticky;bottom:0;z-index:900;margin:0 -16px;padding:10px 16px calc(10px + env(safe-area-inset-bottom));background:rgba(20,10,24,.94);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border-top:1px solid var(--line);gap:8px 10px}
-  .rp-controls input[type=range]{order:-1;flex:1 1 100%}
-  .rp-controls label.f.inline,.rp-controls label.chk{font-size:12.5px;min-height:34px;gap:6px}
-  .rp-controls label.f.inline{font-size:0} .rp-controls label.f.inline select{font-size:14px;min-height:40px;padding:6px 8px}
-  .rp-controls .btn{min-height:44px}
-  .rp-play{white-space:nowrap;font-size:15px}
-  .rp-map{height:46vh}
-  .rp-hud{margin-top:12px}
-  .rp-clock b{font-size:44px}
-  .rp-totals{grid-template-columns:repeat(3,1fr);gap:6px}
-  .rp-tot{padding:7px 8px;border-left-width:3px}
-  .rp-tot .k{font-size:10px;letter-spacing:.06em}
-  .rp-tot b{font-size:20px}
-  .rp-tot b small{font-size:11px}
-  .rp-tot>small{font-size:11px;line-height:1.25}
-  .rp-leg-n b{font-size:32px}
-  .rp-tg td{font-size:14.5px} .rp-tg td small{display:none} .rp-tg th,.rp-tg td{padding:3px 4px}
-  .rp-legend{font-size:11px;gap:3px 9px}
-  .rp-cue{padding:12px 14px;gap:10px}
-  .rp-cue .rp-cue-h b{font-size:20px}
-  .rp-cue p{font-size:15px}
   .rp-script{max-height:none;overflow:visible}
   .rp-script button{grid-template-columns:auto 1fr}
   .rp-script .cue{grid-column:1 / -1}
   .rp-script li:not(.on) .cue{display:none}
-  .rp-play{min-width:0;flex:1 1 0}
   .tn-sum{display:none}
 }
 @media (prefers-reduced-motion: reduce){ .runner,.rp-cue.pulse{animation:none} }
