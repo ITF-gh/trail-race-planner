@@ -721,14 +721,16 @@ function renderReplay() {
     return;
   }
   const sid = plan.scenarios[state.scenario] ? state.scenario : "central";
+  mountCockpit(box, plan, sid, `${state.race && state.race.name}|${plan.course.totalKm.toFixed(2)}`);
+}
+/** The race-day cockpit (sections, map, profile, script) for any plan: a race, or a run to come. */
+function mountCockpit(box, plan, sid, key, noun = "Race") {
   const sc = plan.scenarios[sid];
   const brief = { totalKm: plan.course.totalKm, climbs: plan.climbs, descents: plan.descents };
   const aidMarks = plan.aidStations.map((a) => ({ km: a.km, name: a.name, sec: a.arrive[sid], time: clock(plan.startSec, a.arrive[sid]) }));
   const prof = profileView(plan.course.profile, brief, { ...sc, startSec: plan.startSec, aid: aidMarks }, plan.keyZones, { flat: true });
-  mountReplay(box, {
-    plan, sid, prof, ...(() => { const m = mapStyle(brief, aidMarks, plan.keyZones); return { mapPaint: m.paint, mapMarks: m.marks }; })(),
-    key: `${state.race && state.race.name}|${plan.course.totalKm.toFixed(2)}`,
-  });
+  const m = mapStyle(brief, aidMarks, plan.keyZones);
+  mountReplay(box, { plan, sid, prof, mapPaint: m.paint, mapMarks: m.marks, key, noun });
 }
 
 /* ---------- sticky navigation ---------- */
@@ -855,7 +857,9 @@ function setMode(mode, track = true) {
   const m = modeOf(mode);
   document.documentElement.dataset.mode = m;
   document.querySelectorAll("button[data-mode]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === m)));
-  if (m !== "plan") stopReplay();
+  // One cockpit plays at a time (replay.js keeps a single animation and map), and its ids are
+  // fixed: leaving Prep my race empties the race one, renderReplay builds it again on the way back.
+  if (m !== "plan") { stopReplay(); $("#s4body").innerHTML = ""; }
   if (m !== "run") pauseRun();
   if (m === "plan") renderReplay();
   try {
@@ -873,6 +877,6 @@ initRunMode({ onLoaded: (run) => {
 } });
 
 compute();
-initPrepRun({ getRuns: () => (state.effort ? state.effort.runs.map((r) => r.parsed) : []), getSettings: () => state.settings, onLoaded: () => renderNav() });
+initPrepRun({ getRuns: () => (state.effort ? state.effort.runs.map((r) => r.parsed) : []), getSettings: () => state.settings, onLoaded: () => renderNav(), cockpit: (box, plan, key) => mountCockpit(box, plan, "central", key, "Run") });
 setMode(new URLSearchParams(window.location.search).get("mode"), false);
 startAnalytics();

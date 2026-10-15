@@ -1,6 +1,7 @@
 // preprun.js (ui): the "Prep my run" mode. Drop the GPX of a run to come; the planner reads the
-// course (climbs, descents, key zones), proposes the watch messages, lets you check and edit them,
-// and gives the course back as a Garmin .fit or a .gpx with the messages on it.
+// course (climbs, descents, key zones), shows it like race day (section bar, map, profile, script),
+// proposes the watch messages, lets you check and edit them, and gives the course back as a
+// Garmin .fit or a .gpx with the messages on it.
 //
 // Time along the course, used to space the messages and show when you reach each one:
 //   your target time if you give one (the estimate stretched to land on it), otherwise
@@ -42,9 +43,18 @@ export function prepHeroHtml(peak) {
  * Wire the mode. getRuns() returns the reference runs loaded in Plan a race (parsed GPX) or [];
  * getSettings() the planner settings (start time, hiking threshold...); onLoaded() runs after each render.
  */
-export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLoaded = () => {} } = {}) {
-  const st = { parsed: null, name: "", targetSec: 0, startTime: null };
+export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLoaded = () => {}, cockpit = null } = {}) {
+  const st = { parsed: null, name: "", targetSec: 0, startTime: null, plan: null, key: "" };
   const $p = (s) => document.querySelector(s);
+  // The cockpit (section bar, map, profile, run script) is the race-day one from main.js. Only one
+  // can play at a time, so it is built when this mode is on screen and emptied when you leave it.
+  const inMode = () => document.documentElement.dataset.mode === "prep";
+  const showCockpit = () => {
+    const box = $p("#prepCockpit");
+    if (!box || !cockpit || !st.plan) return;
+    if (inMode()) cockpit(box, st.plan, st.key); else box.innerHTML = "";
+  };
+  document.addEventListener("trp-mode", showCockpit);
 
   const load = (xml, label) => {
     try {
@@ -93,6 +103,9 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
     </div>
   </div>
 
+  <div class="sub-h">Your run, section by section</div>
+  <div id="prepCockpit"></div>
+
   <div class="sub-h">Watch messages</div>
   <div id="prepWatch">${watchPanelHtml(plan)}</div>
 
@@ -105,6 +118,8 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
   <p class="note">Import the .fit in Garmin Connect (Courses, Import) or copy it to the watch's GARMIN/NewFiles folder, then follow the course: the watch shows each message as you reach it. The GPX works with other brands too.</p>`;
     const say = (t) => { $p("#prepStat").textContent = t; };
     mountWatch($p("#prepWatch"), { plan, sid, key, say });
+    st.plan = plan; st.key = key;
+    showCockpit();
     $p("#prepTarget").addEventListener("change", (ev) => {
       const v = ev.target.value.trim();
       const t = v ? parseDuration(v, false) : 0;
