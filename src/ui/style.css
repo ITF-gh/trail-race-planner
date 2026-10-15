@@ -443,8 +443,7 @@ svg .pl-t{fill:var(--sun);font-weight:800;font-size:13px} svg .pl-tn{fill:var(--
   .rp-cockpit.nomap{grid-template-rows:auto auto auto minmax(0,1fr) auto;grid-template-areas:"tot" "bar" "hud" "prof" "ctl"}
   .rp-cockpit>.rp-hud{overflow:visible;min-height:auto;padding:8px 10px;gap:5px}
   .rp-cockpit>.rp-map{min-height:0}
-  .rp-cockpit .rp-totals{grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}
-  .rp-cockpit .rp-tot.opt{display:none}
+  .rp-cockpit .rp-totals{grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
   .rp-cockpit .rp-leg-t{flex-wrap:nowrap;min-width:0;overflow:hidden}
   .rp-cockpit .rp-leg-t>b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .rp-cockpit .rp-leg .chip{font-size:9.5px;padding:1px 6px;gap:4px} .rp-cockpit .rp-leg .chip::before{width:6px;height:6px}
