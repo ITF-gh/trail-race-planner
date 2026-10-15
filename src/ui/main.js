@@ -425,7 +425,7 @@ function profGeom(P, TOT, race, flat = false, win = null) {
  * checkpoints and gels for one scenario; `zones` (optional) shades the key zones. Returns {html, x, y, km};
  * the html has a hidden `.pcur` cursor (a line and a dot) to move with translate().
  */
-function profileView(P, brief, race, zones = [], { flat = false, win = null } = {}) {
+function profileView(P, brief, race, zones = [], { flat = false, win = null, inner = true } = {}) {
   const TOT = brief.totalKm;
   const g = profGeom(P, TOT, race, flat, win);
   const { EMIN, EMAX, W, l, r, top, base, H, x, y, K0, K1 } = g;
@@ -442,9 +442,9 @@ function profileView(P, brief, race, zones = [], { flat = false, win = null } = 
   let ax = `<line class="axis" x1="${l}" x2="${W - r}" y1="${base}" y2="${base}"/>`;
   const span = K1 - K0;
   const tickEvery = span >= 20 ? 10 : span >= 8 ? 2 : span >= 3 ? 1 : 0.5;
-  for (let k = Math.ceil(K0 / tickEvery - 1e-9) * tickEvery; k <= K1 + 1e-9; k += tickEvery) ax += `<line class="axis" x1="${x(k)}" x2="${x(k)}" y1="${base}" y2="${base + 5}"/><text x="${x(k)}" y="${base + 18}" text-anchor="middle">${+k.toFixed(1)}</text>`;
-  ax += `<text x="${W - r}" y="${base + 18}" text-anchor="end">km</text>`;
-  [Math.ceil(EMIN / 10) * 10, Math.floor(EMAX / 10) * 10].forEach((e) => { ax += `<text x="${l - 6}" y="${(y(e) + 3).toFixed(1)}" text-anchor="end">${e} m</text>`; });
+  for (let k = Math.ceil(K0 / tickEvery - 1e-9) * tickEvery; k <= K1 + 1e-9; k += tickEvery) ax += `<line class="axis" x1="${x(k)}" x2="${x(k)}" y1="${base}" y2="${base + 5}"/><text class="axt" x="${x(k)}" y="${base + 18}" text-anchor="middle">${+k.toFixed(1)}</text>`;
+  ax += `<text class="axt" x="${W - r}" y="${base + 18}" text-anchor="end">km</text>`;
+  [Math.ceil(EMIN / 10) * 10, Math.floor(EMAX / 10) * 10].forEach((e) => { ax += `<text class="axt" x="${l - 6}" y="${(y(e) + 3).toFixed(1)}" text-anchor="end">${e} m</text>`; });
   const seg = (a, b) => {
     const pts = [];
     const n = Math.max(2, Math.round((b - a) / 0.025));
@@ -458,9 +458,10 @@ function profileView(P, brief, race, zones = [], { flat = false, win = null } = 
     const parts = c.sections.length ? c.sections : [c];
     parts.forEach((p) => {
       s += `<path class="cl cl${p.level}" d="${seg(p.startKm, p.endKm)}"><title>${c.sections.length ? "Section" : "Climb"} ${p.n}, km ${p.startKm.toFixed(2)}: ${Math.round(p.gain)} m at ${p.avg.toFixed(1)}%, ${LEVELS[p.level]}</title></path>`;
-      if (p.level >= 3) s += label(p);
+      if (inner && p.level >= 3) s += label(p);
     });
-    c.sections.slice(1).forEach((x2) => { const yy = y(elevAt(P, x2.startKm)); s += `<line class="cut" x1="${x(x2.startKm).toFixed(1)}" x2="${x(x2.startKm).toFixed(1)}" y1="${(yy - 7).toFixed(1)}" y2="${(yy + 7).toFixed(1)}"/>`; });
+    // `inner: false` (the briefing): only the colours of the sections, no numbers or cut marks.
+    if (inner) c.sections.slice(1).forEach((x2) => { const yy = y(elevAt(P, x2.startKm)); s += `<line class="cut" x1="${x(x2.startKm).toFixed(1)}" x2="${x(x2.startKm).toFixed(1)}" y1="${(yy - 7).toFixed(1)}" y2="${(yy + 7).toFixed(1)}"/>`; });
   });
   if (race) {
     (race.aid || []).forEach((a) => {
@@ -478,7 +479,7 @@ function profileView(P, brief, race, zones = [], { flat = false, win = null } = 
   return { ...g, html: `<div class="prof-scroll"><svg viewBox="0 0 1000 ${H}" role="img" aria-label="Elevation profile with climbs coloured by difficulty">${s}</svg></div>` };
 }
 
-const LEGEND = `<div class="legend" style="margin-top:10px"><span class="chip l1">Easy</span><span class="chip l2">Moderate</span><span class="chip l3">Hard</span><span class="chip l4">Crux</span><span class="note" style="margin:0 0 0 4px">Dashed red: descent to brake on. Short ticks: where a long climb changes section.</span></div>`;
+const LEGEND = `<div class="legend" style="margin-top:10px"><span class="chip l1">Easy</span><span class="chip l2">Moderate</span><span class="chip l3">Hard</span><span class="chip l4">Crux</span><span class="note" style="margin:0 0 0 4px">Each stretch is coloured by its average gradient. Dashed red: descent to brake on.</span></div>`;
 
 /* ---------- 01 your engine ---------- */
 function renderEngine() {
@@ -613,7 +614,7 @@ function renderBriefing() {
   // The profile, drawn for the whole course or for the zoom window. Hover (or touch) it for a cursor
   // there and a dot at the same km on the map; drag across it (like Strava) to zoom on that stretch.
   const drawProf = () => {
-    const view = profileView(P, brief, null, zones, { win: state.bwin });
+    const view = profileView(P, brief, null, zones, { win: state.bwin, inner: false });
     const host = $("#briefProfSvg");
     host.innerHTML = view.html;
     $("#profReset").hidden = !state.bwin;
