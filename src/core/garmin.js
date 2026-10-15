@@ -26,8 +26,11 @@ import { clock } from "./format.js";
 /** Longest name we write: watches show about 15 characters. */
 export const POINT_NAME_MAX = 15;
 
-/** FIT course point icon types used here (FIT SDK enum `course_point`). */
-export const CP = { generic: 0, valley: 2, danger: 5, info: 53, alert: 52, steepIncline: 43 };
+/**
+ * FIT course point icon types used here (FIT SDK enum `course_point`). Only the classic ones
+ * (0-9): Garmin Connect stalls when a point uses a newer type (steep incline, alert, info...).
+ */
+export const CP = { generic: 0, summit: 1, valley: 2, danger: 5 };
 
 const CLIMB_SHORT = {
   "Hike": "HIKE",
@@ -84,15 +87,15 @@ export function coursePoints(plan, sid) {
   legs.forEach((l) => {
     const up = Math.round(l.up), down = Math.round(l.down);
     const facts = `${l.i} ${kmShort(l.km)} +${up}-${down}`;
-    const type = l.kind === "climb" ? CP.steepIncline : l.kind === "descent" ? (l.level === 4 ? CP.danger : CP.valley) : CP.info;
+    const type = l.kind === "climb" ? CP.summit : l.kind === "descent" ? (l.level === 4 ? CP.danger : CP.valley) : CP.generic;
     const head = `Section ${l.i}/${legs.length} · ${l.title}${l.kind === "flat" ? "" : ` · ${l.label}`}`;
     pts.push({ km: l.startKm, order: 0, type, name: pointName(facts.length <= POINT_NAME_MAX ? facts : `${l.i} +${up}-${down}`), text: `${head}: ${l.km.toFixed(1)} km, +${up} m / -${down} m, arrive ${clock(st, l.startSec)}.` });
-    pts.push({ km: l.startKm, order: 1, type: CP.info, name: pointName(`${l.i} ${legShort(l)}`), text: `${head}: ${l.tactic}.` });
+    pts.push({ km: l.startKm, order: 1, type: CP.generic, name: pointName(`${l.i} ${legShort(l)}`), text: `${head}: ${l.tactic}.` });
   });
   (plan.keyZones || []).forEach((z) => {
     const len = z.toKm - z.fromKm;
-    pts.push({ km: z.fromKm, order: 2, type: CP.alert, name: pointName(`K${z.n} ${kmShort(len)} ${MODE_SHORT[z.mode] || ""}`), text: `Key zone ${z.n} · ${z.modeLabel} · ${z.title}: ${len.toFixed(1)} km. ${z.why}` });
-    pts.push({ km: z.fromKm, order: 3, type: CP.alert, name: pointName(`K${z.n} ${keyShort(z)}`), text: `Key zone ${z.n}: ${z.how}` });
+    pts.push({ km: z.fromKm, order: 2, type: CP.danger, name: pointName(`K${z.n} ${kmShort(len)} ${MODE_SHORT[z.mode] || ""}`), text: `Key zone ${z.n} · ${z.modeLabel} · ${z.title}: ${len.toFixed(1)} km. ${z.why}` });
+    pts.push({ km: z.fromKm, order: 3, type: CP.danger, name: pointName(`K${z.n} ${keyShort(z)}`), text: `Key zone ${z.n}: ${z.how}` });
   });
   pts.sort((a, b) => a.km - b.km || a.order - b.order);
   const total = plan.course.totalKm;
@@ -227,6 +230,8 @@ export function courseFit(plan, sid, track, opts = {}) {
     // Course points sit between the records, in distance order, so the file reads start to finish.
     while (k < pts.length && (pts[k].km <= p.km || i === T.length - 1)) {
       const q = pts[k], at = trackAt(T, q.km);
+      // A record at the exact same spot and time, so each point sits on the course line itself.
+      w.write(4, { timestamp: tAt(q.km), lat: semi(at.lat), lon: semi(at.lon), dist: q.km * 100000, alt: alt(at.ele) });
       w.write(5, { timestamp: tAt(q.km), lat: semi(at.lat), lon: semi(at.lon), dist: q.km * 100000, type: q.type, name: q.name, index: k });
       k++;
     }
@@ -240,7 +245,7 @@ export function courseFit(plan, sid, track, opts = {}) {
 /* ---------- GPX ---------- */
 
 const xmlEsc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-const GPX_SYM = { [CP.steepIncline]: "Summit", [CP.danger]: "Danger Area", [CP.valley]: "Flag, Blue", [CP.info]: "Information", [CP.alert]: "Flag, Red" };
+const GPX_SYM = { [CP.summit]: "Summit", [CP.danger]: "Danger Area", [CP.valley]: "Flag, Blue", [CP.generic]: "Information" };
 
 /** The course as GPX 1.1: one waypoint per course point (short name, long text) and the track. */
 export function courseGpx(plan, sid, track, name = "Race") {
