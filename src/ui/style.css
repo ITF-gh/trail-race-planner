@@ -571,6 +571,11 @@ svg .pl-t{fill:var(--sun);font-weight:800;font-size:13px} svg .pl-tn{fill:var(--
 html[data-mode="run"] .plan-only,html[data-mode="prep"] .plan-only{display:none!important}
 html:not([data-mode="run"]) .review-only{display:none!important}
 html:not([data-mode="prep"]) .prep-only{display:none!important}
+/* Prep my run: course summary above the watch messages */
+.prep-facts{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:baseline;font-variant-numeric:tabular-nums}
+.prep-facts>b:first-child{font-size:18px;margin-right:6px}
+.prep-opts{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px}
+.prep-opts .f{flex:0 1 180px}
 .mode-seg{align-self:flex-start}
 .mode-seg button{min-height:40px;font-size:14px;padding:6px 16px}
 #s5{--band:var(--band-2)}

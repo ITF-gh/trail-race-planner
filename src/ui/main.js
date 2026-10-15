@@ -19,7 +19,8 @@ import { analyseEffort } from "../core/effort.js";
 import { buildPlan, judgeTarget, briefCourse, coarseIndices, parseAidStations, PLAN_DEFAULTS, LEVELS, DESCENT_LABELS } from "../core/plan.js";
 import { TERRAIN, SCENARIOS } from "../core/model.js";
 import { planToMarkdown } from "../core/markdown.js";
-import { courseFit, courseGpx, editedPoints, POINT_NAME_MAX, CP } from "../core/garmin.js";
+import { watchPanelHtml, mountWatch, watchPoints, downloadCourse } from "./watch.js";
+import { prepHeroHtml, initPrepRun } from "./preprun.js";
 import { mmss, hm, clock, parseDuration } from "../core/format.js";
 import { keyZones, toblerClock } from "../core/keyzones.js";
 import { secAtKm } from "../core/script.js";
@@ -75,6 +76,7 @@ $("#app").innerHTML = `
   ${credit("hero", "plan-only")}${credit("heroRun", "review-only")}
   <div class="hero-in">
     ${MODE_SEG}
+    ${prepHeroHtml(PEAK)}
     <div class="hero-row review-only">
       <div>
         <div class="brand">${PEAK}Trail Race Planner · See my run</div>
@@ -89,13 +91,6 @@ $("#app").innerHTML = `
         <p>The GPX your watch recorded (export it from Garmin Connect, Strava, Suunto, Coros...). Heart rate and cadence are a bonus.</p>
         <div class="actions"><label class="btn ghost" for="fileRun">Choose GPX</label><input type="file" id="fileRun" accept=".gpx,application/gpx+xml,text/xml"></div>
         <div class="status" id="stRun" aria-live="polite"></div>
-      </div>
-    </div>
-    <div class="hero-row prep-only">
-      <div>
-        <div class="brand">${PEAK}Trail Race Planner · Prep my run</div>
-        <h1 style="margin-top:14px">Plan the run.<br><em>Load the watch.</em></h1>
-        <p class="lead">Drop the GPX of a run you are about to do, below. The planner reads its climbs and descents and gives you the GPX back with the details on it, ready for your watch. Your file never leaves this page.</p>
       </div>
     </div>
     <div class="hero-row plan-only">
@@ -184,7 +179,7 @@ $("#app").innerHTML = `
 <section id="s-prep" class="prep-only">
   ${head("◆", "Before the run", "Prep my run", "s4")}
   <p class="sec-intro">The run you are about to do, read like a race course: every climb and descent, with the GPX given back carrying those details for your watch.</p>
-  <div id="sPrepBody"><div class="empty"><b>Coming next:</b> drop the GPX of your next run here to get it back with its details.</div></div>
+  <div id="sPrepBody"><div class="empty">Drop the GPX of your next run above, or try the sample run.</div></div>
 </section>
 
 <section id="s5" class="review-only">
@@ -689,17 +684,7 @@ function renderDday() {
   </div>
 
   <div class="sub-h" id="d-watch">Watch messages</div>
-  <div class="panel">
-    <p class="note" style="margin-top:0">What your watch will show along the course: one message each time the strategy changes, one at every key zone (marked "!"). Check them, rewrite any (${POINT_NAME_MAX} characters, the watch cuts the rest), untick the ones you do not want, add your own. Your version goes into the course files below and is saved in this browser.</p>
-    <div class="wm-row wm-head"><span>Km</span><span>Arrive</span><span>Message on the watch</span><span>Keep</span></div>
-    <div id="wmRows"></div>
-    <div class="wm-add">
-      <label class="f">At km<input type="number" id="wmKm" step="0.1" min="0" max="${plan.course.totalKm.toFixed(1)}" placeholder="12.5"></label>
-      <label class="f">Your message<input type="text" id="wmName" maxlength="${POINT_NAME_MAX}" placeholder="CALL HOME"></label>
-      <button class="btn ghost" id="wmAdd" type="button">Add</button>
-      <button class="btn ghost" id="wmReset" type="button">Back to the planner's messages</button>
-    </div>
-  </div>
+  <div id="dWatch">${watchPanelHtml(plan)}</div>
 
   <div class="sub-h" id="d-export">Take it with you</div>
   <div class="actions">
@@ -718,17 +703,7 @@ function renderDday() {
   drawLog(plan, logKey);
   $("#copyMd").addEventListener("click", () => { trackEvent("export", "markdown"); copyText(planToMarkdown(plan, sid)); });
   $("#copyJson").addEventListener("click", () => { trackEvent("export", "json"); copyText(JSON.stringify(slimPlan(plan, sid), null, 2)); });
-  drawWatch(plan, sid);
-  $("#wmAdd").addEventListener("click", () => {
-    const km = parseFloat($("#wmKm").value), name = $("#wmName").value.trim();
-    if (!Number.isFinite(km) || !name) { setExportStatus("Give a km and a message to add."); return; }
-    const ed = watchEdits(plan, sid);
-    ed.extra = [...(ed.extra || []), { id: `x${Date.now().toString(36)}`, km, name }];
-    saveWatchEdits(plan, sid, ed); trackEvent("watch-msg", "add");
-    $("#wmKm").value = ""; $("#wmName").value = "";
-    drawWatch(plan, sid);
-  });
-  $("#wmReset").addEventListener("click", () => { saveWatchEdits(plan, sid, {}); trackEvent("watch-msg", "reset"); drawWatch(plan, sid); });
+  mountWatch($("#dWatch"), { plan, sid, key: watchKey(plan, sid), say: setExportStatus });
   $("#dlFit").addEventListener("click", () => exportCourse("fit", plan, sid));
   $("#dlGpx").addEventListener("click", () => exportCourse("gpx", plan, sid));
 }
@@ -844,67 +819,16 @@ function slimPlan(plan, sid) {
   return JSON.parse(JSON.stringify({ ...plan, scenarioShown: sid, course: { ...plan.course, profile: undefined, route: undefined } }, (k, v) => (k === "timeline" ? undefined : v)));
 }
 function setExportStatus(t) { const el = $("#exportStat"); if (el) el.textContent = t; }
-/* ---------- watch messages: the planner proposes, the runner edits ---------- */
+/* ---------- watch messages (ui/watch.js): saved per race, distance and scenario ---------- */
 const watchKey = (plan, sid) => `trp.watch.${(state.race && state.race.name) || "race"}.${plan.course.totalKm.toFixed(1)}.${sid}`;
-const watchEdits = (plan, sid) => store.get(watchKey(plan, sid)) || {};
-const saveWatchEdits = (plan, sid, ed) => store.set(watchKey(plan, sid), ed);
-const WM_KIND = { [CP.generic]: "Run", [CP.summit]: "Climb", [CP.valley]: "Descent", [CP.danger]: "Brake" };
-
-/** The message list: every planner message (on or off) plus the runner's own, in course order. */
-function drawWatch(plan, sid) {
-  const box = $("#wmRows");
-  if (!box) return;
-  const ed = watchEdits(plan, sid);
-  const all = editedPoints(plan, sid, { names: ed.names, extra: ed.extra }); // the unticked ones stay listed
-  const on = new Set(editedPoints(plan, sid, ed).map((p) => p.id));
-  box.innerHTML = all.map((p) => `<div class="wm-row${on.has(p.id) ? "" : " off"}${p.name.startsWith("!") ? " key" : ""}" data-id="${esc(p.id)}">
-    <span class="wm-km">${p.km.toFixed(1)}</span>
-    <span class="wm-t">${clock(plan.startSec, secAtKm(plan, sid, p.km))}<small>${p.added ? "Yours" : p.name.startsWith("!") || /^k\d/.test(p.id) ? "Key zone" : WM_KIND[p.type] || ""}</small></span>
-    <span class="wm-msg"><input type="text" maxlength="${POINT_NAME_MAX}" value="${esc(p.name)}" aria-label="Message at km ${p.km.toFixed(1)}" title="${esc(p.text)}"><small class="wm-n">${p.name.length}/${POINT_NAME_MAX}</small></span>
-    <span class="wm-keep">${p.added ? `<button class="btn ghost sm" type="button" data-del="${esc(p.id)}" aria-label="Remove">✕</button>` : `<input type="checkbox" ${on.has(p.id) ? "checked" : ""} aria-label="Keep this message">`}</span>
-  </div>`).join("");
-  box.querySelectorAll(".wm-row").forEach((row) => {
-    const id = row.dataset.id;
-    const inp = row.querySelector(".wm-msg input");
-    inp.addEventListener("input", () => { row.querySelector(".wm-n").textContent = `${inp.value.length}/${POINT_NAME_MAX}`; });
-    inp.addEventListener("change", () => {
-      const e = watchEdits(plan, sid);
-      const x = (e.extra || []).find((q) => q.id === id);
-      if (x) x.name = inp.value.trim(); else e.names = { ...(e.names || {}), [id]: inp.value.trim() };
-      saveWatchEdits(plan, sid, e); trackEvent("watch-msg", "edit");
-      drawWatch(plan, sid);
-    });
-    const cb = row.querySelector('input[type="checkbox"]');
-    if (cb) cb.addEventListener("change", () => {
-      const e = watchEdits(plan, sid);
-      e.off = { ...(e.off || {}), [id]: !cb.checked };
-      saveWatchEdits(plan, sid, e); trackEvent("watch-msg", cb.checked ? "on" : "off");
-      drawWatch(plan, sid);
-    });
-    const del = row.querySelector("[data-del]");
-    if (del) del.addEventListener("click", () => {
-      const e = watchEdits(plan, sid);
-      e.extra = (e.extra || []).filter((q) => q.id !== id);
-      saveWatchEdits(plan, sid, e); drawWatch(plan, sid);
-    });
-  });
-}
 
 /** Save the plan as a watch course: FIT (Garmin) or GPX with waypoints (any brand). */
 function exportCourse(kind, plan, sid) {
   const name = (state.race && state.race.name) || "Race";
   const track = state.race && state.race.parsed ? state.race.parsed.points : null;
   try {
-    const points = editedPoints(plan, sid, watchEdits(plan, sid));
-    const data = kind === "fit" ? courseFit(plan, sid, track, { name, points }) : courseGpx(plan, sid, track, name, points);
-    const blob = new Blob([data], { type: kind === "fit" ? "application/octet-stream" : "application/gpx+xml" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `${name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\w]+/g, "-").replace(/^-|-$/g, "").toLowerCase() || "race"}-${sid}.${kind}`;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    trackEvent("export", kind);
-    setExportStatus(`Saved ${a.download}.`);
+    const file = downloadCourse(kind, { plan, sid, track, name, points: watchPoints(plan, sid, watchKey(plan, sid)) });
+    setExportStatus(`Saved ${file}.`);
   } catch (e) { setExportStatus(`Could not make the course: ${e.message}`); }
 }
 
@@ -946,5 +870,6 @@ initRunMode({ onLoaded: (run) => {
 } });
 
 compute();
+initPrepRun({ getRuns: () => (state.effort ? state.effort.runs.map((r) => r.parsed) : []), getSettings: () => state.settings, onLoaded: () => renderNav() });
 setMode(new URLSearchParams(window.location.search).get("mode"), false);
 startAnalytics();
