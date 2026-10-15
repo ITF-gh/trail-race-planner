@@ -529,7 +529,8 @@ test("fitLine finds a straight line and its correlation", () => {
   assert.ok(fitLine([1, 2, 3, 4], [4, 3, 2, 1]).r < -0.99);
 });
 
-import { runRecord, historySummary, ACHIEVEMENTS } from "../src/core/history.js";
+import { historySummary, ACHIEVEMENTS, checkRecord, aiDigest } from "../src/core/history.js";
+import { runRecord } from "../src/core/runrecord.js";
 
 test("run log: a run becomes a small summary, and the log adds up", () => {
   const run = analyseRun(parseGpx(makeDemoRunGpx()));

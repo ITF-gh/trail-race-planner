@@ -14,7 +14,9 @@ Give it the **target** you were aiming for (a finish time or an average pace) an
 
 Your files are read on your own machine. Nothing is uploaded.
 
-**My account** (the round icon at the top right) keeps a run log on this device: every run you open in Check my run, or add to Your runs in Prep my race, is summarised (about 1 KB: date, distance, climbing, best 1, 5 and 10 km, climbing speed, fade, heart drift) and stored in the browser's IndexedDB. The menu shows your last 12 months, all-time bests, last runs, achievements and the **cairns** they earn (1 cairn will buy 1 AI analysis of all your runs, later). Sample and demo runs are not stored. Export my data downloads the log as JSON; Delete my runs empties it.
+**My account** (the round icon at the top right) keeps a run log on this device: every run you open in Check my run, or add to Your runs in Prep my race, is summarised (about 1 KB: date, distance, climbing, best 1, 5 and 10 km, climbing speed, fade, heart drift) and stored in the browser's IndexedDB. The menu shows your last 12 months, all-time bests, last runs, achievements and the **cairns** they earn. Sample and demo runs are not stored. Export my data downloads the log as JSON; Delete my runs empties it.
+
+**Online account (optional).** Signing in with an email link keeps the run log and the cairns in your account (Supabase, EU). The server recomputes the achievements from your runs and pays each one once; 1 cairn buys 1 AI analysis of your whole log: Claude reads one line per run (no names, no GPS points) and returns new KPIs, strengths, what to work on and the next weeks. A cairn is refunded if the analysis fails. Setup: [supabase/SETUP.md](supabase/SETUP.md). Not open yet: writes are closed in the app (`CLOUD.open` in `src/ui/cloud.js`) and in the database (`writes_open()`), so nothing is sent or stored.
 
 ## Use it
 
@@ -59,15 +61,17 @@ src/core/markdown.js   plan as Markdown
 src/core/keyzones.js   key zones: where the race is played, and how many minutes are at stake
 src/core/script.js     the race in time: key moments with cues, and where you are at any second
 src/core/review.js     Check my run: grade-adjusted pace, stops, sections with a verdict, key moments of a run you did
-src/core/history.js    the run log: one small summary per run, 12-month totals, bests, achievements and cairns
+src/core/history.js    the run log: 12-month totals, bests, achievements and cairns, record checks, AI digest (shared with the server)
+src/core/runrecord.js  one small summary per run
 src/demo.js            made-up GPX files for the demo and the tests
 src/ui/                the browser app (main.js, map.js for the map, replay.js for race day,
-                       review.js for the Check my run mode, account.js for the account menu and its IndexedDB store, analytics.js for anonymous visit and event counts)
+                       review.js for the Check my run mode, account.js for the account menu and its IndexedDB store, cloud.js for the online account, analytics.js for anonymous visit and event counts)
 src/vendor/leaflet/    Leaflet 1.9.4, the map library (BSD-2 licence), copied to dist/vendor/
 cli.js                 the command-line tool
 scripts/build.js       bundles the app into dist/index.html, no dependencies
 tests/                 node:test suite on made-up data
 docs/HOW_IT_WORKS.md   the ideas behind it, with the reasoning
+supabase/              online accounts: tables (migrations/), server functions (functions/), SETUP.md
 ```
 
 ## Live version
@@ -86,7 +90,7 @@ npm run dev      build, then serve it on http://localhost:5173
 
 GPX files show where you live and train. `.gitignore` excludes `*.gpx` so they do not end up in a repository by accident. The tests use made-up routes.
 
-GPX files and plans never leave the browser. The run log behind the account menu stays in this browser too (IndexedDB), with no GPS points in it. The only thing the page sends out is anonymous visit and event counts (see Analytics).
+GPX files and plans never leave the browser. The run log behind the account menu stays in this browser too (IndexedDB), with no GPS points in it. The only thing the page sends out is anonymous visit and event counts (see Analytics), unless you sign in: then the run summaries go to your account (EU), and when you ask for an AI analysis, after a consent screen, one line per run plus your heart-rate settings and weight are sent to the Claude API. Delete my account removes everything on the server.
 
 ## Analytics
 
