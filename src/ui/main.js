@@ -512,6 +512,7 @@ function zoneList(zones, when) {
 const ZONE_NOTE = `Key zones are short stretches where how you run changes your race. <b>Attack</b>: push, time is won here. <b>Prepare</b>: set up what comes next (eat, drink, let your heart rate drop). <b>Manage</b>: protect your effort for later. Minutes in play = the typical gap, on that stretch and what follows, between runners of your level who run it well and those who do not: time on it × how much runners differ at that point (3% at the start to 18% at the finish, as fatigue spreads the field) × the kind of zone. One zone per 13 km of race.`;
 const jumps = (items) => `<nav class="jumps" aria-label="In this section">${items.map(([href, t, cls]) => `<a href="#${href}" class="${cls || ""}">${t}</a>`).join("")}</nav>`;
 let briefMap = null;
+let ddayMap = null;
 
 /* ---------- 02 race briefing ---------- */
 function diffCell(c) {
@@ -628,6 +629,7 @@ function renderBriefing() {
 function renderDday() {
   const out = $("#s3body");
   const plan = state.plan;
+  if (ddayMap) { ddayMap.destroy(); ddayMap = null; }
   if (!plan) {
     out.innerHTML = empty(state.race || state.effort ? `<b>Add the ${state.race ? "run" : "race"} GPX</b> to build your race-day plan.` : `<b>Load both files</b> (or press Try the demo) to build your race-day plan.`);
     return;
@@ -676,7 +678,7 @@ function renderDday() {
   })() : state.settings.targetTime ? `<div class="panel target-card t-warn" id="d-target"><p>Write the targeted duration as hours:minutes, for example 10:15.</p></div>` : "";
 
   out.innerHTML = `
-  ${jumps([["d-key", "★ Key zones"], ["d-card", "Race card"], ["d-climbs", "Climb by climb"], ["d-log", "Plan versus actual"], ["d-export", "Export"], ["s-pimp", "05 Pimp my GPX"], ["rpCockpit", "▶ Rehearse race day", "go"]])}
+  ${jumps([["d-map", "Map"], ["d-key", "★ Key zones"], ["d-card", "Race card"], ["d-climbs", "Climb by climb"], ["d-log", "Plan versus actual"], ["d-export", "Export"], ["s-pimp", "05 Pimp my GPX"], ["rpCockpit", "▶ Rehearse race day", "go"]])}
   <div class="dday-top">
     ${tile(`Estimated duration · ${sc.label.toLowerCase()}`, hm(sc.finishSec), `finish at ${clock(st, sc.finishSec)} · start ${clock(st, 0)}`, "big")}
     <div class="panel" style="display:flex;flex-direction:column;gap:12px;justify-content:center">
@@ -688,6 +690,8 @@ function renderDday() {
   <div class="prof-wrap">${profileView(plan.course.profile, brief, { ...sc, startSec: st, aid: aidMarks }, plan.keyZones).html}
     <div class="legend" style="margin-top:10px"><span class="note" style="margin:0">Red dots: gels. Triangles: aid stations. Shaded bands ★: key zones, where the race is played.</span></div>
   </div>
+  <div class="sub-h" id="d-map">Map</div>
+  <div class="b-map" id="ddayMap"></div>
 
   <div class="sub-h" id="d-key">★ Key zones · where you can make a difference</div>
   ${zoneList(plan.keyZones, (km) => `you get there at ${clock(st, secAtKm(plan, sid, km))}`)}
@@ -732,7 +736,7 @@ function renderDday() {
     <button class="btn" id="copyJson" type="button">Copy as JSON</button>
     <span class="status" id="exportStat" aria-live="polite"></span>
   </div>
-  <a class="panel pimp-link" href="#s-pimp"><b>Put this plan on your watch →</b><span>Your watch messages and the course for your watch (.fit, or GPX with messages) are in <b>05 Pimp my GPX</b>.</span></a>`;
+  <a class="pimp-link" href="#s-pimp"><span class="pl-tag">Bonus</span><b>Pimp my GPX</b><span class="pl-sub">Put this plan on your watch →</span></a>`;
 
   /* wiring */
   out.querySelectorAll("#scen button").forEach((b) => b.addEventListener("click", () => { state.scenario = b.dataset.s; trackEvent("scenario", state.scenario); store.set("trp.scenario", state.scenario); renderDday(); renderReplay(); renderPimp(); renderNav(); }));
@@ -742,6 +746,9 @@ function renderDday() {
   drawLog(plan, logKey);
   $("#copyMd").addEventListener("click", () => { trackEvent("export", "markdown"); copyText(planToMarkdown(plan, sid)); });
   $("#copyJson").addEventListener("click", () => { trackEvent("export", "json"); copyText(JSON.stringify(slimPlan(plan, sid), null, 2)); });
+  // The race on a map, coloured like the profile, with your aid stations and key zones.
+  if (state.race && state.race.route) ddayMap = courseMap($("#ddayMap"), { route: state.race.route, totalKm: plan.course.totalKm, ...mapStyle(brief, parseAidStations(state.settings.aidStations).filter((a) => a.km <= plan.course.totalKm), plan.keyZones) });
+  else $("#ddayMap").remove();
   $(".pimp-link").addEventListener("click", () => trackEvent("nav", "pimp-link"));
 }
 
@@ -946,4 +953,18 @@ document.addEventListener("click", (ev) => {
   const t = document.getElementById(a.getAttribute("href").slice(1));
   const fold = t && (t.matches("details") ? t : t.closest("details"));
   if (fold) fold.open = true;
+});
+
+// Click a section banner or a sub-title (the red-bar headings) to fold what it heads, click again to unfold.
+document.addEventListener("click", (ev) => {
+  if (ev.target.closest("a, button, summary")) return;
+  const h = ev.target.closest(".sec-head, .sub-h");
+  if (!h || h.matches("summary")) return;
+  const folded = h.classList.toggle("folded");
+  h.setAttribute("aria-expanded", String(!folded));
+  for (let n = h.nextElementSibling; n; n = n.nextElementSibling) {
+    if (h.matches(".sub-h") && (n.matches(".sub-h") || n.matches("details.fold") || n.matches(".pimp-link"))) break;
+    n.classList.toggle("fold-hid", folded);
+  }
+  trackEvent("fold-title", folded ? "close" : "open");
 });

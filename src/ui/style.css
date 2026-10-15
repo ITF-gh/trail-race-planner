@@ -726,3 +726,46 @@ details.fold>summary small{font-size:11px;color:var(--muted);font-style:normal;t
 .pimp-link{display:flex;flex-direction:column;gap:4px;margin-top:18px;text-decoration:none;color:inherit;border-color:rgba(255,201,40,.45)}
 .pimp-link>b{font-family:var(--f-display);font-style:italic;text-transform:uppercase;letter-spacing:.03em;color:var(--sun)}
 .pimp-link:hover{border-color:var(--sun)}
+
+/* v0.26 global visual pass: 15% less air, smaller banners, light transparent rows */
+.wrap>section{padding:calc(2.55vw + 34px) 0 54px}
+#s1{padding-top:20px}
+.sec-head{min-height:130px;padding:18px 20px 16px;margin-bottom:17px;cursor:pointer}
+.sec-head h2{font-size:clamp(28px,4.4vw,46px)}
+.sec-intro{margin:-5px 0 17px}
+.sub-h{margin:24px 0 10px;cursor:pointer}
+.sub-h.folded{opacity:.7}
+.sec-head.folded{min-height:0;padding-top:12px;padding-bottom:12px}
+.sec-head.folded::before{content:"▸ show";position:absolute;right:16px;top:12px;z-index:2;font:600 12px var(--f-body);color:#fff;opacity:.8}
+.fold-hid{display:none !important}
+.jumps{margin:0 0 15px;gap:7px}
+.panel{padding:15px}
+.prof-wrap{padding:12px 12px 9px}
+.grid{gap:12px}
+#s3body{margin-top:19px !important}
+/* climbs, descents, race-day rows: no card, a thin coloured edge and a divider */
+.rows{gap:0}
+.row{background:transparent;border:0;border-left:3px solid var(--line);border-bottom:1px solid rgba(255,255,255,.07);border-radius:0;padding:5px 10px}
+.row:hover{background:rgba(255,255,255,.03)}
+.row.sec{margin-left:18px;border-left-width:2px}
+.row .n{font-size:18px;min-width:34px}
+.row .c .k{font-size:9.5px} .row .c b{font-size:13.5px}
+.zone-card{background:linear-gradient(100deg,rgba(255,201,40,.07),transparent 60%);border:0;border-left:3px solid var(--sun);border-bottom:1px solid rgba(255,255,255,.07);border-radius:0}
+.zones{gap:0}
+/* race script: a light list, not a stack of boxes */
+.rp-script{gap:0}
+.rp-script button{background:transparent;border:0;border-bottom:1px solid rgba(255,255,255,.07);border-radius:0;padding:5px 8px}
+.rp-script .ic{width:24px;height:24px;font-size:12px}
+.rp-script .t b{font-size:14.5px} .rp-script .cue{font-size:12.5px}
+.rp-script li.on button{background:rgba(255,201,40,.08);border-left:3px solid var(--sun)}
+.rp-script button:hover{background:rgba(255,255,255,.04)}
+#ddayMap{margin-bottom:6px}
+/* 05 Pimp my GPX: a surprise bonus, sprayed on the wall */
+.pimp-link{position:relative;display:inline-flex;flex-direction:column;align-items:flex-start;gap:0;margin:24px 0 6px 6px;padding:14px 26px 16px 22px;text-decoration:none;color:#fff;transform:rotate(-2deg);border:0;border-radius:6px 18px 8px 22px;
+  background:radial-gradient(circle at 12% 30%,rgba(255,255,255,.18) 0 2px,transparent 3px),radial-gradient(circle at 78% 70%,rgba(255,255,255,.14) 0 2px,transparent 3px),radial-gradient(circle at 92% 20%,rgba(0,0,0,.25) 0 3px,transparent 4px),linear-gradient(115deg,#ff2d95 0%,#ff5a1f 45%,#ffd400 100%);
+  box-shadow:4px 5px 0 #0a0a14,0 0 0 3px #0a0a14,0 0 24px rgba(255,45,149,.45);transition:transform .15s,box-shadow .15s}
+.pimp-link:hover{transform:rotate(0) scale(1.04);box-shadow:6px 7px 0 #0a0a14,0 0 0 3px #0a0a14,0 0 34px rgba(255,212,0,.6)}
+.pimp-link::after{content:"";position:absolute;left:30%;bottom:-9px;width:6px;height:12px;border-radius:0 0 4px 4px;background:#ff5a1f;box-shadow:22px 3px 0 -1px #ffb000,-14px -2px 0 -1px #ff2d95}
+.pimp-link b{font-family:var(--f-display);font-weight:800;font-style:italic;text-transform:uppercase;font-size:30px;line-height:1;letter-spacing:.02em;color:#fff;text-shadow:3px 3px 0 #0a0a14,-1px -1px 0 #0a0a14,1px -1px 0 #0a0a14,-1px 1px 0 #0a0a14}
+.pimp-link .pl-tag{position:absolute;top:-12px;right:-10px;transform:rotate(8deg);padding:2px 9px;border-radius:4px;background:#00e0c6;color:#0a0a14;font:800 11px var(--f-display);letter-spacing:.14em;text-transform:uppercase;box-shadow:2px 2px 0 #0a0a14}
+.pimp-link .pl-sub{margin-top:4px;font-weight:700;font-size:13px;color:#0a0a14}
