@@ -11,6 +11,7 @@
 import { parseGpx } from "../core/track.js";
 import { analyseRun, runStateAt, runLegAt, runSecAtKm } from "../core/review.js";
 import { courseMap } from "./map.js";
+import { fitPanel } from "./replay.js";
 import { mmss, hm, clock } from "../core/format.js";
 import { trackEvent, trackOnce } from "./analytics.js";
 import { makeDemoRunGpx } from "../demo.js";
@@ -41,8 +42,9 @@ function rvProfile(run) {
   const TOT = run.totalKm;
   const eles = P.map((p) => p[1]);
   const EMIN = Math.min(...eles), EMAX = Math.max(...eles);
-  const W = 1000, l = 52, r = 14, top = 30, base = 196, H = 222;
-  const plotH = base - top - 16;
+  // Flat: it runs the full width of the cockpit, right under the section bar.
+  const W = 1000, l = 52, r = 14, top = 26, base = 92, H = 114;
+  const plotH = base - top - 12;
   const x = (km) => l + (km / TOT) * (W - l - r);
   const y = (e) => base - 8 - ((e - EMIN) / Math.max(1, EMAX - EMIN)) * plotH;
   const km = (vx) => Math.max(0, Math.min(TOT, ((vx - l) / (W - l - r)) * TOT));
@@ -141,6 +143,8 @@ export function mountRun(box, run) {
 
   const $v = (s) => box.querySelector(s);
   const els = { leg: $v("#rvLeg"), legNow: $v("#rvLegNow"), legPos: $v("#rvLegPos"), legBtns: [...box.querySelectorAll("#rvLegs .lg")], clock: $v("#rvClock"), el: $v("#rvElapsed"), bar: $v("#rvBar"), km: $v("#rvKm"), now: $v("#rvNow"), next: $v("#rvNext"), cue: $v("#rvCue"), play: $v("#rvPlay"), seek: $v("#rvSeek"), cur: $v("#rvProf .pcur"), list: $v("#rvScript") };
+  // A window resize changes the room in the panel: fit the "coming next" list again.
+  if (typeof ResizeObserver === "function") new ResizeObserver(() => fitPanel(els.next)).observe($v(".rp-hud"));
   const m = rvMapStyle(run);
   rv.map = courseMap($v("#rvMap"), { route: run.route, totalKm: TOT, paint: m.paint, marks: m.marks });
   rv.map.follow(rv.follow && rv.sec > 0);
@@ -198,7 +202,8 @@ export function mountRun(box, run) {
       const row = (k, sec, id) => `<tr><th>${k}</th><td>${sec}</td><td class="now" id="${id}"></td></tr>`;
       els.leg.innerHTML = `
         <div class="rp-leg-h"><span class="rp-leg-n"><small>Section</small><b>${l.i}</b><small>/ ${legs.length}</small></span>
-          <span class="rp-leg-t"><b>${rvEsc(l.title)}</b>${legChip(l)}</span></div>
+          <span class="rp-leg-t"><b>${rvEsc(l.title)}</b>${legChip(l)}
+            <span class="rp-leg-sub">${n ? `<span class="nx">Next <b>${n.i}. ${rvEsc(n.title)}</b></span>` : `<span class="nx">Next <b>finish</b></span>`}</span></span></div>
         <table class="rp-tg">
           <thead><tr><th></th><th>Section</th><th class="now">Now</th></tr></thead>
           <tbody>
@@ -210,10 +215,9 @@ export function mountRun(box, run) {
             ${run.hasHr ? row("Heart rate", l.hr ? `${Math.round(l.hr)} bpm` : "–", "rvnHr") : ""}
             ${run.hasCad ? row("Cadence", l.cad ? `${Math.round(l.cad)} spm${l.hikeShare > 0.05 ? ` <small>${Math.round(l.hikeShare * 100)}% hiked</small>` : ""}` : "–", "rvnCad") : ""}
           </tbody>
-        </table>
-        <p class="rp-leg-tac">${l.vsPct ? `${Math.abs(l.vsPct)}% ${l.vsPct > 0 ? "faster" : "slower"} than your average on ${KIND[l.kind]} today, for the gradient.` : `Right on your average for ${KIND[l.kind]} today.`}${l.vam ? ` Climbing at ${Math.round(l.vam)} m/h.` : ""}</p>
-        <p class="rp-leg-next">${n ? `Next · <b>${n.i}. ${rvEsc(n.title)}</b> ${legChip(n)} ${n.km.toFixed(1)} km · ${dur(n.durSec)}` : "Next · <b>the finish</b>"}</p>`;
+        </table>`;
       els.tn = Object.fromEntries(["Clock", "Time", "Pace", "Gap", "Grade", "Hr", "Cad"].map((k) => [k, els.leg.querySelector(`#rvn${k}`)]));
+      lastNext = ""; // the card changed height: fit the list below it again
     }
     const left = Math.max(0, l.endKm - s.km);
     els.legNow.innerHTML = `<b>Section ${l.i}/${legs.length}</b> · ${rvEsc(l.title)} ${legChip(l)} <span class="left">${left.toFixed(1)} km to go in it</span>`;
@@ -239,7 +243,7 @@ export function mountRun(box, run) {
       nextStop ? `<li><span>Next stop · ${Math.round(nextStop.durSec / 60)} min</span><b>km ${nextStop.km.toFixed(1)}</b></li>` : "",
       `<li><span>So far</span><b><span class="rv-g">${done.filter((x) => x.tone === "good").length} went well</span> · <span class="rv-b">${done.filter((x) => x.tone === "bad").length} cost you</span></b></li>`,
     ].join("");
-    if (next !== lastNext) { els.next.innerHTML = next; lastNext = next; }
+    if (next !== lastNext) { els.next.innerHTML = next; lastNext = next; fitPanel(els.next); }
 
     let ci = -1;
     for (let i = 0; i < moments.length && moments[i].sec <= s.sec + 0.5; i++) ci = i;

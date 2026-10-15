@@ -18,6 +18,26 @@ import { courseMap } from "./map.js";
 import { mmss, hm, clock } from "../core/format.js";
 import { trackEvent, trackOnce } from "./analytics.js";
 
+/** Short names for the tactics of the briefing (plan.js), shown in the section header. */
+const RULES = {
+  "Hike": "Hike", "Hike the steep part": "Hike steep", "Biggest climb, steady": "Steady", "Run evenly, do not surge": "Run even",
+  "Run": "Run", "Steady": "Steady", "Let it run, recover": "Let it run", "Quick steps, stay light": "Quick steps",
+  "Brake, short steps": "Brake", "Run tall and relaxed, drink, eat on time": "Relaxed",
+};
+
+/**
+ * The panel never scrolls: the "coming next" list keeps only the rows that fit in it.
+ * Rows are shown again first, so a taller window gets them back.
+ */
+export function fitPanel(list) {
+  const hud = list && list.closest(".rp-hud");
+  if (!hud) return;
+  const rows = [...list.children];
+  rows.forEach((li) => { li.hidden = false; });
+  const bottom = hud.getBoundingClientRect().bottom - parseFloat(getComputedStyle(hud).paddingBottom || 0);
+  rows.forEach((li) => { if (li.getBoundingClientRect().bottom > bottom + 1) li.hidden = true; });
+}
+
 const escR = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const SPEEDS = [
   { v: 120, label: "1 h in 30 s" },
@@ -104,6 +124,8 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key }) {
 
   const $r = (s) => box.querySelector(s);
   const els = { leg: $r("#rpLeg"), legNow: $r("#rpLegNow"), legPos: $r("#rpLegPos"), legBtns: [...box.querySelectorAll("#rpLegs .lg")], clock: $r("#rpClock"), el: $r("#rpElapsed"), bar: $r("#rpBar"), km: $r("#rpKm"), now: $r("#rpNow"), next: $r("#rpNext"), cue: $r("#rpCue"), play: $r("#rpPlay"), seek: $r("#rpSeek"), cur: $r("#rpProf .pcur"), list: $r("#rpScript") };
+  // A window resize changes the room in the panel: fit the "coming next" list again.
+  if (typeof ResizeObserver === "function") new ResizeObserver(() => fitPanel(els.next)).observe($r(".rp-hud"));
   if (hasMap) {
     rp.map = courseMap($r("#rpMap"), { route: plan.course.route, totalKm: plan.course.totalKm, paint: mapPaint, marks: mapMarks });
     rp.map.follow(rp.follow && rp.sec > 0);
@@ -149,6 +171,8 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key }) {
     if (rp.map) rp.map.highlight({ fromKm: l.startKm, toKm: l.endKm });
     els.legBtns.forEach((b, k) => { b.classList.toggle("on", k === li); b.classList.toggle("past", k < li); b.classList.toggle("nx", k === li + 1); });
   };
+  // The rule of the section in a word or two (the full tactic stays in its tooltip).
+  const ruleWord = (t) => RULES[t] || String(t || "").split(",")[0];
   const gradeTxt = (l) => `${l.avg > 0 ? "+" : ""}${l.avg.toFixed(1)}%`;
   // A runnable stretch says so in its title already: no chip repeating it.
   const legChip = (l) => (l.kind === "flat" ? "" : `<span class="chip l${l.level}">${escR(l.label)}</span>`);
@@ -178,7 +202,8 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key }) {
       const row = (k, target, id) => `<tr><th>${k}</th><td>${target}</td><td class="now" ${id ? `id="${id}"` : ""}>${id ? "" : "–"}</td></tr>`;
       els.leg.innerHTML = `
         <div class="rp-leg-h"><span class="rp-leg-n"><small>Section</small><b>${l.i}</b><small>/ ${legs.length}</small></span>
-          <span class="rp-leg-t"><b>${escR(l.title)}</b>${legChip(l)}${l.keyZone ? ` <span class="chip keyc">★ Key zone ${l.keyZone.n}</span>` : ""}</span></div>
+          <span class="rp-leg-t"><b>${escR(l.title)}</b>${legChip(l)}${l.keyZone ? ` <span class="chip keyc">★ Key zone ${l.keyZone.n}</span>` : ""}
+            <span class="rp-leg-sub"><span class="rule" title="${escR(l.tactic)}">${escR(ruleWord(l.tactic))}</span>${n ? `<span class="nx">Next <b>${n.i}. ${escR(n.title)}</b></span>` : `<span class="nx">Next <b>finish</b></span>`}</span></span></div>
         <table class="rp-tg">
           <thead><tr><th></th><th>Target</th><th class="now">Now</th></tr></thead>
           <tbody>
@@ -188,10 +213,9 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key }) {
             ${row("Section done", `${l.km.toFixed(2)} km`, "tnPct")}
             ${row("Section time", hm(l.durSec), "tnTime")}
           </tbody>
-        </table>
-        <p class="rp-leg-tac">${escR(l.tactic)}${l.gels.length ? ` · ${l.gels.length} gel${l.gels.length > 1 ? "s" : ""} here` : ""}${l.aids.length ? ` · ⛺ ${l.aids.map((a) => escR(a.name)).join(", ")}` : ""}</p>
-        <p class="rp-leg-next">${n ? `Next · <b>${n.i}. ${escR(n.title)}</b> ${legChip(n)} ${n.km.toFixed(1)} km · +${Math.round(n.up)} / −${Math.round(n.down)} m · ${hm(n.durSec)}` : "Next · <b>the finish line</b>"}</p>`;
+        </table>`;
       els.tn = Object.fromEntries(["Pace", "Grade", "Ele", "Pct", "Time"].map((k) => [k, els.leg.querySelector(`#tn${k}`)]));
+      lastNextHtml = ""; // the card changed height: fit the list below it again
     }
     const leftKm = Math.max(0, l.endKm - s.km);
     const leftSec = Math.max(0, l.endSec - s.sec);
@@ -221,7 +245,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key }) {
       s.nextAid ? `<li><span>Next aid · ${escR(s.nextAid.name)}</span><b>${(s.nextAid.km - s.km).toFixed(1)} km · ${clock(st, s.nextAid.arrive[sid])}</b></li>` : "",
       s.nextClimb ? `<li><span>Next climb · #${s.nextClimb.n}</span><b>${Math.round(s.nextClimb.gain)} m · in ${until(s.nextClimb.start[sid])}</b></li>` : "",
     ].join("") || `<li><span>Nothing left but the finish</span><b></b></li>`;
-    if (next !== lastNextHtml) { els.next.innerHTML = next; lastNextHtml = next; }
+    if (next !== lastNextHtml) { els.next.innerHTML = next; lastNextHtml = next; fitPanel(els.next); }
 
     // The cue on screen is the latest moment reached.
     let ci = -1;
@@ -304,34 +328,29 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key }) {
       const vx = ((ev.clientX - b.left) / b.width) * 1000;
       return prof.km(vx);
     };
-    // Hovering a section shows a pop-up with its length and its real metres up and down.
+    // A tap or click on a section jumps the runner there and opens a pop-up with the section's
+    // length and its real metres up and down; it stays until the next tap or a tap elsewhere.
     const profBox = $r("#rpProf");
     const tip = document.createElement("div");
     tip.className = "rp-ptip";
     tip.hidden = true;
     profBox.appendChild(tip);
-    let tipLeg = -1;
-    svg.addEventListener("pointermove", (ev) => {
-      if (ev.pointerType === "touch") return;
-      const li = legAtKm(legs, toKm(ev));
-      const l = legs[li];
-      if (li !== tipLeg) {
-        tipLeg = li;
-        tip.innerHTML = `<b>${l.i}. ${escR(l.title)}</b><span><i>Length</i>${l.km.toFixed(2)} km</span><span><i>D+</i>${Math.round(l.up)} m</span><span><i>D−</i>${Math.round(l.down)} m</span>`;
-      }
+    const showTip = (ev) => {
+      const l = legs[legAtKm(legs, toKm(ev))];
+      tip.innerHTML = `<b>${l.i}. ${escR(l.title)}</b><span><i>Length</i>${l.km.toFixed(2)} km</span><span><i>D+</i>${Math.round(l.up)} m</span><span><i>D−</i>${Math.round(l.down)} m</span>`;
       tip.hidden = false;
       const pb = profBox.getBoundingClientRect();
       const x = Math.max(4, Math.min(pb.width - tip.offsetWidth - 4, ev.clientX - pb.left - tip.offsetWidth / 2));
       tip.style.left = `${x}px`;
       tip.style.top = `${Math.max(2, ev.clientY - pb.top - tip.offsetHeight - 14)}px`;
-    });
-    svg.addEventListener("pointerleave", () => { tip.hidden = true; tipLeg = -1; });
-    // A tap or click jumps there; a drag is left to the browser, so the profile scrolls freely.
+    };
+    document.addEventListener("pointerdown", (ev) => { if (!tip.hidden && !profBox.contains(ev.target)) tip.hidden = true; });
+    // A drag is left to the browser, so the profile scrolls freely.
     let down = null;
     svg.addEventListener("pointerdown", (ev) => { down = { x: ev.clientX, y: ev.clientY }; });
     svg.addEventListener("pointercancel", () => { down = null; });
     svg.addEventListener("pointerup", (ev) => {
-      if (down && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) < 8) { trackEvent("replay-profile-tap"); pause(); seek(secAtKm(plan, sid, toKm(ev))); }
+      if (down && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) < 8) { trackEvent("replay-profile-tap"); pause(); seek(secAtKm(plan, sid, toKm(ev))); showTip(ev); }
       down = null;
     });
   }

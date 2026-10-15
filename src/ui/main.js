@@ -48,20 +48,25 @@ const state = {
 const PEAK = `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M2 27 12 9l5 8 4-5 9 15z" fill="currentColor"/><path d="m12 9 2.6 4.6L12 12l-2 2.2z" fill="#fff" opacity=".85"/></svg>`;
 // Photos come from Pexels (free licence: use and edit allowed, credit appreciated). The files sit
 // in src/ui/photos and are copied next to index.html at build; style.css points the slots at them.
+// Plan mode keeps the nature and adventure look; "Review a run" mode gets sport shots. No face is
+// recognisable in any of them: people are seen from behind, far away or as silhouettes.
 const PHOTOS = {
   hero: { by: "Artem Meletov", url: "https://www.pexels.com/photo/person-standing-on-mountain-peak-above-clouds-8910505/" },
+  heroRun: { by: "Cara Denison", url: "https://www.pexels.com/photo/silhouette-of-jogger-at-sunset-in-park-34730429/" },
   s1: { by: "Hobi Photography", url: "https://www.pexels.com/photo/hiker-with-flashlight-looking-at-starry-night-sky-27790902/" },
   s2: { by: "Elina Volkova", url: "https://www.pexels.com/photo/misty-forest-path-in-dense-woodland-29579873/" },
   s3: { by: "Jack Davis", url: "https://www.pexels.com/photo/back-view-of-a-woman-running-up-the-mountain-trail-8949023/" },
+  s4: { by: "Lorenzo Castellino", url: "https://www.pexels.com/photo/man-walking-at-a-river-in-mountains-14989443/" },
+  s5: { by: "Alin Serban", url: "https://www.pexels.com/photo/trail-runner-in-green-mountain-landscape-30932860/" },
 };
-const credit = (key) => `<a class="photo-credit" href="${PHOTOS[key].url}" target="_blank" rel="noopener">Photo: ${PHOTOS[key].by} / Pexels</a>`;
-const head = (num, kicker, title) => `<header class="sec-head"><div class="sec-num">${num}</div><div class="sec-kicker">${kicker}</div><h2>${title}</h2>${PHOTOS["s" + Number(num)] ? credit("s" + Number(num)) : ""}</header>`;
+const credit = (key, cls = "") => `<a class="photo-credit${cls ? " " + cls : ""}" href="${PHOTOS[key].url}" target="_blank" rel="noopener">Photo: ${PHOTOS[key].by} / Pexels</a>`;
+const head = (num, kicker, title, key = "s" + Number(num)) => `<header class="sec-head"><div class="sec-num">${num}</div><div class="sec-kicker">${kicker}</div><h2>${title}</h2>${PHOTOS[key] ? credit(key) : ""}</header>`;
 const NAV = [["s1", "01", "Engine"], ["s2", "02", "Briefing"], ["s3", "03", "D-day"], ["s4", "04", "Race day"], ["s5", "▶", "My run"]];
 const MODE_SEG = `<div class="seg mode-seg" role="group" aria-label="Mode"><button type="button" data-mode="plan">Plan a race</button><button type="button" data-mode="run">Review a run</button></div>`;
 
 $("#app").innerHTML = `
 <header class="hero" id="top">
-  ${credit("hero")}
+  ${credit("hero", "plan-only")}${credit("heroRun", "review-only")}
   <div class="hero-in">
     ${MODE_SEG}
     <div class="hero-row review-only">
@@ -162,13 +167,13 @@ $("#app").innerHTML = `
 </section>
 
 <section id="s5" class="review-only">
-  ${head("▶", "After the run", "My run")}
+  ${head("▶", "After the run", "My run", "s5")}
   <p class="sec-intro">Your run played back at its real pace. The bar, the map and the profile are coloured by how you ran each stretch compared with your own average on the same kind of ground; each key moment stops the replay and says what it means.</p>
   <div id="s5body"></div>
 </section>
 
 <p class="foot plan-only">How it works: your run gives a pace for every gradient band, fresh and tired. Each 10 m of the course takes the pace of its band, sliding from fresh to tired along the race, scaled for terrain and for how much longer the race is than your run. Climbs and descents come from the course elevation, smoothed to ignore GPS noise. A model like this is usually within 5 to 10%: treat the three scenarios as a range, not a promise.</p>
-${analyticsOn ? `<p class="foot">Visits are counted anonymously with ${analyticsName}: no cookies, no personal data. Your GPX files and plans never leave your browser.</p>\n` : ""}<p class="foot">Photos by ${Object.values(PHOTOS).map((p) => `<a href="${p.url}" target="_blank" rel="noopener">${p.by}</a>`).join(", ")}, free to use under the <a href="https://www.pexels.com/license/" target="_blank" rel="noopener">Pexels licence</a>.</p>
+${analyticsOn ? `<p class="foot">Visits are counted anonymously with ${analyticsName}: no cookies, no personal data. Your GPX files and plans never leave your browser.</p>\n` : ""}<p class="foot">Photos by ${Object.values(PHOTOS).filter((p, i, all) => all.findIndex((q) => q.by === p.by) === i).map((p) => `<a href="${p.url}" target="_blank" rel="noopener">${p.by}</a>`).join(", ")}, free to use under the <a href="https://www.pexels.com/license/" target="_blank" rel="noopener">Pexels licence</a>.</p>
 `;
 
 /* ---------- settings form ---------- */
@@ -341,12 +346,14 @@ function elevAt(profile, km) {
  * Where things sit on the profile drawing (SVG units, viewBox 1000 wide): x(km), y(altitude),
  * and km(x) back from a click. Shared by the drawing and by the cursors that move on it.
  */
-function profGeom(P, TOT, race) {
+function profGeom(P, TOT, race, flat = false) {
   const eles = P.map((p) => p[1]);
   const EMIN = Math.min(...eles), EMAX = Math.max(...eles);
-  const W = 1000, l = 52, r = 14, top = race ? 34 : 18, base = race ? 205 : 190;
+  // `flat`: the race day cockpit, where the profile runs the full width under the section bar,
+  // so it is drawn about half as high (gels as small marks under the axis, no clock under them).
+  const W = 1000, l = 52, r = 14, top = flat ? 22 : race ? 34 : 18, base = flat ? 84 : race ? 205 : 190;
   const plotH = base - top - 24;
-  const H = race ? 285 : 222;
+  const H = flat ? base + 34 : race ? 285 : 222;
   const x = (km) => l + (km / TOT) * (W - l - r);
   const y = (e) => base - 24 - ((e - EMIN) / Math.max(1, EMAX - EMIN)) * plotH;
   const km = (vx) => Math.max(0, Math.min(TOT, ((vx - l) / (W - l - r)) * TOT));
@@ -358,9 +365,9 @@ function profGeom(P, TOT, race) {
  * checkpoints and gels for one scenario; `zones` (optional) shades the key zones. Returns {html, x, y, km};
  * the html has a hidden `.pcur` cursor (a line and a dot) to move with translate().
  */
-function profileView(P, brief, race, zones = []) {
+function profileView(P, brief, race, zones = [], { flat = false } = {}) {
   const TOT = brief.totalKm;
-  const g = profGeom(P, TOT, race);
+  const g = profGeom(P, TOT, race, flat);
   const { EMIN, EMAX, W, l, r, top, base, H, x, y } = g;
   let s = "";
   zones.forEach((z) => {
@@ -403,6 +410,7 @@ function profileView(P, brief, race, zones = []) {
       s += `<path class="aid" d="M${x(a.km).toFixed(1)},${(yy - 6).toFixed(1)} l-7,-12 h14 z"><title>${esc(a.name)}, km ${a.km.toFixed(1)}: ${clock(race.startSec, a.sec)}</title></path>`;
     });
     race.gels.forEach((g) => {
+      if (flat) { s += `<circle class="gel" cx="${x(g.km)}" cy="${base + 26}" r="6"/><text class="gelt" x="${x(g.km)}" y="${base + 29}" text-anchor="middle">G</text>`; return; }
       s += `<circle class="gel" cx="${x(g.km)}" cy="${base + 48}" r="9"/><text class="gelt" x="${x(g.km)}" y="${base + 51}" text-anchor="middle">G</text><text x="${x(g.km)}" y="${base + 70}" text-anchor="middle">${clock(race.startSec, g.sec)}</text>`;
     });
   }
@@ -671,7 +679,7 @@ function renderReplay() {
   const sc = plan.scenarios[sid];
   const brief = { totalKm: plan.course.totalKm, climbs: plan.climbs, descents: plan.descents };
   const aidMarks = plan.aidStations.map((a) => ({ km: a.km, name: a.name, sec: a.arrive[sid], time: clock(plan.startSec, a.arrive[sid]) }));
-  const prof = profileView(plan.course.profile, brief, { ...sc, startSec: plan.startSec, aid: aidMarks }, plan.keyZones);
+  const prof = profileView(plan.course.profile, brief, { ...sc, startSec: plan.startSec, aid: aidMarks }, plan.keyZones, { flat: true });
   mountReplay(box, {
     plan, sid, prof, ...(() => { const m = mapStyle(brief, aidMarks, plan.keyZones); return { mapPaint: m.paint, mapMarks: m.marks }; })(),
     key: `${state.race && state.race.name}|${plan.course.totalKm.toFixed(2)}`,
