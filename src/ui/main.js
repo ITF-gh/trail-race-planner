@@ -420,7 +420,8 @@ function profileView(P, brief, race, zones = [], { flat = false } = {}) {
     c.sections.slice(1).forEach((x2) => { const yy = y(elevAt(P, x2.startKm)); s += `<line class="cut" x1="${x(x2.startKm).toFixed(1)}" x2="${x(x2.startKm).toFixed(1)}" y1="${(yy - 7).toFixed(1)}" y2="${(yy + 7).toFixed(1)}"/>`; });
   });
   if (race) {
-    race.checkpoints.filter((c) => c.label !== "Finish").forEach((c) => {
+    // The flat cockpit profile skips the km/clock checkpoints: the section bar and panel already say where you are.
+    if (!flat) race.checkpoints.filter((c) => c.label !== "Finish").forEach((c) => {
       s += `<line class="ck" x1="${x(c.km)}" x2="${x(c.km)}" y1="${top - 6}" y2="${base}"/><text class="tk" x="${x(c.km)}" y="${top - 12}" text-anchor="middle">${esc(c.label)} · ${clock(race.startSec, c.sec)}</text>`;
     });
     (race.aid || []).forEach((a) => {
