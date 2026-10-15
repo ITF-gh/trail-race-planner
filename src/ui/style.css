@@ -397,9 +397,9 @@ svg .pl-t{fill:var(--sun);font-weight:800;font-size:13px} svg .pl-tn{fill:var(--
 /* The race-day cockpit: one screen high (under the top bar), everything you need while it plays
    in one frame. CSS grid with named areas; the map row is 1fr, so the map takes the height that is
    left and shrinks first on a small screen. The panel scrolls inside itself if it ever overflows. */
-.rp-cockpit{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(310px,1fr);grid-template-rows:auto auto minmax(0,1fr) auto auto;
-  grid-template-areas:"tot tot" "bar bar" "map hud" "prof hud" "ctl ctl";gap:8px 12px;height:calc(100vh - 64px);height:calc(100svh - 64px);min-height:600px;scroll-margin-top:62px;margin-bottom:18px}
-.rp-cockpit.nomap{grid-template-areas:"tot tot" "bar bar" "prof hud" "prof hud" "ctl ctl"}
+.rp-cockpit{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(310px,1fr);grid-template-rows:auto auto auto minmax(0,1fr) auto;
+  grid-template-areas:"tot tot" "bar bar" "prof prof" "map hud" "ctl ctl";gap:8px 12px;height:calc(100vh - 64px);height:calc(100svh - 64px);min-height:600px;scroll-margin-top:62px;margin-bottom:18px}
+.rp-cockpit.nomap{grid-template-areas:"tot tot" "bar bar" "prof prof" "hud hud" "ctl ctl"}
 .rp-cockpit>.rp-totals{grid-area:tot;margin:0} .rp-cockpit>.rp-legbar{grid-area:bar;margin:0}
 .rp-cockpit>.rp-map{grid-area:map;min-height:150px;height:auto}
 .rp-cockpit>.rp-hud{grid-area:hud;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:12px}
@@ -439,12 +439,16 @@ svg .pl-t{fill:var(--sun);font-weight:800;font-size:13px} svg .pl-tn{fill:var(--
   .rp-cockpit .rp-cue p{-webkit-line-clamp:2}
   .rp-cockpit .rp-tot>small{display:none}
 }
-@media (min-width:901px) and (max-height:800px){ .rp-cockpit .rp-next{display:none} .rp-cockpit .rp-legend{font-size:11px} }
+@media (min-width:901px) and (max-height:800px){ .rp-cockpit .rp-next{display:none} .rp-cockpit .rp-legend{font-size:11px}
+  /* the profile now takes a row of its own: keep the numbers and the cue, drop the extra lines */
+  .rp-cockpit .rp-leg-tac,.rp-cockpit .rp-leg-next{display:none} .rp-cockpit .rp-tg thead th{padding-top:0;padding-bottom:1px}
+  .rp-cockpit .rp-tg th,.rp-cockpit .rp-tg td{padding:1px 6px} .rp-cockpit .rp-tg tbody tr:nth-child(-n+2) td.now{font-size:18px}
+  .rp-cockpit>.rp-prof{padding:2px 8px 0} .rp-cockpit .rp-cue{padding:6px 10px} .rp-cockpit .rp-clock b{font-size:26px} }
 @media (max-width:900px){
   /* phone and tablet: one column, still one screen high; the panel keeps only the numbers */
-  .rp-cockpit{gap:5px;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(90px,1fr) auto auto auto;
-    grid-template-areas:"tot" "bar" "map" "hud" "prof" "ctl";height:calc(100vh - 54px);height:calc(100svh - 54px);min-height:560px;scroll-margin-top:52px}
-  .rp-cockpit.nomap{grid-template-rows:auto auto auto minmax(0,1fr) auto;grid-template-areas:"tot" "bar" "hud" "prof" "ctl"}
+  .rp-cockpit{gap:5px;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto minmax(90px,1fr) auto auto;
+    grid-template-areas:"tot" "bar" "prof" "map" "hud" "ctl";height:calc(100vh - 54px);height:calc(100svh - 54px);min-height:560px;scroll-margin-top:52px}
+  .rp-cockpit.nomap{grid-template-rows:auto auto auto minmax(0,1fr) auto;grid-template-areas:"tot" "bar" "prof" "hud" "ctl"}
   .rp-cockpit>.rp-hud{overflow:visible;min-height:auto;padding:8px 10px;gap:5px}
   .rp-cockpit>.rp-map{min-height:0}
   .rp-cockpit .rp-totals{grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
