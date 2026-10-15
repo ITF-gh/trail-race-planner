@@ -144,7 +144,7 @@ function eleAtKm(P, km) {
 }
 
 /** Metres up and down on the profile between two km. */
-function gainLoss(P, a, b) {
+export function gainLoss(P, a, b) {
   let up = 0, down = 0, prev = eleAtKm(P, a);
   for (const [k, e] of P) {
     if (k <= a || k >= b) continue;

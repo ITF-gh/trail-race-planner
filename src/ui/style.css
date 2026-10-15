@@ -372,17 +372,18 @@ label.chk input{width:18px;height:18px;accent-color:var(--sun)}
 .rp-leg-next{margin:8px 0 0;padding-top:8px;border-top:1px dashed var(--line);font-size:13.5px;color:var(--muted)}
 .rp-leg-next b{color:var(--fg)} .rp-leg .chip,.rp-legnow .chip,.rp-leg-next .chip{font-size:11px;padding:2px 8px 2px 7px}
 /* the section on the profile and on the map */
-svg .pl-cur{fill:var(--sun);opacity:.3;stroke:var(--sun);stroke-width:1.5} svg .pl-next{fill:none;stroke:#fff;stroke-opacity:.55;stroke-dasharray:5 5;stroke-width:1.2}
-svg .pl-line{fill:none;stroke:var(--sun);stroke-width:5;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 5px rgba(255,201,40,.9))}
+svg .pl-cur{fill:var(--sun);opacity:.12}
+svg .pl-glow{fill:none;stroke:#ffd75a;stroke-width:14;stroke-opacity:.75;stroke-linecap:round;stroke-linejoin:round;filter:blur(3px)}
+.rp-prof{position:relative}
+.rp-ptip{position:absolute;z-index:5;pointer-events:none;display:flex;flex-direction:column;gap:2px;padding:7px 10px;border-radius:9px;background:rgba(12,16,22,.92);border:1px solid rgba(255,215,90,.45);box-shadow:0 6px 18px rgba(0,0,0,.45);font-size:12px;white-space:nowrap;color:#fff}
+.rp-ptip b{font-size:12.5px;margin-bottom:2px} .rp-ptip span{display:flex;justify-content:space-between;gap:14px;font-variant-numeric:tabular-nums} .rp-ptip i{font-style:normal;opacity:.65}
 svg .pl-t{fill:var(--sun);font-weight:800;font-size:13px} svg .pl-tn{fill:var(--fg);opacity:.7;font-weight:600;font-size:11px}
-.rt-cur{stroke:var(--sun);stroke-width:6;fill:none;stroke-linecap:round;stroke-linejoin:round}
-.rt-cur-glow{stroke:#fff;stroke-width:15;stroke-opacity:.95;filter:drop-shadow(0 0 6px rgba(255,201,40,.9));fill:none;stroke-linecap:round;stroke-linejoin:round}
-.rt-next{stroke:#fff;stroke-width:3;stroke-dasharray:2 8;fill:none;stroke-linecap:round;stroke-opacity:.95}
+.rt-cur-glow{stroke:#ffd75a;stroke-width:20;stroke-opacity:.7;filter:blur(3px);fill:none;stroke-linecap:round;stroke-linejoin:round}
 @media (prefers-reduced-motion: no-preference){
   .rt-cur-glow{animation:glow 1.6s ease-in-out infinite}
   svg .pl-cur{animation:glowband 1.6s ease-in-out infinite}
 }
-@keyframes glow{50%{stroke-opacity:.45}}
+@keyframes glow{50%{stroke-opacity:.3}}
 @keyframes glowband{50%{opacity:.15}}
 .rp-script{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:560px;overflow-y:auto;overscroll-behavior:contain;padding-right:4px}
 .rp-script button{width:100%;display:grid;grid-template-columns:auto minmax(150px,220px) 1fr;gap:6px 14px;align-items:center;text-align:left;background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font:inherit;font-size:14px}
@@ -413,6 +414,9 @@ svg .pl-t{fill:var(--sun);font-weight:800;font-size:13px} svg .pl-tn{fill:var(--
 .rp-cockpit .rp-clock b{font-size:38px}
 .rp-cockpit .rp-tg th,.rp-cockpit .rp-tg td{padding:3px 6px}
 .rp-cockpit .rp-tg td{font-size:15px}
+.rp-cockpit .rp-tg td.now{font-size:17px}
+/* Pace and gradient lead: the two numbers a runner checks first. */
+.rp-cockpit .rp-tg tbody tr:nth-child(-n+2) td.now{font-size:21px}
 .rp-cockpit .rp-cue{margin:0;padding:8px 12px;gap:10px}
 .rp-cockpit .rp-cue .ic{width:30px;height:30px;font-size:14px}
 .rp-cockpit .rp-cue .rp-cue-h b{font-size:17px}
@@ -472,8 +476,7 @@ svg .pl-t{fill:var(--sun);font-weight:800;font-size:13px} svg .pl-tn{fill:var(--
   .rp-cockpit .rp-tg td{font-size:12.5px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .rp-cockpit .rp-tg td.now{font-size:13.5px}
   .rp-cockpit .rp-tg td small{display:none}
-  .rp-cockpit .rp-tg tr:last-child{grid-column:1 / -1;grid-template-columns:auto 1fr;grid-template-rows:auto;border-bottom:0}
-  .rp-cockpit .rp-tg tr:last-child th{grid-row:auto} .rp-cockpit .rp-tg tr:last-child td.now{display:none}
+  .rp-cockpit .rp-tg tr:last-child{grid-column:1 / -1;border-bottom:0}
   .rp-cockpit .rp-leg-tac{display:none}
   .rp-cockpit .rp-leg-next{margin:4px 0 0;padding-top:4px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .rp-cockpit .rp-now{padding:4px 8px;font-size:12.5px}
