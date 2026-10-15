@@ -13,6 +13,7 @@ import { analyseEffort } from "../core/effort.js";
 import { buildPlan, briefCourse, coarseIndices, parseAidStations, PLAN_DEFAULTS, LEVELS, DESCENT_LABELS } from "../core/plan.js";
 import { TERRAIN, SCENARIOS } from "../core/model.js";
 import { planToMarkdown } from "../core/markdown.js";
+import { courseFit, courseGpx } from "../core/garmin.js";
 import { mmss, hm, clock, parseDuration } from "../core/format.js";
 import { keyZones, toblerClock } from "../core/keyzones.js";
 import { secAtKm } from "../core/script.js";
@@ -611,8 +612,11 @@ function renderDday() {
   <div class="actions">
     <button class="btn primary" id="copyMd" type="button">Copy plan as Markdown</button>
     <button class="btn" id="copyJson" type="button">Copy as JSON</button>
+    <button class="btn" id="dlFit" type="button">Garmin course (.fit)</button>
+    <button class="btn" id="dlGpx" type="button">GPX with cues</button>
     <span class="status" id="exportStat" aria-live="polite"></span>
-  </div>`;
+  </div>
+  <p class="note">The course files carry this scenario's plan to your watch: at the start of every section, its number, length, D+ and D- then its strategy (for example "12 1.8k +320-40", then "12 HIKE"), and at every key zone its length and what to do ("K3 0.4k MANAGE", then "K3 HIKE IT"). Import the .fit in Garmin Connect (Courses, Import) or copy it to the watch's GARMIN/NewFiles folder, then follow the course: the watch alerts you as each point comes up. The GPX works with other brands too.</p>`;
 
   /* wiring */
   out.querySelectorAll("#scen button").forEach((b) => b.addEventListener("click", () => { state.scenario = b.dataset.s; trackEvent("scenario", state.scenario); store.set("trp.scenario", state.scenario); renderDday(); renderReplay(); renderNav(); }));
@@ -621,6 +625,8 @@ function renderDday() {
   drawLog(plan, logKey);
   $("#copyMd").addEventListener("click", () => { trackEvent("export", "markdown"); copyText(planToMarkdown(plan, sid)); });
   $("#copyJson").addEventListener("click", () => { trackEvent("export", "json"); copyText(JSON.stringify(slimPlan(plan, sid), null, 2)); });
+  $("#dlFit").addEventListener("click", () => exportCourse("fit", plan, sid));
+  $("#dlGpx").addEventListener("click", () => exportCourse("gpx", plan, sid));
 }
 
 /* ---------- 04 race day replay ---------- */
@@ -734,6 +740,23 @@ function slimPlan(plan, sid) {
   return JSON.parse(JSON.stringify({ ...plan, scenarioShown: sid, course: { ...plan.course, profile: undefined, route: undefined } }, (k, v) => (k === "timeline" ? undefined : v)));
 }
 function setExportStatus(t) { const el = $("#exportStat"); if (el) el.textContent = t; }
+/** Save the plan as a watch course: FIT (Garmin) or GPX with waypoints (any brand). */
+function exportCourse(kind, plan, sid) {
+  const name = (state.race && state.race.name) || "Race";
+  const track = state.race && state.race.parsed ? state.race.parsed.points : null;
+  try {
+    const data = kind === "fit" ? courseFit(plan, sid, track, { name }) : courseGpx(plan, sid, track, name);
+    const blob = new Blob([data], { type: kind === "fit" ? "application/octet-stream" : "application/gpx+xml" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\w]+/g, "-").replace(/^-|-$/g, "").toLowerCase() || "race"}-${sid}.${kind}`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    trackEvent("export", kind);
+    setExportStatus(`Saved ${a.download}.`);
+  } catch (e) { setExportStatus(`Could not make the course: ${e.message}`); }
+}
+
 function copyText(text) {
   const done = () => setExportStatus("Copied.");
   const fallback = () => {

@@ -120,6 +120,12 @@ The best are kept without overlapping (a *greedy selection*), one per 13 km of r
 
 Not modelled yet, but they would move zones: night and dawn (start time and date), heat and altitude, technical ground (OpenStreetMap trail tags), narrow single track where overtaking is hard, and cut-off times.
 
+## 10. The plan on your watch (`src/core/garmin.js`)
+
+A GPS watch follows a *course*: the route plus *course points*, named spots that raise an alert as you approach them. The planner writes two points at the start of every race section (its facts, `12 1.8k +320-40`: number, length, D+, D-; then its strategy, `12 HIKE`) and two at every key zone (`K3 0.4k MANAGE`, then `K3 HIKE IT`). Watches show about 15 characters of a name and none of its description, so each cue is cut to the essential; points closer than 25 m are pushed apart so each one gets its own alert.
+
+The Garmin file is **FIT** (Flexible and Interoperable Data Transfer), a binary format: a 14-byte header, then messages, then a CRC-16 checksum. Each message type is first *defined* (which fields, how many bytes, which base type) and then *written* as raw values in that layout, so the file describes itself and stays compact (the 78K demo is 78 KB as FIT, 290 KB as GPX). A course is `file_id` (type course), `course` (name, sport), `lap` (totals), a timer start `event`, the `record`s (position in semicircles, altitude, distance, time) with the `course_point`s between them in distance order, and a timer stop `event`. The record times come from your plan, so the watch's Virtual Partner runs at your planned pace. Course point icons (`aid_station`, `steep_incline`, `danger`, `alert`...) are an enum of the FIT SDK; a GPX export can only carry names and descriptions, which Garmin Connect turns into generic points. Both exports are checked in `tests/garmin.test.js` (the FIT CRC of a valid file comes out to 0).
+
 ## Ideas for what to build next
 
 - Save an analysed effort profile so you do not re-upload the file.
