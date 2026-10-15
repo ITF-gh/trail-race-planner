@@ -27,6 +27,7 @@ import { secAtKm } from "../core/script.js";
 import { courseMap } from "./map.js";
 import { mountReplay, stopReplay } from "./replay.js";
 import { initRunMode, pauseRun } from "./review.js";
+import { initAccount, acctSaveRun, acctSaveGpx } from "./account.js";
 import { startAnalytics, trackEvent, trackOnce, analyticsOn, analyticsName } from "./analytics.js";
 import { makeDemoRaceGpx, makeDemoEffortGpx, DEMO_ULTRA_PROFILE, DEMO_ULTRA_AID, DEMO_LONG_RUN_PROFILE } from "../demo.js";
 
@@ -333,7 +334,8 @@ function wireDrop(boxId, inputId, loader) {
   box.addEventListener("drop", (e) => { e.preventDefault(); box.classList.remove("over"); handle(e.dataTransfer.files); });
 }
 wireDrop("#dropRace", "#fileRace", (files) => loadRace(files[0].xml, files[0].label));
-wireDrop("#dropEffort", "#fileEffort", loadEfforts);
+// Your own runs also go into the run log behind the account menu (on this device only).
+wireDrop("#dropEffort", "#fileEffort", (files) => { loadEfforts(files); files.forEach((f) => acctSaveGpx(f.xml, f.label)); });
 $("#clearRuns").addEventListener("click", () => { trackEvent("runs-clear"); setRuns([]); });
 
 $("#demo").addEventListener("click", () => {
@@ -969,7 +971,8 @@ function setMode(mode, track = true) {
   if (track) trackEvent("mode", m);
 }
 document.querySelectorAll("button[data-mode]").forEach((b) => b.addEventListener("click", () => { setMode(b.dataset.mode); window.scrollTo({ top: 0 }); }));
-initRunMode({ onLoaded: (run) => {
+initRunMode({ onLoaded: (run, { sample, name } = {}) => {
+  if (!sample) acctSaveRun(run, name);
   $("#tnRun").innerHTML = `<a class="btn primary sm" href="#rvCockpit">▶ ${run.totalKm.toFixed(1)} km · ${hm(run.elapsedSec)}</a>`;
   renderNav();
 } });
@@ -978,6 +981,7 @@ compute();
 initPrepRun({ getRuns: () => (state.effort ? state.effort.runs.map((r) => r.parsed) : []), getSettings: () => state.settings, onLoaded: () => renderNav(), cockpit: (box, plan, key) => mountCockpit(box, plan, "central", key, "Run") });
 setMode(new URLSearchParams(window.location.search).get("mode"), false);
 startAnalytics();
+initAccount();
 
 // A jump link to a folded section opens it first, so the link lands on something to read.
 document.addEventListener("click", (ev) => {

@@ -578,7 +578,7 @@ export function initRunMode({ onLoaded } = {}) {
       mountRun(body, run);
       mountInsights(document.querySelector("#s6body"), run, { onSeek: (sec) => { if (rv.seekTo) rv.seekTo(sec); } });
       trackOnce("review-built", sample ? "sample" : "own");
-      if (onLoaded) onLoaded(run);
+      if (onLoaded) onLoaded(run, { sample, name: rv.name });
       document.querySelector("#s5").scrollIntoView({ behavior: "smooth", block: "start" });
     } catch (e) {
       trackEvent("gpx-error", "review");

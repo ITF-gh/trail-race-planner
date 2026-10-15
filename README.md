@@ -14,6 +14,8 @@ Give it the **target** you were aiming for (a finish time or an average pace) an
 
 Your files are read on your own machine. Nothing is uploaded.
 
+**My account** (the round icon at the top right) keeps a run log on this device: every run you open in Check my run, or add to Your runs in Prep my race, is summarised (about 1 KB: date, distance, climbing, best 1, 5 and 10 km, climbing speed, fade, heart drift) and stored in the browser's IndexedDB. The menu shows your last 12 months, all-time bests, last runs, achievements and the **cairns** they earn (1 cairn will buy 1 AI analysis of all your runs, later). Sample and demo runs are not stored. Export my data downloads the log as JSON; Delete my runs empties it.
+
 ## Use it
 
 **In the browser.** Open `dist/index.html` (run `npm run build` first). Press "Try the demo" to see a full plan on made-up data (a 78 km mountain ultra with 3,800 m of climbing and seven aid stations, planned from two 30 km mountain long runs), or drop in your own two files.
@@ -57,9 +59,10 @@ src/core/markdown.js   plan as Markdown
 src/core/keyzones.js   key zones: where the race is played, and how many minutes are at stake
 src/core/script.js     the race in time: key moments with cues, and where you are at any second
 src/core/review.js     Check my run: grade-adjusted pace, stops, sections with a verdict, key moments of a run you did
+src/core/history.js    the run log: one small summary per run, 12-month totals, bests, achievements and cairns
 src/demo.js            made-up GPX files for the demo and the tests
 src/ui/                the browser app (main.js, map.js for the map, replay.js for race day,
-                       review.js for the Check my run mode, analytics.js for anonymous visit and event counts)
+                       review.js for the Check my run mode, account.js for the account menu and its IndexedDB store, analytics.js for anonymous visit and event counts)
 src/vendor/leaflet/    Leaflet 1.9.4, the map library (BSD-2 licence), copied to dist/vendor/
 cli.js                 the command-line tool
 scripts/build.js       bundles the app into dist/index.html, no dependencies
@@ -83,7 +86,7 @@ npm run dev      build, then serve it on http://localhost:5173
 
 GPX files show where you live and train. `.gitignore` excludes `*.gpx` so they do not end up in a repository by accident. The tests use made-up routes.
 
-GPX files and plans never leave the browser. The only thing the page sends out is anonymous visit and event counts (see Analytics).
+GPX files and plans never leave the browser. The run log behind the account menu stays in this browser too (IndexedDB), with no GPS points in it. The only thing the page sends out is anonymous visit and event counts (see Analytics).
 
 ## Analytics
 

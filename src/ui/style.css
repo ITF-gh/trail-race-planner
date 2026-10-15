@@ -926,6 +926,60 @@ html[data-theme="sky"] .in-k b{color:var(--glow);text-shadow:0 0 12px rgba(255,1
 /* v0.29: section length right of the difficulty label in the SECTION card header */
 .rp-leg-len{display:inline-block;padding:.08em .5em;border-radius:999px;border:1px solid currentColor;font-weight:700;font-size:.82em;letter-spacing:.02em;font-variant-numeric:tabular-nums;white-space:nowrap;color:inherit;opacity:.9;vertical-align:middle}
 
+/* ================= Account menu (src/ui/account.js) =================
+   A see-through account icon at the top right of the hero and a see-through menu that slides
+   down (clip-path grows from the top edge; backdrop-filter blurs the page behind it). */
+:root{--acct-bg:rgba(6,16,31,.66);--acct-line:rgba(255,255,255,.18);--acct-sep:rgba(255,255,255,.12);--acct-ink:var(--on-pine);--acct-muted:var(--on-pine-muted)}
+html[data-theme="sky"]{--acct-bg:rgba(18,70,140,.38);--acct-line:rgba(255,255,255,.7);--acct-sep:rgba(255,255,255,.35)}
+.acct{position:absolute;z-index:1001;top:40px;right:max(16px,calc(50% - 564px))}
+.acct-btn{width:44px;height:44px;border-radius:50%;padding:0;display:grid;place-items:center;background:transparent;border:1.5px solid rgba(255,255,255,.35);color:var(--acct-ink);transition:border-color .15s,background .15s}
+.acct-btn:hover,.acct-btn[aria-expanded="true"]{border-color:var(--sun);background:rgba(255,255,255,.06)}
+.acct-btn svg{width:22px;height:22px}
+.acct-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.acct-menu{position:absolute;right:0;top:54px;width:min(360px,calc(100vw - 32px));max-height:calc(100vh - 120px);overflow:auto;
+  background:var(--acct-bg);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1.5px solid var(--acct-line);border-radius:var(--r);
+  color:var(--acct-ink);padding:6px 18px 14px;
+  opacity:0;transform:translateY(-12px);clip-path:inset(0 0 100% 0 round var(--r));pointer-events:none;
+  transition:opacity .2s ease,transform .25s ease,clip-path .3s ease}
+.acct-menu.open{opacity:1;transform:none;clip-path:inset(0 0 0 0 round var(--r));pointer-events:auto}
+.acct-menu section{padding:12px 0;border-bottom:1px solid var(--acct-sep)}
+.acct-menu section:last-child{border-bottom:0;padding-bottom:0}
+.acct-menu h4{margin:0 0 8px;font-family:var(--f-display);font-weight:700;text-transform:uppercase;letter-spacing:.14em;font-size:13px;color:var(--sun)}
+html[data-theme="sky"] .acct-menu h4{color:#ffd24a}
+.acct-who{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.acct-who b{font-family:var(--f-display);font-weight:800;font-style:italic;text-transform:uppercase;font-size:22px;letter-spacing:.02em}
+.acct-who small{display:block;color:var(--acct-muted);font-size:13px}
+.acct-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.acct-kpis div{line-height:1.1}
+.acct-kpis b{display:block;font-family:var(--f-display);font-style:italic;font-weight:800;font-size:24px}
+.acct-kpis small{color:var(--acct-muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em}
+.acct-row{display:flex;justify-content:space-between;gap:10px;font-size:14px;padding:3px 0}
+.acct-row span{color:var(--acct-muted)}
+.acct-row b{font-weight:600;white-space:nowrap}
+.acct-pr{font-family:var(--f-display);font-weight:700;font-size:11px;letter-spacing:.1em;color:var(--sun);margin-left:6px}
+.acct-medals{display:flex;gap:8px;flex-wrap:wrap}
+.acct-medals span{font-size:13px;padding:3px 10px;border-radius:999px;border:1px solid var(--acct-line)}
+.acct-medals span.lock{opacity:.5}
+.acct-cairns{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.acct-cairns b{font-family:var(--f-display);font-style:italic;font-weight:800;font-size:28px;display:flex;align-items:center;gap:8px}
+.acct-cairns b svg{width:24px;height:24px}
+.acct-cairns .btn{min-height:36px;font-size:14px;padding:4px 14px;opacity:.6;cursor:not-allowed}
+.acct-links{display:flex;flex-wrap:wrap;gap:8px}
+.acct-links button{background:transparent;font-family:var(--f-display);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:14px;color:var(--acct-ink);text-decoration:none;padding:6px 12px;border-radius:999px;border:1px solid var(--acct-line)}
+.acct-links button:hover{border-color:var(--sun)}
+.acct-empty{margin:0;font-size:14px;color:var(--acct-muted)}
+.acct-empty b{color:var(--acct-ink)}
+.acct-note{margin:6px 0 0;font-size:12px;color:var(--acct-muted)}
+.acct-links button:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+@media (max-width:640px){
+  /* on a phone the mode buttons fill the top row: they make room for the icon at their right */
+  .acct{top:41px;right:16px}
+  .acct-btn{width:40px;height:40px}
+  .mode-seg{margin-right:50px}
+  .mode-seg button{padding:6px 9px;font-size:13px}
+  .acct-menu{max-height:calc(100vh - 180px)}
+}
+@media (prefers-reduced-motion:reduce){.acct-menu{transition:none}}
 /* The Pimp my GPX sticker beside the key figures (D-day duration, Prep my run facts) */
 .pimp-link.side{margin:10px 8px 10px 4px;padding:10px 18px 12px 16px;align-self:center;justify-self:start}
 .pimp-link.side b{font-size:22px}

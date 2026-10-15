@@ -528,3 +528,33 @@ test("fitLine finds a straight line and its correlation", () => {
   assert.ok(Math.abs(f.slope - 2) < 1e-9 && Math.abs(f.intercept - 1) < 1e-9 && Math.abs(f.r - 1) < 1e-9);
   assert.ok(fitLine([1, 2, 3, 4], [4, 3, 2, 1]).r < -0.99);
 });
+
+import { runRecord, historySummary, ACHIEVEMENTS } from "../src/core/history.js";
+
+test("run log: a run becomes a small summary, and the log adds up", () => {
+  const run = analyseRun(parseGpx(makeDemoRunGpx()));
+  const rec = runRecord(run, "Sample");
+  assert.ok(rec.id && rec.km > 20 && rec.gain > 0 && rec.best1k > 0 && rec.best5k > rec.best1k);
+  assert.ok(JSON.stringify(rec).length < 1000, "a summary stays small");
+  assert.equal(runRecord(run, "Again").id, rec.id, "the same run keeps the same id");
+  const now = rec.date + 86400000;
+  const empty = historySummary([], now);
+  assert.equal(empty.count, 0);
+  assert.equal(empty.cairns, 0);
+  // Two runs: totals add up, bests pick the best one, the newest comes first.
+  const older = { ...rec, id: "older", date: rec.date - 30 * 86400000, km: 55, gain: 3000, best1k: rec.best1k + 20 };
+  const S = historySummary([older, rec], now);
+  assert.equal(S.count, 2);
+  assert.ok(Math.abs(S.year.km - (rec.km + 55)) < 1e-9);
+  assert.equal(S.last[0].id, rec.id);
+  assert.equal(S.bests.best1k.run.id, rec.id);
+  assert.equal(S.bests.longest.run.id, "older");
+  const done = new Set(S.achievements.filter((a) => a.done).map((a) => a.code));
+  for (const c of ["first", "half", "marathon", "ultra", "kilo"]) assert.ok(done.has(c), c);
+  assert.ok(!done.has("thousand"));
+  assert.equal(S.cairns, ACHIEVEMENTS.filter((a) => done.has(a.code)).reduce((s, a) => s + a.cairns, 0));
+  // Runs older than a year leave the 12-month totals but keep their records.
+  const old = historySummary([{ ...older, date: now - 400 * 86400000 }], now);
+  assert.equal(old.year.runs, 0);
+  assert.equal(old.bests.longest.value, 55);
+});
