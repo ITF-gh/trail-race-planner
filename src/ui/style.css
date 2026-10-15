@@ -633,3 +633,28 @@ svg .rv-pin-p text{fill:#fff;font-weight:800;font-size:13px}
 .target-card .kv small{color:var(--muted);font-weight:400;margin-left:6px}
 .target-card.t-good .tg-chip{background:#173d2a;color:#8ff0a8} .target-card.t-warn .tg-chip{background:rgba(255,201,40,.18);color:var(--sun)} .target-card.t-bad .tg-chip{background:#541522;color:#ff96a3}
 #s-prep .sec-head{--photo:var(--photo-s4);--photo-pos:50% 22%;--photo-y:60%;--banner:radial-gradient(circle at 85% 30%,rgba(255,201,40,.45),transparent 45%),linear-gradient(120deg,#1c1640,#8a2c2c 70%,#c8641f)}
+
+/* My run: against your target */
+.rv-tgt{display:flex;flex-direction:column;gap:14px}
+.rv-tgt-form{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px}
+.rv-tgt-form input{width:11ch}
+.rv-tgt-form select{width:auto}
+.rv-tgt-err{color:#ff8394;font-size:13px;flex-basis:100%}
+.rv-tgt-err:empty{display:none}
+.rv-tgt-head{border-left:5px solid #7b8db3;padding:8px 12px;border-radius:6px;background:rgba(255,255,255,.05)}
+.rv-tgt-head b{font-family:var(--f-display);text-transform:uppercase;letter-spacing:.06em;font-size:18px}
+.rv-tgt-head p{margin:4px 0 0}
+.rv-tgt-head.rv-good{border-left-color:#2fb85a;background:linear-gradient(110deg,rgba(63,208,106,.18),rgba(63,208,106,.04))}
+.rv-tgt-head.rv-bad{border-left-color:#e8122f;background:linear-gradient(110deg,rgba(255,48,72,.18),rgba(255,48,72,.04))}
+.rv-tgt-tiles{margin:0}
+.rv-tgt-adapt{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.rv-tgt-adapt .sub-h{margin-top:0}
+.rv-tgt-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.rv-tgt-list li{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-radius:6px;background:rgba(255,255,255,.04);border-left:4px solid #7b8db3}
+.rv-tgt-list li.rv-bad{border-left-color:#ff3048} .rv-tgt-list li.rv-good{border-left-color:#3fd06a}
+.rv-tgt-list small{color:var(--muted);font-weight:400}
+.rv-tgt-all summary{cursor:pointer;font-weight:600;color:var(--muted)}
+.rv-tgt-all .rp-tg{width:100%;margin-top:8px}
+.rv-tgt-all .rp-tg td{font-size:14px}
+.rp-tot small .rv-b,.rp-tot small .rv-g{font-weight:700}
+@media (max-width:640px){ .rv-tgt-all .rp-tg th:last-child,.rv-tgt-all .rp-tg td:last-child{display:none} }
