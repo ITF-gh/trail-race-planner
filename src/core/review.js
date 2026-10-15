@@ -201,6 +201,8 @@ export function analyseRun(parsed, opts = {}) {
   const N = new Float64Array(n);
   legs.forEach((l) => { for (let i = Math.max(1, l.a + 1); i <= l.b; i++) N[i] = N[i - 1] + (E[i] - E[i - 1]) / kindEq[l.kind]; });
   const formAt = (a, b) => (M[b] - M[a] > 0 ? (N[b] - N[a]) / (M[b] - M[a]) : 1);
+  // N over a section = the moving seconds it would take at exactly your average for its ground.
+  legs.forEach((l) => { l.norm = N[l.b] - N[l.a]; });
 
   // Stops: samples holding stopped time, grouped when they are less than 50 m apart.
   const stops = [];
@@ -257,7 +259,7 @@ export function analyseRun(parsed, opts = {}) {
     hrAvg: all.hr, hrMax: rs.hr ? Math.max(...rs.hr.filter((x) => x)) : null, cadAvg: all.cad, hikeShare: all.hikeShare,
     profile, route, effort, effortBands, legs, stops: stopList, splits,
     halves: { first: h1, second: h2, fadePct, decouplingPct, km: (half * step) / 1000 },
-    over, idx, formAt,
+    N, over, idx, formAt,
   };
   run.moments = runMoments(run);
   return run;
@@ -418,6 +420,94 @@ export function runMoments(run) {
   add({ kind: "finish", tone: "info", km: run.totalKm, sec: run.elapsedSec, title: "Finish", text: `${run.totalKm.toFixed(1)} km in ${hm(run.elapsedSec)} (${hm(run.movingSec)} moving), ${Math.round(run.gain)} m D+.` });
   out.sort((a, b) => a.sec - b.sec || a.km - b.km);
   return out.map((m, i) => ({ ...m, i }));
+}
+
+/**
+ * Read a target typed by a person: a finish time ("3:15", "3h15", "3:15:00": hours and minutes) or
+ * a pace per km ("6:30": minutes and seconds). Returns {kind, value} with value in seconds (total
+ * time, or seconds per km), or null when the text is not a time.
+ */
+export function parseTarget(kind, text) {
+  const t = String(text || "").trim().toLowerCase().replace(/\s+/g, "");
+  if (!t) return null;
+  let m;
+  if (kind === "pace") {
+    m = /^(\d{1,2})[:'m]?(\d{2})?(?:"|s|\/km)?$/.exec(t.replace("/km", ""));
+    if (!m) return null;
+    const v = Number(m[1]) * 60 + Number(m[2] || 0);
+    return v >= 120 && v <= 3600 ? { kind, value: v } : null;
+  }
+  m = /^(\d{1,2})(?:[:h](\d{1,2}))?(?::(\d{1,2}))?$/.exec(t.replace(/min$/, ""));
+  if (!m) return null;
+  const v = Number(m[1]) * 3600 + Number(m[2] || 0) * 60 + Number(m[3] || 0);
+  return v >= 600 ? { kind: "time", value: v } : null;
+}
+
+/**
+ * Compare the run with a target and say how the effort could be spread to reach it.
+ *
+ * `target` is {kind: "time" | "pace", value}: a finish time on the clock, or the average pace on
+ * the clock (stops included, like a race result). The idea:
+ *
+ *  - Stops. Some are needed (water, a gate): we allow 1 min per hour of the target, and count
+ *    anything above that as time to gain without running any faster.
+ *  - Even effort. Every section has a "norm": the moving time it takes at exactly your average
+ *    for its kind of ground (see N in analyseRun). Running the whole run at one effort f (1.00 =
+ *    your average today, 1.05 = 5% stronger everywhere) takes sum(norm) / f. So the effort the
+ *    target asks for is f = sum(norm) / (target - stop allowance), and each section's target time
+ *    is its norm / f. Climbs get slower targets than flats, exactly in proportion to how you
+ *    really run them, not to a generic model.
+ *  - Where the time is. The gap splits into stops above the allowance, the fade (second half
+ *    run at your first-half effort), and what is left: real speed to find in training.
+ *  - Verdict. Against your first-half effort f1 (what your legs showed they can do that day):
+ *    f <= f1 is within reach with better pacing and shorter stops, up to 5% more is a stretch,
+ *    beyond that the target is far, and we suggest the time you can aim for next.
+ */
+export function runTarget(run, target) {
+  if (!target || !(target.value > 0)) return null;
+  const targetSec = target.kind === "pace" ? target.value * run.totalKm : target.value;
+  const gapSec = run.elapsedSec - targetSec; // > 0: slower than the target
+  const stopAllow = Math.min(run.stopSec, targetSec / 60);
+  const stopGain = run.stopSec - stopAllow;
+  const normTotal = run.legs.reduce((s, l) => s + l.norm, 0);
+  const targetMoving = Math.max(60, targetSec - stopAllow);
+  const f = normTotal / targetMoving;
+  const f1 = run.formAt(0, run.idx(run.halves.km));
+  const f2 = run.formAt(run.idx(run.halves.km), run.n - 1);
+  // Fade: what the second half would have taken at your first-half effort.
+  const iHalf = run.idx(run.halves.km);
+  const secondMoving = run.M[run.n - 1] - run.M[iHalf];
+  const secondNorm = run.N[run.n - 1] - run.N[iHalf];
+  const fadeGain = Math.max(0, secondMoving - secondNorm / Math.max(f1, 1e-6));
+  const pacingGain = Math.min(Math.max(0, gapSec), stopGain + fadeGain);
+  const speedGain = Math.max(0, gapSec - pacingGain);
+  const ratio = f / Math.max(f1, 1e-6);
+  const status = gapSec <= 0 ? "reached" : speedGain < 60 ? "reach" : ratio <= 1.05 ? "stretch" : "far";
+  // The time you could aim for next: your first-half effort all the way, stops at the allowance.
+  const realisticSec = Math.min(run.elapsedSec, normTotal / Math.max(f1, 1) + Math.min(run.stopSec, run.elapsedSec / 60));
+  const legs = run.legs.map((l) => {
+    const tgt = l.norm / f;
+    const tgtGap = l.gap ? l.gap * (l.movSec / tgt) : null;
+    return {
+      i: l.i, kind: l.kind, title: l.title, startKm: l.startKm, endKm: l.endKm, km: l.km, up: l.up,
+      movSec: l.movSec, tgtSec: tgt, deltaSec: l.movSec - tgt,
+      pace: l.pace, tgtPace: l.km > 0 ? tgt / l.km : null, tgtGap,
+      vam: l.vam, tgtVam: l.vam ? (l.up / tgt) * 3600 : null,
+    };
+  });
+  // Where to change the effort: the sections that lost the most against the target, and, before
+  // a fade, the ones run faster than the target asked (energy spent too early).
+  const fadeKm = (run.moments.find((m) => m.kind === "fade") || {}).km ?? Infinity;
+  const lose = legs.filter((l) => l.deltaSec > 15).sort((a, b) => b.deltaSec - a.deltaSec).slice(0, 3);
+  const ease = Number.isFinite(fadeKm) ? legs.filter((l) => l.endKm <= fadeKm + 0.01 && l.deltaSec < -15).sort((a, b) => a.deltaSec - b.deltaSec).slice(0, 2) : [];
+  const ghostAt = (km) => run.N[run.idx(km)] / f + stopAllow * (km / run.totalKm);
+  return {
+    target, targetSec, targetPace: targetSec / run.totalKm, gapSec, status,
+    effort: f, effortFirst: f1, effortSecond: f2, effortPct: (f - 1) * 100, vsFirstPct: (ratio - 1) * 100,
+    targetGap: run.gapPace ? run.gapPace / f : null,
+    stopAllow, stopGain, fadeGain, speedGain, realisticSec,
+    legs, lose, ease, ghostAt,
+  };
 }
 
 /** Short verdicts for the summary: how many strong and weak sections, the main takeaways. */

@@ -360,7 +360,7 @@ test("race legs: the whole course in numbered sections, end to end, with the bri
 });
 
 /* ---------- My run: review of a recorded run ---------- */
-import { analyseRun, runStateAt, runSecAtKm, runLegAt, effortFactor, minettiCost } from "../src/core/review.js";
+import { analyseRun, runStateAt, runSecAtKm, runLegAt, effortFactor, minettiCost, runTarget, parseTarget } from "../src/core/review.js";
 import { makeDemoRunGpx, DEMO_REVIEW_PROFILE } from "../src/demo.js";
 
 test("grade-adjusted pace: Minetti's energy cost, half of the downhill saving kept", () => {
@@ -435,4 +435,35 @@ test("judgeTarget sorts a target finish time against the scenarios", () => {
   assert.ok(Math.abs(far.vsCentralPct - 25) < 1e-9);
   assert.equal(judgeTarget(plan, 12000).verdict, "comfortable");
   assert.equal(judgeTarget(plan, 10000).paceSec, 200);
+});
+
+test("review target: reads times and paces typed by a person", () => {
+  assert.deepEqual(parseTarget("time", "2:45"), { kind: "time", value: 2 * 3600 + 45 * 60 });
+  assert.deepEqual(parseTarget("time", "2h45"), { kind: "time", value: 2 * 3600 + 45 * 60 });
+  assert.deepEqual(parseTarget("time", "2:45:30"), { kind: "time", value: 2 * 3600 + 45 * 60 + 30 });
+  assert.deepEqual(parseTarget("pace", "6:15"), { kind: "pace", value: 375 });
+  assert.deepEqual(parseTarget("pace", "6'15/km"), { kind: "pace", value: 375 });
+  assert.equal(parseTarget("time", "soon"), null);
+  assert.equal(parseTarget("pace", ""), null);
+});
+
+test("review target: section targets add up to the target, and the verdict follows the gap", () => {
+  const run = analyseRun(parseGpx(makeDemoRunGpx()));
+  const loose = runTarget(run, { kind: "time", value: run.elapsedSec + 600 });
+  assert.equal(loose.status, "reached");
+  const t = runTarget(run, { kind: "time", value: run.elapsedSec - 900 });
+  // Moving targets + the stop allowance = the target; the ghost runner arrives on time.
+  const sum = t.legs.reduce((s, l) => s + l.tgtSec, 0) + t.stopAllow;
+  assert.ok(Math.abs(sum - t.targetSec) < 2, `${sum} vs ${t.targetSec}`);
+  assert.ok(Math.abs(t.ghostAt(run.totalKm) - t.targetSec) < 30);
+  assert.ok(t.effortPct > 0 && t.gapSec > 0);
+  // The gap is split into stops, fade and speed, without counting anything twice.
+  assert.ok(Math.abs(Math.min(t.gapSec, t.stopGain + t.fadeGain) + t.speedGain - t.gapSec) < 1);
+  // The sample run fades: the late sections are where the time is.
+  assert.ok(t.lose.length > 0 && t.lose[0].startKm > run.totalKm / 2);
+  const far = runTarget(run, { kind: "time", value: run.elapsedSec * 0.7 });
+  assert.equal(far.status, "far");
+  assert.ok(far.realisticSec < run.elapsedSec && far.realisticSec > far.targetSec);
+  const pace = runTarget(run, { kind: "pace", value: 330 });
+  assert.ok(Math.abs(pace.targetSec - 330 * run.totalKm) < 1e-6);
 });

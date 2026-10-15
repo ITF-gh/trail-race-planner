@@ -189,7 +189,7 @@ $("#app").innerHTML = `
 
 <section id="s5" class="review-only">
   ${head("▶", "After the run", "See my run", "s5")}
-  <p class="sec-intro">Your run played back at its real pace. The bar, the map and the profile are coloured by how you ran each stretch compared with your own average on the same kind of ground; each key moment stops the replay and says what it means.</p>
+  <p class="sec-intro">Your run played back at its real pace. The bar, the map and the profile are coloured by how you ran each stretch compared with your own average on the same kind of ground; each key moment stops the replay and says what it means. Add the time or pace you were aiming for, and the review shows how far you were, where the time went and where to change your effort to reach it.</p>
   <div id="s5body"></div>
 </section>
 
