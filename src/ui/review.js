@@ -177,7 +177,7 @@ function rvProfile(run) {
   });
   // Pace line: speed (higher = faster) over the same band, scaled between your slow 5% and fast
   // 5% so a stop or a sprint does not squash the rest. Three copies of one path, each clipped to
-  // a part of the run: done (faded), the last stretch behind the runner (bright), still to come.
+  // a part of the run: before the current section, the current section (lit), after it (both faint).
   const pl = runPaceLine(run);
   const vs = pl.map((p) => p.v).filter((v) => v > 0).sort((a, b) => a - b);
   let paceY = null;
@@ -321,12 +321,11 @@ export function mountRun(box, run) {
   let lastCue = -2;
   let lastNow = "";
   let lastNext = "";
-  // Pace line: the clip rectangles that split it into done, just done and to come, and the dot.
+  // Pace line: the clip rectangles that split it into before, the current section and after, and the dot.
   const paceG = svgEl ? svgEl.querySelector(".rv-pace") : null;
   const pcRects = paceG ? { past: svgEl.querySelector("#rvPcPast rect"), trail: svgEl.querySelector("#rvPcTrail rect"), ahead: svgEl.querySelector("#rvPcAhead rect") } : null;
   const paceDot = paceG ? paceG.querySelector(".rv-pl-dot") : null;
   const paceTxt = paceG ? paceG.querySelector(".rv-pl-v") : null;
-  const trailKm = Math.max(0.8, Math.min(2, TOT * 0.06));
   const draw = () => {
     const s = runStateAt(run, rv.sec);
     els.clock.textContent = hms(s.sec);
@@ -406,12 +405,14 @@ export function mountRun(box, run) {
     }
     if (paceG) {
       const cx = prof.x(s.km);
-      const tx = prof.x(Math.max(0, s.km - trailKm));
-      pcRects.past.setAttribute("width", Math.max(0, tx - prof.l).toFixed(1));
-      pcRects.trail.setAttribute("x", tx.toFixed(1));
-      pcRects.trail.setAttribute("width", Math.max(0, cx - tx).toFixed(1));
-      pcRects.ahead.setAttribute("x", cx.toFixed(1));
-      pcRects.ahead.setAttribute("width", Math.max(0, prof.W - prof.r - cx).toFixed(1));
+      // The whole current section is lit; the rest of the line stays faint. When the next
+      // section starts, the lit part jumps to it in one go.
+      const ax = prof.x(l.startKm), bx = prof.x(l.endKm);
+      pcRects.past.setAttribute("width", Math.max(0, ax - prof.l).toFixed(1));
+      pcRects.trail.setAttribute("x", ax.toFixed(1));
+      pcRects.trail.setAttribute("width", Math.max(0, bx - ax).toFixed(1));
+      pcRects.ahead.setAttribute("x", bx.toFixed(1));
+      pcRects.ahead.setAttribute("width", Math.max(0, prof.W - prof.r - bx).toFixed(1));
       const v = prof.paceAt(s.km);
       const cy = prof.paceY(v);
       paceDot.setAttribute("cx", cx.toFixed(1));
