@@ -102,6 +102,9 @@ The map uses [Leaflet](https://leafletjs.com) with tiles from [OpenStreetMap](ht
 ## Photos
 
 The hero and section banners use free photos from [Pexels](https://www.pexels.com/license/), credited on the page:
-Artem Meletov (hero), Hobi Photography (01, mirrored), Elina Volkova (02), Jack Davis (03).
-They live in `src/ui/photos/` as WebP files cropped to the slot shape (1920×1080 hero, 900×1200 phone hero,
-1600×600 banners), and the build copies them to `dist/photos/`. Swap a file to change a photo.
+trail runners in action with the mountains around them: VANNGO Ng (hero and phone hero, Nepal), Boris Hamer (01),
+Ozan Yavuz (02, İzmir), Cristian Camilo Estrada (03, a forest race), RUN 4 FFWPU (04 and My run).
+They live in `src/ui/photos/` as WebP files (1920×995 hero, 900×1200 phone hero, 1600×600 banners), and
+the build copies them to `dist/photos/`. Swap a file to change a photo. On wide screens a banner photo
+fills the right 64% of the banner at its own height (`--photo-y` sets which part shows), so the runner is
+not cut in half behind the title. Earlier, more "adventure" photos are on branch `restore/v0.18-before-sport-photos`.

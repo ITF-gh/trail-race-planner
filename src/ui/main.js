@@ -48,13 +48,16 @@ const PEAK = `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M2 27 12 9l5 
 // Photos come from Pexels (free licence: use and edit allowed, credit appreciated). The files sit
 // in src/ui/photos and are copied next to index.html at build; style.css points the slots at them.
 const PHOTOS = {
-  hero: { by: "Artem Meletov", url: "https://www.pexels.com/photo/person-standing-on-mountain-peak-above-clouds-8910505/" },
-  s1: { by: "Hobi Photography", url: "https://www.pexels.com/photo/hiker-with-flashlight-looking-at-starry-night-sky-27790902/" },
-  s2: { by: "Elina Volkova", url: "https://www.pexels.com/photo/misty-forest-path-in-dense-woodland-29579873/" },
-  s3: { by: "Jack Davis", url: "https://www.pexels.com/photo/back-view-of-a-woman-running-up-the-mountain-trail-8949023/" },
+  hero: { by: "VANNGO Ng", url: "https://www.pexels.com/photo/mountain-runner-in-scenic-landscape-33874841/" },
+  heroPortrait: { by: "VANNGO Ng", url: "https://www.pexels.com/photo/trail-runner-in-mountainous-landscape-adventure-33874842/" },
+  s1: { by: "Boris Hamer", url: "https://www.pexels.com/photo/man-running-in-mountains-18647829/" },
+  s2: { by: "Ozan Yavuz", url: "https://www.pexels.com/photo/female-runner-in-scenic-izmir-mountains-landscape-31238485/" },
+  s3: { by: "Cristian Camilo Estrada", url: "https://www.pexels.com/photo/trail-runners-enjoying-a-forest-race-32132278/" },
+  s4: { by: "RUN 4 FFWPU", url: "https://www.pexels.com/photo/a-man-running-in-a-field-9790263/" },
+  s5: { by: "RUN 4 FFWPU", url: "https://www.pexels.com/photo/trail-runner-on-scenic-mountain-path-35599353/" },
 };
 const credit = (key) => `<a class="photo-credit" href="${PHOTOS[key].url}" target="_blank" rel="noopener">Photo: ${PHOTOS[key].by} / Pexels</a>`;
-const head = (num, kicker, title) => `<header class="sec-head"><div class="sec-num">${num}</div><div class="sec-kicker">${kicker}</div><h2>${title}</h2>${PHOTOS["s" + Number(num)] ? credit("s" + Number(num)) : ""}</header>`;
+const head = (num, kicker, title, key = "s" + Number(num)) => `<header class="sec-head"><div class="sec-num">${num}</div><div class="sec-kicker">${kicker}</div><h2>${title}</h2>${PHOTOS[key] ? credit(key) : ""}</header>`;
 const NAV = [["s1", "01", "Engine"], ["s2", "02", "Briefing"], ["s3", "03", "D-day"], ["s4", "04", "Race day"], ["s5", "▶", "My run"]];
 const MODE_SEG = `<div class="seg mode-seg" role="group" aria-label="Mode"><button type="button" data-mode="plan">Plan a race</button><button type="button" data-mode="run">Review a run</button></div>`;
 
@@ -161,13 +164,13 @@ $("#app").innerHTML = `
 </section>
 
 <section id="s5" class="review-only">
-  ${head("▶", "After the run", "My run")}
+  ${head("▶", "After the run", "My run", "s5")}
   <p class="sec-intro">Your run played back at its real pace. The bar, the map and the profile are coloured by how you ran each stretch compared with your own average on the same kind of ground; each key moment stops the replay and says what it means.</p>
   <div id="s5body"></div>
 </section>
 
 <p class="foot plan-only">How it works: your run gives a pace for every gradient band, fresh and tired. Each 10 m of the course takes the pace of its band, sliding from fresh to tired along the race, scaled for terrain and for how much longer the race is than your run. Climbs and descents come from the course elevation, smoothed to ignore GPS noise. A model like this is usually within 5 to 10%: treat the three scenarios as a range, not a promise.</p>
-${analyticsOn ? `<p class="foot">Visits are counted anonymously with ${analyticsName}: no cookies, no personal data. Your GPX files and plans never leave your browser.</p>\n` : ""}<p class="foot">Photos by ${Object.values(PHOTOS).map((p) => `<a href="${p.url}" target="_blank" rel="noopener">${p.by}</a>`).join(", ")}, free to use under the <a href="https://www.pexels.com/license/" target="_blank" rel="noopener">Pexels licence</a>.</p>
+${analyticsOn ? `<p class="foot">Visits are counted anonymously with ${analyticsName}: no cookies, no personal data. Your GPX files and plans never leave your browser.</p>\n` : ""}<p class="foot">Photos by ${Object.values(PHOTOS).filter((p, i, all) => all.findIndex((q) => q.by === p.by) === i).map((p) => `<a href="${p.url}" target="_blank" rel="noopener">${p.by}</a>`).join(", ")}, free to use under the <a href="https://www.pexels.com/license/" target="_blank" rel="noopener">Pexels licence</a>.</p>
 `;
 
 /* ---------- settings form ---------- */
