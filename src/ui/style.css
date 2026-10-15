@@ -22,6 +22,9 @@
   color-scheme:dark;
 }
 @media (max-width:640px){ :root{--photo-hero:url("photos/hero-portrait.webp");--photo-hero-pos:50% 50%} }
+/* "Review a run" mode swaps the hero for a sport shot */
+html[data-mode="run"]{--photo-hero:url("photos/hero-run.webp");--photo-hero-pos:50% 60%}
+@media (max-width:640px){ html[data-mode="run"]{--photo-hero:url("photos/hero-run-portrait.webp");--photo-hero-pos:50% 50%} }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{overflow-x:hidden}
@@ -579,5 +582,5 @@ svg .rv-pin-p text{fill:#fff;font-weight:800;font-size:13px}
   .sec-head{background:linear-gradient(90deg,rgba(6,16,31,.88),rgba(6,16,31,.35) 70%,rgba(6,16,31,.1)),
     linear-gradient(90deg,transparent 26%,rgba(6,16,31,.96) 36.5%,rgba(6,16,31,0) 54%),
     var(--photo,none) right var(--photo-y,30%)/64% auto no-repeat,var(--banner)}
-  #s1 .sec-head{--photo-y:18%} #s2 .sec-head{--photo-y:30%} #s3 .sec-head{--photo-y:35%} #s4 .sec-head{--photo-y:15%} #s5 .sec-head{--photo-y:15%}
+  #s1 .sec-head{--photo-y:18%} #s2 .sec-head{--photo-y:30%} #s3 .sec-head{--photo-y:35%} #s4 .sec-head{--photo-y:60%} #s5 .sec-head{--photo-y:60%}
 }
