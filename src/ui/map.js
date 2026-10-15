@@ -117,7 +117,9 @@ function leafletMap(L, el, { route, totalKm, paint = [], marks = [] }) {
   // Plain <img> tiles (no crossOrigin): nothing reads their pixels, and a CORS-mode request
   // fails outright whenever a tile server answers without CORS headers.
   const layers = Object.fromEntries(Object.entries(TILES).map(([k, t]) => [t.label, L.tileLayer(t.url, { maxZoom: t.maxZoom, attribution: t.attribution, subdomains: t.subdomains || "abc" })]));
-  layers.Map.addTo(map);
+  // Sky mode starts on the light CARTO tiles; the night look keeps the OpenStreetMap ones.
+  const sky = document.documentElement.dataset.theme === "sky";
+  (sky ? layers.Light : layers.Map).addTo(map);
   // If the OpenStreetMap tiles do not come (blocked, rate-limited, offline server), switch once to
   // the Light map from another server rather than leave a blank grey box.
   let tileOk = 0, tileErr = 0, swapped = false;
@@ -132,7 +134,7 @@ function leafletMap(L, el, { route, totalKm, paint = [], marks = [] }) {
   });
   L.control.layers(layers, null, { position: "topright" }).addTo(map);
   // Leaflet also fires baselayerchange when the first layer is (re)attached: count real switches only.
-  let base = "Map";
+  let base = sky ? "Light" : "Map";
   map.on("baselayerchange", (e) => { if (e.name !== base) { base = e.name; trackEvent("map-layer", e.name); } });
   L.control.scale({ imperial: false }).addTo(map);
   // Wheel zoom only after a click on the map, so scrolling the page never gets stuck in it.

@@ -769,3 +769,55 @@ details.fold>summary small{font-size:11px;color:var(--muted);font-style:normal;t
 .pimp-link b{font-family:var(--f-display);font-weight:800;font-style:italic;text-transform:uppercase;font-size:30px;line-height:1;letter-spacing:.02em;color:#fff;text-shadow:3px 3px 0 #0a0a14,-1px -1px 0 #0a0a14,1px -1px 0 #0a0a14,-1px 1px 0 #0a0a14}
 .pimp-link .pl-tag{position:absolute;top:-12px;right:-10px;transform:rotate(8deg);padding:2px 9px;border-radius:4px;background:#00e0c6;color:#0a0a14;font:800 11px var(--f-display);letter-spacing:.14em;text-transform:uppercase;box-shadow:2px 2px 0 #0a0a14}
 .pimp-link .pl-sub{margin-top:4px;font-weight:700;font-size:13px;color:#0a0a14}
+
+/* ================= Sky mode (html[data-theme=sky]) =================
+   The same layout in daylight: sky blues, cloud white, sunrise coral and amber. Most of the page
+   follows the colour tokens; the rules after them fix the spots that were painted for the night. */
+html[data-theme="sky"]{
+  --bg:#f3f8ff; --surface:rgba(255,255,255,.78); --surface-2:rgba(20,90,180,.06); --fg:#0f2747; --muted:#52698a; --line:#c9dbef; --area:rgba(40,120,210,.14);
+  --accent:#f0503a; --sun:#e98a00; --gold:#f0a400; --focus:#1f6fd1;
+  --band-1:#e4f1ff; --band-2:#e9f7f3; --band-3:#fff1e8; --band-4:#eef0ff;
+  --pine:#1f5fae; --pine-2:#3f86d6; --on-pine:#ffffff; --on-pine-muted:#e9f3ff;
+  --e-bg:#d8f3e0; --e-ink:#136a31; --m-bg:#fff0bf; --m-ink:#7a5600; --h-bg:#ffe0c4; --h-ink:#8f3f00; --c-bg:#ffdbe0; --c-ink:#a3122a;
+  --photo-hero:url("photos/sky-hero.svg"); --photo-s1:url("photos/sky-s1.svg"); --photo-s2:url("photos/sky-s2.svg");
+  --photo-s3:url("photos/sky-s3.svg"); --photo-s4:url("photos/sky-s4.svg"); --photo-s5:url("photos/sky-s5.svg");
+  --glow:#0f2747; color-scheme:light;
+}
+html[data-theme="sky"][data-mode]{--photo-hero:url("photos/sky-hero.svg")}
+@media (max-width:640px){ html[data-theme="sky"],html[data-theme="sky"][data-mode]{--photo-hero:url("photos/sky-hero.svg");--photo-hero-pos:70% 50%} }
+html[data-theme="sky"] body{background:var(--band-4)}
+/* hero and banners: the painted sky fills the whole slot, a soft blue veil keeps the white titles readable */
+html[data-theme="sky"] .hero{background:linear-gradient(100deg,rgba(18,70,140,.62) 0%,rgba(18,70,140,.28) 50%,rgba(18,70,140,0) 100%),var(--photo-hero) var(--photo-hero-pos,50% 50%)/cover no-repeat,#8cc4f2}
+html[data-theme="sky"] .sec-head{background:linear-gradient(90deg,rgba(18,70,140,.6),rgba(18,70,140,.15) 70%,rgba(18,70,140,0)),var(--photo) center/cover no-repeat,#6fb3ef}
+html[data-theme="sky"] .sec-num{color:#ffd24a;text-shadow:0 3px 16px rgba(10,40,90,.45)}
+html[data-theme="sky"] .photo-credit{display:none}
+html[data-theme="sky"] .drop{background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.7)}
+/* top bar */
+html[data-theme="sky"] .topnav{background:rgba(255,255,255,.86);border-bottom-color:var(--line)}
+html[data-theme="sky"] .tn-links a{color:var(--muted)}
+/* glowing numbers: deep blue with an amber halo instead of pale yellow on white */
+html[data-theme="sky"] .tile .v,html[data-theme="sky"] .rp-tot b{color:var(--glow);text-shadow:0 0 12px rgba(255,170,40,.45)}
+html[data-theme="sky"] .tile .v small,html[data-theme="sky"] .rp-tot b small{color:var(--muted)}
+html[data-theme="sky"] .tile,html[data-theme="sky"] .rp-tot{border-left-color:var(--line)}
+/* the fine white dividers and tints of the night look become blue-grey */
+html[data-theme="sky"] .row,html[data-theme="sky"] .zone-card,html[data-theme="sky"] .rp-script button,html[data-theme="sky"] .rp-tg th,html[data-theme="sky"] .rp-tg td{border-bottom-color:var(--line)}
+html[data-theme="sky"] .row:hover,html[data-theme="sky"] .rp-script button:hover{background:rgba(31,111,209,.05)}
+html[data-theme="sky"] .rp-legs{background:rgba(31,111,209,.08)}
+html[data-theme="sky"] .rp-legs .lg{border-right-color:#fff}
+html[data-theme="sky"] .rp-legs .lg.on{outline-color:#0f2747}
+html[data-theme="sky"] .rp-leg{background:rgba(255,190,60,.12)}
+html[data-theme="sky"] .rp-now,html[data-theme="sky"] .rp-prog{background:rgba(31,111,209,.08)}
+html[data-theme="sky"] .rp-ptip{background:rgba(255,255,255,.97);color:var(--fg);border-color:var(--line);box-shadow:0 6px 18px rgba(20,60,120,.18)}
+html[data-theme="sky"] .rp-legs .lg-pos{box-shadow:0 0 0 1.5px #fff}
+html[data-theme="sky"] .tabs button[aria-selected="true"],html[data-theme="sky"] .seg button[aria-pressed="true"]{color:#fff}
+html[data-theme="sky"] .chip.l1{background:var(--e-bg);color:var(--e-ink)} html[data-theme="sky"] .chip.l2{background:var(--m-bg);color:var(--m-ink)}
+html[data-theme="sky"] .chip.l3{background:var(--h-bg);color:var(--h-ink)} html[data-theme="sky"] .chip.l4{background:var(--c-bg);color:var(--c-ink)}
+html[data-theme="sky"] input,html[data-theme="sky"] select,html[data-theme="sky"] textarea{background:#fff}
+html[data-theme="sky"] .pimp-link b{color:#fff}
+html[data-theme="sky"] svg .ln{opacity:.7}
+.tn-theme{flex:none;white-space:nowrap}
+@media (max-width:640px){ .tn-theme{padding:4px 9px;font-size:12px} }
+html[data-theme="sky"] .rp-legs .lg{background:rgba(15,39,71,.16)}
+html[data-theme="sky"] .rp-legend .sw.k-flat,html[data-theme="sky"] .rp-legend .sw:not([class*=" "]){outline:1px solid var(--line)}
+html[data-theme="sky"] .topnav .btn.ghost{color:var(--fg);border-color:var(--line);background:#fff}
+.tn-theme{border-color:var(--sun) !important}
