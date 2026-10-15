@@ -1023,3 +1023,7 @@ html[data-theme="sky"] .acct-panel-in h4,html[data-theme="sky"] .acct-kicker{col
   .dday-top.has-pimp{grid-template-columns:1fr}
   .prep-sum .pimp-link.side{float:none;display:inline-flex;margin:4px 0 14px 4px}
 }
+
+/* v0.31: briefing profile, a thinner and lighter km / altitude scale */
+#briefProf svg .axt{font-size:9px;font-weight:400;letter-spacing:.04em;opacity:.7}
+#briefProf svg .axis{stroke-width:.6;opacity:.6}
