@@ -770,7 +770,7 @@ details.fold>summary small{font-size:11px;color:var(--muted);font-style:normal;t
 .pimp-link .pl-tag{position:absolute;top:-12px;right:-10px;transform:rotate(8deg);padding:2px 9px;border-radius:4px;background:#00e0c6;color:#0a0a14;font:800 11px var(--f-display);letter-spacing:.14em;text-transform:uppercase;box-shadow:2px 2px 0 #0a0a14}
 .pimp-link .pl-sub{margin-top:4px;font-weight:700;font-size:13px;color:#0a0a14}
 
-/* ================= Sky mode (html[data-theme=sky]) ==========
+/* ================= Sky mode (html[data-theme=sky]) =================
    The same layout in daylight: sky blues, cloud white, sunrise coral and amber. Most of the page
    follows the colour tokens; the rules after them fix the spots that were painted for the night. */
 html[data-theme="sky"]{
@@ -821,7 +821,6 @@ html[data-theme="sky"] .rp-legs .lg{background:rgba(15,39,71,.16)}
 html[data-theme="sky"] .rp-legend .sw.k-flat,html[data-theme="sky"] .rp-legend .sw:not([class*=" "]){outline:1px solid var(--line)}
 html[data-theme="sky"] .topnav .btn.ghost{color:var(--fg);border-color:var(--line);background:#fff}
 .tn-theme{border-color:var(--sun) !important}
-=======
 /* Check my run: pace line on the profile and "Your numbers" */
 .rv-cockpit,.rv-stats{--rv-pace:#6fd0ff}
 svg .rv-pl{fill:none;stroke:var(--rv-pace);stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round}
@@ -854,3 +853,6 @@ svg .rv-pl-v{fill:var(--rv-pace);font-size:11px;font-weight:700;paint-order:stro
 html[data-theme="sky"] .rv-cockpit,html[data-theme="sky"] .rv-stats{--rv-pace:#1f86d6}
 html[data-theme="sky"] svg .rv-pl-v{stroke:rgba(255,255,255,.9)}
 html[data-theme="sky"] .rv-st b{color:var(--glow);text-shadow:0 0 12px rgba(255,170,40,.45)}
+/* the section bar keeps its verdict colours in Sky mode */
+html[data-theme="sky"] .rp-legs .lg.rv-good{background:#2fb85a} html[data-theme="sky"] .rp-legs .lg.rv-ok{background:#8fa3c4} html[data-theme="sky"] .rp-legs .lg.rv-bad{background:#e8122f}
+html[data-theme="sky"] .rp-legs .lg.rv-d{background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.55) 0 3px,transparent 3px 7px)}
