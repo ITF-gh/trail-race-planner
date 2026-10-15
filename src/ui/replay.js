@@ -15,7 +15,7 @@
 
 import { raceScript, raceStateAt, secAtKm, raceLegs, raceTotals, legAtKm, gainLoss } from "../core/script.js";
 import { courseMap } from "./map.js";
-import { mmss, hm, clock } from "../core/format.js";
+import { mmss, hm, hms, clock } from "../core/format.js";
 import { trackEvent, trackOnce } from "./analytics.js";
 
 /**
@@ -95,7 +95,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     ${hasMap ? `<div class="rp-map" id="rpMap"></div>` : ""}
     <div class="panel rp-hud">
       <div class="rp-top">
-        <div class="rp-clock"><span class="k">Clock</span><b id="rpClock"></b></div>
+        <div class="rp-clock"><span class="k">Duration</span><b id="rpClock"></b></div>
         <div class="rp-run"><span id="rpElapsed"></span><span id="rpKm"></span></div>
       </div>
       <div class="rp-prog" aria-hidden="true"><i id="rpBar"></i></div>
@@ -178,8 +178,9 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
   let lastNextHtml = "";
   const draw = () => {
     const s = raceStateAt(plan, sid, rp.sec);
-    els.clock.textContent = clock(st, s.sec);
-    els.el.textContent = `${hm(s.sec)} on course · ${Math.round(s.frac * 100)}%`;
+    // Time since the start is the number that matters on course; the time of day is secondary.
+    els.clock.textContent = hms(s.sec);
+    els.el.textContent = `clock ${clock(st, s.sec)} · ${Math.round(s.frac * 100)}%`;
     els.bar.style.width = `${(s.frac * 100).toFixed(2)}%`;
     els.km.textContent = `km ${s.km.toFixed(1)} / ${plan.course.totalKm.toFixed(1)}`;
     els.seek.value = Math.round(s.sec);
@@ -255,7 +256,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
       const e = script[Math.max(0, ci)];
       els.cue.className = `rp-cue-line k-${e.kind} lv${e.level}`;
       els.cue.title = e.cue;
-      els.cue.innerHTML = `<span class="ic">${ICON[e.kind] || "•"}</span><b>${escR(e.title)}</b><span class="d">km ${e.km.toFixed(1)} · ${clock(st, e.sec)}</span>`;
+      els.cue.innerHTML = `<span class="ic">${ICON[e.kind] || "•"}</span><b>${escR(e.title)}</b><span class="d">km ${e.km.toFixed(1)} · ${hm(e.sec)}</span>`;
       els.list.querySelectorAll("li").forEach((li) => { li.classList.toggle("on", Number(li.dataset.i) === ci); li.classList.toggle("past", Number(li.dataset.i) < ci); });
     }
     if (els.cur) {

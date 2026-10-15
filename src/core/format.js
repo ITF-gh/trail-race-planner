@@ -15,6 +15,12 @@ export function hm(sec) {
 }
 
 /** Clock time of day from a start time in seconds-since-midnight plus an offset. */
+/** Elapsed time as a stopwatch: 1:07:42 (h:mm:ss). */
+export function hms(sec) {
+  const s = Math.max(0, Math.floor(sec));
+  return `${Math.floor(s / 3600)}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`;
+}
+
 export function clock(startSec, offsetSec) {
   const t = Math.round(startSec + offsetSec);
   const h = Math.floor(t / 3600) % 24;
