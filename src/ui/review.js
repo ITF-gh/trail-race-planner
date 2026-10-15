@@ -61,7 +61,7 @@ function rvProfile(run) {
     s += `<g class="rv-pin-p ${m.tone}"><line x1="${xx.toFixed(1)}" x2="${xx.toFixed(1)}" y1="${top - 8}" y2="${y(eAt(m.km)).toFixed(1)}"/><circle cx="${xx.toFixed(1)}" cy="${top - 14}" r="8"/><text x="${xx.toFixed(1)}" y="${top - 10.5}" text-anchor="middle">${m.tone === "good" ? "+" : "−"}</text><title>${rvEsc(m.title)}</title></g>`;
   });
   s += `<g class="pcur" style="display:none"><line x1="0" x2="0" y1="${top - 4}" y2="${base}"/><circle cx="0" cy="${base}" r="6"/></g>`;
-  return { x, y, km, top, base, html: `<div class="prof-scroll"><svg viewBox="0 0 1000 ${H}" role="img" aria-label="Elevation profile of your run, coloured by how you ran each stretch">${s}</svg></div>` };
+  return { x, y, km, top, base, line, html: `<div class="prof-scroll"><svg viewBox="0 0 1000 ${H}" role="img" aria-label="Elevation profile of your run, coloured by how you ran each stretch">${s}</svg></div>` };
 }
 
 /** Map styling: the route coloured by form, a glow under each good or bad moment, stops as triangles. */
@@ -148,23 +148,31 @@ export function mountRun(box, run) {
   // The section you are on: a band on the profile, the glow on the map, the button on the bar.
   const svgEl = $v("#rvProf svg");
   const profScroll = $v("#rvProf .prof-scroll");
+  // As on race day: a soft band over the section and a glow drawn under its stretch of line.
   let legG = null;
+  let glowG = null;
   if (svgEl && els.cur) {
-    legG = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    const NS = "http://www.w3.org/2000/svg";
+    legG = document.createElementNS(NS, "g");
     legG.setAttribute("class", "pleg");
     svgEl.insertBefore(legG, els.cur);
+    glowG = document.createElementNS(NS, "g");
+    glowG.setAttribute("class", "pglow");
+    const area = svgEl.querySelector(".area");
+    svgEl.insertBefore(glowG, area ? area.nextSibling : svgEl.firstChild);
   }
   const drawLeg = (li) => {
     const l = legs[li];
     if (legG) {
       legG.innerHTML = `<rect class="pl-cur" x="${prof.x(l.startKm).toFixed(1)}" y="${prof.top - 4}" width="${Math.max(2, prof.x(l.endKm) - prof.x(l.startKm)).toFixed(1)}" height="${prof.base - prof.top + 4}"/>`
         + `<text class="pl-t" x="${((prof.x(l.startKm) + prof.x(l.endKm)) / 2).toFixed(1)}" y="${prof.base - 6}" text-anchor="middle">${l.i}</text>`;
+      glowG.innerHTML = `<path class="pl-glow" d="${prof.line(l.startKm, l.endKm)}"/>`;
     }
     if (profScroll && profScroll.scrollWidth > profScroll.clientWidth + 4) {
       const k = profScroll.scrollWidth / 1000;
       profScroll.scrollLeft = Math.max(0, ((prof.x(l.startKm) + prof.x(l.endKm)) / 2) * k - profScroll.clientWidth / 2);
     }
-    if (rv.map) rv.map.highlight({ fromKm: l.startKm, toKm: l.endKm }, null);
+    if (rv.map) rv.map.highlight({ fromKm: l.startKm, toKm: l.endKm });
     els.legBtns.forEach((b, k) => { b.classList.toggle("on", k === li); b.classList.toggle("past", k < li); });
   };
 
