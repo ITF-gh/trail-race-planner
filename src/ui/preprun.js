@@ -24,7 +24,7 @@ export function prepHeroHtml(peak) {
       <div>
         <div class="brand">${peak}Trail Race Planner · Prep my run</div>
         <h1 style="margin-top:14px">Your next run,<br><em>on your wrist.</em></h1>
-        <p class="lead">Drop the GPX of a run to come. The planner reads every climb and descent, writes the messages your watch will show along the way (hike here, brake there, the key moments), lets you check and edit them, and gives the course back ready for your watch. Your file never leaves this page.</p>
+        <p class="lead">Drop the GPX of a run you are about to do. The planner reads every climb and descent, writes the messages your watch will show along the way (hike here, brake there, the key moments), lets you check and edit them, and gives the course back ready for your watch. Your file never leaves this page.</p>
       </div>
       <button class="btn primary" type="button" id="prepSample">Try a sample run</button>
     </div>
@@ -38,19 +38,11 @@ export function prepHeroHtml(peak) {
     </div>`;
 }
 
-/** The mode's section, filled once a course is loaded. */
-export function prepSectionHtml(headHtml) {
-  return `<section id="s-prep" class="prep-only">
-  ${headHtml}
-  <div id="prepBody"><p class="sec-intro">Drop the GPX of your next run above, or try the sample run.</p></div>
-</section>`;
-}
-
 /**
  * Wire the mode. getRuns() returns the reference runs loaded in Plan a race (parsed GPX) or [];
- * getSettings() the planner settings (start time, hiking threshold...).
+ * getSettings() the planner settings (start time, hiking threshold...); onLoaded() runs after each render.
  */
-export function initPrepRun({ getRuns = () => [], getSettings = () => ({}) } = {}) {
+export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLoaded = () => {} } = {}) {
   const st = { parsed: null, name: "", targetSec: 0, startTime: null };
   const $p = (s) => document.querySelector(s);
 
@@ -90,9 +82,9 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}) } = {
     const sid = "central";
     const finish = plan.scenarios[sid].finishSec;
     const key = `trp.watch.prep.${st.name}.${plan.course.totalKm.toFixed(1)}`;
-    const body = $p("#prepBody");
+    const body = $p("#sPrepBody");
     body.innerHTML = `
-  <div class="panel prep-sum">
+  <div class="panel prep-sum prep-ready">
     <div class="prep-facts"><b>${prEsc(st.name)}</b><span>${plan.course.totalKm.toFixed(1)} km</span><span>+${Math.round(plan.course.gain)} m</span><span>-${Math.round(plan.course.loss)} m</span><span>${plan.climbs.length} climbs</span><span>${(plan.keyZones || []).length} key zones</span><span>about <b>${hm(finish)}</b></span></div>
     <p class="note">Times come from ${SOURCE[source]}.</p>
     <div class="prep-opts">
@@ -126,6 +118,7 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}) } = {
     };
     $p("#prepFit").addEventListener("click", () => save("fit"));
     $p("#prepGpx").addEventListener("click", () => save("gpx"));
+    onLoaded();
   };
 
   const file = $p("#filePrep");

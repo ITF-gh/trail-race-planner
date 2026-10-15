@@ -4,7 +4,7 @@ import { parseGpx, haversine, resample } from "../src/core/track.js";
 import { analyseCourse, zigzag, bandIndex, BANDS } from "../src/core/terrain.js";
 import { analyseEffort, hikeThreshold } from "../src/core/effort.js";
 import { predictScenario, SCENARIOS } from "../src/core/model.js";
-import { buildPlan, splitClimb, climbScore, climbLevel, climbTactic, parseAidStations } from "../src/core/plan.js";
+import { buildPlan, judgeTarget, splitClimb, climbScore, climbLevel, climbTactic, parseAidStations } from "../src/core/plan.js";
 import { planToMarkdown } from "../src/core/markdown.js";
 import { raceScript, raceStateAt, secAtKm, raceLegs, raceTotals, legAtKm } from "../src/core/script.js";
 import { keyZones, toblerClock, spreadAt } from "../src/core/keyzones.js";
@@ -422,4 +422,17 @@ test("review: the replay state follows the recorded time, standing still during 
   assert.ok(Math.abs(runStateAt(run, run.elapsedSec).km - run.totalKm) < 0.011);
   assert.ok(Math.abs(runSecAtKm(run, 5) - runStateAt(run, runSecAtKm(run, 5)).sec) < 1e-6);
   assert.ok(Math.abs(runStateAt(run, runSecAtKm(run, 5)).km - 5) < 0.011);
+});
+
+test("judgeTarget sorts a target finish time against the scenarios", () => {
+  const plan = { course: { totalKm: 50 }, scenarios: { best: { finishSec: 9650 }, central: { finishSec: 10000 }, cautious: { finishSec: 10350 } } };
+  assert.equal(judgeTarget(plan, null), null);
+  assert.equal(judgeTarget(plan, 10000).verdict, "realistic");
+  assert.equal(judgeTarget(plan, 9500).verdict, "ambitious");
+  const far = judgeTarget(plan, 8000);
+  assert.equal(far.verdict, "out-of-reach");
+  assert.equal(far.ok, false);
+  assert.ok(Math.abs(far.vsCentralPct - 25) < 1e-9);
+  assert.equal(judgeTarget(plan, 12000).verdict, "comfortable");
+  assert.equal(judgeTarget(plan, 10000).paceSec, 200);
 });

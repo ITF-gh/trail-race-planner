@@ -363,3 +363,31 @@ export function planFromGpx(raceXml, effortXml, params = {}) {
   const efforts = Array.isArray(effortXml) ? effortXml.map(parseGpx) : parseGpx(effortXml);
   return buildPlan(parseGpx(raceXml), efforts, params);
 }
+
+/**
+ * Check a finish time the runner is aiming for against the three scenarios of the plan.
+ * The scenarios already span the likely range (best -3.5%, cautious +3.5% around central); a model
+ * like this one is also usually within 5 to 10%, so a target a little faster than the best case
+ * is still possible on a great day, but one more than 5% faster than it is not backed by the runs.
+ * Returns null without a target, else {targetSec, verdict, ok, vsCentralPct, paceSec, centralPaceSec}:
+ *   verdict "out-of-reach" | "ambitious" | "realistic" | "comfortable"; ok = false only out of reach;
+ *   vsCentralPct > 0 means the target needs that much faster than the central scenario;
+ *   paceSec is the average pace (s/km, stops included) the target needs.
+ */
+export function judgeTarget(plan, targetSec) {
+  if (!plan || !Number.isFinite(targetSec) || targetSec <= 0) return null;
+  const { best, central, cautious } = plan.scenarios;
+  const km = plan.course.totalKm;
+  const verdict = targetSec < best.finishSec * 0.95 ? "out-of-reach"
+    : targetSec < best.finishSec ? "ambitious"
+    : targetSec <= cautious.finishSec ? "realistic"
+    : "comfortable";
+  return {
+    targetSec,
+    verdict,
+    ok: verdict !== "out-of-reach",
+    vsCentralPct: (central.finishSec / targetSec - 1) * 100,
+    paceSec: targetSec / km,
+    centralPaceSec: central.finishSec / km,
+  };
+}

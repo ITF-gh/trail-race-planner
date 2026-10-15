@@ -23,8 +23,8 @@
 }
 @media (max-width:640px){ :root{--photo-hero:url("photos/hero-portrait.webp");--photo-hero-pos:50% 50%} }
 /* "Review a run" mode swaps the hero for a sport shot */
-html[data-mode="run"]{--photo-hero:url("photos/hero-run.webp");--photo-hero-pos:50% 60%}
-@media (max-width:640px){ html[data-mode="run"]{--photo-hero:url("photos/hero-run-portrait.webp");--photo-hero-pos:50% 50%} }
+html[data-mode="run"],html[data-mode="prep"]{--photo-hero:url("photos/hero-run.webp");--photo-hero-pos:50% 60%}
+@media (max-width:640px){ html[data-mode="run"],html[data-mode="prep"]{--photo-hero:url("photos/hero-run-portrait.webp");--photo-hero-pos:50% 50%} }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{overflow-x:hidden}
@@ -566,10 +566,10 @@ svg .pl-t{fill:var(--sun);font-weight:800;font-size:13px} svg .pl-tn{fill:var(--
 .map-recenter.on{background:var(--accent);animation:cue .6s ease-out}
 
 /* ---------- mode: plan a race / review a run (My run) ---------- */
-/* One page, two modes: data-mode on <html> hides what belongs to the other one. */
-html[data-mode="run"] .plan-only{display:none!important}
+/* One page, three modes: data-mode on <html> hides what belongs to the other ones (no
+   data-mode yet, before the script runs, counts as Prep my race). */
+html[data-mode="run"] .plan-only,html[data-mode="prep"] .plan-only{display:none!important}
 html:not([data-mode="run"]) .review-only{display:none!important}
-html[data-mode="prep"] .plan-only{display:none!important}
 html:not([data-mode="prep"]) .prep-only{display:none!important}
 /* Prep my run: course summary above the watch messages */
 .prep-facts{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:baseline;font-variant-numeric:tabular-nums}
@@ -612,7 +612,7 @@ svg .rv-pin-p text{fill:#fff;font-weight:800;font-size:13px}
 /* the review cue carries a tip: let it run its full length where the panel has room */
 @media (min-width:901px){ .rv-cockpit .rp-cue.rv-cue p{display:block;-webkit-line-clamp:unset;overflow:visible} }
 @media (max-width:900px){ .rv-cockpit .rp-cue.rv-cue p em{display:none} .rv-meta{font-size:12.5px;margin-bottom:6px} }
-@media (max-width:640px){ html[data-mode="run"] .tn-sum.review-only{display:flex;gap:6px} }
+@media (max-width:640px){ html[data-mode="run"] .tn-sum.review-only,html[data-mode="prep"] .tn-sum.prep-only{display:flex;gap:6px} }
 /* Wide screens: the banner is about 6:1, so a cover photo would show a thin strip with the runner
    cut in half behind the title. Instead the photo takes the right 64% at its own height, and a dark
    band hides its left edge; the section's colour banner still shows on the left. */
@@ -622,3 +622,14 @@ svg .rv-pin-p text{fill:#fff;font-weight:800;font-size:13px}
     var(--photo,none) right var(--photo-y,30%)/64% auto no-repeat,var(--banner)}
   #s1 .sec-head{--photo-y:18%} #s2 .sec-head{--photo-y:30%} #s3 .sec-head{--photo-y:35%} #s4 .sec-head{--photo-y:60%} #s5 .sec-head{--photo-y:60%}
 }
+
+/* ---------- targeted duration (Prep my race, D-day) ---------- */
+.target-card{margin-bottom:14px;border-left:6px solid var(--muted)}
+.target-card.t-good{border-left-color:#2fb85a} .target-card.t-warn{border-left-color:var(--sun)} .target-card.t-bad{border-left-color:#e8122f}
+.target-card .tg-h{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px}
+.target-card .tg-h .k{font-family:var(--f-display);font-weight:700;text-transform:uppercase;letter-spacing:.1em;font-size:12px;color:var(--muted)}
+.target-card .tg-h b{font-family:var(--f-display);font-weight:800;font-style:italic;font-size:30px;color:var(--sun)}
+.target-card p{margin:8px 0}
+.target-card .kv small{color:var(--muted);font-weight:400;margin-left:6px}
+.target-card.t-good .tg-chip{background:#173d2a;color:#8ff0a8} .target-card.t-warn .tg-chip{background:rgba(255,201,40,.18);color:var(--sun)} .target-card.t-bad .tg-chip{background:#541522;color:#ff96a3}
+#s-prep .sec-head{--photo:var(--photo-s4);--photo-pos:50% 22%;--photo-y:60%;--banner:radial-gradient(circle at 85% 30%,rgba(255,201,40,.45),transparent 45%),linear-gradient(120deg,#1c1640,#8a2c2c 70%,#c8641f)}

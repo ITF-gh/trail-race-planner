@@ -4,20 +4,23 @@
 //   02 Race briefing   what the course says, before knowing who runs it (race GPX only)
 //   03 D-day plan      both files plus your settings: clock times, tactics, gels
 //   04 Race day        the plan played back in time on the map and profile, to rehearse it
-// A second mode, "My run" (?mode=run), looks back instead: drop a run you just did and replay it
-// with its key moments, good and bad (ui/review.js). The two modes share the page; a data-mode
-// attribute on <html> hides what belongs to the other one.
+// Three modes share the page, picked by the switch on top and kept in the address (?mode=):
+//   Prep my race (plan, default)  the four sections above, plus a targeted duration to check
+//   Prep my run  (?mode=prep)     a GPX of a run to come, given back with details (section s-prep, ui/preprun.js)
+//   See my run   (?mode=run)      a run you just did, replayed with its key moments (ui/review.js)
+// A data-mode attribute on <html> hides what belongs to the other modes (.plan-only,
+// .prep-only, .review-only).
 // Each section renders as soon as the files it needs are loaded. A sticky bar on top jumps
 // between sections and shows which one you are reading.
 
 import { parseGpx, resample } from "../core/track.js";
 import { analyseCourse } from "../core/terrain.js";
 import { analyseEffort } from "../core/effort.js";
-import { buildPlan, briefCourse, coarseIndices, parseAidStations, PLAN_DEFAULTS, LEVELS, DESCENT_LABELS } from "../core/plan.js";
+import { buildPlan, judgeTarget, briefCourse, coarseIndices, parseAidStations, PLAN_DEFAULTS, LEVELS, DESCENT_LABELS } from "../core/plan.js";
 import { TERRAIN, SCENARIOS } from "../core/model.js";
 import { planToMarkdown } from "../core/markdown.js";
 import { watchPanelHtml, mountWatch, watchPoints, downloadCourse } from "./watch.js";
-import { prepHeroHtml, prepSectionHtml, initPrepRun } from "./preprun.js";
+import { prepHeroHtml, initPrepRun } from "./preprun.js";
 import { mmss, hm, clock, parseDuration } from "../core/format.js";
 import { keyZones, toblerClock } from "../core/keyzones.js";
 import { secAtKm } from "../core/script.js";
@@ -62,8 +65,11 @@ const PHOTOS = {
 };
 const credit = (key, cls = "") => `<a class="photo-credit${cls ? " " + cls : ""}" href="${PHOTOS[key].url}" target="_blank" rel="noopener">Photo: ${PHOTOS[key].by} / Pexels</a>`;
 const head = (num, kicker, title, key = "s" + Number(num)) => `<header class="sec-head"><div class="sec-num">${num}</div><div class="sec-kicker">${kicker}</div><h2>${title}</h2>${PHOTOS[key] ? credit(key) : ""}</header>`;
-const NAV = [["s1", "01", "Engine"], ["s2", "02", "Briefing"], ["s3", "03", "D-day"], ["s4", "04", "Race day"], ["s5", "▶", "My run"]];
-const MODE_SEG = `<div class="seg mode-seg" role="group" aria-label="Mode"><button type="button" data-mode="plan">Plan a race</button><button type="button" data-mode="prep">Prep my run</button><button type="button" data-mode="run">Review a run</button></div>`;
+const NAV = [["s1", "01", "Engine"], ["s2", "02", "Briefing"], ["s3", "03", "D-day"], ["s4", "04", "Race day"], ["s-prep", "◆", "Prep my run"], ["s5", "▶", "See my run"]];
+/** The modes, in switch order: data-mode value, label, and the class that only it shows. */
+const MODES = [["plan", "Prep my race", "plan-only"], ["prep", "Prep my run", "prep-only"], ["run", "See my run", "review-only"]];
+const navClass = (id) => (id === "s5" ? "review-only" : id === "s-prep" ? "prep-only" : "plan-only");
+const MODE_SEG = `<div class="seg mode-seg" role="group" aria-label="Mode">${MODES.map(([m, label]) => `<button type="button" data-mode="${m}">${label}</button>`).join("")}</div>`;
 
 $("#app").innerHTML = `
 <header class="hero" id="top">
@@ -73,7 +79,7 @@ $("#app").innerHTML = `
     ${prepHeroHtml(PEAK)}
     <div class="hero-row review-only">
       <div>
-        <div class="brand">${PEAK}Trail Race Planner · My run</div>
+        <div class="brand">${PEAK}Trail Race Planner · See my run</div>
         <h1 style="margin-top:14px">Relive the run.<br><em>Learn from it.</em></h1>
         <p class="lead">Drop the GPX of a run you just did. It plays back on the map at your real pace, and the planner finds the key moments: where you were strong, where it cost you, where you stopped, when you faded. Your file never leaves this page.</p>
       </div>
@@ -115,14 +121,13 @@ $("#app").innerHTML = `
 <nav class="topnav" id="topnav" aria-label="Sections">
   <div class="topnav-in">
     <a class="tn-brand" href="#top" aria-label="Back to top">${PEAK}</a>
-    <div class="tn-links">${NAV.map(([id, n, t]) => `<a href="#${id}" data-sec="${id}" class="${id === "s5" ? "review-only" : "plan-only"}"><b>${n}</b>${t}</a>`).join("")}</div>
+    <div class="tn-links">${NAV.map(([id, n, t]) => `<a href="#${id}" data-sec="${id}" class="${navClass(id)}"><b>${n}</b>${t}</a>`).join("")}</div>
     <div class="tn-sum plan-only" id="tnSum"></div>
-    <div class="tn-sum review-only"><span id="tnRun"></span><button class="btn ghost sm" type="button" data-mode="plan">Plan a race</button></div>
+    <div class="tn-sum review-only"><span id="tnRun"></span><button class="btn ghost sm" type="button" data-mode="plan">Prep my race</button></div>
+    <div class="tn-sum prep-only"><button class="btn ghost sm" type="button" data-mode="plan">Prep my race</button></div>
   </div>
   <div class="tn-prog" aria-hidden="true"><i id="tnProg"></i></div>
 </nav>
-
-${prepSectionHtml(head("▶", "From your GPX", "Prep my run", "none"))}
 
 <section id="s1" class="plan-only">
   ${head("01", "From your run", "Your engine")}
@@ -142,6 +147,7 @@ ${prepSectionHtml(head("▶", "From your GPX", "Prep my run", "none"))}
   <div class="panel">
     <div class="fields">
       <label class="f">Start time<input type="time" id="startTime"></label>
+      <label class="f">Targeted duration (optional)<input type="text" id="targetTime" inputmode="numeric" placeholder="h:mm, for example 10:15" autocomplete="off"><span class="hint">The planner says if your runs back it up.</span></label>
       <label class="f">Terrain on race day
         <select id="terrain">${Object.entries(TERRAIN).map(([k, v]) => `<option value="${k}">${esc(v.label)}</option>`).join("")}</select>
       </label>
@@ -170,8 +176,14 @@ ${prepSectionHtml(head("▶", "From your GPX", "Prep my run", "none"))}
   <div id="s4body"></div>
 </section>
 
+<section id="s-prep" class="prep-only">
+  ${head("◆", "Before the run", "Prep my run", "s4")}
+  <p class="sec-intro">The run you are about to do, read like a race course: every climb and descent, with the GPX given back carrying those details for your watch.</p>
+  <div id="sPrepBody"><div class="empty">Drop the GPX of your next run above, or try the sample run.</div></div>
+</section>
+
 <section id="s5" class="review-only">
-  ${head("▶", "After the run", "My run", "s5")}
+  ${head("▶", "After the run", "See my run", "s5")}
   <p class="sec-intro">Your run played back at its real pace. The bar, the map and the profile are coloured by how you ran each stretch compared with your own average on the same kind of ground; each key moment stops the replay and says what it means.</p>
   <div id="s5body"></div>
 </section>
@@ -181,10 +193,11 @@ ${analyticsOn ? `<p class="foot">Visits are counted anonymously with ${analytics
 `;
 
 /* ---------- settings form ---------- */
-const FIELDS = ["startTime", "terrain", "maxHr", "gelEveryMin", "aidStations", "checkpointKm", "hikeGrade", "enduranceExp", "halfLifeDays", "descentBoost"];
+const FIELDS = ["startTime", "targetTime", "terrain", "maxHr", "gelEveryMin", "aidStations", "checkpointKm", "hikeGrade", "enduranceExp", "halfLifeDays", "descentBoost"];
 function writeSettings() {
   const s = state.settings;
   $("#startTime").value = s.startTime;
+  $("#targetTime").value = s.targetTime || "";
   $("#terrain").value = s.terrain;
   $("#maxHr").value = s.maxHr ?? "";
   $("#gelEveryMin").value = s.gelEveryMin;
@@ -200,6 +213,7 @@ function readSettings() {
   state.settings = {
     ...state.settings,
     startTime: $("#startTime").value || "09:00",
+    targetTime: $("#targetTime").value.trim(),
     terrain: $("#terrain").value,
     maxHr: n("maxHr"),
     gelEveryMin: n("gelEveryMin") || 45,
@@ -602,6 +616,25 @@ function renderDday() {
   const logKey = `trp.log.${(state.race && state.race.name) || "race"}.${plan.course.totalKm.toFixed(1)}`;
   const logMode = store.get("trp.logMode") || "race";
 
+  const target = judgeTarget(plan, parseDuration(state.settings.targetTime));
+  const TARGET = {
+    "out-of-reach": ["Not backed by your runs", "bad", "More than 5% faster than your best-case scenario: nothing in your reference runs shows that speed on this course. Aim for a time inside the scenario range, or add a faster recent run."],
+    ambitious: ["Ambitious", "warn", "Faster than your best-case scenario but within the model's margin: it needs a great day, a fast course and no mistakes."],
+    realistic: ["Realistic", "good", "Inside the range of your three scenarios: your runs say you can do it."],
+    comfortable: ["Comfortable", "good", "Slower than your cautious scenario: you have margin. Keep it as a safe goal, or aim a little higher."],
+  };
+  const targetHtml = target ? (() => {
+    const [title, tone, why] = TARGET[target.verdict];
+    const pct = target.vsCentralPct;
+    return `<div class="panel target-card t-${tone}" id="d-target">
+      <div class="tg-h"><span class="k">Targeted duration</span><b>${hm(target.targetSec)}</b><span class="chip tg-chip">${title}</span></div>
+      <p>${why}</p>
+      <ul class="kv"><li><span>Versus your central scenario (${hm(plan.scenarios.central.finishSec)})</span><b>${Math.abs(pct) < 0.5 ? "the same" : `${Math.abs(pct).toFixed(1)}% ${pct > 0 ? "faster" : "slower"}`}</b></li>
+      <li><span>Average pace it needs, stops included</span><b>${mmss(target.paceSec)}/km <small>central ${mmss(target.centralPaceSec)}/km</small></b></li>
+      <li><span>Scenario range</span><b>${hm(plan.scenarios.best.finishSec)} to ${hm(plan.scenarios.cautious.finishSec)}</b></li></ul>
+    </div>`;
+  })() : state.settings.targetTime ? `<div class="panel target-card t-warn" id="d-target"><p>Write the targeted duration as hours:minutes, for example 10:15.</p></div>` : "";
+
   out.innerHTML = `
   ${jumps([["d-key", "★ Key zones"], ["d-card", "Race card"], ["d-climbs", "Climb by climb"], ["d-log", "Plan versus actual"], ["d-watch", "Watch messages"], ["d-export", "Export"], ["rpCockpit", "▶ Rehearse race day", "go"]])}
   <div class="dday-top">
@@ -611,6 +644,7 @@ function renderDday() {
       <p class="note" style="margin:0">Race pace is ${((sc.factor - 1) * 100).toFixed(0)}% slower than your run on the same gradients: terrain factor plus the fade for a longer effort. Every clock time on this page follows the scenario you pick.</p>
     </div>
   </div>
+  ${targetHtml}
   <div class="prof-wrap">${profileView(plan.course.profile, brief, { ...sc, startSec: st, aid: aidMarks }, plan.keyZones).html}
     <div class="legend" style="margin-top:10px"><span class="note" style="margin:0">Red dots: gels. Triangles: aid stations. Dotted lines: checkpoints. Shaded bands ★: key zones, where the race is played.</span></div>
   </div>
@@ -699,7 +733,7 @@ function renderReplay() {
 // band across the middle of the viewport, without listening to every scroll event.
 function renderNav() {
   const plan = state.plan;
-  const ready = { s1: Boolean(state.effort), s2: Boolean(state.race), s3: Boolean(plan), s4: Boolean(plan), s5: Boolean($("#rvCockpit")) };
+  const ready = { s1: Boolean(state.effort), s2: Boolean(state.race), s3: Boolean(plan), s4: Boolean(plan), s5: Boolean($("#rvCockpit")), "s-prep": Boolean($("#sPrepBody .prep-ready")) };
   document.querySelectorAll(".tn-links a").forEach((a) => a.classList.toggle("ready", ready[a.dataset.sec]));
   const sum = $("#tnSum");
   if (plan) {
@@ -810,10 +844,12 @@ function copyText(text) {
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
   else fallback();
 }
-/* ---------- mode: plan a race, or review a run ---------- */
-// The mode lives in the address (?mode=run), so a link or a refresh opens the same one.
+/* ---------- mode: prep my race, prep my run, see my run ---------- */
+// The mode lives in the address (?mode=prep or ?mode=run; none for Prep my race), so a link or a
+// refresh opens the same one. Other modules can follow the switch through the "trp-mode" event.
+const modeOf = (m) => (MODES.some(([id]) => id === m) ? m : "plan");
 function setMode(mode, track = true) {
-  const m = mode === "run" || mode === "prep" ? mode : "plan";
+  const m = modeOf(mode);
   document.documentElement.dataset.mode = m;
   document.querySelectorAll("button[data-mode]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === m)));
   if (m !== "plan") stopReplay();
@@ -821,9 +857,10 @@ function setMode(mode, track = true) {
   if (m === "plan") renderReplay();
   try {
     const u = new URL(window.location.href);
-    if (m !== "plan") u.searchParams.set("mode", m); else u.searchParams.delete("mode");
+    if (m === "plan") u.searchParams.delete("mode"); else u.searchParams.set("mode", m);
     window.history.replaceState(null, "", u);
   } catch (e) { /* file:// or a sandboxed frame */ }
+  document.dispatchEvent(new CustomEvent("trp-mode", { detail: { mode: m } }));
   if (track) trackEvent("mode", m);
 }
 document.querySelectorAll("button[data-mode]").forEach((b) => b.addEventListener("click", () => { setMode(b.dataset.mode); window.scrollTo({ top: 0 }); }));
@@ -833,6 +870,6 @@ initRunMode({ onLoaded: (run) => {
 } });
 
 compute();
-initPrepRun({ getRuns: () => (state.effort ? state.effort.runs.map((r) => r.parsed) : []), getSettings: () => state.settings });
+initPrepRun({ getRuns: () => (state.effort ? state.effort.runs.map((r) => r.parsed) : []), getSettings: () => state.settings, onLoaded: () => renderNav() });
 setMode(new URLSearchParams(window.location.search).get("mode"), false);
 startAnalytics();
