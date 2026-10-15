@@ -16,7 +16,7 @@ Your files are read on your own machine. Nothing is uploaded.
 
 **My account** (the round icon at the top right) keeps a run log on this device: every run you open in Check my run, or add to Your runs in Prep my race, is summarised (about 1 KB: date, distance, climbing, best 1, 5 and 10 km, climbing speed, fade, heart drift) and stored in the browser's IndexedDB. The menu shows your last 12 months, all-time bests, last runs, achievements and the **cairns** they earn. Sample and demo runs are not stored. Export my data downloads the log as JSON; Delete my runs empties it.
 
-**Online account (optional).** Signing in with an email link keeps the run log and the cairns in your account (Supabase, EU). The server recomputes the achievements from your runs and pays each one once; 1 cairn buys 1 AI analysis of your whole log: Claude reads one line per run (no names, no GPS points) and returns new KPIs, strengths, what to work on and the next weeks. A cairn is refunded if the analysis fails. Setup: [supabase/SETUP.md](supabase/SETUP.md). Off while `CLOUD` in `src/ui/cloud.js` is empty.
+**Online account (optional).** Signing in with an email link keeps the run log and the cairns in your account (Supabase, EU). The server recomputes the achievements from your runs and pays each one once; 1 cairn buys 1 AI analysis of your whole log: Claude reads one line per run (no names, no GPS points) and returns new KPIs, strengths, what to work on and the next weeks. A cairn is refunded if the analysis fails. Setup: [supabase/SETUP.md](supabase/SETUP.md). Not open yet: writes are closed in the app (`CLOUD.open` in `src/ui/cloud.js`) and in the database (`writes_open()`), so nothing is sent or stored.
 
 ## Use it
 

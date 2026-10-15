@@ -95,3 +95,15 @@ test("the AI request is built from the digest and asks for the app's JSON shape"
   assert.ok(r.messages[0].content.includes("max heart rate 188"));
   assert.ok(!("thinking" in r) && !("temperature" in r));
 });
+
+test("online writes are closed until the account opens", async () => {
+  const { CLOUD, cloudOn } = await import("../src/ui/cloud.js");
+  assert.equal(CLOUD.open, false);
+  const saved = { ...CLOUD };
+  Object.assign(CLOUD, { url: "https://x.supabase.co", anonKey: "k" });
+  assert.equal(cloudOn(), false, "a filled URL alone must not switch the online part on");
+  Object.assign(CLOUD, saved);
+  const sql = readFileSync(new URL("../supabase/migrations/20261015220000_accounts.sql", import.meta.url), "utf8");
+  assert.match(sql, /function public\.writes_open\(\)[^;]*select false/);
+  for (const t of ["runs", "cairn_ledger", "ai_jobs"]) assert.match(sql, new RegExp(`before insert or update on public\\.${t} for each row execute function public\\.refuse_closed_writes`));
+});

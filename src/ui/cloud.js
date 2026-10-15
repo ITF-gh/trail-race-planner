@@ -6,17 +6,19 @@
 //   Functions /functions/v1/...  server code for what the browser must not do itself: paying out
 //                                cairns, spending one on an AI analysis, deleting the account
 //
-// The whole online part stays OFF while CLOUD.url is empty: the app then works exactly as
-// before, with the run log on this device only.
+// The whole online part stays OFF while CLOUD.url is empty or CLOUD.open is false: the app then
+// works exactly as before, with the run log on this device only, and sends nothing (no sign-in,
+// no run, no cairn). The database has its own lock too (writes_open() in the migration).
 
 export const CLOUD = {
   url: "", // e.g. "https://abcdefghijkl.supabase.co" (Project settings > API)
   anonKey: "", // the "anon public" key: safe to publish, Row Level Security does the protecting
+  open: false, // writes not open yet: set to true only when the account opens (supabase/SETUP.md)
 };
 
 const CL_SESSION = "trp.session";
 
-export const cloudOn = () => Boolean(CLOUD.url && CLOUD.anonKey);
+export const cloudOn = () => Boolean(CLOUD.url && CLOUD.anonKey && CLOUD.open);
 
 function clRead() { try { return JSON.parse(localStorage.getItem(CL_SESSION) || "null"); } catch (e) { return null; } }
 function clWrite(s) { try { if (s) localStorage.setItem(CL_SESSION, JSON.stringify(s)); else localStorage.removeItem(CL_SESSION); } catch (e) { /* private mode: signed in for this visit only */ } }

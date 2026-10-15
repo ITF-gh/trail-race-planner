@@ -84,3 +84,21 @@ end;
 $$;
 revoke all on function public.spend_cairn(uuid, uuid) from public;
 grant execute on function public.spend_cairn(uuid, uuid) to service_role;
+
+-- 5. Writes are CLOSED until the account opens. Every insert or update on the three tables goes
+-- through this trigger, which refuses it while writes_open() is false. Triggers also apply to the
+-- service role (unlike RLS), so neither the browser nor the server functions can store anything.
+-- To open, run once:  create or replace function public.writes_open() returns boolean
+--                     language sql stable as $$ select true $$;
+create or replace function public.writes_open() returns boolean language sql stable as $$ select false $$;
+create or replace function public.refuse_closed_writes() returns trigger language plpgsql as $$
+begin
+  if not public.writes_open() then
+    raise exception 'The online account is not open yet' using errcode = 'P0001';
+  end if;
+  return new;
+end;
+$$;
+create trigger runs_closed before insert or update on public.runs for each row execute function public.refuse_closed_writes();
+create trigger ledger_closed before insert or update on public.cairn_ledger for each row execute function public.refuse_closed_writes();
+create trigger ai_jobs_closed before insert or update on public.ai_jobs for each row execute function public.refuse_closed_writes();
