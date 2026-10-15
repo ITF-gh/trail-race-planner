@@ -55,6 +55,7 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
     if (inMode()) cockpit(box, st.plan, st.key); else box.innerHTML = "";
   };
   document.addEventListener("trp-mode", showCockpit);
+  document.addEventListener("trp-theme", showCockpit); // redraw so the map takes the new tiles
 
   const load = (xml, label) => {
     try {

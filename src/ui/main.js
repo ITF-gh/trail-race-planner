@@ -265,6 +265,7 @@ $("#themeBtn").addEventListener("click", () => {
   applyTheme(t); store.set(THEME_KEY, t); trackEvent("theme", t);
   // Maps pick their tiles when they are drawn: redraw so they follow the theme.
   compute();
+  document.dispatchEvent(new CustomEvent("trp-theme", { detail: { theme: t } }));
 });
 
 
@@ -806,6 +807,10 @@ function renderPimp() {
 
 /* ---------- 04 race day replay ---------- */
 function renderReplay() {
+  // Only on screen in Prep my race: drawing it in another mode would take the one map and
+  // animation away from the cockpit that is showing (Prep my run). setMode draws it on the way back.
+  const mode = document.documentElement.dataset.mode;
+  if (mode && mode !== "plan") return;
   const box = $("#s4body");
   const plan = state.plan;
   if (!plan) {
