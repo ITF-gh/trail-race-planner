@@ -345,7 +345,7 @@ export function mountRun(box, run) {
       const row = (k, sec, id) => `<tr><th>${k}</th><td>${sec}</td><td class="now" id="${id}"></td></tr>`;
       els.leg.innerHTML = `
         <div class="rp-leg-h"><span class="rp-leg-n"><small>Section</small><b>${l.i}</b><small>/ ${legs.length}</small></span>
-          <span class="rp-leg-t"><b>${rvEsc(l.title)}</b>${legChip(l)}</span></div>
+          <span class="rp-leg-t"><b>${rvEsc(l.title)}</b>${legChip(l)}<span class="rp-leg-len">${(l.endKm - l.startKm).toFixed(1)} km</span></span></div>
         <div class="rp-leg-info">
           <p class="k-${l.kind}"><span class="ic">${RV_ICON[l.kind] || "➜"}</span><b>${l.vsPct ? `${Math.abs(l.vsPct)}% ${l.vsPct > 0 ? "faster" : "slower"} than your average` : "On your average"} on ${KIND[l.kind]}</b><span class="d">${rvLegData(l)}</span></p>
           <p class="nx ${n ? `k-${n.kind}` : ""}"><span class="lab">Next</span>${n ? `<span class="ic">${RV_ICON[n.kind] || "➜"}</span><b>${n.i}. ${rvEsc(n.title)}</b><span class="d">${rvLegData(n)}</span>` : `<span class="ic">${RV_ICON.finish}</span><b>Finish</b>`}</p>
