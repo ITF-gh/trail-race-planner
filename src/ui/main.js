@@ -47,23 +47,25 @@ const state = {
 const PEAK = `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M2 27 12 9l5 8 4-5 9 15z" fill="currentColor"/><path d="m12 9 2.6 4.6L12 12l-2 2.2z" fill="#fff" opacity=".85"/></svg>`;
 // Photos come from Pexels (free licence: use and edit allowed, credit appreciated). The files sit
 // in src/ui/photos and are copied next to index.html at build; style.css points the slots at them.
+// Plan mode keeps the nature and adventure look; "Review a run" mode gets sport shots. No face is
+// recognisable in any of them: people are seen from behind, far away or as silhouettes.
 const PHOTOS = {
-  hero: { by: "VANNGO Ng", url: "https://www.pexels.com/photo/mountain-runner-in-scenic-landscape-33874841/" },
-  heroPortrait: { by: "VANNGO Ng", url: "https://www.pexels.com/photo/trail-runner-in-mountainous-landscape-adventure-33874842/" },
-  s1: { by: "Boris Hamer", url: "https://www.pexels.com/photo/man-running-in-mountains-18647829/" },
-  s2: { by: "Ozan Yavuz", url: "https://www.pexels.com/photo/female-runner-in-scenic-izmir-mountains-landscape-31238485/" },
-  s3: { by: "Cristian Camilo Estrada", url: "https://www.pexels.com/photo/trail-runners-enjoying-a-forest-race-32132278/" },
-  s4: { by: "RUN 4 FFWPU", url: "https://www.pexels.com/photo/a-man-running-in-a-field-9790263/" },
-  s5: { by: "RUN 4 FFWPU", url: "https://www.pexels.com/photo/trail-runner-on-scenic-mountain-path-35599353/" },
+  hero: { by: "Artem Meletov", url: "https://www.pexels.com/photo/person-standing-on-mountain-peak-above-clouds-8910505/" },
+  heroRun: { by: "Cara Denison", url: "https://www.pexels.com/photo/silhouette-of-jogger-at-sunset-in-park-34730429/" },
+  s1: { by: "Hobi Photography", url: "https://www.pexels.com/photo/hiker-with-flashlight-looking-at-starry-night-sky-27790902/" },
+  s2: { by: "Elina Volkova", url: "https://www.pexels.com/photo/misty-forest-path-in-dense-woodland-29579873/" },
+  s3: { by: "Jack Davis", url: "https://www.pexels.com/photo/back-view-of-a-woman-running-up-the-mountain-trail-8949023/" },
+  s4: { by: "Lorenzo Castellino", url: "https://www.pexels.com/photo/man-walking-at-a-river-in-mountains-14989443/" },
+  s5: { by: "Alin Serban", url: "https://www.pexels.com/photo/trail-runner-in-green-mountain-landscape-30932860/" },
 };
-const credit = (key) => `<a class="photo-credit" href="${PHOTOS[key].url}" target="_blank" rel="noopener">Photo: ${PHOTOS[key].by} / Pexels</a>`;
+const credit = (key, cls = "") => `<a class="photo-credit${cls ? " " + cls : ""}" href="${PHOTOS[key].url}" target="_blank" rel="noopener">Photo: ${PHOTOS[key].by} / Pexels</a>`;
 const head = (num, kicker, title, key = "s" + Number(num)) => `<header class="sec-head"><div class="sec-num">${num}</div><div class="sec-kicker">${kicker}</div><h2>${title}</h2>${PHOTOS[key] ? credit(key) : ""}</header>`;
 const NAV = [["s1", "01", "Engine"], ["s2", "02", "Briefing"], ["s3", "03", "D-day"], ["s4", "04", "Race day"], ["s5", "▶", "My run"]];
 const MODE_SEG = `<div class="seg mode-seg" role="group" aria-label="Mode"><button type="button" data-mode="plan">Plan a race</button><button type="button" data-mode="run">Review a run</button></div>`;
 
 $("#app").innerHTML = `
 <header class="hero" id="top">
-  ${credit("hero")}
+  ${credit("hero", "plan-only")}${credit("heroRun", "review-only")}
   <div class="hero-in">
     ${MODE_SEG}
     <div class="hero-row review-only">

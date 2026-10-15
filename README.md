@@ -101,10 +101,13 @@ The map uses [Leaflet](https://leafletjs.com) with tiles from [OpenStreetMap](ht
 
 ## Photos
 
-The hero and section banners use free photos from [Pexels](https://www.pexels.com/license/), credited on the page:
-trail runners in action with the mountains around them: VANNGO Ng (hero and phone hero, Nepal), Boris Hamer (01),
-Ozan Yavuz (02, İzmir), Cristian Camilo Estrada (03, a forest race), RUN 4 FFWPU (04 and My run).
-They live in `src/ui/photos/` as WebP files (1920×995 hero, 900×1200 phone hero, 1600×600 banners), and
-the build copies them to `dist/photos/`. Swap a file to change a photo. On wide screens a banner photo
-fills the right 64% of the banner at its own height (`--photo-y` sets which part shows), so the runner is
-not cut in half behind the title. Earlier, more "adventure" photos are on branch `restore/v0.18-before-sport-photos`.
+The hero and section banners use free photos from [Pexels](https://www.pexels.com/license/), credited on the page.
+No face is recognisable in any of them: people are seen from behind, far away or as silhouettes.
+"Plan a race" keeps a nature and adventure look: Artem Meletov (hero, a summit above the clouds),
+Hobi Photography (01), Elina Volkova (02), Jack Davis (03) and Lorenzo Castellino (04).
+"Review a run" switches to sport shots: Cara Denison (hero, a runner at sunset) and Alin Serban (My run).
+They live in `src/ui/photos/` as WebP files, and the build copies them to `dist/photos/`. Swap a file to
+change a photo. The run-mode hero is set in CSS with `html[data-mode="run"]{--photo-hero:...}`, so the
+mode switch changes it with no script. On wide screens a banner photo fills the right 64% of the banner at
+its own height (`--photo-y` sets which part shows), so the runner is not cut in half behind the title.
+The all-sport version (v0.18) is on branch `restore/v0.19-before-mode-photos`.
