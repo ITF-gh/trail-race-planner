@@ -19,7 +19,7 @@
 // The record times come from the plan, so the watch's Virtual Partner runs at your plan pace.
 // Field numbers and the course point icon list come from Garmin's FIT SDK (Profile 21.x).
 
-import { raceLegs, secAtKm } from "./script.js";
+import { raceLegs, secAtKm, raceStateAt } from "./script.js";
 import { haversine } from "./track.js";
 import { clock } from "./format.js";
 
@@ -73,7 +73,10 @@ function keyShort(z) {
   }
 }
 
-const SPACING_KM = 0.025; // points closer than 25 m are pushed apart so each one gets its alert
+// Two alerts need time to be read: each point comes at least 200 m and 1 minute (at plan pace)
+// after the one before, pushed further along the course if needed.
+export const MIN_GAP_M = 200;
+export const MIN_GAP_SEC = 60;
 
 /**
  * Course points for scenario `sid`, in course order: {km, type, name, text}.
@@ -99,7 +102,11 @@ export function coursePoints(plan, sid) {
   });
   pts.sort((a, b) => a.km - b.km || a.order - b.order);
   const total = plan.course.totalKm;
-  for (let i = 1; i < pts.length; i++) pts[i].km = Math.max(pts[i].km, pts[i - 1].km + SPACING_KM);
+  for (let i = 1; i < pts.length; i++) {
+    const prev = pts[i - 1].km;
+    const oneMin = raceStateAt(plan, sid, secAtKm(plan, sid, prev) + MIN_GAP_SEC).km; // where you are a minute later
+    pts[i].km = Math.max(pts[i].km, prev + MIN_GAP_M / 1000, oneMin);
+  }
   return pts.map(({ order, ...p }) => ({ ...p, km: Math.min(p.km, total) }));
 }
 

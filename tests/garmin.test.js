@@ -2,8 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { parseGpx } from "../src/core/track.js";
 import { buildPlan } from "../src/core/plan.js";
-import { raceLegs } from "../src/core/script.js";
-import { coursePoints, courseFit, courseGpx, fitCrc, pointName, POINT_NAME_MAX } from "../src/core/garmin.js";
+import { raceLegs, secAtKm } from "../src/core/script.js";
+import { coursePoints, courseFit, courseGpx, fitCrc, pointName, POINT_NAME_MAX, MIN_GAP_M, MIN_GAP_SEC } from "../src/core/garmin.js";
 import { makeDemoRaceGpx, makeDemoEffortGpx, DEMO_ULTRA_PROFILE, DEMO_ULTRA_AID, DEMO_LONG_RUN_PROFILE } from "../src/demo.js";
 
 const ultra = parseGpx(makeDemoRaceGpx(DEMO_ULTRA_PROFILE, { startEle: 650, loop: true, center: [45.05, 5.7] }));
@@ -21,7 +21,10 @@ test("course points: facts then strategy for every section, two per key zone, sh
   }
   for (const z of plan.keyZones) assert.equal(pts.filter((p) => p.name.startsWith(`K${z.n} `)).length, 2);
   for (const p of pts) assert.ok(p.name.length <= POINT_NAME_MAX && /^[\x20-\x7e]+$/.test(p.name), p.name);
-  for (let i = 1; i < pts.length; i++) assert.ok(pts[i].km > pts[i - 1].km, "points are in course order and apart");
+  for (let i = 1; i < pts.length; i++) {
+    assert.ok((pts[i].km - pts[i - 1].km) * 1000 >= MIN_GAP_M - 0.5, `${pts[i].name} at least 200 m after ${pts[i - 1].name}`);
+    assert.ok(secAtKm(plan, "central", pts[i].km) - secAtKm(plan, "central", pts[i - 1].km) >= MIN_GAP_SEC - 0.5, `${pts[i].name} at least 1 min after the point before`);
+  }
   assert.equal(pointName("Crêtes  très longues à mourir"), "Cretes  tres lo");
 });
 
