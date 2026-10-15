@@ -610,7 +610,6 @@ svg .rv-pin-p.good line{stroke:#6fe08f} svg .rv-pin-p.bad line{stroke:#ff5a6e}
 svg .rv-pin-p.good circle{fill:#1f8a43} svg .rv-pin-p.bad circle{fill:#c4102a}
 svg .rv-pin-p text{fill:#fff;font-weight:800;font-size:13px}
 /* the review cue carries a tip: let it run its full length where the panel has room */
-@media (min-width:901px){ .rv-cockpit .rp-cue.rv-cue p{display:block;-webkit-line-clamp:unset;overflow:visible} }
 @media (max-width:900px){ .rv-cockpit .rp-cue.rv-cue p em{display:none} .rv-meta{font-size:12.5px;margin-bottom:6px} }
 @media (max-width:640px){ html[data-mode="run"] .tn-sum.review-only,html[data-mode="prep"] .tn-sum.prep-only{display:flex;gap:6px} }
 /* Wide screens: the banner is about 6:1, so a cover photo would show a thin strip with the runner
@@ -658,3 +657,24 @@ svg .rv-pin-p text{fill:#fff;font-weight:800;font-size:13px}
 .rv-tgt-all .rp-tg td{font-size:14px}
 .rp-tot small .rv-b,.rp-tot small .rv-g{font-weight:700}
 @media (max-width:640px){ .rv-tgt-all .rp-tg th:last-child,.rv-tgt-all .rp-tg td:last-child{display:none} }
+
+/* ---------- section card: strategy line, fixed table columns ---------- */
+/* Under the section title: the section's strategy with its pictogram, then the next section.
+   The moment cue below the card keeps only its title line (the full text is its tooltip). */
+.rp-leg-strat{display:flex;align-items:center;gap:8px;min-width:0;margin:2px 0 8px;padding:6px 8px;border-radius:8px;background:rgba(255,255,255,.05);font-size:13px;white-space:nowrap}
+.rp-leg-strat .ic{flex:none;display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--sun);color:#1a1300;font-size:12px;font-weight:800}
+.rp-leg-strat.k-descent .ic{background:#7b8db3;color:#fff} .rp-leg-strat.k-flat .ic{background:rgba(255,255,255,.2);color:var(--fg)}
+.rp-leg-strat>b{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;font-weight:700}
+.rp-leg-strat .nx{flex:0 1 auto;max-width:55%;min-width:0;overflow:hidden;text-overflow:ellipsis;text-align:right;color:var(--muted)} .rp-leg-strat .nx b{color:var(--fg);font-weight:600}
+.rp-cockpit .rp-cue p,.rp-cockpit .rp-next{display:none}
+.rp-cockpit .rp-cue{align-items:center;cursor:help}
+/* Fixed columns: label, target, now. Nothing wraps; a long note is cut with an ellipsis. */
+.rp-tg{table-layout:fixed}
+.rp-tg th:first-child{width:36%} .rp-tg thead th:nth-child(2){width:30%}
+.rp-tg th,.rp-tg td{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rp-tg tbody th{white-space:normal}
+@media (max-width:900px){
+  .rp-cockpit .rp-leg-strat{font-size:11.5px;margin:0 0 4px;padding:4px 6px;gap:6px} .rp-cockpit .rp-leg-strat .ic{width:20px;height:20px;font-size:10px}
+  .rp-cockpit .rp-tg tr{grid-template-columns:52px minmax(0,1fr)}
+  .rp-cockpit .rp-tg tbody th{width:52px}
+}

@@ -270,8 +270,8 @@ export function mountRun(box, run) {
       const row = (k, sec, id) => `<tr><th>${k}</th><td>${sec}</td><td class="now" id="${id}"></td></tr>`;
       els.leg.innerHTML = `
         <div class="rp-leg-h"><span class="rp-leg-n"><small>Section</small><b>${l.i}</b><small>/ ${legs.length}</small></span>
-          <span class="rp-leg-t"><b>${rvEsc(l.title)}</b>${legChip(l)}
-            <span class="rp-leg-sub">${n ? `<span class="nx">Next <b>${n.i}. ${rvEsc(n.title)}</b></span>` : `<span class="nx">Next <b>finish</b></span>`}</span></span></div>
+          <span class="rp-leg-t"><b>${rvEsc(l.title)}</b>${legChip(l)}</span></div>
+        <div class="rp-leg-strat k-${l.kind}"><span class="ic">${RV_ICON[l.kind] || "➜"}</span><b>${l.vsPct ? `${Math.abs(l.vsPct)}% ${l.vsPct > 0 ? "faster" : "slower"} than your average` : "On your average"} on ${KIND[l.kind]}</b><span class="nx">Next · ${n ? `<b>${n.i}. ${rvEsc(n.title)}</b>` : "<b>finish</b>"}</span></div>
         <table class="rp-tg">
           <thead><tr><th></th><th>Section</th><th class="now">Now</th></tr></thead>
           <tbody>
@@ -322,6 +322,7 @@ export function mountRun(box, run) {
       lastCue = ci;
       const e = moments[Math.max(0, ci)];
       els.cue.className = `rp-cue rv-cue rv-${e.tone}`;
+      els.cue.title = `${e.text}${e.tip ? ` ${e.tip}` : ""}`;
       els.cue.innerHTML = `<span class="ic">${RV_ICON[e.kind] || "•"}</span><div><div class="rp-cue-h"><b>${rvEsc(e.title)}</b><small>km ${e.km.toFixed(1)} · ${clock(st, e.sec)}</small></div><p>${rvEsc(e.text)}${e.tip ? ` <em>${rvEsc(e.tip)}</em>` : ""}</p></div>`;
       els.list.querySelectorAll("li").forEach((x) => { x.classList.toggle("on", Number(x.dataset.i) === ci); x.classList.toggle("past", Number(x.dataset.i) < ci); });
     }
