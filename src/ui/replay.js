@@ -18,13 +18,6 @@ import { courseMap } from "./map.js";
 import { mmss, hm, clock } from "../core/format.js";
 import { trackEvent, trackOnce } from "./analytics.js";
 
-/** Short names for the tactics of the briefing (plan.js), shown in the section header. */
-const RULES = {
-  "Hike": "Hike", "Hike the steep part": "Hike steep", "Biggest climb, steady": "Steady", "Run evenly, do not surge": "Run even",
-  "Run": "Run", "Steady": "Steady", "Let it run, recover": "Let it run", "Quick steps, stay light": "Quick steps",
-  "Brake, short steps": "Brake", "Run tall and relaxed, drink, eat on time": "Relaxed",
-};
-
 /**
  * The panel never scrolls: the "coming next" list keeps only the rows that fit in it.
  * Rows are shown again first, so a taller window gets them back.
@@ -171,8 +164,6 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key }) {
     if (rp.map) rp.map.highlight({ fromKm: l.startKm, toKm: l.endKm });
     els.legBtns.forEach((b, k) => { b.classList.toggle("on", k === li); b.classList.toggle("past", k < li); b.classList.toggle("nx", k === li + 1); });
   };
-  // The rule of the section in a word or two (the full tactic stays in its tooltip).
-  const ruleWord = (t) => RULES[t] || String(t || "").split(",")[0];
   const gradeTxt = (l) => `${l.avg > 0 ? "+" : ""}${l.avg.toFixed(1)}%`;
   // A runnable stretch says so in its title already: no chip repeating it.
   const legChip = (l) => (l.kind === "flat" ? "" : `<span class="chip l${l.level}">${escR(l.label)}</span>`);
@@ -203,7 +194,8 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key }) {
       els.leg.innerHTML = `
         <div class="rp-leg-h"><span class="rp-leg-n"><small>Section</small><b>${l.i}</b><small>/ ${legs.length}</small></span>
           <span class="rp-leg-t"><b>${escR(l.title)}</b>${legChip(l)}${l.keyZone ? ` <span class="chip keyc">★ Key zone ${l.keyZone.n}</span>` : ""}
-            <span class="rp-leg-sub"><span class="rule" title="${escR(l.tactic)}">${escR(ruleWord(l.tactic))}</span>${n ? `<span class="nx">Next <b>${n.i}. ${escR(n.title)}</b></span>` : `<span class="nx">Next <b>finish</b></span>`}</span></span></div>
+          </span></div>
+        <div class="rp-leg-strat k-${l.kind}"><span class="ic">${ICON[l.kind] || "➜"}</span><b title="${escR(l.tactic)}">${escR(l.tactic)}</b><span class="nx">Next · ${n ? `<b>${n.i}. ${escR(n.title)}</b>` : "<b>finish</b>"}</span></div>
         <table class="rp-tg">
           <thead><tr><th></th><th>Target</th><th class="now">Now</th></tr></thead>
           <tbody>
@@ -254,6 +246,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key }) {
       lastCue = ci;
       const e = script[Math.max(0, ci)];
       els.cue.className = `rp-cue k-${e.kind} lv${e.level}`;
+      els.cue.title = e.cue;
       els.cue.innerHTML = `<span class="ic">${ICON[e.kind] || "•"}</span><div><div class="rp-cue-h"><b>${escR(e.title)}</b><small>km ${e.km.toFixed(1)} · ${clock(st, e.sec)}</small></div><p>${escR(e.cue)}</p></div>`;
       els.list.querySelectorAll("li").forEach((li) => { li.classList.toggle("on", Number(li.dataset.i) === ci); li.classList.toggle("past", Number(li.dataset.i) < ci); });
     }
