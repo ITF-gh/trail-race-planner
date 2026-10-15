@@ -56,6 +56,28 @@ const rp = { key: "", sec: 0, playing: false, speed: 360, pauseAt: true, follow:
  * viewBox 1000 wide, with a `.pcur` group to move. `mapPaint` / `mapMarks` style the route.
  * `noun` names what plays ("Race", or "Run" in Prep my run).
  */
+/**
+ * Line the section bar up with the profile: pad `bar` so its km 0 and its finish sit right above
+ * the profile's own km 0 and finish. `x0`/`x1` are those two points in the SVG's viewBox units;
+ * getScreenCTM() turns them into screen pixels, whatever size the SVG is drawn at. Runs again
+ * whenever the profile is resized (window, phone rotation, a fold opening).
+ */
+export function alignBar(bar, svg, x0, x1) {
+  if (!bar || !svg || typeof svg.getScreenCTM !== "function") return;
+  const fit = () => {
+    const m = svg.getScreenCTM();
+    const r = bar.getBoundingClientRect();
+    if (!m || !r.width) return;
+    const left = m.a * x0 + m.e - r.left, right = r.right - (m.a * x1 + m.e);
+    // A profile scrolled sideways (wider than its box) cannot be matched: keep the full-width bar.
+    const ok = left >= 0 && right >= 0 && left + right < r.width / 2;
+    bar.style.paddingLeft = ok ? `${left.toFixed(1)}px` : "";
+    bar.style.paddingRight = ok ? `${right.toFixed(1)}px` : "";
+  };
+  fit();
+  if (typeof ResizeObserver === "function") new ResizeObserver(fit).observe(svg);
+}
+
 export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, noun = "Race" }) {
   stopReplay();
   if (rp.key !== key) { rp.key = key; rp.sec = 0; }
@@ -122,6 +144,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
   const els = { leg: $r("#rpLeg"), legNow: $r("#rpLegNow"), legPos: $r("#rpLegPos"), legBtns: [...box.querySelectorAll("#rpLegs .lg")], clock: $r("#rpClock"), el: $r("#rpElapsed"), bar: $r("#rpBar"), km: $r("#rpKm"), now: $r("#rpNow"), next: $r("#rpNext"), cue: $r("#rpCue"), play: $r("#rpPlay"), seek: $r("#rpSeek"), cur: $r("#rpProf .pcur"), list: $r("#rpScript") };
   // A window resize changes the room in the panel: fit the "coming next" list again.
   if (typeof ResizeObserver === "function") new ResizeObserver(() => fitPanel(els.next)).observe($r(".rp-hud"));
+  alignBar($r(".rp-legbar"), $r("#rpProf svg"), prof.x(0), prof.x(plan.course.totalKm));
   if (hasMap) {
     rp.map = courseMap($r("#rpMap"), { route: plan.course.route, totalKm: plan.course.totalKm, paint: mapPaint, marks: mapMarks });
     rp.map.follow(rp.follow && rp.sec > 0);
