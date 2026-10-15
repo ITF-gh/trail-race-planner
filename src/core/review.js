@@ -423,6 +423,92 @@ export function runMoments(run) {
 }
 
 /**
+ * The numbers of the run, for the "Your numbers" block: the steepest 100 m up and down, the
+ * fastest 200 m, 1 km and 5 km (on the clock, so a stop inside one counts), the best pace held
+ * for one minute, and the splits per km with their climbing. All of them are sliding windows on
+ * the 10 m samples: for a window of w samples, (T[i + w] - T[i]) is the time it took, and the
+ * best window is the smallest one, found in one pass.
+ */
+export function runStats(run) {
+  const { n, step, T, ele, M } = run;
+  const span = (m) => Math.max(1, Math.round(m / step));
+  const fastest = (m) => {
+    const w = span(m);
+    if (w >= n) return null;
+    let best = null;
+    for (let i = 0; i + w < n; i++) { const t = T[i + w] - T[i]; if (!best || t < best.sec) best = { sec: t, i }; }
+    return { m, sec: best.sec, pace: (best.sec / m) * 1000, km: (best.i * step) / 1000, toKm: ((best.i + w) * step) / 1000, startSec: T[best.i] };
+  };
+  const steep = (up) => {
+    const w = span(100);
+    if (w >= n) return null;
+    let best = null;
+    for (let i = 0; i + w < n; i++) { const d = ele[i + w] - ele[i]; if (!best || (up ? d > best.d : d < best.d)) best = { d, i }; }
+    const sec = T[best.i + w] - T[best.i];
+    return { grade: best.d, km: (best.i * step) / 1000, toKm: ((best.i + w) * step) / 1000, sec, pace: (sec / 100) * 1000, startSec: T[best.i] };
+  };
+  // Best pace held for one minute: two pointers, j the first sample one minute after i.
+  let best1 = null;
+  for (let i = 0, j = 0; i < n; i++) {
+    if (j < i) j = i;
+    while (j < n - 1 && T[j] - T[i] < 60) j++;
+    if (T[j] - T[i] < 60) break;
+    const pace = ((T[j] - T[i]) / ((j - i) * step)) * 1000;
+    if (!best1 || pace < best1.pace) best1 = { pace, km: (i * step) / 1000, startSec: T[i] };
+  }
+  let hi = 0, lo = 0;
+  for (let i = 1; i < n; i++) { if (ele[i] > ele[hi]) hi = i; if (ele[i] < ele[lo]) lo = i; }
+  const kmIdx = (k) => Math.min(n - 1, Math.round((k * 1000) / step));
+  const splits = run.splits.map((sp) => {
+    let up = 0, down = 0;
+    for (let i = kmIdx(sp.km - 1) + 1; i <= kmIdx(sp.km); i++) { const d = ele[i] - ele[i - 1]; if (d > 0) up += d; else down -= d; }
+    return { ...sp, up, down };
+  });
+  // The part after the last whole km, when it is at least 100 m.
+  const lastKm = splits.length;
+  if (run.totalKm - lastKm >= 0.1) {
+    const a = kmIdx(lastKm), o = run.over(a, n - 1);
+    let up = 0, down = 0;
+    for (let i = a + 1; i < n; i++) { const d = ele[i] - ele[i - 1]; if (d > 0) up += d; else down -= d; }
+    splits.push({ km: run.totalKm, part: run.totalKm - lastKm, sec: o.sec, pace: o.pace, gap: o.gap, speedEq: o.speedEq, hr: o.hr, stopSec: o.stopSec, up, down });
+  }
+  const moving = splits.filter((sp) => sp.pace);
+  return {
+    steepestUp: steep(true), steepestDown: steep(false),
+    fastest200: fastest(200), fastest1k: fastest(1000), fastest5k: run.totalKm >= 5 ? fastest(5000) : null,
+    best1min: best1,
+    avgPace: run.avgPace, movingPace: run.movingPace, gapPace: run.gapPace,
+    high: { ele: ele[hi], km: (hi * step) / 1000 }, low: { ele: ele[lo], km: (lo * step) / 1000 },
+    fastestSplit: moving.reduce((a, sp) => (!a || sp.pace < a.pace ? sp : a), null),
+    slowestSplit: moving.reduce((a, sp) => (!a || sp.pace > a.pace ? sp : a), null),
+    splits,
+    movingSec: M[n - 1],
+  };
+}
+
+/**
+ * Speed along the run for the pace line on the profile: one value per profile point (every
+ * 100 m), the moving speed over the 100 m around it (stops left out, so a stop does not drop
+ * the line to zero), then a 3-point moving average so the line does not jitter. Returns
+ * [{km, v (m/s), pace (s/km)}].
+ */
+export function runPaceLine(run) {
+  const { n, step, M } = run;
+  const half = Math.max(1, Math.round(50 / step));
+  const raw = run.profile.map(([km]) => {
+    const i = Math.min(n - 1, Math.round((km * 1000) / step));
+    const a = Math.max(0, i - half), b = Math.min(n - 1, i + half);
+    const mv = M[b] - M[a];
+    return { km, v: mv > 0 ? ((b - a) * step) / mv : 0 };
+  });
+  return raw.map((p, k) => {
+    const nb = raw.slice(Math.max(0, k - 1), k + 2).filter((q) => q.v > 0);
+    const v = nb.length ? nb.reduce((s, q) => s + q.v, 0) / nb.length : 0;
+    return { km: p.km, v, pace: v > 0 ? 1000 / v : null };
+  });
+}
+
+/**
  * Read a target typed by a person: a finish time ("3:15", "3h15", "3:15:00": hours and minutes) or
  * a pace per km ("6:30": minutes and seconds). Returns {kind, value} with value in seconds (total
  * time, or seconds per km), or null when the text is not a time.

@@ -9,7 +9,7 @@
 // glance shows where the run went well and where it cost you.
 
 import { parseGpx } from "../core/track.js";
-import { analyseRun, runStateAt, runLegAt, runSecAtKm, runTarget, parseTarget } from "../core/review.js";
+import { analyseRun, runStateAt, runLegAt, runSecAtKm, runTarget, parseTarget, runStats, runPaceLine } from "../core/review.js";
 import { courseMap } from "./map.js";
 import { fitPanel } from "./replay.js";
 import { mmss, hm, hms, clock } from "../core/format.js";
@@ -93,6 +93,52 @@ function rvTargetHtml(run, t) {
   </div>`;
 }
 
+/**
+ * "Your numbers": the records of the run as tiles (a click replays that moment), then the pace of
+ * every km as bars (taller = faster) with the full table folded underneath.
+ */
+function rvStatsHtml(run, st) {
+  const S = runStats(run);
+  const where = (o) => `km ${o.km.toFixed(1)} · ${clock(st, o.startSec)}`;
+  const tile = (k, key, v, sub, o) => `<button type="button" class="rv-st" data-k="${key}"${o ? ` data-sec="${Math.round(o.startSec)}"` : ""}><span class="k">${k}</span><b>${v}</b><small>${sub}</small></button>`;
+  const fast = (o, label, key) => (o ? tile(label, key, `${mmss(o.sec)}`, `${mmss(o.pace)}/km · ${where(o)}`, o) : "");
+  const tiles = [
+    tile("Average pace", "avg", `${mmss(S.avgPace)}<small>/km</small>`, `moving ${mmss(S.movingPace)} · grade-adj. ${mmss(S.gapPace)}`),
+    S.best1min ? tile("Best pace · 1 min", "best", `${mmss(S.best1min.pace)}<small>/km</small>`, where(S.best1min), S.best1min) : "",
+    fast(S.fastest200, "Fastest 200 m", "f200"),
+    fast(S.fastest1k, "Fastest 1 km", "f1k"),
+    fast(S.fastest5k, "Fastest 5 km", "f5k"),
+    S.steepestUp && S.steepestUp.grade > 0 ? tile("Steepest 100 m up", "up", `+${S.steepestUp.grade.toFixed(0)}<small>%</small>`, `${mmss(S.steepestUp.sec)} for 100 m · ${where(S.steepestUp)}`, S.steepestUp) : "",
+    S.steepestDown && S.steepestDown.grade < 0 ? tile("Steepest 100 m down", "down", `${S.steepestDown.grade.toFixed(0)}<small>%</small>`, `${mmss(S.steepestDown.sec)} for 100 m · ${where(S.steepestDown)}`, S.steepestDown) : "",
+    tile("Highest point", "high", `${Math.round(S.high.ele)}<small>m</small>`, `km ${S.high.km.toFixed(1)} · lowest ${Math.round(S.low.ele)} m`),
+  ].join("");
+  // Bars: one per km, height by speed so faster stands taller, from 85% of the slowest km.
+  const sp = S.splits.filter((x) => x.pace);
+  let bars = "";
+  if (sp.length > 1) {
+    const vmax = Math.max(...sp.map((x) => 1000 / x.pace)), vmin = Math.min(...sp.map((x) => 1000 / x.pace)) * 0.85;
+    const W = 1000, H = 120, top = 16, base = 96, gap = 2;
+    const bw = (W - 40) / sp.length;
+    const yv = (v) => base - ((v - vmin) / Math.max(1e-6, vmax - vmin)) * (base - top);
+    const avgV = 1000 / S.movingPace;
+    let svg = "";
+    sp.forEach((x, k) => {
+      const v = 1000 / x.pace, yy = yv(v), xx = 34 + k * bw;
+      const tag = x === S.fastestSplit ? " best" : x === S.slowestSplit ? " worst" : "";
+      svg += `<g class="rv-km-bar${tag}" data-sec="${Math.round(runSecAtKm(run, x.km - (x.part || 1)))}"><rect x="${(xx + gap / 2).toFixed(1)}" y="${yy.toFixed(1)}" width="${Math.max(1, bw - gap).toFixed(1)}" height="${(base - yy).toFixed(1)}"/><title>${x.part ? `Last ${(x.part * 1000).toFixed(0)} m` : `Km ${x.km}`}: ${mmss(x.pace)}/km · +${Math.round(x.up)} / −${Math.round(x.down)} m</title></g>`;
+      if (sp.length <= 30 || k % 2 === 0) svg += `<text x="${(xx + bw / 2).toFixed(1)}" y="${base + 14}" text-anchor="middle">${x.part ? "end" : x.km}</text>`;
+      if (tag) svg += `<text class="rv-km-lab" x="${(xx + bw / 2).toFixed(1)}" y="${(yy - 4).toFixed(1)}" text-anchor="middle">${mmss(x.pace)}</text>`;
+    });
+    svg += `<line class="rv-km-avg" x1="34" x2="${W - 6}" y1="${yv(avgV).toFixed(1)}" y2="${yv(avgV).toFixed(1)}"/><text class="rv-km-lab" x="30" y="${(yv(avgV) + 3).toFixed(1)}" text-anchor="end">${mmss(S.movingPace)}</text>`;
+    bars = `<div class="rv-kms"><div class="rv-kms-h"><b>Pace per km</b><small>taller = faster · line = your moving average · click a bar to replay that km</small></div><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Pace of each km">${svg}</svg></div>`;
+  }
+  const table = `<details class="rv-tgt-all"><summary>Every km: time, pace, grade-adjusted pace, climbing${run.hasHr ? ", heart rate" : ""}</summary>
+    <table class="rp-tg rv-km-t"><thead><tr><th>Km</th><th>Time</th><th>Pace</th><th>Grade-adj.</th><th>D+ / D−</th>${run.hasHr ? "<th>HR</th>" : ""}</tr></thead><tbody>
+    ${S.splits.map((x) => `<tr${x === S.fastestSplit ? ' class="best"' : x === S.slowestSplit ? ' class="worst"' : ""}><th>${x.part ? `+${(x.part * 1000).toFixed(0)} m` : x.km}</th><td>${mmss(x.sec)}${x.stopSec >= 30 ? ` <small>${dur(x.stopSec)} stopped</small>` : ""}</td><td>${x.pace ? `${mmss(x.pace)}/km` : "–"}</td><td>${x.gap ? `${mmss(x.gap)}/km` : "–"}</td><td>+${Math.round(x.up)} / −${Math.round(x.down)} m</td>${run.hasHr ? `<td>${x.hr ? Math.round(x.hr) : "–"}</td>` : ""}</tr>`).join("")}
+    </tbody></table></details>`;
+  return `<div class="panel rv-stats"><div class="rv-st-grid">${tiles}</div>${bars}${table}</div>`;
+}
+
 // Survives a re-render, so the replay keeps its place.
 const rv = { run: null, name: "", target: rvLoadTarget(), sec: 0, playing: false, speed: 180, pauseAt: true, follow: true, raf: 0, map: null, onKey: null };
 
@@ -129,8 +175,27 @@ function rvProfile(run) {
     const xx = x(m.km);
     s += `<g class="rv-pin-p ${m.tone}"><line x1="${xx.toFixed(1)}" x2="${xx.toFixed(1)}" y1="${top - 8}" y2="${y(eAt(m.km)).toFixed(1)}"/><circle cx="${xx.toFixed(1)}" cy="${top - 14}" r="8"/><text x="${xx.toFixed(1)}" y="${top - 10.5}" text-anchor="middle">${m.tone === "good" ? "+" : "−"}</text><title>${rvEsc(m.title)}</title></g>`;
   });
+  // Pace line: speed (higher = faster) over the same band, scaled between your slow 5% and fast
+  // 5% so a stop or a sprint does not squash the rest. Three copies of one path, each clipped to
+  // a part of the run: done (faded), the last stretch behind the runner (bright), still to come.
+  const pl = runPaceLine(run);
+  const vs = pl.map((p) => p.v).filter((v) => v > 0).sort((a, b) => a - b);
+  let paceY = null;
+  if (vs.length > 4) {
+    const vlo = vs[Math.floor(vs.length * 0.05)] * 0.95, vhi = vs[Math.floor(vs.length * 0.95)] * 1.03;
+    const yHi = top + 4, yLo = base - 10;
+    paceY = (v) => yLo - (Math.max(vlo, Math.min(vhi, v)) - vlo) / Math.max(1e-6, vhi - vlo) * (yLo - yHi);
+    const d = pl.filter((p) => p.v > 0).map((p, i) => `${i ? "L" : "M"}${x(p.km).toFixed(1)},${paceY(p.v).toFixed(1)}`).join("");
+    const clip = (id) => `<clipPath id="${id}"><rect x="${l}" y="0" width="0" height="${H}"/></clipPath>`;
+    s += `<defs>${clip("rvPcPast")}${clip("rvPcTrail")}${clip("rvPcAhead")}</defs><g class="rv-pace">`
+      + `<path class="rv-pl ahead" clip-path="url(#rvPcAhead)" d="${d}"/><path class="rv-pl past" clip-path="url(#rvPcPast)" d="${d}"/><path class="rv-pl trail" clip-path="url(#rvPcTrail)" d="${d}"/>`
+      + `<text class="rv-pl-t" x="${W - r - 2}" y="${(yHi + 3).toFixed(1)}" text-anchor="end">${mmss(1000 / vhi)}/km</text><text class="rv-pl-t" x="${W - r - 2}" y="${(yLo + 3).toFixed(1)}" text-anchor="end">${mmss(1000 / vlo)}/km</text>`
+      + `<circle class="rv-pl-dot" r="4.5" cx="${x(0)}" cy="${paceY(pl[0].v || vlo).toFixed(1)}"/><text class="rv-pl-v" x="${x(0)}" y="0"></text></g>`;
+  }
   s += `<g class="pcur" style="display:none"><line x1="0" x2="0" y1="${top - 4}" y2="${base}"/><circle cx="0" cy="${base}" r="6"/></g>`;
-  return { x, y, km, top, base, line, html: `<div class="prof-scroll"><svg viewBox="0 0 1000 ${H}" role="img" aria-label="Elevation profile of your run, coloured by how you ran each stretch">${s}</svg></div>` };
+  // Where the pace line is at `k` km (interpolated between its 100 m points).
+  const paceAt = (k) => { let i = 1; while (i < pl.length - 1 && pl[i].km < k) i++; const a = pl[i - 1], b = pl[i]; const f = Math.max(0, Math.min(1, (k - a.km) / (b.km - a.km || 1))); return a.v + f * (b.v - a.v); };
+  return { x, y, km, top, base, line, paceY, paceAt, l, W, r, html: `<div class="prof-scroll"><svg viewBox="0 0 1000 ${H}" role="img" aria-label="Elevation profile of your run, coloured by how you ran each stretch">${s}</svg></div>` };
 }
 
 /** Map styling: the route coloured by form, a glow under each good or bad moment, stops as triangles. */
@@ -178,7 +243,7 @@ export function mountRun(box, run) {
     </div>
     <div class="rp-legfoot">
       <div class="rp-legnow" id="rvLegNow" aria-live="polite"></div>
-      <div class="rp-legend" aria-label="Legend"><span><i class="sw rv-good"></i>Stronger</span><span><i class="sw rv-ok"></i>Your average</span><span><i class="sw rv-bad"></i>Weaker</span><span><i class="sw rv-ok rv-d"></i>Descent</span><span><i class="sw ad"></i>Stop</span><span><i class="rv-pin-l good"></i>Went well</span><span><i class="rv-pin-l bad"></i>Cost you</span></div>
+      <div class="rp-legend" aria-label="Legend"><span><i class="sw rv-good"></i>Stronger</span><span><i class="sw rv-ok"></i>Your average</span><span><i class="sw rv-bad"></i>Weaker</span><span><i class="sw rv-ok rv-d"></i>Descent</span><span><i class="sw ad"></i>Stop</span><span><i class="rv-pin-l good"></i>Went well</span><span><i class="rv-pin-l bad"></i>Cost you</span><span><i class="sw rv-pl-sw"></i>Pace</span></div>
     </div>
   </div>
     <div class="rp-map" id="rvMap"></div>
@@ -204,6 +269,8 @@ export function mountRun(box, run) {
     <label class="chk"><input type="checkbox" id="rvFollow" ${rv.follow ? "checked" : ""}> Follow the runner</label>
   </div>
   </div>
+  <div class="sub-h" id="rv-stats">Your numbers</div>
+  ${rvStatsHtml(run, st)}
   <div class="sub-h" id="rv-target">Against your target</div>
   <div id="rvTgt">${rvTargetHtml(run, tgt)}</div>
   <div class="sub-h" id="rv-moments">Key moments · ${good.length} went well · ${bad.length} cost you</div>
@@ -254,6 +321,12 @@ export function mountRun(box, run) {
   let lastCue = -2;
   let lastNow = "";
   let lastNext = "";
+  // Pace line: the clip rectangles that split it into done, just done and to come, and the dot.
+  const paceG = svgEl ? svgEl.querySelector(".rv-pace") : null;
+  const pcRects = paceG ? { past: svgEl.querySelector("#rvPcPast rect"), trail: svgEl.querySelector("#rvPcTrail rect"), ahead: svgEl.querySelector("#rvPcAhead rect") } : null;
+  const paceDot = paceG ? paceG.querySelector(".rv-pl-dot") : null;
+  const paceTxt = paceG ? paceG.querySelector(".rv-pl-v") : null;
+  const trailKm = Math.max(0.8, Math.min(2, TOT * 0.06));
   const draw = () => {
     const s = runStateAt(run, rv.sec);
     els.clock.textContent = hms(s.sec);
@@ -330,6 +403,26 @@ export function mountRun(box, run) {
       els.cue.title = `${e.text}${e.tip ? ` ${e.tip}` : ""}`;
       els.cue.innerHTML = `<span class="ic">${RV_ICON[e.kind] || "•"}</span><div><div class="rp-cue-h"><b>${rvEsc(e.title)}</b><small>km ${e.km.toFixed(1)} · ${hm(e.sec)}</small></div><p>${rvEsc(e.text)}${e.tip ? ` <em>${rvEsc(e.tip)}</em>` : ""}</p></div>`;
       els.list.querySelectorAll("li").forEach((x) => { x.classList.toggle("on", Number(x.dataset.i) === ci); x.classList.toggle("past", Number(x.dataset.i) < ci); });
+    }
+    if (paceG) {
+      const cx = prof.x(s.km);
+      const tx = prof.x(Math.max(0, s.km - trailKm));
+      pcRects.past.setAttribute("width", Math.max(0, tx - prof.l).toFixed(1));
+      pcRects.trail.setAttribute("x", tx.toFixed(1));
+      pcRects.trail.setAttribute("width", Math.max(0, cx - tx).toFixed(1));
+      pcRects.ahead.setAttribute("x", cx.toFixed(1));
+      pcRects.ahead.setAttribute("width", Math.max(0, prof.W - prof.r - cx).toFixed(1));
+      const v = prof.paceAt(s.km);
+      const cy = prof.paceY(v);
+      paceDot.setAttribute("cx", cx.toFixed(1));
+      paceDot.setAttribute("cy", cy.toFixed(1));
+      paceG.classList.toggle("on", s.sec > 0);
+      const label = s.stopped ? "stopped" : v > 0 ? `${mmss(1000 / v)}/km` : "";
+      paceTxt.textContent = s.sec > 0 ? label : "";
+      const right = cx > prof.W - 120;
+      paceTxt.setAttribute("x", (cx + (right ? -9 : 9)).toFixed(1));
+      paceTxt.setAttribute("y", (cy - 6).toFixed(1));
+      paceTxt.setAttribute("text-anchor", right ? "end" : "start");
     }
     if (els.cur) {
       els.cur.style.display = "";
@@ -418,6 +511,12 @@ export function mountRun(box, run) {
     else if (ev.key === "ArrowLeft" && tag !== "input") { ev.preventDefault(); jump(-1); }
   };
   document.addEventListener("keydown", rv.onKey);
+  box.querySelectorAll(".rv-st[data-sec], .rv-km-bar[data-sec]").forEach((b) => b.addEventListener("click", () => {
+    trackEvent("review-stat", b.dataset.k || "km");
+    pause();
+    seek(Number(b.dataset.sec) + 1);
+    $v("#rvCockpit").scrollIntoView({ behavior: "smooth", block: "start" });
+  }));
   const tf = $v("#rvTgtForm");
   if (tf) {
     const kindSel = $v("#rvTgtKind");
