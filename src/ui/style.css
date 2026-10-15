@@ -106,18 +106,16 @@ button,.btn{font:inherit;cursor:pointer}
 .sub-h::before{content:"";width:22px;height:6px;background:var(--accent);transform:skewX(-30deg)}
 .sub-h::after{content:"";flex:1;height:1px;background:var(--line)}
 
-/* bib-style stat tiles */
-.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
-.tile{background:linear-gradient(180deg,var(--surface-2),var(--surface));border:1px solid var(--line);border-radius:var(--r);padding:14px 16px 12px;position:relative;overflow:hidden}
-.tile::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--accent)}
-.tile .k{font-family:var(--f-display);font-weight:700;text-transform:uppercase;letter-spacing:.12em;font-size:12px;color:var(--muted)}
-.tile .v{font-family:var(--f-display);font-weight:800;font-style:italic;font-size:36px;line-height:1.05;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
-.tile .v small{font-size:17px;font-weight:600;color:var(--muted);margin-left:2px}
-.tile .s{font-size:13px;color:var(--muted)}
-.tile.big{background:linear-gradient(120deg,var(--accent),#c4123a);color:#fff;border-color:transparent}
-.tile.big .k,.tile.big .s{color:rgba(255,255,255,.85)}
-.tile.big::before{background:var(--sun)}
-.tile.big .v{font-size:60px;color:#fff;font-style:italic}
+/* stat tiles, race day look: no box, a thin divider, a glowing value */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px 0}
+.tile{display:flex;flex-direction:column;gap:2px;padding:2px 14px;background:none;border:0;border-left:1px solid rgba(255,255,255,.12);min-width:0}
+.tile:first-child{border-left:0;padding-left:0}
+.tile .k{font-family:var(--f-display);font-weight:700;text-transform:uppercase;letter-spacing:.1em;font-size:12px;color:var(--muted)}
+.tile .v{font-family:var(--f-display);font-weight:800;font-style:italic;font-size:30px;line-height:1.05;font-variant-numeric:tabular-nums;letter-spacing:-.01em;color:#fff8e0;text-shadow:0 0 10px rgba(255,201,40,.55),0 0 2px rgba(255,201,40,.8);white-space:nowrap}
+.tile .v small{font-size:15px;font-weight:600;font-style:normal;color:var(--muted);margin-left:2px;text-shadow:none}
+.tile .s{font-size:12.5px;color:var(--muted);opacity:.8;line-height:1.3}
+.tile.big{border-left:0;padding-left:0;justify-content:center}
+.tile.big .v{font-size:60px;text-shadow:0 0 18px rgba(255,201,40,.6),0 0 3px rgba(255,201,40,.85)}
 
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
@@ -240,7 +238,9 @@ details.adv summary{cursor:pointer;font-family:var(--f-display);font-weight:700;
   .wm-row{grid-template-columns:44px minmax(0,1fr) 40px;font-size:14px}
   .wm-row .wm-t,.wm-head{display:none}
   .wm-n{display:none}
-  .tile .v{font-size:28px}
+  .tile .v{font-size:24px}
+  .tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .tile:nth-child(odd){border-left:0;padding-left:0}
   .tile.big .v{font-size:42px}
 }
 @media (prefers-reduced-motion: reduce){ .drop{transition:none} }

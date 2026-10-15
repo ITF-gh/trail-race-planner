@@ -446,10 +446,12 @@ function renderEngine() {
   const bands = e.bands;
   const steep = bands.filter((b) => b.vam && b.vam > 50 && b.source !== "estimated").sort((a, b) => b.vam - a.vam)[0];
   const hike = state.settings.hikeGrade ?? e.hikeGrade;
+  const many = e.runs.length > 1;
+  const sumDur = many ? e.runs.reduce((a, r) => a + r.durationSec, 0) : e.durationSec;
+  const sumKm = many ? e.runs.reduce((a, r) => a + r.distKm, 0) : e.distKm;
   const tiles = [
-    e.runs.length > 1
-      ? tile("Runs", `${e.runs.length}`, `weighted, half-life ${state.settings.halfLifeDays} days`)
-      : tile("Distance · time", `${e.distKm.toFixed(1)}<small>km</small>`, hm(e.durationSec)),
+    tile("Duration", hm(sumDur), many ? `${e.runs.length} runs together` : ""),
+    tile("Distance", `${sumKm.toFixed(1)}<small>km</small>`, many ? `weighted, half-life ${state.settings.halfLifeDays} days` : ""),
     tile("Flat pace", `${mmss(e.flatPace)}<small>/km</small>`, e.flatHr ? `at HR ${Math.round(e.flatHr)}` : "no heart rate"),
     tile("Cadence", e.flatCad ? `${Math.round(e.flatCad)}<small>spm</small>` : "–", e.cadenceWasPerFoot ? "doubled from per-foot" : "on the flat"),
     tile("Best climb rate", steep ? `${Math.round(steep.vam)}<small>m/h</small>` : "–", steep ? steep.label : "not enough climbing"),

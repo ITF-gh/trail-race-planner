@@ -164,7 +164,7 @@ export function mountRun(box, run) {
   <p class="rv-meta">${rvEsc(rv.name || run.name || "Your run")} · ${date} · start ${clock(st, 0)}</p>
   <div class="rp-cockpit rv-cockpit" id="rvCockpit">
   <div class="rp-totals" aria-label="Your run">
-    ${tile("Time", hm(run.elapsedSec), tgt ? `target ${hm(tgt.targetSec)} · <span class="${tgt.gapSec > 0 ? "rv-b" : "rv-g"}">${rvSigned(tgt.gapSec)}</span>` : `${hm(run.movingSec)} moving · ${dur(run.stopSec)} stopped`)}
+    ${tile("Duration", hm(run.elapsedSec), tgt ? `target ${hm(tgt.targetSec)} · <span class="${tgt.gapSec > 0 ? "rv-b" : "rv-g"}">${rvSigned(tgt.gapSec)}</span>` : `${hm(run.movingSec)} moving · ${dur(run.stopSec)} stopped`)}
     ${tile("Distance", `${TOT.toFixed(1)}<small>km</small>`, `${Math.round(run.gain)} m D+ · ${legs.length} sections`)}
     ${tile("Pace", `${mmss(run.movingPace)}<small>/km</small>`, `grade-adjusted ${mmss(run.gapPace)}/km`)}
     ${run.hasHr ? tile("Heart rate", `${Math.round(run.hrAvg)}<small>bpm</small>`, `max ${Math.round(run.hrMax)}`) : tile("Key moments", `<span class="rv-g">${good.length}</span> · <span class="rv-b">${bad.length}</span>`, "went well · cost you")}

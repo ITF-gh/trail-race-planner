@@ -74,10 +74,10 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key }) {
   box.innerHTML = `
   <div class="rp-cockpit${hasMap ? "" : " nomap"}" id="rpCockpit">
   <div class="rp-totals" aria-label="Race targets">
-    ${totTile(`Finish · ${escR(sc.label.toLowerCase())}`, clock(st, tot.finishSec), `start ${clock(st, 0)}`)}
     ${totTile("Duration", hm(tot.durationSec), `${Math.round(tot.stopSec / 60)} min of stops`)}
+    ${totTile("Distance", `${TOT_KM.toFixed(1)}<small>km</small>`, `${Math.round(tot.gain)} m D+ · ${legs.length} sections`)}
     ${totTile("Average pace", `${mmss(tot.paceSec)}<small>/km</small>`, `moving ${mmss(tot.movingPaceSec)}/km`)}
-    ${totTile("Course", `${TOT_KM.toFixed(1)}<small>km</small>`, `${Math.round(tot.gain)} m D+ · ${legs.length} sections`)}
+    ${totTile(`Finish · ${escR(sc.label.toLowerCase())}`, clock(st, tot.finishSec), `start ${clock(st, 0)}`)}
   </div>
   <div class="rp-legbar">
     <div class="rp-legs" id="rpLegs" role="group" aria-label="Race sections">${legs.map((l) => `<button type="button" class="lg ${legCls(l)}${l.keyZone ? " kz" : ""}" data-i="${l.i - 1}" style="left:${pct(l.startKm)};width:${pct(l.endKm - l.startKm)}" title="${l.i}. ${escR(l.title)} · ${escR(l.label)} · km ${l.startKm.toFixed(1)} → ${l.endKm.toFixed(1)}" aria-label="Section ${l.i}: ${escR(l.title)}"></button>`).join("")}
