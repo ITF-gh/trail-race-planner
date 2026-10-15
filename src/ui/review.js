@@ -41,8 +41,9 @@ function rvProfile(run) {
   const TOT = run.totalKm;
   const eles = P.map((p) => p[1]);
   const EMIN = Math.min(...eles), EMAX = Math.max(...eles);
-  const W = 1000, l = 52, r = 14, top = 30, base = 196, H = 222;
-  const plotH = base - top - 16;
+  // Flat: it runs the full width of the cockpit, right under the section bar.
+  const W = 1000, l = 52, r = 14, top = 26, base = 92, H = 114;
+  const plotH = base - top - 12;
   const x = (km) => l + (km / TOT) * (W - l - r);
   const y = (e) => base - 8 - ((e - EMIN) / Math.max(1, EMAX - EMIN)) * plotH;
   const km = (vx) => Math.max(0, Math.min(TOT, ((vx - l) / (W - l - r)) * TOT));

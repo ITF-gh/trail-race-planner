@@ -340,12 +340,14 @@ function elevAt(profile, km) {
  * Where things sit on the profile drawing (SVG units, viewBox 1000 wide): x(km), y(altitude),
  * and km(x) back from a click. Shared by the drawing and by the cursors that move on it.
  */
-function profGeom(P, TOT, race) {
+function profGeom(P, TOT, race, flat = false) {
   const eles = P.map((p) => p[1]);
   const EMIN = Math.min(...eles), EMAX = Math.max(...eles);
-  const W = 1000, l = 52, r = 14, top = race ? 34 : 18, base = race ? 205 : 190;
+  // `flat`: the race day cockpit, where the profile runs the full width under the section bar,
+  // so it is drawn about half as high (gels as small marks under the axis, no clock under them).
+  const W = 1000, l = 52, r = 14, top = flat ? 22 : race ? 34 : 18, base = flat ? 84 : race ? 205 : 190;
   const plotH = base - top - 24;
-  const H = race ? 285 : 222;
+  const H = flat ? base + 34 : race ? 285 : 222;
   const x = (km) => l + (km / TOT) * (W - l - r);
   const y = (e) => base - 24 - ((e - EMIN) / Math.max(1, EMAX - EMIN)) * plotH;
   const km = (vx) => Math.max(0, Math.min(TOT, ((vx - l) / (W - l - r)) * TOT));
@@ -357,9 +359,9 @@ function profGeom(P, TOT, race) {
  * checkpoints and gels for one scenario; `zones` (optional) shades the key zones. Returns {html, x, y, km};
  * the html has a hidden `.pcur` cursor (a line and a dot) to move with translate().
  */
-function profileView(P, brief, race, zones = []) {
+function profileView(P, brief, race, zones = [], { flat = false } = {}) {
   const TOT = brief.totalKm;
-  const g = profGeom(P, TOT, race);
+  const g = profGeom(P, TOT, race, flat);
   const { EMIN, EMAX, W, l, r, top, base, H, x, y } = g;
   let s = "";
   zones.forEach((z) => {
@@ -402,6 +404,7 @@ function profileView(P, brief, race, zones = []) {
       s += `<path class="aid" d="M${x(a.km).toFixed(1)},${(yy - 6).toFixed(1)} l-7,-12 h14 z"><title>${esc(a.name)}, km ${a.km.toFixed(1)}: ${clock(race.startSec, a.sec)}</title></path>`;
     });
     race.gels.forEach((g) => {
+      if (flat) { s += `<circle class="gel" cx="${x(g.km)}" cy="${base + 26}" r="6"/><text class="gelt" x="${x(g.km)}" y="${base + 29}" text-anchor="middle">G</text>`; return; }
       s += `<circle class="gel" cx="${x(g.km)}" cy="${base + 48}" r="9"/><text class="gelt" x="${x(g.km)}" y="${base + 51}" text-anchor="middle">G</text><text x="${x(g.km)}" y="${base + 70}" text-anchor="middle">${clock(race.startSec, g.sec)}</text>`;
     });
   }
@@ -665,7 +668,7 @@ function renderReplay() {
   const sc = plan.scenarios[sid];
   const brief = { totalKm: plan.course.totalKm, climbs: plan.climbs, descents: plan.descents };
   const aidMarks = plan.aidStations.map((a) => ({ km: a.km, name: a.name, sec: a.arrive[sid], time: clock(plan.startSec, a.arrive[sid]) }));
-  const prof = profileView(plan.course.profile, brief, { ...sc, startSec: plan.startSec, aid: aidMarks }, plan.keyZones);
+  const prof = profileView(plan.course.profile, brief, { ...sc, startSec: plan.startSec, aid: aidMarks }, plan.keyZones, { flat: true });
   mountReplay(box, {
     plan, sid, prof, ...(() => { const m = mapStyle(brief, aidMarks, plan.keyZones); return { mapPaint: m.paint, mapMarks: m.marks }; })(),
     key: `${state.race && state.race.name}|${plan.course.totalKm.toFixed(2)}`,
