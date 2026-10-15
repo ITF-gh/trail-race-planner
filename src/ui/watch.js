@@ -20,6 +20,14 @@ export function watchPoints(plan, sid, key) {
   return editedPoints(plan, sid, wmGet(key));
 }
 
+/**
+ * The "Pimp my GPX" sticker (street-art look, style.css .pimp-link) that sits next to the plan's
+ * key figures and jumps to the watch messages and the course download at `href`.
+ */
+export function pimpBadge(href, sub = "Put this plan on your watch →") {
+  return `<a class="pimp-link side" href="${href}"><span class="pl-tag">Bonus</span><b>Pimp my GPX</b><span class="pl-sub">${sub}</span></a>`;
+}
+
 /** The panel's HTML: an explanation, the list (filled by mountWatch) and the add row. */
 export function watchPanelHtml(plan) {
   return `<div class="panel wm">

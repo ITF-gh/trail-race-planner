@@ -980,3 +980,13 @@ html[data-theme="sky"] .acct-menu h4{color:#ffd24a}
   .acct-menu{max-height:calc(100vh - 180px)}
 }
 @media (prefers-reduced-motion:reduce){.acct-menu{transition:none}}
+/* The Pimp my GPX sticker beside the key figures (D-day duration, Prep my run facts) */
+.pimp-link.side{margin:10px 8px 10px 4px;padding:10px 18px 12px 16px;align-self:center;justify-self:start}
+.pimp-link.side b{font-size:22px}
+.pimp-link.side .pl-sub{font-size:12px}
+.dday-top.has-pimp{grid-template-columns:minmax(220px,1fr) 2fr auto}
+.prep-sum .pimp-link.side{float:right;margin:0 6px 10px 16px}
+@media (max-width:820px){
+  .dday-top.has-pimp{grid-template-columns:1fr}
+  .prep-sum .pimp-link.side{float:none;display:inline-flex;margin:4px 0 14px 4px}
+}
