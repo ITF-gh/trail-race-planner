@@ -120,6 +120,22 @@ The best are kept without overlapping (a *greedy selection*), one per 13 km of r
 
 Not modelled yet, but they would move zones: night and dawn (start time and date), heat and altitude, technical ground (OpenStreetMap trail tags), narrow single track where overtaking is hard, and cut-off times.
 
+## 10. Looking back: the My run mode (`src/core/review.js`, `src/ui/review.js`)
+
+The rest of the app looks forward. My run looks back at one recorded run and asks: where was I strong, where did it cost me?
+
+**Grade-adjusted pace (GAP).** 7:00/km on a 15% climb is a harder effort than 5:00/km on the flat, so raw pace cannot compare them. Minetti and colleagues (2002) measured the energy cost of running on slopes from -45% to +45%: a polynomial C(i), in joules per kg per metre, with C(0) = 3.6. One metre at +10% costs C(0.10) / C(0) = 1.66 flat metres. Every 10 m of the run is converted into flat-equivalent metres that way, and GAP = moving time / flat-equivalent distance: the flat pace that would have cost the same energy. Downhill the lab curve promises savings of up to 50%, but on a trail you brake (rocks, roots, quads), so only half of the saving is kept.
+
+**Stops.** On the 10 m grid a stop is a sample that took far too long. Any sample slower than 0.3 m/s (a slow hike is about 0.5) holds a stop: the time above what those 10 m take at your usual (median) speed. Stops count in the clock, not in the paces.
+
+**A fair yardstick.** A climb is compared with your other climbs that day, a descent with your descents, a runnable stretch with your runnable stretches, all in GAP. +8% means 8% better than your own average on that kind of ground. That is the colour of the section bar, the map and the profile (green better, red worse), and it puts every metre on one scale, so a fade is a real fade and not just the start of a long descent.
+
+**Running totals.** Moving time, flat-equivalent metres, heartbeats and hiking time are stored as cumulative sums (prefix sums), so the average over any stretch is one subtraction: (S[b] − S[a]) / (M[b] − M[a]). Sections, per-km splits, the ±300 m colouring and the live "Now" column of the replay all use it.
+
+**Key moments.** The strongest and weakest climb, descent and runnable stretch (only when the gap to your average is 6% or more), stops of a minute or more, where the fade starts (the first point after a quarter of the run from which you stay under 95% of your day's average), a strong or tough finish (last 10%), heart-rate drift (speed per heartbeat, first half against second half: over 5% is the classic decoupling threshold), your hardest minute of heart rate, and stretches of 300 m or more walked on ground under 5% (cadence under 145 steps per minute). Each one says what happened with numbers, and most add a tip for next time.
+
+**Honest limits.** GAP ignores terrain (mud, rocks, snow), wind and heat. A stop where your watch auto-paused leaves no points, which looks the same as a stop. "Strong" and "weak" are relative to your own day: an evenly run day has few moments, which is a good sign.
+
 ## Ideas for what to build next
 
 - Save an analysed effort profile so you do not re-upload the file.
