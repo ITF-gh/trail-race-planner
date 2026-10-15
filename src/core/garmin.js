@@ -124,13 +124,18 @@ export function coursePoints(plan, sid) {
     const type = b.word === "RUN" ? CP.generic : b.kind === "climb" ? CP.summit : b.kind === "descent" ? (b.level === 4 ? CP.danger : CP.valley) : CP.generic;
     const name = elev ? fitName(`${b.word} ${len} ${elev}`, `${b.word} ${len}${elev}`, `${b.word} ${elev}`) : fitName(`${b.word} ${len}`);
     const secs = b.legs.length > 1 ? `Sections ${b.legs[0].i}-${b.legs[b.legs.length - 1].i}` : `Section ${b.legs[0].i}`;
-    pts.push({ km: b.startKm, type, name, text: `${secs}: ${b.word === "RUN" && b.legs.length > 1 ? "Gentle ground, just run" : b.legs[0].tactic}. ${b.km.toFixed(1)} km, +${up} m / -${down} m, arrive ${clock(st, b.startSec)}.` });
+    pts.push({ id: `b${b.startKm.toFixed(2)}`, km: b.startKm, type, name, text: `${secs}: ${b.word === "RUN" && b.legs.length > 1 ? "Gentle ground, just run" : b.legs[0].tactic}. ${b.km.toFixed(1)} km, +${up} m / -${down} m, arrive ${clock(st, b.startSec)}.` });
   });
   zones.forEach((z) => {
     const len = kmShort(z.toKm - z.fromKm);
-    pts.push({ km: z.fromKm, type: CP.danger, name: fitName(`!${keyShort(z)} ${len}`, `!${keyShort(z)}${len}`, `!${keyShort(z)}`), text: `Key zone ${z.n} · ${z.modeLabel} · ${z.title}. ${z.how}` });
+    pts.push({ id: `k${z.n}`, km: z.fromKm, type: CP.danger, name: fitName(`!${keyShort(z)} ${len}`, `!${keyShort(z)}${len}`, `!${keyShort(z)}`), text: `Key zone ${z.n} · ${z.modeLabel} · ${z.title}. ${z.how}` });
   });
-  pts.sort((a, b) => a.km - b.km);
+  return spacePoints(plan, sid, pts);
+}
+
+/** Points in course order, each pushed along so it comes MIN_GAP_M and MIN_GAP_SEC after the one before. */
+export function spacePoints(plan, sid, points) {
+  const pts = points.map((p) => ({ ...p })).sort((a, b) => a.km - b.km);
   const total = plan.course.totalKm;
   for (let i = 1; i < pts.length; i++) {
     const prev = pts[i - 1].km;
@@ -138,6 +143,23 @@ export function coursePoints(plan, sid) {
     pts[i].km = Math.max(pts[i].km, prev + MIN_GAP_M / 1000, oneMin);
   }
   return pts.map((p) => ({ ...p, km: Math.min(p.km, total) }));
+}
+
+/**
+ * The runner's own version of the messages: the planner's points with their edits applied.
+ * edits = {names: {id: "new name"}, off: {id: true}, extra: [{id, km, name}]}; an edited name
+ * keeps the planner's long text as its note, an added message gets its own name as note.
+ */
+export function editedPoints(plan, sid, edits = {}) {
+  const names = edits.names || {}, off = edits.off || {};
+  const mine = coursePoints(plan, sid)
+    .filter((p) => !off[p.id])
+    .map((p) => (names[p.id] != null && pointName(names[p.id]) ? { ...p, name: pointName(names[p.id]), edited: true } : p));
+  const total = plan.course.totalKm;
+  const extra = (edits.extra || [])
+    .filter((x) => Number.isFinite(x.km) && pointName(x.name || ""))
+    .map((x) => ({ id: x.id, km: Math.max(0, Math.min(total, x.km)), type: CP.generic, name: pointName(x.name), text: x.name, added: true }));
+  return spacePoints(plan, sid, [...mine, ...extra]);
 }
 
 /**
@@ -232,12 +254,12 @@ function fitWriter() {
 
 /**
  * A FIT course of the race for scenario `sid`. `track` = the race GPX points ({lat, lon, ele});
- * opts: {name (shown on the watch), date (start of the course, a Date; only the plan's relative
+ * opts: {name (shown on the watch), points (the messages, default coursePoints), date (start of the course, a Date; only the plan's relative
  * times matter to the watch)}. Returns a Uint8Array, ready to save as a .fit file.
  */
 export function courseFit(plan, sid, track, opts = {}) {
   const T = courseTrack(plan, track);
-  const pts = coursePoints(plan, sid);
+  const pts = opts.points || coursePoints(plan, sid);
   const sc = plan.scenarios[sid];
   const start = opts.date || new Date();
   const t0 = Math.floor((start.getTime() - FIT_EPOCH_MS) / 1000);
@@ -287,9 +309,9 @@ const xmlEsc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").rep
 const GPX_TYPE = { [CP.generic]: "GENERIC", [CP.summit]: "SUMMIT", [CP.valley]: "VALLEY", [CP.danger]: "DANGER" };
 
 /** The course as GPX 1.1: one waypoint per course point (short name, long text as its note, icon type) and the track. */
-export function courseGpx(plan, sid, track, name = "Race") {
+export function courseGpx(plan, sid, track, name = "Race", points = null) {
   const T = courseTrack(plan, track);
-  const wpts = coursePoints(plan, sid).map((q) => {
+  const wpts = (points || coursePoints(plan, sid)).map((q) => {
     const at = trackAt(T, q.km);
     return `  <wpt lat="${at.lat.toFixed(6)}" lon="${at.lon.toFixed(6)}"><ele>${at.ele.toFixed(1)}</ele><name>${xmlEsc(q.name)}</name><cmt>${xmlEsc(q.text)}</cmt><type>${GPX_TYPE[q.type] || "GENERIC"}</type></wpt>`;
   });

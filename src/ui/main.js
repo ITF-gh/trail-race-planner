@@ -16,7 +16,7 @@ import { analyseEffort } from "../core/effort.js";
 import { buildPlan, briefCourse, coarseIndices, parseAidStations, PLAN_DEFAULTS, LEVELS, DESCENT_LABELS } from "../core/plan.js";
 import { TERRAIN, SCENARIOS } from "../core/model.js";
 import { planToMarkdown } from "../core/markdown.js";
-import { courseFit, courseGpx } from "../core/garmin.js";
+import { courseFit, courseGpx, editedPoints, POINT_NAME_MAX, CP } from "../core/garmin.js";
 import { mmss, hm, clock, parseDuration } from "../core/format.js";
 import { keyZones, toblerClock } from "../core/keyzones.js";
 import { secAtKm } from "../core/script.js";
@@ -599,7 +599,7 @@ function renderDday() {
   const logMode = store.get("trp.logMode") || "race";
 
   out.innerHTML = `
-  ${jumps([["d-key", "★ Key zones"], ["d-card", "Race card"], ["d-climbs", "Climb by climb"], ["d-log", "Plan versus actual"], ["d-export", "Export"], ["rpCockpit", "▶ Rehearse race day", "go"]])}
+  ${jumps([["d-key", "★ Key zones"], ["d-card", "Race card"], ["d-climbs", "Climb by climb"], ["d-log", "Plan versus actual"], ["d-watch", "Watch messages"], ["d-export", "Export"], ["rpCockpit", "▶ Rehearse race day", "go"]])}
   <div class="dday-top">
     ${tile(`Finish · ${sc.label.toLowerCase()}`, clock(st, sc.finishSec), `${hm(sc.finishSec)} on course · start ${clock(st, 0)}`, "big")}
     <div class="panel" style="display:flex;flex-direction:column;gap:12px;justify-content:center">
@@ -645,6 +645,19 @@ function renderDday() {
     <p class="note">Type the first checkpoint as minutes and seconds if it is under an hour (56:30), the others as hours and minutes (1:55).</p>
   </div>
 
+  <div class="sub-h" id="d-watch">Watch messages</div>
+  <div class="panel">
+    <p class="note" style="margin-top:0">What your watch will show along the course: one message each time the strategy changes, one at every key zone (marked "!"). Check them, rewrite any (${POINT_NAME_MAX} characters, the watch cuts the rest), untick the ones you do not want, add your own. Your version goes into the course files below and is saved in this browser.</p>
+    <div class="wm-row wm-head"><span>Km</span><span>Arrive</span><span>Message on the watch</span><span>Keep</span></div>
+    <div id="wmRows"></div>
+    <div class="wm-add">
+      <label class="f">At km<input type="number" id="wmKm" step="0.1" min="0" max="${plan.course.totalKm.toFixed(1)}" placeholder="12.5"></label>
+      <label class="f">Your message<input type="text" id="wmName" maxlength="${POINT_NAME_MAX}" placeholder="CALL HOME"></label>
+      <button class="btn ghost" id="wmAdd" type="button">Add</button>
+      <button class="btn ghost" id="wmReset" type="button">Back to the planner's messages</button>
+    </div>
+  </div>
+
   <div class="sub-h" id="d-export">Take it with you</div>
   <div class="actions">
     <button class="btn primary" id="copyMd" type="button">Copy plan as Markdown</button>
@@ -653,7 +666,7 @@ function renderDday() {
     <button class="btn" id="dlGpx" type="button">GPX with cues</button>
     <span class="status" id="exportStat" aria-live="polite"></span>
   </div>
-  <p class="note">The course files carry this scenario's plan to your watch, with few alerts: one each time the strategy changes (for example "HIKE 5.5k +726": hike the next 5.5 km, 726 m up) and one at every key zone, marked with "!" ("!POWER HIKE 2.3k"). Alerts are at least 200 m and 1 minute apart. Import the .fit in Garmin Connect (Courses, Import) or copy it to the watch's GARMIN/NewFiles folder, then follow the course. The GPX works with other brands too.</p>`;
+  <p class="note">The course files carry this scenario's plan and your watch messages above: for example "HIKE 5.5k +726" (hike the next 5.5 km, 726 m up) or "!POWER HIKE 2.3k" at a key zone. Messages are at least 200 m and 1 minute apart. Import the .fit in Garmin Connect (Courses, Import) or copy it to the watch's GARMIN/NewFiles folder, then follow the course. The GPX works with other brands too.</p>`;
 
   /* wiring */
   out.querySelectorAll("#scen button").forEach((b) => b.addEventListener("click", () => { state.scenario = b.dataset.s; trackEvent("scenario", state.scenario); store.set("trp.scenario", state.scenario); renderDday(); renderReplay(); renderNav(); }));
@@ -662,6 +675,17 @@ function renderDday() {
   drawLog(plan, logKey);
   $("#copyMd").addEventListener("click", () => { trackEvent("export", "markdown"); copyText(planToMarkdown(plan, sid)); });
   $("#copyJson").addEventListener("click", () => { trackEvent("export", "json"); copyText(JSON.stringify(slimPlan(plan, sid), null, 2)); });
+  drawWatch(plan, sid);
+  $("#wmAdd").addEventListener("click", () => {
+    const km = parseFloat($("#wmKm").value), name = $("#wmName").value.trim();
+    if (!Number.isFinite(km) || !name) { setExportStatus("Give a km and a message to add."); return; }
+    const ed = watchEdits(plan, sid);
+    ed.extra = [...(ed.extra || []), { id: `x${Date.now().toString(36)}`, km, name }];
+    saveWatchEdits(plan, sid, ed); trackEvent("watch-msg", "add");
+    $("#wmKm").value = ""; $("#wmName").value = "";
+    drawWatch(plan, sid);
+  });
+  $("#wmReset").addEventListener("click", () => { saveWatchEdits(plan, sid, {}); trackEvent("watch-msg", "reset"); drawWatch(plan, sid); });
   $("#dlFit").addEventListener("click", () => exportCourse("fit", plan, sid));
   $("#dlGpx").addEventListener("click", () => exportCourse("gpx", plan, sid));
 }
@@ -777,12 +801,59 @@ function slimPlan(plan, sid) {
   return JSON.parse(JSON.stringify({ ...plan, scenarioShown: sid, course: { ...plan.course, profile: undefined, route: undefined } }, (k, v) => (k === "timeline" ? undefined : v)));
 }
 function setExportStatus(t) { const el = $("#exportStat"); if (el) el.textContent = t; }
+/* ---------- watch messages: the planner proposes, the runner edits ---------- */
+const watchKey = (plan, sid) => `trp.watch.${(state.race && state.race.name) || "race"}.${plan.course.totalKm.toFixed(1)}.${sid}`;
+const watchEdits = (plan, sid) => store.get(watchKey(plan, sid)) || {};
+const saveWatchEdits = (plan, sid, ed) => store.set(watchKey(plan, sid), ed);
+const WM_KIND = { [CP.generic]: "Run", [CP.summit]: "Climb", [CP.valley]: "Descent", [CP.danger]: "Brake" };
+
+/** The message list: every planner message (on or off) plus the runner's own, in course order. */
+function drawWatch(plan, sid) {
+  const box = $("#wmRows");
+  if (!box) return;
+  const ed = watchEdits(plan, sid);
+  const all = editedPoints(plan, sid, { names: ed.names, extra: ed.extra }); // the unticked ones stay listed
+  const on = new Set(editedPoints(plan, sid, ed).map((p) => p.id));
+  box.innerHTML = all.map((p) => `<div class="wm-row${on.has(p.id) ? "" : " off"}${p.name.startsWith("!") ? " key" : ""}" data-id="${esc(p.id)}">
+    <span class="wm-km">${p.km.toFixed(1)}</span>
+    <span class="wm-t">${clock(plan.startSec, secAtKm(plan, sid, p.km))}<small>${p.added ? "Yours" : p.name.startsWith("!") || /^k\d/.test(p.id) ? "Key zone" : WM_KIND[p.type] || ""}</small></span>
+    <span class="wm-msg"><input type="text" maxlength="${POINT_NAME_MAX}" value="${esc(p.name)}" aria-label="Message at km ${p.km.toFixed(1)}" title="${esc(p.text)}"><small class="wm-n">${p.name.length}/${POINT_NAME_MAX}</small></span>
+    <span class="wm-keep">${p.added ? `<button class="btn ghost sm" type="button" data-del="${esc(p.id)}" aria-label="Remove">✕</button>` : `<input type="checkbox" ${on.has(p.id) ? "checked" : ""} aria-label="Keep this message">`}</span>
+  </div>`).join("");
+  box.querySelectorAll(".wm-row").forEach((row) => {
+    const id = row.dataset.id;
+    const inp = row.querySelector(".wm-msg input");
+    inp.addEventListener("input", () => { row.querySelector(".wm-n").textContent = `${inp.value.length}/${POINT_NAME_MAX}`; });
+    inp.addEventListener("change", () => {
+      const e = watchEdits(plan, sid);
+      const x = (e.extra || []).find((q) => q.id === id);
+      if (x) x.name = inp.value.trim(); else e.names = { ...(e.names || {}), [id]: inp.value.trim() };
+      saveWatchEdits(plan, sid, e); trackEvent("watch-msg", "edit");
+      drawWatch(plan, sid);
+    });
+    const cb = row.querySelector('input[type="checkbox"]');
+    if (cb) cb.addEventListener("change", () => {
+      const e = watchEdits(plan, sid);
+      e.off = { ...(e.off || {}), [id]: !cb.checked };
+      saveWatchEdits(plan, sid, e); trackEvent("watch-msg", cb.checked ? "on" : "off");
+      drawWatch(plan, sid);
+    });
+    const del = row.querySelector("[data-del]");
+    if (del) del.addEventListener("click", () => {
+      const e = watchEdits(plan, sid);
+      e.extra = (e.extra || []).filter((q) => q.id !== id);
+      saveWatchEdits(plan, sid, e); drawWatch(plan, sid);
+    });
+  });
+}
+
 /** Save the plan as a watch course: FIT (Garmin) or GPX with waypoints (any brand). */
 function exportCourse(kind, plan, sid) {
   const name = (state.race && state.race.name) || "Race";
   const track = state.race && state.race.parsed ? state.race.parsed.points : null;
   try {
-    const data = kind === "fit" ? courseFit(plan, sid, track, { name }) : courseGpx(plan, sid, track, name);
+    const points = editedPoints(plan, sid, watchEdits(plan, sid));
+    const data = kind === "fit" ? courseFit(plan, sid, track, { name, points }) : courseGpx(plan, sid, track, name, points);
     const blob = new Blob([data], { type: kind === "fit" ? "application/octet-stream" : "application/gpx+xml" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);

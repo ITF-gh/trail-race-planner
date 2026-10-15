@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { parseGpx } from "../src/core/track.js";
 import { buildPlan } from "../src/core/plan.js";
 import { raceLegs, secAtKm } from "../src/core/script.js";
-import { coursePoints, strategyBlocks, courseFit, courseGpx, fitCrc, pointName, POINT_NAME_MAX, MIN_GAP_M, MIN_GAP_SEC } from "../src/core/garmin.js";
+import { coursePoints, strategyBlocks, editedPoints, courseFit, courseGpx, fitCrc, pointName, POINT_NAME_MAX, MIN_GAP_M, MIN_GAP_SEC } from "../src/core/garmin.js";
 import { makeDemoRaceGpx, makeDemoEffortGpx, DEMO_ULTRA_PROFILE, DEMO_ULTRA_AID, DEMO_LONG_RUN_PROFILE } from "../src/demo.js";
 
 const ultra = parseGpx(makeDemoRaceGpx(DEMO_ULTRA_PROFILE, { startEle: 650, loop: true, center: [45.05, 5.7] }));
@@ -46,4 +46,19 @@ test("GPX course: one waypoint per course point, then the track", () => {
   assert.ok(gpx.indexOf("<wpt ") < gpx.indexOf("<trk>"));
   assert.ok(gpx.includes("Ultra &amp; co"));
   assert.ok(parseGpx(gpx).points.length > 100, "the export reads back as a course");
+});
+
+test("watch messages: renamed, switched off and added ones reach the export, spaced out", () => {
+  const base = coursePoints(plan, "central");
+  const [a, b] = base;
+  const mine = editedPoints(plan, "central", { names: { [a.id]: "GO EASY BOSS" }, off: { [b.id]: true }, extra: [{ id: "x1", km: 33, name: "Call home ça va" }] });
+  assert.equal(mine.length, base.length, "one off, one added");
+  assert.equal(mine.find((p) => p.id === a.id).name, "GO EASY BOSS");
+  assert.ok(!mine.some((p) => p.id === b.id));
+  assert.equal(mine.find((p) => p.id === "x1").name, "Call home ca va");
+  for (let i = 1; i < mine.length; i++) assert.ok((mine[i].km - mine[i - 1].km) * 1000 >= MIN_GAP_M - 0.5);
+  const text = new TextDecoder("latin1").decode(courseFit(plan, "central", ultra.points, { points: mine }));
+  assert.ok(text.includes("GO EASY BOSS") && text.includes("Call home ca va") && !text.includes(b.name));
+  assert.equal((courseGpx(plan, "central", ultra.points, "R", mine).match(/<wpt /g) || []).length, mine.length);
+  assert.deepEqual(editedPoints(plan, "central", { names: { [a.id]: "   " } })[0].name, a.name, "an emptied name falls back to the planner's");
 });
