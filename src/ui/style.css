@@ -692,6 +692,34 @@ svg .rv-pin-p text{fill:#fff;font-weight:800;font-size:13px}
 @media (max-width:640px){ .rp-cockpit .rp-leg-info{font-size:11.5px;margin:0 0 4px;gap:2px} .rp-cockpit .rp-leg-info .ic{width:17px;height:17px;font-size:9px} }
 .rp-legs .rp-ptip{z-index:20}
 
+/* v0.24 full review: lighter Prep my race */
+.panel.compact{zoom:.8}
+.prof-tools{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px;min-height:34px}
+#briefProfSvg svg{touch-action:pan-y;cursor:crosshair;user-select:none}
+svg .psel{fill:rgba(255,201,40,.18);stroke:var(--sun);stroke-width:1.5;pointer-events:none}
+.zones{gap:6px}
+.zone-card{gap:2px 12px;padding:8px 12px;border-left-width:4px}
+.zone-card .zn,.zone-card .zs b{font-size:22px}
+.zone-card .zt b{font-size:15.5px} .zone-card .zt span{font-size:12px}
+.zone-card p{font-size:12.5px;margin-top:2px;line-height:1.35}
+.zone-card .mode{font-size:10px;padding:1px 7px}
+.rows{gap:5px}
+.row{gap:4px 14px;padding:6px 12px;border-left-width:4px}
+.row .n{font-size:21px;min-width:38px}
+.row .c{flex-basis:80px} .row .c .k{font-size:10px} .row .c b{font-size:14px}
+.row .diff{flex:0 1 auto}
+details.fold{margin:0}
+details.fold>summary{cursor:pointer;list-style:none}
+details.fold>summary::-webkit-details-marker{display:none}
+details.fold>summary::after{content:"▸ show";flex:none;width:auto;height:auto;background:none;font-family:var(--f-body);font-style:normal;font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.04em;text-transform:none;margin-left:auto}
+details.fold[open]>summary::after{content:"▾ hide"}
+details.fold>summary small{font-size:11px;color:var(--muted);font-style:normal;text-transform:uppercase;letter-spacing:.1em}
+.rp-cue-line{display:flex;align-items:center;gap:7px;margin:0;min-width:0;white-space:nowrap;font-size:13px}
+.rp-cue-line .ic{flex:none;display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--gold,#ffbe28);color:#1a1300;font-size:10.5px;font-weight:800}
+.rp-cue-line b{min-width:0;overflow:hidden;text-overflow:ellipsis;font-family:var(--f-display);font-weight:800;font-style:italic;text-transform:uppercase;letter-spacing:.03em;color:var(--sun)}
+.rp-cue-line .d{flex:none;color:var(--muted);font-size:12px}
+.rp-cue-line.pulse b{animation:kzglow 1.2s ease-in-out 2}
+@media (max-width:640px){ .rp-cockpit .rp-cue-line{font-size:11.5px} .rp-cockpit .rp-cue-line .ic{width:17px;height:17px;font-size:9px} }
 /* 05 Pimp my GPX: no photo, a banner of its own; the D-day link to it */
 #s-pimp{--band:var(--band-1)}
 #s-pimp .sec-head{--banner:repeating-radial-gradient(ellipse at 85% 50%,transparent 0 18px,rgba(255,255,255,.07) 18px 19.5px),radial-gradient(circle at 85% 30%,rgba(255,201,40,.45),transparent 45%),linear-gradient(120deg,#0c1c42,#1f5aa6 60%,#c8641f)}

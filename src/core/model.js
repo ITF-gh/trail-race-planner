@@ -28,7 +28,7 @@ export const TERRAIN = {
 
 export const SCENARIOS = [
   { id: "best", label: "Best", mult: 0.965 },
-  { id: "central", label: "Central", mult: 1.0 },
+  { id: "central", label: "Average", mult: 1.0 },
   { id: "cautious", label: "Cautious", mult: 1.035 },
 ];
 
