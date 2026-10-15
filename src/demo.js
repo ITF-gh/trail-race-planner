@@ -170,3 +170,61 @@ function gradeOf(profile, d) {
   }
   return 0;
 }
+
+/** The sample run of the "My run" mode: a made-up 28 km trail run with three climbs. */
+export const DEMO_REVIEW_PROFILE = [
+  [1500, 0], [1000, 3], [1500, 9], [1200, 13], [800, 6],
+  [1000, -8], [1500, -14], [1000, -5],
+  [2000, 1],
+  [1200, 7], [1000, 11], [600, 4],
+  [1500, -10], [1500, -6],
+  [2500, 0],
+  [1500, 10], [1000, 15], [600, 8],
+  [2000, -12], [1500, -4], [1500, 0],
+];
+
+/**
+ * A recorded trail run with a story to find, for the review mode and its tests: a strong first
+ * climb, a 90 s stop at the top of it, a 4 min stop at a fountain (km 11), a fade from about 60%
+ * of the run, 600 m walked on the flat at km 19, a slow last climb, and a heart rate that drifts
+ * upwards. One point per second, heart rate and per-foot cadence like a Garmin, on a loop near Annecy.
+ */
+export function makeDemoRunGpx({ startIso = "2026-10-15T06:30:00Z", profile = DEMO_REVIEW_PROFILE } = {}) {
+  const total = profile.reduce((s, [l]) => s + l, 0);
+  const at = loopPath(total, [45.86, 6.2]);
+  const t0 = Date.parse(startIso);
+  const stops = [{ d: 6000, sec: 90 }, { d: 11000, sec: 240 }];
+  let d = 0;
+  let t = 0;
+  let hr = 120;
+  let xml = gpxHeader("Morning trail run");
+  const point = (lat, lon, ele, h, cad) => `<trkpt lat="${lat.toFixed(6)}" lon="${lon.toFixed(6)}"><ele>${ele.toFixed(1)}</ele><time>${new Date(t0 + t * 1000).toISOString()}</time><extensions><ns3:TrackPointExtension><ns3:hr>${Math.round(h)}</ns3:hr><ns3:cad>${cad}</ns3:cad></ns3:TrackPointExtension></extensions></trkpt>\n`;
+  while (d < total) {
+    const [lat, lon] = at(d);
+    const g = gradeOf(profile, d);
+    const frac = d / total;
+    const stop = stops.find((s) => !s.done && d >= s.d);
+    if (stop) {
+      // Standing still: the watch keeps recording, the position wobbles by a metre or two.
+      stop.done = true;
+      for (let k = 0; k < stop.sec; k++) {
+        hr += (105 - hr) * 0.02;
+        xml += point(lat + Math.sin(k / 25) * 0.000008, lon + Math.cos(k / 31) * 0.000008, eleAt(profile, d, 450), hr, 0);
+        t += 1;
+      }
+    }
+    const walking = d >= 19000 && d < 19600;
+    const fade = frac > 0.6 ? 0.22 * (frac - 0.6) / 0.4 : 0;
+    const climb = d >= 1500 && d < 6000 ? 0.9 : d >= 19800 && d < 22900 ? 1.12 : 1;
+    const pace = walking ? 620 : demoPace(g) * (1 + 0.03 * frac + fade) * climb; // s/km
+    const hike = walking || g > 12;
+    // Heart rate chases a target set by the effort (grade-adjusted speed), plus a slow drift.
+    const eff = Math.min(1.5, (265 / pace) * (g > 0 ? 1 + g * 0.065 : 1 + g * 0.02));
+    const target = 118 + 40 * eff + 14 * frac;
+    hr += (target - hr) * 0.05;
+    xml += point(lat, lon, eleAt(profile, d, 450), hr, hike ? 58 + (t % 3) : 86 + (t % 2));
+    d += 1000 / pace;
+    t += 1;
+  }
+  return xml + GPX_FOOTER;
+}

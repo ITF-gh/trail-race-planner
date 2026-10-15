@@ -358,3 +358,68 @@ test("race legs: the whole course in numbered sections, end to end, with the bri
   assert.ok(t.hrAvg >= t.hrMin && t.hrAvg <= t.hrMax);
   assert.equal(raceTotals({ ...plan, hrGuide: null }, "central").hrAvg, null);
 });
+
+/* ---------- My run: review of a recorded run ---------- */
+import { analyseRun, runStateAt, runSecAtKm, runLegAt, effortFactor, minettiCost } from "../src/core/review.js";
+import { makeDemoRunGpx, DEMO_REVIEW_PROFILE } from "../src/demo.js";
+
+test("grade-adjusted pace: Minetti's energy cost, half of the downhill saving kept", () => {
+  assert.equal(minettiCost(0), 3.6);
+  assert.equal(effortFactor(0), 1);
+  assert.ok(Math.abs(effortFactor(10) - 1.66) < 0.01);
+  assert.ok(effortFactor(20) > effortFactor(10));
+  assert.ok(effortFactor(-10) < 1 && effortFactor(-10) >= 0.7);
+  assert.ok(effortFactor(-10) > minettiCost(-10) / 3.6); // a trail descent saves less than the lab says
+});
+
+test("review: a planned route (no timestamps) is refused", () => {
+  assert.throws(() => analyseRun(race), /timestamps/);
+});
+
+test("review: totals, stops and sections of the sample run", () => {
+  const run = analyseRun(parseGpx(makeDemoRunGpx()));
+  const totalKm = DEMO_REVIEW_PROFILE.reduce((s, [l]) => s + l, 0) / 1000;
+  assert.ok(Math.abs(run.totalKm - totalKm) < 0.3, `${run.totalKm} km`);
+  // the two stops: 90 s at km 6, 4 min at km 11
+  const big = run.stops.filter((s) => s.durSec >= 60);
+  assert.equal(big.length, 2);
+  assert.ok(Math.abs(big[0].km - 6) < 0.2 && Math.abs(big[0].durSec - 90) < 15);
+  assert.ok(Math.abs(big[1].km - 11) < 0.2 && Math.abs(big[1].durSec - 240) < 20);
+  assert.ok(Math.abs(run.elapsedSec - run.movingSec - run.stopSec) < 1e-6 && run.stopSec >= 320);
+  // sections end to end, numbered, each with a verdict
+  assert.equal(run.legs[0].startKm, 0);
+  assert.ok(Math.abs(run.legs[run.legs.length - 1].endKm - run.totalKm) < 1e-9);
+  run.legs.forEach((l, i) => { assert.equal(l.i, i + 1); if (i) assert.ok(Math.abs(l.startKm - run.legs[i - 1].endKm) < 1e-9); assert.ok(["good", "ok", "bad"].includes(l.tone)); });
+  assert.equal(runLegAt(run.legs, 0), 0);
+  assert.equal(runLegAt(run.legs, run.totalKm), run.legs.length - 1);
+});
+
+test("review: key moments find the story written into the sample run", () => {
+  const run = analyseRun(parseGpx(makeDemoRunGpx()));
+  const m = run.moments;
+  const find = (kind, tone) => m.find((x) => x.kind === kind && x.tone === tone);
+  for (let i = 1; i < m.length; i++) assert.ok(m[i].sec >= m[i - 1].sec, "in time order");
+  assert.equal(m[0].kind, "start");
+  assert.equal(m[m.length - 1].kind, "finish");
+  assert.ok(find("climb", "good").km < 6, "the strong climb is the first one");
+  assert.ok(find("climb", "bad").km > 19, "the weak climb is the last one");
+  assert.ok(find("fade", "bad").km > 14, "the fade starts after 60% of the run");
+  const walk = find("walk", "bad");
+  assert.ok(walk && walk.km > 18.8 && walk.km < 19.4, "walking on the flat at km 19");
+  assert.ok(find("drift", "bad"), "heart rate drifts upwards");
+  assert.equal(m.filter((x) => x.kind === "stop").length, 2);
+});
+
+test("review: the replay state follows the recorded time, standing still during a stop", () => {
+  const run = analyseRun(parseGpx(makeDemoRunGpx()));
+  const stop = run.stops.find((s) => s.durSec > 200);
+  const a = runStateAt(run, stop.sec + 30);
+  const b = runStateAt(run, stop.sec + 200);
+  assert.ok(a.stopped && b.stopped);
+  assert.ok(Math.abs(a.km - b.km) < 0.011, "no more than one 10 m sample during the stop");
+  let last = -1;
+  for (let s = 0; s <= run.elapsedSec; s += 60) { const x = runStateAt(run, s); assert.ok(x.km >= last); last = x.km; }
+  assert.ok(Math.abs(runStateAt(run, run.elapsedSec).km - run.totalKm) < 0.011);
+  assert.ok(Math.abs(runSecAtKm(run, 5) - runStateAt(run, runSecAtKm(run, 5)).sec) < 1e-6);
+  assert.ok(Math.abs(runStateAt(run, runSecAtKm(run, 5)).km - 5) < 0.011);
+});
