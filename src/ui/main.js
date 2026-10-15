@@ -55,6 +55,21 @@ const PEAK = `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M2 27 12 9l5 
 // in src/ui/photos and are copied next to index.html at build; style.css points the slots at them.
 // Plan mode keeps the nature and adventure look; "Review a run" mode gets sport shots. No face is
 // recognisable in any of them: people are seen from behind, far away or as silhouettes.
+/* ---------- Sky mode: a bright theme, blue skies, white and sunrise tones ---------- */
+// The choice is kept in this browser; on a first visit a light system setting picks Sky.
+const THEME_KEY = "trp.theme";
+function initialTheme() {
+  const saved = store.get(THEME_KEY);
+  if (saved === "sky" || saved === "night") return saved;
+  try { return window.matchMedia("(prefers-color-scheme: light)").matches ? "sky" : "night"; } catch (e) { return "night"; }
+}
+function applyTheme(t) {
+  document.documentElement.dataset.theme = t;
+  const b = document.getElementById("themeBtn");
+  if (b) { b.textContent = t === "sky" ? "☾ Night" : "☀ Sky mode"; b.setAttribute("aria-pressed", String(t === "sky")); b.title = t === "sky" ? "Back to the night look" : "Switch to the bright sky look"; }
+}
+applyTheme(initialTheme());
+
 const PHOTOS = {
   hero: { by: "Artem Meletov", url: "https://www.pexels.com/photo/person-standing-on-mountain-peak-above-clouds-8910505/" },
   heroRun: { by: "Cara Denison", url: "https://www.pexels.com/photo/silhouette-of-jogger-at-sunset-in-park-34730429/" },
@@ -123,6 +138,7 @@ $("#app").innerHTML = `
   <div class="topnav-in">
     <a class="tn-brand" href="#top" aria-label="Back to top">${PEAK}</a>
     <div class="tn-links">${NAV.map(([id, n, t]) => `<a href="#${id}" data-sec="${id}" class="${navClass(id)}"><b>${n}</b>${t}</a>`).join("")}</div>
+    <button class="btn ghost sm tn-theme" type="button" id="themeBtn" aria-pressed="false"></button>
     <div class="tn-sum plan-only" id="tnSum"></div>
     <div class="tn-sum review-only"><span id="tnRun"></span><button class="btn ghost sm" type="button" data-mode="plan">Prep my race</button></div>
     <div class="tn-sum prep-only"><button class="btn ghost sm" type="button" data-mode="plan">Prep my race</button></div>
@@ -239,6 +255,14 @@ FIELDS.forEach((id) => $("#" + id).addEventListener("change", () => {
   trackEvent("setting", id);
   if (id === "halfLifeDays" && state.effort) setRuns(state.effort.runs); else compute();
 }));
+applyTheme(document.documentElement.dataset.theme);
+$("#themeBtn").addEventListener("click", () => {
+  const t = document.documentElement.dataset.theme === "sky" ? "night" : "sky";
+  applyTheme(t); store.set(THEME_KEY, t); trackEvent("theme", t);
+  // Maps pick their tiles when they are drawn: redraw so they follow the theme.
+  compute();
+});
+
 
 /* ---------- files ---------- */
 function setStatus(which, html, ok) {

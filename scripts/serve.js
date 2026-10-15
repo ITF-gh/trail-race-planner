@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 spawnSync("node", [join(root, "scripts/build.js")], { stdio: "inherit" });
-const types = { ".html": "text/html; charset=utf-8", ".webp": "image/webp", ".js": "text/javascript", ".css": "text/css", ".png": "image/png" };
+const types = { ".html": "text/html; charset=utf-8", ".webp": "image/webp", ".js": "text/javascript", ".css": "text/css", ".png": "image/png", ".svg": "image/svg+xml" };
 createServer((req, res) => {
   // serve files from dist/ (the page and its photos); anything unknown gets the page
   const path = decodeURIComponent(new URL(req.url, "http://x").pathname).replace(/\.\.+/g, "");
