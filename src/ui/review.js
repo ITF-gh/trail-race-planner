@@ -9,7 +9,7 @@
 // glance shows where the run went well and where it cost you.
 
 import { parseGpx } from "../core/track.js";
-import { analyseRun, runStateAt, runLegAt, runSecAtKm } from "../core/review.js";
+import { analyseRun, runStateAt, runLegAt, runSecAtKm, runTarget, parseTarget } from "../core/review.js";
 import { courseMap } from "./map.js";
 import { fitPanel } from "./replay.js";
 import { mmss, hm, clock } from "../core/format.js";
@@ -26,8 +26,73 @@ const RV_ICON = { start: "▶", finish: "🏁", climb: "▲", descent: "▼", fl
 const RV_TONE = { good: "Went well", bad: "Cost you", info: "Worth knowing" };
 const RV_FORM = ["", "Much weaker", "Weaker", "Your average", "Stronger", "Much stronger"];
 
+/** The target typed last time (kept in this browser only). */
+function rvLoadTarget() {
+  try { return JSON.parse(localStorage.getItem("trp.runTarget") || "null"); } catch { return null; }
+}
+function rvSaveTarget(t) {
+  try { if (t) localStorage.setItem("trp.runTarget", JSON.stringify(t)); else localStorage.removeItem("trp.runTarget"); } catch { /* private mode: keep it for this visit only */ }
+}
+const rvSigned = (sec) => `${sec >= 0 ? "+" : "−"}${dur(Math.abs(sec))}`;
+const RV_STATUS = {
+  reached: ["rv-good", "Target reached"],
+  reach: ["rv-good", "Within reach"],
+  stretch: ["rv-ok", "A stretch"],
+  far: ["rv-bad", "Far for now"],
+};
+
+/**
+ * The "Against your target" block: the form, the verdict, where the gap comes from, and the
+ * sections where changing the effort would have changed the result.
+ */
+function rvTargetHtml(run, t) {
+  const kind = rv.target ? rv.target.kind : "time";
+  const val = rv.target ? (rv.target.kind === "pace" ? mmss(rv.target.value) : hm(rv.target.value).replace("h", ":")) : "";
+  const form = `<form class="rv-tgt-form" id="rvTgtForm">
+    <label class="f">Target<select id="rvTgtKind"><option value="time" ${kind === "time" ? "selected" : ""}>Finish time (h:mm)</option><option value="pace" ${kind === "pace" ? "selected" : ""}>Average pace (m:ss /km)</option></select></label>
+    <label class="f">Value<input type="text" id="rvTgtVal" value="${val}" placeholder="${kind === "pace" ? mmss(run.avgPace * 0.95) : hm(run.elapsedSec * 0.95).replace("h", ":")}" autocomplete="off" inputmode="numeric" size="8"></label>
+    <button class="btn primary" type="submit">Compare</button>
+    ${rv.target ? `<button class="btn" type="button" id="rvTgtClear">Clear</button>` : ""}
+    <span class="rv-tgt-err" id="rvTgtErr" role="alert"></span>
+  </form>`;
+  if (!t) return `<div class="panel rv-tgt">${form}<p class="note">Type the time (or the pace) you were aiming for. The review then shows how far you were from it, where the time went, and how to spread your effort to get there next time.</p></div>`;
+  const [cls, head] = RV_STATUS[t.status];
+  const tgtTxt = t.target.kind === "pace" ? `${mmss(t.target.value)}/km (${hm(t.targetSec)} for ${run.totalKm.toFixed(1)} km)` : `${hm(t.targetSec)} (${mmss(t.targetPace)}/km)`;
+  const more = (x) => `${x >= 0 ? "+" : "−"}${Math.abs(x).toFixed(1)}%`;
+  const why = {
+    reached: `You finished in ${hm(run.elapsedSec)}, ${dur(-t.gapSec)} inside your target of ${tgtTxt}.${t.realisticSec < t.targetSec - 120 ? ` On this run you could aim for about <b>${hm(t.realisticSec)}</b> next time: your first-half effort held to the end, and stops kept to 1 min per hour.` : ""}`,
+    reach: `You were ${dur(t.gapSec)} over ${tgtTxt}. The legs were there: shorter stops and holding your first-half effort to the end cover the gap.`,
+    stretch: `You were ${dur(t.gapSec)} over ${tgtTxt}. It needs ${more(t.vsFirstPct)} on the effort you showed in the first half: realistic after a block of training.`,
+    far: `You were ${dur(t.gapSec)} over ${tgtTxt}. It needs ${more(t.vsFirstPct)} on the effort you showed in the first half. Aim for about <b>${hm(t.realisticSec)}</b> next time on this kind of course, then build from there.`,
+  }[t.status];
+  const tile = (k, v, sub) => `<div class="rp-tot"><span class="k">${k}</span><b>${v}</b>${sub ? `<small>${sub}</small>` : ""}</div>`;
+  const sec = (l) => `${l.i}. ${rvEsc(l.title)} <small>km ${l.startKm.toFixed(1)} → ${l.endKm.toFixed(1)}</small>`;
+  const tgtLine = (l) => (l.kind === "climb" && l.tgtVam ? `${Math.round(l.tgtVam)} m/h climbing instead of ${Math.round(l.vam)}` : l.tgtPace ? `${mmss(l.tgtPace)}/km instead of ${mmss(l.pace)}` : "");
+  const adapt = t.status === "reached" ? "" : `
+    <div class="rv-tgt-adapt">
+      <div><div class="sub-h">Where to find the time</div><ul class="rv-tgt-list">${t.lose.map((l) => `<li class="rv-bad"><b>${sec(l)}</b><span>${dur(l.deltaSec)} slower than the target asked: ${tgtLine(l)}.${l.startKm >= run.halves.km ? " Late in the run: this is fuel and pacing, not fitness." : ""}</span></li>`).join("") || `<li>No section stands out: the gap is spread evenly.</li>`}</ul></div>
+      ${t.ease.length ? `<div><div class="sub-h">Where to ease off</div><ul class="rv-tgt-list">${t.ease.map((l) => `<li class="rv-good"><b>${sec(l)}</b><span>${dur(-l.deltaSec)} faster than the target needed, before your fade: easing off here keeps legs for the end.</span></li>`).join("")}</ul></div>` : ""}
+    </div>`;
+  return `<div class="panel rv-tgt">${form}
+    <div class="rv-tgt-head ${cls}"><b>${head}</b><p>${why}</p></div>
+    <div class="rp-totals rv-tgt-tiles">
+      ${tile(t.gapSec > 0 ? "Over target" : "Under target", dur(Math.abs(t.gapSec)), `${hm(run.elapsedSec)} for ${hm(t.targetSec)}`)}
+      ${tile("Stops", t.stopGain >= 30 ? dur(t.stopGain) : "OK", `${dur(run.stopSec)} stopped, ${dur(t.stopAllow)} allowed`)}
+      ${tile("Fade", t.fadeGain >= 30 ? dur(t.fadeGain) : "None", "second half at your first-half effort")}
+      ${tile("Effort needed", more(t.effortPct), t.targetGap ? `grade-adjusted ${mmss(t.targetGap)}/km instead of ${mmss(run.gapPace)}` : "on your average today")}
+    </div>
+    ${adapt}
+    <details class="rv-tgt-all"><summary>Every section against the target</summary>
+      <table class="rp-tg"><thead><tr><th>Section</th><th>Today</th><th>Target</th><th>Gap</th><th>Target pace</th></tr></thead><tbody>
+      ${t.legs.map((l) => `<tr><th>${l.i}. ${rvEsc(l.title)}</th><td>${dur(l.movSec)}</td><td>${dur(l.tgtSec)}</td><td class="${l.deltaSec > 15 ? "rv-b" : l.deltaSec < -15 ? "rv-g" : ""}">${rvSigned(l.deltaSec)}</td><td>${l.tgtPace ? `${mmss(l.tgtPace)}/km` : "–"}${l.tgtVam && l.kind === "climb" ? ` <small>${Math.round(l.tgtVam)} m/h</small>` : ""}</td></tr>`).join("")}
+      </tbody></table>
+      <p class="note">The target spreads one even effort over the whole run: each section gets the time it takes at your own average for its kind of ground, scaled so the total hits the target (stops: 1 min per hour allowed). Moving time only; stops are in the Stops tile.</p>
+    </details>
+  </div>`;
+}
+
 // Survives a re-render, so the replay keeps its place.
-const rv = { run: null, name: "", sec: 0, playing: false, speed: 180, pauseAt: true, follow: true, raf: 0, map: null, onKey: null };
+const rv = { run: null, name: "", target: rvLoadTarget(), sec: 0, playing: false, speed: 180, pauseAt: true, follow: true, raf: 0, map: null, onKey: null };
 
 /** Seconds since midnight, local time, when the run started (for clock times of day). */
 const startOfDay = (ms) => { const d = new Date(ms); return d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds(); };
@@ -87,6 +152,7 @@ export function mountRun(box, run) {
   const TOT = run.totalKm;
   const pct = (k) => `${((k / TOT) * 100).toFixed(3)}%`;
   const prof = rvProfile(run);
+  const tgt = rv.target ? runTarget(run, rv.target) : null;
   const good = moments.filter((m) => m.tone === "good");
   const bad = moments.filter((m) => m.tone === "bad");
   const date = new Date(run.startMs).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
@@ -98,7 +164,7 @@ export function mountRun(box, run) {
   <p class="rv-meta">${rvEsc(rv.name || run.name || "Your run")} · ${date} · start ${clock(st, 0)}</p>
   <div class="rp-cockpit rv-cockpit" id="rvCockpit">
   <div class="rp-totals" aria-label="Your run">
-    ${tile("Time", hm(run.elapsedSec), `${hm(run.movingSec)} moving · ${dur(run.stopSec)} stopped`)}
+    ${tile("Time", hm(run.elapsedSec), tgt ? `target ${hm(tgt.targetSec)} · <span class="${tgt.gapSec > 0 ? "rv-b" : "rv-g"}">${rvSigned(tgt.gapSec)}</span>` : `${hm(run.movingSec)} moving · ${dur(run.stopSec)} stopped`)}
     ${tile("Distance", `${TOT.toFixed(1)}<small>km</small>`, `${Math.round(run.gain)} m D+ · ${legs.length} sections`)}
     ${tile("Pace", `${mmss(run.movingPace)}<small>/km</small>`, `grade-adjusted ${mmss(run.gapPace)}/km`)}
     ${run.hasHr ? tile("Heart rate", `${Math.round(run.hrAvg)}<small>bpm</small>`, `max ${Math.round(run.hrMax)}`) : tile("Key moments", `<span class="rv-g">${good.length}</span> · <span class="rv-b">${bad.length}</span>`, "went well · cost you")}
@@ -136,6 +202,8 @@ export function mountRun(box, run) {
     <label class="chk"><input type="checkbox" id="rvFollow" ${rv.follow ? "checked" : ""}> Follow the runner</label>
   </div>
   </div>
+  <div class="sub-h" id="rv-target">Against your target</div>
+  <div id="rvTgt">${rvTargetHtml(run, tgt)}</div>
   <div class="sub-h" id="rv-moments">Key moments · ${good.length} went well · ${bad.length} cost you</div>
   <ol class="rp-script rv-script" id="rvScript">${moments.map((m) => `<li data-i="${m.i}" class="rv-${m.tone}"><button type="button"><span class="ic">${RV_ICON[m.kind] || "•"}</span><span class="t"><b>${rvEsc(m.title)}</b><small>km ${m.km.toFixed(1)} · ${clock(st, m.sec)} · ${RV_TONE[m.tone]}</small></span><span class="cue">${rvEsc(m.text)}${m.tip ? `<em>${rvEsc(m.tip)}</em>` : ""}</span></button></li>`).join("")}</ol>
   <div class="sub-h">How to read it</div>
@@ -210,13 +278,14 @@ export function mountRun(box, run) {
             ${row("Clock", `${clock(st, l.startSec)} → ${clock(st, l.endSec)}`, "rvnClock")}
             ${row("Time", `${dur(l.durSec)}${l.stopSec >= 30 ? ` <small>${dur(l.stopSec)} stopped</small>` : ""}`, "rvnTime")}
             ${row("Pace", l.pace ? `${mmss(l.pace)}/km` : "–", "rvnPace")}
+            ${tgt ? row("Target", `${dur(tgt.legs[li].tgtSec)} <small class="${tgt.legs[li].deltaSec > 15 ? "rv-b" : tgt.legs[li].deltaSec < -15 ? "rv-g" : ""}">${rvSigned(tgt.legs[li].deltaSec)}</small>`, "rvnTgt") : ""}
             ${row("Grade-adj.", l.gap ? `${mmss(l.gap)}/km` : "–", "rvnGap")}
             ${row("Gradient", `${l.avg > 0 ? "+" : ""}${l.avg.toFixed(1)}% <small>+${Math.round(l.up)} / −${Math.round(l.down)} m</small>`, "rvnGrade")}
             ${run.hasHr ? row("Heart rate", l.hr ? `${Math.round(l.hr)} bpm` : "–", "rvnHr") : ""}
             ${run.hasCad ? row("Cadence", l.cad ? `${Math.round(l.cad)} spm${l.hikeShare > 0.05 ? ` <small>${Math.round(l.hikeShare * 100)}% hiked</small>` : ""}` : "–", "rvnCad") : ""}
           </tbody>
         </table>`;
-      els.tn = Object.fromEntries(["Clock", "Time", "Pace", "Gap", "Grade", "Hr", "Cad"].map((k) => [k, els.leg.querySelector(`#rvn${k}`)]));
+      els.tn = Object.fromEntries(["Clock", "Time", "Pace", "Tgt", "Gap", "Grade", "Hr", "Cad"].map((k) => [k, els.leg.querySelector(`#rvn${k}`)]));
       lastNext = ""; // the card changed height: fit the list below it again
     }
     const left = Math.max(0, l.endKm - s.km);
@@ -226,6 +295,7 @@ export function mountRun(box, run) {
     set("Clock", clock(st, s.sec));
     set("Time", `${dur(s.sec - l.startSec)} in`);
     set("Pace", s.pace ? `${mmss(s.pace)}/km` : "stopped");
+    if (tgt) { const d = s.sec - tgt.ghostAt(s.km); set("Tgt", Math.abs(d) < 30 ? "on target" : `${dur(Math.abs(d))} ${d > 0 ? "behind" : "ahead"}`); }
     set("Gap", s.gap ? `${mmss(s.gap)}/km` : "–");
     set("Grade", `${s.grade > 0 ? "+" : ""}${s.grade.toFixed(0)}% · ${Math.round(s.ele)} m`);
     set("Hr", s.hr ? `${Math.round(s.hr)} bpm` : "–");
@@ -241,6 +311,7 @@ export function mountRun(box, run) {
     const next = [
       nextM ? `<li><span>Next moment · ${rvEsc(nextM.title)}</span><b>km ${nextM.km.toFixed(1)} · in ${dur(nextM.sec - s.sec)}</b></li>` : "",
       nextStop ? `<li><span>Next stop · ${Math.round(nextStop.durSec / 60)} min</span><b>km ${nextStop.km.toFixed(1)}</b></li>` : "",
+      tgt ? (() => { const d = s.sec - tgt.ghostAt(s.km); return `<li><span>Vs target ${hm(tgt.targetSec)}</span><b class="${d > 30 ? "rv-b" : d < -30 ? "rv-g" : ""}">${Math.abs(d) < 30 ? "on target" : `${dur(Math.abs(d))} ${d > 0 ? "behind" : "ahead"}`}</b></li>`; })() : "",
       `<li><span>So far</span><b><span class="rv-g">${done.filter((x) => x.tone === "good").length} went well</span> · <span class="rv-b">${done.filter((x) => x.tone === "bad").length} cost you</span></b></li>`,
     ].join("");
     if (next !== lastNext) { els.next.innerHTML = next; lastNext = next; fitPanel(els.next); }
@@ -341,6 +412,24 @@ export function mountRun(box, run) {
     else if (ev.key === "ArrowLeft" && tag !== "input") { ev.preventDefault(); jump(-1); }
   };
   document.addEventListener("keydown", rv.onKey);
+  const tf = $v("#rvTgtForm");
+  if (tf) {
+    const kindSel = $v("#rvTgtKind");
+    const valIn = $v("#rvTgtVal");
+    kindSel.addEventListener("change", () => { valIn.value = ""; valIn.placeholder = kindSel.value === "pace" ? mmss(run.avgPace * 0.95) : hm(run.elapsedSec * 0.95).replace("h", ":"); valIn.focus(); });
+    tf.addEventListener("submit", (ev) => {
+      ev.preventDefault();
+      const t = parseTarget(kindSel.value, valIn.value);
+      if (!t) { $v("#rvTgtErr").textContent = kindSel.value === "pace" ? "Type a pace like 6:15 (minutes:seconds per km)." : "Type a time like 2:45 (hours:minutes)."; return; }
+      rv.target = t;
+      rvSaveTarget(t);
+      trackEvent("review-target", t.kind);
+      mountRun(box, run);
+      box.querySelector("#rv-target").scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    const clr = $v("#rvTgtClear");
+    if (clr) clr.addEventListener("click", () => { rv.target = null; rvSaveTarget(null); trackEvent("review-target", "clear"); mountRun(box, run); });
+  }
   draw();
 }
 
