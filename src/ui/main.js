@@ -79,10 +79,10 @@ const PHOTOS = {
 };
 const credit = (key, cls = "") => `<a class="photo-credit${cls ? " " + cls : ""}" href="${PHOTOS[key].url}" target="_blank" rel="noopener">Photo: ${PHOTOS[key].by} / Pexels</a>`;
 const head = (num, kicker, title, key = "s" + Number(num)) => `<header class="sec-head"><div class="sec-num">${num}</div><div class="sec-kicker">${kicker}</div><h2>${title}</h2>${PHOTOS[key] ? credit(key) : ""}</header>`;
-const NAV = [["s1", "01", "Engine"], ["s2", "02", "Briefing"], ["s3", "03", "D-day"], ["s4", "04", "Race day"], ["s-pimp", "05", "Pimp my GPX"], ["s-prep", "◆", "Prep my run"], ["s5", "▶", "Check my run"]];
+const NAV = [["s1", "01", "Engine"], ["s2", "02", "Briefing"], ["s3", "03", "D-day"], ["s4", "04", "Race day"], ["s-pimp", "05", "Pimp my GPX"], ["s-prep", "◆", "Prep my run"], ["s5", "▶", "Check my run"], ["s6", "▶▶", "Deep dive"]];
 /** The modes, in switch order: data-mode value, label, and the class that only it shows. */
 const MODES = [["plan", "Prep my race", "plan-only"], ["prep", "Prep my run", "prep-only"], ["run", "Check my run", "review-only"]];
-const navClass = (id) => (id === "s5" ? "review-only" : id === "s-prep" ? "prep-only" : "plan-only");
+const navClass = (id) => (id === "s5" || id === "s6" ? "review-only" : id === "s-prep" ? "prep-only" : "plan-only");
 const MODE_SEG = `<div class="seg mode-seg" role="group" aria-label="Mode">${MODES.map(([m, label]) => `<button type="button" data-mode="${m}">${label}</button>`).join("")}</div>`;
 
 $("#app").innerHTML = `
@@ -207,6 +207,12 @@ $("#app").innerHTML = `
   ${head("▶", "After the run", "Check my run", "s5")}
   <p class="sec-intro">Your run played back at its real pace. The bar, the map and the profile are coloured by how you ran each stretch compared with your own average on the same kind of ground; each key moment stops the replay and says what it means. Add the time or pace you were aiming for, and the review shows how far you were, where the time went and where to change your effort to reach it.</p>
   <div id="s5body"></div>
+</section>
+
+<section id="s6" class="review-only">
+  ${head("▶▶", "Go deeper", "Deep dive", "s6")}
+  <p class="sec-intro">Everything your watch recorded, turned into numbers and charts you can play with: change a distance, a band width or your heart rates and they redraw; click a point or a row and the replay above jumps there.</p>
+  <div id="s6body"></div>
 </section>
 
 <p class="foot plan-only">How it works: your run gives a pace for every gradient band, fresh and tired. Each 10 m of the course takes the pace of its band, sliding from fresh to tired along the race, scaled for terrain and for how much longer the race is than your run. Climbs and descents come from the course elevation, smoothed to ignore GPS noise. A model like this is usually within 5 to 10%: treat the three scenarios as a range, not a promise.</p>
@@ -825,7 +831,7 @@ function mountCockpit(box, plan, sid, key, noun = "Race") {
 // band across the middle of the viewport, without listening to every scroll event.
 function renderNav() {
   const plan = state.plan;
-  const ready = { s1: Boolean(state.effort), s2: Boolean(state.race), s3: Boolean(plan), s4: Boolean(plan), "s-pimp": Boolean(plan), s5: Boolean($("#rvCockpit")), "s-prep": Boolean($("#sPrepBody .prep-ready")) };
+  const ready = { s1: Boolean(state.effort), s2: Boolean(state.race), s3: Boolean(plan), s4: Boolean(plan), "s-pimp": Boolean(plan), s5: Boolean($("#rvCockpit")), s6: Boolean($("#inKpi")), "s-prep": Boolean($("#sPrepBody .prep-ready")) };
   document.querySelectorAll(".tn-links a").forEach((a) => a.classList.toggle("ready", ready[a.dataset.sec]));
   const sum = $("#tnSum");
   if (plan) {
