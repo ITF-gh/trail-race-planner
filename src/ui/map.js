@@ -44,6 +44,13 @@ const TILES = {
     maxZoom: 19,
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
   },
+  light: {
+    label: "Light",
+    url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+    maxZoom: 20,
+    subdomains: "abcd",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>',
+  },
   topo: {
     label: "Topo",
     url: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
@@ -107,8 +114,22 @@ function markHtml(m) {
 function leafletMap(L, el, { route, totalKm, paint = [], marks = [] }) {
   el.innerHTML = "";
   const map = L.map(el, { scrollWheelZoom: false, zoomSnap: 0.25, attributionControl: true });
-  const layers = Object.fromEntries(Object.entries(TILES).map(([k, t]) => [t.label, L.tileLayer(t.url, { maxZoom: t.maxZoom, attribution: t.attribution, subdomains: "abc", crossOrigin: true })]));
+  // Plain <img> tiles (no crossOrigin): nothing reads their pixels, and a CORS-mode request
+  // fails outright whenever a tile server answers without CORS headers.
+  const layers = Object.fromEntries(Object.entries(TILES).map(([k, t]) => [t.label, L.tileLayer(t.url, { maxZoom: t.maxZoom, attribution: t.attribution, subdomains: t.subdomains || "abc" })]));
   layers.Map.addTo(map);
+  // If the OpenStreetMap tiles do not come (blocked, rate-limited, offline server), switch once to
+  // the Light map from another server rather than leave a blank grey box.
+  let tileOk = 0, tileErr = 0, swapped = false;
+  layers.Map.on("tileload", () => { tileOk++; });
+  layers.Map.on("tileerror", () => {
+    tileErr++;
+    if (swapped || tileOk > 0 || tileErr < 4 || !map.hasLayer(layers.Map)) return;
+    swapped = true;
+    map.removeLayer(layers.Map);
+    layers.Light.addTo(map);
+    trackEvent("map-fallback");
+  });
   L.control.layers(layers, null, { position: "topright" }).addTo(map);
   // Leaflet also fires baselayerchange when the first layer is (re)attached: count real switches only.
   let base = "Map";
