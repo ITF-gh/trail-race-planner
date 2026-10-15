@@ -304,34 +304,29 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key }) {
       const vx = ((ev.clientX - b.left) / b.width) * 1000;
       return prof.km(vx);
     };
-    // Hovering a section shows a pop-up with its length and its real metres up and down.
+    // A tap or click on a section jumps the runner there and opens a pop-up with the section's
+    // length and its real metres up and down; it stays until the next tap or a tap elsewhere.
     const profBox = $r("#rpProf");
     const tip = document.createElement("div");
     tip.className = "rp-ptip";
     tip.hidden = true;
     profBox.appendChild(tip);
-    let tipLeg = -1;
-    svg.addEventListener("pointermove", (ev) => {
-      if (ev.pointerType === "touch") return;
-      const li = legAtKm(legs, toKm(ev));
-      const l = legs[li];
-      if (li !== tipLeg) {
-        tipLeg = li;
-        tip.innerHTML = `<b>${l.i}. ${escR(l.title)}</b><span><i>Length</i>${l.km.toFixed(2)} km</span><span><i>D+</i>${Math.round(l.up)} m</span><span><i>D−</i>${Math.round(l.down)} m</span>`;
-      }
+    const showTip = (ev) => {
+      const l = legs[legAtKm(legs, toKm(ev))];
+      tip.innerHTML = `<b>${l.i}. ${escR(l.title)}</b><span><i>Length</i>${l.km.toFixed(2)} km</span><span><i>D+</i>${Math.round(l.up)} m</span><span><i>D−</i>${Math.round(l.down)} m</span>`;
       tip.hidden = false;
       const pb = profBox.getBoundingClientRect();
       const x = Math.max(4, Math.min(pb.width - tip.offsetWidth - 4, ev.clientX - pb.left - tip.offsetWidth / 2));
       tip.style.left = `${x}px`;
       tip.style.top = `${Math.max(2, ev.clientY - pb.top - tip.offsetHeight - 14)}px`;
-    });
-    svg.addEventListener("pointerleave", () => { tip.hidden = true; tipLeg = -1; });
-    // A tap or click jumps there; a drag is left to the browser, so the profile scrolls freely.
+    };
+    document.addEventListener("pointerdown", (ev) => { if (!tip.hidden && !profBox.contains(ev.target)) tip.hidden = true; });
+    // A drag is left to the browser, so the profile scrolls freely.
     let down = null;
     svg.addEventListener("pointerdown", (ev) => { down = { x: ev.clientX, y: ev.clientY }; });
     svg.addEventListener("pointercancel", () => { down = null; });
     svg.addEventListener("pointerup", (ev) => {
-      if (down && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) < 8) { trackEvent("replay-profile-tap"); pause(); seek(secAtKm(plan, sid, toKm(ev))); }
+      if (down && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) < 8) { trackEvent("replay-profile-tap"); pause(); seek(secAtKm(plan, sid, toKm(ev))); showTip(ev); }
       down = null;
     });
   }
