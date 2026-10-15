@@ -720,3 +720,9 @@ details.fold>summary small{font-size:11px;color:var(--muted);font-style:normal;t
 .rp-cue-line .d{flex:none;color:var(--muted);font-size:12px}
 .rp-cue-line.pulse b{animation:kzglow 1.2s ease-in-out 2}
 @media (max-width:640px){ .rp-cockpit .rp-cue-line{font-size:11.5px} .rp-cockpit .rp-cue-line .ic{width:17px;height:17px;font-size:9px} }
+/* 05 Pimp my GPX: no photo, a banner of its own; the D-day link to it */
+#s-pimp{--band:var(--band-1)}
+#s-pimp .sec-head{--banner:repeating-radial-gradient(ellipse at 85% 50%,transparent 0 18px,rgba(255,255,255,.07) 18px 19.5px),radial-gradient(circle at 85% 30%,rgba(255,201,40,.45),transparent 45%),linear-gradient(120deg,#0c1c42,#1f5aa6 60%,#c8641f)}
+.pimp-link{display:flex;flex-direction:column;gap:4px;margin-top:18px;text-decoration:none;color:inherit;border-color:rgba(255,201,40,.45)}
+.pimp-link>b{font-family:var(--f-display);font-style:italic;text-transform:uppercase;letter-spacing:.03em;color:var(--sun)}
+.pimp-link:hover{border-color:var(--sun)}
