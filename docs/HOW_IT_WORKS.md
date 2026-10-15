@@ -136,6 +136,14 @@ The rest of the app looks forward. My run looks back at one recorded run and ask
 
 **Honest limits.** GAP ignores terrain (mud, rocks, snow), wind and heat. A stop where your watch auto-paused leaves no points, which looks the same as a stop. "Strong" and "weak" are relative to your own day: an evenly run day has few moments, which is a good sign.
 
+## 11. The plan on your watch (`src/core/garmin.js`)
+
+A GPS watch follows a *course*: the route plus *course points*, named spots that raise an alert as you approach them. Fewer alerts are read better, so the planner groups neighbouring sections that share a strategy (`strategyBlocks`: three HIKE sections in a row are one block, gentle sections under 60 m up or down are just RUN) and writes one alert per block, `HIKE 5.5k +726` (strategy, length, D+ or D-), plus one per key zone marked `!`, `!POWER HIKE 2.3k`, which replaces a block alert at the same spot. Watches show 15 characters of a name (a 30-character test name gave an error), so names are cut to that and each one is tried from airy to packed until it fits; the long sentence goes in the point's note. Each point comes at least 200 m and 1 minute (at plan pace) after the one before, so alerts never stack. The 78K demo gets 30 alerts for 41 sections.
+
+In Plan a race, the **Watch messages** list shows these alerts before export: the runner can rewrite any (15 characters), untick some, or add their own at a km (`editedPoints` applies the edits, saved in the browser, then spaces everything out again). The files carry that version.
+
+The Garmin file is **FIT** (Flexible and Interoperable Data Transfer), a binary format: a 14-byte header, then messages, then a CRC-16 checksum. Each message type is first *defined* (which fields, how many bytes, which base type) and then *written* as raw values in that layout, so the file describes itself and stays compact (the 78K demo is 78 KB as FIT, 290 KB as GPX). A course is `file_id` (type course), `course` (name, sport), `lap` (totals), a timer start `event`, the `record`s (position in semicircles, altitude, distance, time) with the `course_point`s between them in distance order, and a timer stop `event`. The record times come from your plan, so the watch's Virtual Partner runs at your planned pace. Course point icons are an enum of the FIT SDK; only the classic ones (generic, summit, valley, danger) are used, because Garmin Connect stalled on a point with a newer type. The GPX follows Garmin Connect's own export: each waypoint has a `<name>`, a `<cmt>` (the point's note, here the full sentence) and a `<type>` with the icon name in capitals (`GENERIC`, `SUMMIT`...). Both exports are checked in `tests/garmin.test.js` (the FIT CRC of a valid file comes out to 0).
+
 ## Ideas for what to build next
 
 - Save an analysed effort profile so you do not re-upload the file.
