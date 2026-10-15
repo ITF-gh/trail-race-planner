@@ -4,6 +4,7 @@ import { parseGpx } from "../src/core/track.js";
 import { buildPlan } from "../src/core/plan.js";
 import { raceLegs, secAtKm } from "../src/core/script.js";
 import { coursePoints, strategyBlocks, editedPoints, courseFit, courseGpx, fitCrc, pointName, POINT_NAME_MAX, MIN_GAP_M, MIN_GAP_SEC } from "../src/core/garmin.js";
+import { prepRunPlan } from "../src/core/preprun.js";
 import { makeDemoRaceGpx, makeDemoEffortGpx, DEMO_ULTRA_PROFILE, DEMO_ULTRA_AID, DEMO_LONG_RUN_PROFILE } from "../src/demo.js";
 
 const ultra = parseGpx(makeDemoRaceGpx(DEMO_ULTRA_PROFILE, { startEle: 650, loop: true, center: [45.05, 5.7] }));
@@ -61,4 +62,18 @@ test("watch messages: renamed, switched off and added ones reach the export, spa
   assert.ok(text.includes("GO EASY BOSS") && text.includes("Call home ca va") && !text.includes(b.name));
   assert.equal((courseGpx(plan, "central", ultra.points, "R", mine).match(/<wpt /g) || []).length, mine.length);
   assert.deepEqual(editedPoints(plan, "central", { names: { [a.id]: "   " } })[0].name, a.name, "an emptied name falls back to the planner's");
+});
+
+test("prep my run: a plan from the GPX alone, stretched to a target time, ready for the watch", () => {
+  const long = parseGpx(makeDemoRaceGpx(DEMO_LONG_RUN_PROFILE, { startEle: 650, loop: true, center: [45.05, 5.7] }));
+  const est = prepRunPlan(long);
+  assert.equal(est.timeSource, "estimate");
+  assert.ok(est.scenarios.central.finishSec > 3600 && est.climbs.length > 0);
+  const fast = prepRunPlan(long, { targetSec: 3 * 3600, startTime: "07:30" });
+  assert.equal(fast.timeSource, "target");
+  assert.ok(Math.abs(fast.scenarios.central.finishSec - 3 * 3600) <= 1);
+  assert.equal(fast.startSec, 7.5 * 3600);
+  const pts = coursePoints(fast, "central");
+  assert.ok(pts.length >= 5 && pts.every((p) => p.name.length <= POINT_NAME_MAX));
+  assert.ok(courseFit(fast, "central", long.points, { name: "Long run" }).length > 1000);
 });
