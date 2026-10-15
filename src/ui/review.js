@@ -12,7 +12,7 @@ import { parseGpx } from "../core/track.js";
 import { analyseRun, runStateAt, runLegAt, runSecAtKm, runTarget, parseTarget } from "../core/review.js";
 import { courseMap } from "./map.js";
 import { fitPanel } from "./replay.js";
-import { mmss, hm, clock } from "../core/format.js";
+import { mmss, hm, hms, clock } from "../core/format.js";
 import { trackEvent, trackOnce } from "./analytics.js";
 import { makeDemoRunGpx } from "../demo.js";
 
@@ -184,7 +184,7 @@ export function mountRun(box, run) {
     <div class="rp-map" id="rvMap"></div>
     <div class="panel rp-hud">
       <div class="rp-top">
-        <div class="rp-clock"><span class="k">Clock</span><b id="rvClock"></b></div>
+        <div class="rp-clock"><span class="k">Duration</span><b id="rvClock"></b></div>
         <div class="rp-run"><span id="rvElapsed"></span><span id="rvKm"></span></div>
       </div>
       <div class="rp-prog" aria-hidden="true"><i id="rvBar"></i></div>
@@ -256,8 +256,8 @@ export function mountRun(box, run) {
   let lastNext = "";
   const draw = () => {
     const s = runStateAt(run, rv.sec);
-    els.clock.textContent = clock(st, s.sec);
-    els.el.textContent = `${hm(s.sec)} · ${Math.round(s.frac * 100)}%`;
+    els.clock.textContent = hms(s.sec);
+    els.el.textContent = `clock ${clock(st, s.sec)} · ${Math.round(s.frac * 100)}%`;
     els.bar.style.width = `${(s.frac * 100).toFixed(2)}%`;
     els.km.textContent = `km ${s.km.toFixed(1)} / ${TOT.toFixed(1)}`;
     els.seek.value = Math.round(s.sec);
@@ -280,7 +280,7 @@ export function mountRun(box, run) {
         <table class="rp-tg">
           <thead><tr><th></th><th>Section</th><th class="now">Now</th></tr></thead>
           <tbody>
-            ${row("Clock", `${clock(st, l.startSec)} → ${clock(st, l.endSec)}`, "rvnClock")}
+            ${row("From start", `${hm(l.startSec)} → ${hm(l.endSec)}`, "rvnClock")}
             ${row("Time", `${dur(l.durSec)}${l.stopSec >= 30 ? ` <small>${dur(l.stopSec)} stopped</small>` : ""}`, "rvnTime")}
             ${row("Pace", l.pace ? `${mmss(l.pace)}/km` : "–", "rvnPace")}
             ${tgt ? row("Target", `${dur(tgt.legs[li].tgtSec)} <small class="${tgt.legs[li].deltaSec > 15 ? "rv-b" : tgt.legs[li].deltaSec < -15 ? "rv-g" : ""}">${rvSigned(tgt.legs[li].deltaSec)}</small>`, "rvnTgt") : ""}
@@ -297,7 +297,7 @@ export function mountRun(box, run) {
     els.legNow.innerHTML = `<b>Section ${l.i}/${legs.length}</b> · ${rvEsc(l.title)} ${legChip(l)} <span class="left">${left.toFixed(1)} km to go in it</span>`;
     els.legPos.style.left = `${((s.km / TOT) * 100).toFixed(2)}%`;
     const set = (k, v) => { if (els.tn[k]) els.tn[k].textContent = v; };
-    set("Clock", clock(st, s.sec));
+    set("Clock", hm(s.sec));
     set("Time", `${dur(s.sec - l.startSec)} in`);
     set("Pace", s.pace ? `${mmss(s.pace)}/km` : "stopped");
     if (tgt) { const d = s.sec - tgt.ghostAt(s.km); set("Tgt", Math.abs(d) < 30 ? "on target" : `${dur(Math.abs(d))} ${d > 0 ? "behind" : "ahead"}`); }
@@ -328,7 +328,7 @@ export function mountRun(box, run) {
       const e = moments[Math.max(0, ci)];
       els.cue.className = `rp-cue rv-cue rv-${e.tone}`;
       els.cue.title = `${e.text}${e.tip ? ` ${e.tip}` : ""}`;
-      els.cue.innerHTML = `<span class="ic">${RV_ICON[e.kind] || "•"}</span><div><div class="rp-cue-h"><b>${rvEsc(e.title)}</b><small>km ${e.km.toFixed(1)} · ${clock(st, e.sec)}</small></div><p>${rvEsc(e.text)}${e.tip ? ` <em>${rvEsc(e.tip)}</em>` : ""}</p></div>`;
+      els.cue.innerHTML = `<span class="ic">${RV_ICON[e.kind] || "•"}</span><div><div class="rp-cue-h"><b>${rvEsc(e.title)}</b><small>km ${e.km.toFixed(1)} · ${hm(e.sec)}</small></div><p>${rvEsc(e.text)}${e.tip ? ` <em>${rvEsc(e.tip)}</em>` : ""}</p></div>`;
       els.list.querySelectorAll("li").forEach((x) => { x.classList.toggle("on", Number(x.dataset.i) === ci); x.classList.toggle("past", Number(x.dataset.i) < ci); });
     }
     if (els.cur) {
