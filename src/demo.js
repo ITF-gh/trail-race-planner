@@ -171,7 +171,7 @@ function gradeOf(profile, d) {
   return 0;
 }
 
-/** The sample run of the "My run" mode: a made-up 28 km trail run with three climbs. */
+/** The sample run of the "Check my run" mode: a made-up 28 km trail run with three climbs. */
 export const DEMO_REVIEW_PROFILE = [
   [1500, 0], [1000, 3], [1500, 9], [1200, 13], [800, 6],
   [1000, -8], [1500, -14], [1000, -5],

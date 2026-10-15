@@ -4,7 +4,7 @@ Give it a race course (GPX) and one of your own recorded runs (GPX). It learns h
 
 Then it lets you **rehearse race day**: the course on an OpenStreetMap map, and a replay where a runner moves along the map and the profile at your predicted pace, stopping at each climb, gel and aid station with a short cue of what to do there. It also marks the **key zones**, the stretches where the race is played, ranked by the minutes at stake.
 
-The switch at the top picks one of three modes. **Prep my race** (the default) is everything above, plus an optional **targeted duration**: the planner says whether your runs back it up (realistic, ambitious, not backed, or comfortable), against its three scenarios. **Prep my run** (`?mode=prep`) takes the GPX of a run you are about to do and gives it back with its details for your watch. **See my run** (`?mode=run`): drop the GPX of a run you just did and it plays back on the map at your real pace, with your real stops and the real time of day. It finds the **key moments**, good and bad (your strongest and weakest climb and descent, stops, when the fade starts, heart-rate drift, walking where you could run) and colours every stretch by how you ran it compared with your own average on the same kind of ground. "Try a sample run" shows it on a made-up 28 km trail run.
+The switch at the top picks one of three modes. **Prep my race** (the default) is everything above, plus an optional **targeted duration**: the planner says whether your runs back it up (realistic, ambitious, not backed, or comfortable), against its three scenarios. **Prep my run** (`?mode=prep`) takes the GPX of a run you are about to do and gives it back with its details for your watch. **Check my run** (`?mode=run`): drop the GPX of a run you just did and it plays back on the map at your real pace, with your real stops and the real time of day. It finds the **key moments**, good and bad (your strongest and weakest climb and descent, stops, when the fade starts, heart-rate drift, walking where you could run) and colours every stretch by how you ran it compared with your own average on the same kind of ground. "Try a sample run" shows it on a made-up 28 km trail run.
 
 Give it the **target** you were aiming for (a finish time or an average pace) and it compares: how far you were, how much of the gap was stops (1 min per hour is allowed), the fade (your second half run at your first-half effort) and real speed still to find. It spreads one even effort over the run, so every section gets a target time in proportion to how *you* run that kind of ground, and it shows where to find the time and where you spent too much too early. It also tells you whether the target is within reach, a stretch, or far for now, and suggests a realistic one. During the replay a ghost runner on the target pace shows how far ahead or behind you are.
 
@@ -52,10 +52,10 @@ src/core/format.js     time and pace formatting
 src/core/markdown.js   plan as Markdown
 src/core/keyzones.js   key zones: where the race is played, and how many minutes are at stake
 src/core/script.js     the race in time: key moments with cues, and where you are at any second
-src/core/review.js     My run: grade-adjusted pace, stops, sections with a verdict, key moments of a run you did
+src/core/review.js     Check my run: grade-adjusted pace, stops, sections with a verdict, key moments of a run you did
 src/demo.js            made-up GPX files for the demo and the tests
 src/ui/                the browser app (main.js, map.js for the map, replay.js for race day,
-                       review.js for the My run mode, analytics.js for anonymous visit and event counts)
+                       review.js for the Check my run mode, analytics.js for anonymous visit and event counts)
 src/vendor/leaflet/    Leaflet 1.9.4, the map library (BSD-2 licence), copied to dist/vendor/
 cli.js                 the command-line tool
 scripts/build.js       bundles the app into dist/index.html, no dependencies
@@ -107,7 +107,7 @@ The hero and section banners use free photos from [Pexels](https://www.pexels.co
 No face is recognisable in any of them: people are seen from behind, far away or as silhouettes.
 "Prep my race" keeps a nature and adventure look: Artem Meletov (hero, a summit above the clouds),
 Hobi Photography (01), Elina Volkova (02), Jack Davis (03) and Lorenzo Castellino (04).
-"Prep my run" and "See my run" switch to sport shots: Cara Denison (hero, a runner at sunset) and Alin Serban (My run).
+"Prep my run" and "Check my run" switch to sport shots: Cara Denison (hero, a runner at sunset) and Alin Serban (Check my run).
 They live in `src/ui/photos/` as WebP files, and the build copies them to `dist/photos/`. Swap a file to
 change a photo. The run-mode hero is set in CSS with `html[data-mode="run"]{--photo-hero:...}`, so the
 mode switch changes it with no script. On wide screens a banner photo fills the right 64% of the banner at

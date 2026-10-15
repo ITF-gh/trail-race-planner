@@ -1,4 +1,4 @@
-// review.js (ui): the "My run" mode. Drop the GPX of a run you just did and replay it: the runner
+// review.js (ui): the "Check my run" mode. Drop the GPX of a run you just did and replay it: the runner
 // moves along the map and the profile at your real pace, with your real stops, the clock shows
 // the real time of day, and every key moment (strong climb, fade, stop, heart rate drift...) stops
 // the replay with what it means. Same cockpit as the race-day replay (same CSS grid and classes),
@@ -456,7 +456,7 @@ export function pauseRun() {
 }
 
 /**
- * Wire the "My run" drop zone and sample button, and render section #s5. `onLoaded(summaryHtml)`
+ * Wire the "Check my run" drop zone and sample button, and render section #s5. `onLoaded(summaryHtml)`
  * lets the page show the run in its top bar.
  */
 export function initRunMode({ onLoaded } = {}) {

@@ -7,7 +7,7 @@
 // Three modes share the page, picked by the switch on top and kept in the address (?mode=):
 //   Prep my race (plan, default)  the four sections above, plus a targeted duration to check
 //   Prep my run  (?mode=prep)     a GPX of a run to come, given back with details (section s-prep, ui/preprun.js)
-//   See my run   (?mode=run)      a run you just did, replayed with its key moments (ui/review.js)
+//   Check my run   (?mode=run)      a run you just did, replayed with its key moments (ui/review.js)
 // A data-mode attribute on <html> hides what belongs to the other modes (.plan-only,
 // .prep-only, .review-only).
 // Each section renders as soon as the files it needs are loaded. A sticky bar on top jumps
@@ -66,9 +66,9 @@ const PHOTOS = {
 };
 const credit = (key, cls = "") => `<a class="photo-credit${cls ? " " + cls : ""}" href="${PHOTOS[key].url}" target="_blank" rel="noopener">Photo: ${PHOTOS[key].by} / Pexels</a>`;
 const head = (num, kicker, title, key = "s" + Number(num)) => `<header class="sec-head"><div class="sec-num">${num}</div><div class="sec-kicker">${kicker}</div><h2>${title}</h2>${PHOTOS[key] ? credit(key) : ""}</header>`;
-const NAV = [["s1", "01", "Engine"], ["s2", "02", "Briefing"], ["s3", "03", "D-day"], ["s4", "04", "Race day"], ["s-pimp", "05", "Pimp my GPX"], ["s-prep", "◆", "Prep my run"], ["s5", "▶", "See my run"]];
+const NAV = [["s1", "01", "Engine"], ["s2", "02", "Briefing"], ["s3", "03", "D-day"], ["s4", "04", "Race day"], ["s-pimp", "05", "Pimp my GPX"], ["s-prep", "◆", "Prep my run"], ["s5", "▶", "Check my run"]];
 /** The modes, in switch order: data-mode value, label, and the class that only it shows. */
-const MODES = [["plan", "Prep my race", "plan-only"], ["prep", "Prep my run", "prep-only"], ["run", "See my run", "review-only"]];
+const MODES = [["plan", "Prep my race", "plan-only"], ["prep", "Prep my run", "prep-only"], ["run", "Check my run", "review-only"]];
 const navClass = (id) => (id === "s5" ? "review-only" : id === "s-prep" ? "prep-only" : "plan-only");
 const MODE_SEG = `<div class="seg mode-seg" role="group" aria-label="Mode">${MODES.map(([m, label]) => `<button type="button" data-mode="${m}">${label}</button>`).join("")}</div>`;
 
@@ -80,7 +80,7 @@ $("#app").innerHTML = `
     ${prepHeroHtml(PEAK)}
     <div class="hero-row review-only">
       <div>
-        <div class="brand">${PEAK}Trail Race Planner · See my run</div>
+        <div class="brand">${PEAK}Trail Race Planner · Check my run</div>
         <h1 style="margin-top:14px">Relive the run.<br><em>Learn from it.</em></h1>
         <p class="lead">Drop the GPX of a run you just did. It plays back on the map at your real pace, and the planner finds the key moments: where you were strong, where it cost you, where you stopped, when you faded. Your file never leaves this page.</p>
       </div>
@@ -190,7 +190,7 @@ $("#app").innerHTML = `
 </section>
 
 <section id="s5" class="review-only">
-  ${head("▶", "After the run", "See my run", "s5")}
+  ${head("▶", "After the run", "Check my run", "s5")}
   <p class="sec-intro">Your run played back at its real pace. The bar, the map and the profile are coloured by how you ran each stretch compared with your own average on the same kind of ground; each key moment stops the replay and says what it means. Add the time or pace you were aiming for, and the review shows how far you were, where the time went and where to change your effort to reach it.</p>
   <div id="s5body"></div>
 </section>
@@ -914,7 +914,7 @@ function copyText(text) {
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
   else fallback();
 }
-/* ---------- mode: prep my race, prep my run, see my run ---------- */
+/* ---------- mode: prep my race, prep my run, check my run ---------- */
 // The mode lives in the address (?mode=prep or ?mode=run; none for Prep my race), so a link or a
 // refresh opens the same one. Other modules can follow the switch through the "trp-mode" event.
 const modeOf = (m) => (MODES.some(([id]) => id === m) ? m : "plan");
