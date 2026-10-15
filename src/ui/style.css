@@ -821,3 +821,38 @@ html[data-theme="sky"] .rp-legs .lg{background:rgba(15,39,71,.16)}
 html[data-theme="sky"] .rp-legend .sw.k-flat,html[data-theme="sky"] .rp-legend .sw:not([class*=" "]){outline:1px solid var(--line)}
 html[data-theme="sky"] .topnav .btn.ghost{color:var(--fg);border-color:var(--line);background:#fff}
 .tn-theme{border-color:var(--sun) !important}
+/* Check my run: pace line on the profile and "Your numbers" */
+.rv-cockpit,.rv-stats{--rv-pace:#6fd0ff}
+svg .rv-pl{fill:none;stroke:var(--rv-pace);stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round}
+svg .rv-pl.ahead{opacity:.55} svg .rv-pl.past{opacity:.22} svg .rv-pl.trail{stroke-width:2.2;filter:drop-shadow(0 0 3px var(--rv-pace))}
+svg .rv-pl-t{fill:var(--rv-pace);opacity:.75;font-size:10px}
+svg .rv-pl-dot{fill:#fff;stroke:var(--rv-pace);stroke-width:2.5;opacity:0;filter:drop-shadow(0 0 5px var(--rv-pace))}
+svg .rv-pace.on .rv-pl-dot{opacity:1}
+svg .rv-pl-v{fill:var(--rv-pace);font-size:11px;font-weight:700;paint-order:stroke;stroke:rgba(6,16,31,.85);stroke-width:3px}
+.rp-legend .sw.rv-pl-sw{background:var(--rv-pace);height:2px;align-self:center;box-shadow:0 0 4px var(--rv-pace)}
+.rv-stats{display:flex;flex-direction:column;gap:14px}
+.rv-st-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+@media (max-width:900px){ .rv-st-grid{grid-template-columns:repeat(3,minmax(0,1fr))} }
+.rv-st{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:8px 10px;border-radius:8px;background:var(--surface-2);border:1px solid transparent;color:var(--fg);font:inherit}
+.rv-st[data-sec]:hover{border-color:var(--rv-pace)}
+.rv-st:not([data-sec]){cursor:default}
+.rv-st .k{font-family:var(--f-display);font-weight:700;text-transform:uppercase;letter-spacing:.1em;font-size:11px;color:var(--muted)}
+.rv-st b{font-family:var(--f-display);font-weight:800;font-style:italic;font-size:24px;line-height:1.1;color:var(--sun)}
+.rv-st b small{font-size:13px;margin-left:2px;color:var(--muted);font-style:normal}
+.rv-st>small{font-size:12px;color:var(--muted)}
+.rv-kms-h{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline}
+.rv-kms-h small{color:var(--muted);font-size:12px}
+.rv-kms svg{width:100%;height:auto;display:block}
+.rv-kms svg text{fill:var(--muted);font-size:11px}
+.rv-km-bar{cursor:pointer} .rv-km-bar rect{fill:var(--rv-pace);opacity:.55} .rv-km-bar:hover rect{opacity:.9}
+.rv-km-bar.best rect{fill:#3fd06a;opacity:.85} .rv-km-bar.worst rect{fill:#ff5a6e;opacity:.85}
+.rv-kms svg .rv-km-lab{fill:var(--fg);font-weight:700}
+.rv-km-avg{stroke:var(--fg);stroke-dasharray:4 4;opacity:.5}
+.rv-km-t tr.best th{color:#6fe08f} .rv-km-t tr.worst th{color:#ff8394}
+@media (max-width:640px){ .rv-st-grid{grid-template-columns:repeat(2,minmax(0,1fr))} .rv-st b{font-size:20px} .rv-km-t th:nth-child(4),.rv-km-t td:nth-child(4){display:none} }
+html[data-theme="sky"] .rv-cockpit,html[data-theme="sky"] .rv-stats{--rv-pace:#1f86d6}
+html[data-theme="sky"] svg .rv-pl-v{stroke:rgba(255,255,255,.9)}
+html[data-theme="sky"] .rv-st b{color:var(--glow);text-shadow:0 0 12px rgba(255,170,40,.45)}
+/* the section bar keeps its verdict colours in Sky mode */
+html[data-theme="sky"] .rp-legs .lg.rv-good{background:#2fb85a} html[data-theme="sky"] .rp-legs .lg.rv-ok{background:#8fa3c4} html[data-theme="sky"] .rp-legs .lg.rv-bad{background:#e8122f}
+html[data-theme="sky"] .rp-legs .lg.rv-d{background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.55) 0 3px,transparent 3px 7px)}

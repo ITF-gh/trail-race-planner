@@ -360,7 +360,7 @@ test("race legs: the whole course in numbered sections, end to end, with the bri
 });
 
 /* ---------- My run: review of a recorded run ---------- */
-import { analyseRun, runStateAt, runSecAtKm, runLegAt, effortFactor, minettiCost, runTarget, parseTarget } from "../src/core/review.js";
+import { analyseRun, runStateAt, runSecAtKm, runLegAt, effortFactor, minettiCost, runTarget, parseTarget, runStats, runPaceLine } from "../src/core/review.js";
 import { makeDemoRunGpx, DEMO_REVIEW_PROFILE } from "../src/demo.js";
 
 test("grade-adjusted pace: Minetti's energy cost, half of the downhill saving kept", () => {
@@ -466,4 +466,21 @@ test("review target: section targets add up to the target, and the verdict follo
   assert.ok(far.realisticSec < run.elapsedSec && far.realisticSec > far.targetSec);
   const pace = runTarget(run, { kind: "pace", value: 330 });
   assert.ok(Math.abs(pace.targetSec - 330 * run.totalKm) < 1e-6);
+});
+
+test("review numbers: sliding-window records and splits that add up", () => {
+  const run = analyseRun(parseGpx(makeDemoRunGpx()));
+  const S = runStats(run);
+  assert.ok(S.fastest200.pace <= S.fastest1k.pace + 1e-6, "a shorter best is at least as fast");
+  assert.ok(S.fastest1k.pace <= S.fastest5k.pace + 1e-6);
+  assert.ok(S.fastest1k.sec <= Math.min(...S.splits.filter((x) => !x.part).map((x) => x.sec)) + 1e-6, "no km split beats the fastest 1 km");
+  assert.ok(S.steepestUp.grade > 10 && S.steepestDown.grade < -10);
+  assert.ok(S.best1min.pace > 0 && S.best1min.pace <= S.movingPace);
+  const total = S.splits.reduce((s, x) => s + x.sec, 0);
+  assert.ok(Math.abs(total - run.elapsedSec) < 2, `${total} vs ${run.elapsedSec}`);
+  const up = S.splits.reduce((s, x) => s + x.up, 0);
+  assert.ok(Math.abs(up - run.gain) < 1);
+  const line = runPaceLine(run);
+  assert.equal(line.length, run.profile.length);
+  assert.ok(line.every((p) => p.v >= 0 && p.v < 10));
 });
