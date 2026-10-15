@@ -45,6 +45,7 @@ const state = {
   scenario: store.get("trp.scenario") || "central",
   tab: "c", // D-day list: climbs or descents
   btab: "c", // briefing list: climbs or descents
+  bwin: null, // briefing profile zoom window [fromKm, toKm], null = whole course
   plan: null,
 };
 
@@ -364,18 +365,21 @@ function elevAt(profile, km) {
  * Where things sit on the profile drawing (SVG units, viewBox 1000 wide): x(km), y(altitude),
  * and km(x) back from a click. Shared by the drawing and by the cursors that move on it.
  */
-function profGeom(P, TOT, race, flat = false) {
-  const eles = P.map((p) => p[1]);
+function profGeom(P, TOT, race, flat = false, win = null) {
+  // `win` [fromKm, toKm]: a zoomed window (drag-select on the briefing profile); altitudes scale to it.
+  const K0 = win ? win[0] : 0, K1 = win ? win[1] : TOT;
+  const inWin = win ? P.filter((p) => p[0] >= K0 && p[0] <= K1) : P;
+  const eles = (inWin.length > 1 ? inWin : P).map((p) => p[1]);
   const EMIN = Math.min(...eles), EMAX = Math.max(...eles);
   // `flat`: the race day cockpit, where the profile runs the full width under the section bar,
   // so it is drawn about half as high (gels as small marks under the axis, no clock under them).
-  const W = 1000, l = 52, r = 14, top = flat ? 22 : race ? 34 : 18, base = flat ? 84 : race ? 205 : 190;
+  const W = 1000, l = 52, r = 14, top = flat ? 22 : 18, base = flat ? 84 : race ? 205 : 190;
   const plotH = base - top - 24;
-  const H = flat ? base + 34 : race ? 285 : 222;
-  const x = (km) => l + (km / TOT) * (W - l - r);
+  const H = flat ? base + 34 : race ? 260 : 222;
+  const x = (km) => l + ((km - K0) / (K1 - K0)) * (W - l - r);
   const y = (e) => base - 24 - ((e - EMIN) / Math.max(1, EMAX - EMIN)) * plotH;
-  const km = (vx) => Math.max(0, Math.min(TOT, ((vx - l) / (W - l - r)) * TOT));
-  return { EMIN, EMAX, W, l, r, top, base, plotH, H, x, y, km };
+  const km = (vx) => Math.max(K0, Math.min(K1, K0 + ((vx - l) / (W - l - r)) * (K1 - K0)));
+  return { EMIN, EMAX, W, l, r, top, base, plotH, H, x, y, km, K0, K1 };
 }
 
 /**
@@ -383,10 +387,10 @@ function profGeom(P, TOT, race, flat = false) {
  * checkpoints and gels for one scenario; `zones` (optional) shades the key zones. Returns {html, x, y, km};
  * the html has a hidden `.pcur` cursor (a line and a dot) to move with translate().
  */
-function profileView(P, brief, race, zones = [], { flat = false } = {}) {
+function profileView(P, brief, race, zones = [], { flat = false, win = null } = {}) {
   const TOT = brief.totalKm;
-  const g = profGeom(P, TOT, race, flat);
-  const { EMIN, EMAX, W, l, r, top, base, H, x, y } = g;
+  const g = profGeom(P, TOT, race, flat, win);
+  const { EMIN, EMAX, W, l, r, top, base, H, x, y, K0, K1 } = g;
   let s = "";
   zones.forEach((z) => {
     s += `<rect class="zone" x="${x(z.fromKm).toFixed(1)}" y="${top}" width="${(x(z.toKm) - x(z.fromKm)).toFixed(1)}" height="${base - top}"><title>Key zone ${z.n}: ${esc(z.title)}</title></rect>`;
@@ -397,11 +401,12 @@ function profileView(P, brief, race, zones = [], { flat = false } = {}) {
   d += ` L${x(TOT)},${base} Z`;
   s += `<path class="area" d="${d}"/>`;
   s += `<path class="ln" d="${P.map((p, i) => `${i ? "L" : "M"}${x(p[0]).toFixed(1)},${y(p[1]).toFixed(1)}`).join(" ")}"/>`;
-  s += `<line class="axis" x1="${l}" x2="${W - r}" y1="${base}" y2="${base}"/>`;
-  const tickEvery = TOT > 60 ? 10 : 5;
-  for (let k = 0; k <= TOT; k += tickEvery) s += `<line class="axis" x1="${x(k)}" x2="${x(k)}" y1="${base}" y2="${base + 5}"/><text x="${x(k)}" y="${base + 18}" text-anchor="middle">${k}</text>`;
-  s += `<text x="${W - r}" y="${base + 18}" text-anchor="end">km</text>`;
-  [Math.ceil(EMIN / 10) * 10, Math.floor(EMAX / 10) * 10].forEach((e) => { s += `<text x="${l - 6}" y="${(y(e) + 3).toFixed(1)}" text-anchor="end">${e} m</text>`; });
+  let ax = `<line class="axis" x1="${l}" x2="${W - r}" y1="${base}" y2="${base}"/>`;
+  const span = K1 - K0;
+  const tickEvery = span >= 20 ? 10 : span >= 8 ? 2 : span >= 3 ? 1 : 0.5;
+  for (let k = Math.ceil(K0 / tickEvery - 1e-9) * tickEvery; k <= K1 + 1e-9; k += tickEvery) ax += `<line class="axis" x1="${x(k)}" x2="${x(k)}" y1="${base}" y2="${base + 5}"/><text x="${x(k)}" y="${base + 18}" text-anchor="middle">${+k.toFixed(1)}</text>`;
+  ax += `<text x="${W - r}" y="${base + 18}" text-anchor="end">km</text>`;
+  [Math.ceil(EMIN / 10) * 10, Math.floor(EMAX / 10) * 10].forEach((e) => { ax += `<text x="${l - 6}" y="${(y(e) + 3).toFixed(1)}" text-anchor="end">${e} m</text>`; });
   const seg = (a, b) => {
     const pts = [];
     const n = Math.max(2, Math.round((b - a) / 0.025));
@@ -420,19 +425,17 @@ function profileView(P, brief, race, zones = [], { flat = false } = {}) {
     c.sections.slice(1).forEach((x2) => { const yy = y(elevAt(P, x2.startKm)); s += `<line class="cut" x1="${x(x2.startKm).toFixed(1)}" x2="${x(x2.startKm).toFixed(1)}" y1="${(yy - 7).toFixed(1)}" y2="${(yy + 7).toFixed(1)}"/>`; });
   });
   if (race) {
-    // The flat cockpit profile skips the km/clock checkpoints: the section bar and panel already say where you are.
-    if (!flat) race.checkpoints.filter((c) => c.label !== "Finish").forEach((c) => {
-      s += `<line class="ck" x1="${x(c.km)}" x2="${x(c.km)}" y1="${top - 6}" y2="${base}"/><text class="tk" x="${x(c.km)}" y="${top - 12}" text-anchor="middle">${esc(c.label)} · ${clock(race.startSec, c.sec)}</text>`;
-    });
     (race.aid || []).forEach((a) => {
       const yy = y(elevAt(P, a.km));
       s += `<path class="aid" d="M${x(a.km).toFixed(1)},${(yy - 6).toFixed(1)} l-7,-12 h14 z"><title>${esc(a.name)}, km ${a.km.toFixed(1)}: ${clock(race.startSec, a.sec)}</title></path>`;
     });
     race.gels.forEach((g) => {
       if (flat) { s += `<circle class="gel" cx="${x(g.km)}" cy="${base + 26}" r="6"/><text class="gelt" x="${x(g.km)}" y="${base + 29}" text-anchor="middle">G</text>`; return; }
-      s += `<circle class="gel" cx="${x(g.km)}" cy="${base + 48}" r="9"/><text class="gelt" x="${x(g.km)}" y="${base + 51}" text-anchor="middle">G</text><text x="${x(g.km)}" y="${base + 70}" text-anchor="middle">${clock(race.startSec, g.sec)}</text>`;
+      s += `<circle class="gel" cx="${x(g.km)}" cy="${base + 40}" r="9"/><text class="gelt" x="${x(g.km)}" y="${base + 43}" text-anchor="middle">G</text>`;
     });
   }
+  // A zoomed window clips the drawing to the plot, so nothing spills over the axis labels.
+  s = win ? `<defs><clipPath id="pclipW"><rect x="${l}" y="0" width="${W - l - r}" height="${H}"/></clipPath></defs><g clip-path="url(#pclipW)">${s}</g>${ax}` : s + ax;
   s += `<g class="pcur" style="display:none"><line x1="0" x2="0" y1="${top - 4}" y2="${base}"/><circle cx="0" cy="${base}" r="6"/></g>`;
   return { ...g, html: `<div class="prof-scroll"><svg viewBox="0 0 1000 ${H}" role="img" aria-label="Elevation profile with climbs coloured by difficulty">${s}</svg></div>` };
 }
@@ -446,7 +449,6 @@ function renderEngine() {
   const e = state.effort.info;
   const bands = e.bands;
   const steep = bands.filter((b) => b.vam && b.vam > 50 && b.source !== "estimated").sort((a, b) => b.vam - a.vam)[0];
-  const hike = state.settings.hikeGrade ?? e.hikeGrade;
   const many = e.runs.length > 1;
   const sumDur = many ? e.runs.reduce((a, r) => a + r.durationSec, 0) : e.durationSec;
   const sumKm = many ? e.runs.reduce((a, r) => a + r.distKm, 0) : e.distKm;
@@ -456,8 +458,6 @@ function renderEngine() {
     tile("Flat pace", `${mmss(e.flatPace)}<small>/km</small>`, e.flatHr ? `at HR ${Math.round(e.flatHr)}` : "no heart rate"),
     tile("Cadence", e.flatCad ? `${Math.round(e.flatCad)}<small>spm</small>` : "–", e.cadenceWasPerFoot ? "doubled from per-foot" : "on the flat"),
     tile("Best climb rate", steep ? `${Math.round(steep.vam)}<small>m/h</small>` : "–", steep ? steep.label : "not enough climbing"),
-    tile("Hiking from", hike ? `${hike}<small>%</small>` : "15<small>%</small>", state.settings.hikeGrade ? "set by you" : e.hikeGrade ? "learned from your cadence" : "default, no hiking in your runs"),
-    tile("Flat drift", e.drift ? `${e.drift.decouplingPct.toFixed(1)}<small>%</small>` : "–", e.drift ? `${mmss(e.drift.firstPace)} → ${mmss(e.drift.secondPace)} /km` : "needs heart rate"),
   ].join("");
   const maxPace = Math.max(...bands.map((b) => b.tired));
   const rows = bands.map((b) => {
@@ -470,12 +470,12 @@ function renderEngine() {
   }).join("");
   box.innerHTML = `
     <div class="tiles">${tiles}</div>
-    ${e.runs.length > 1 ? `<div class="sub-h">Your runs</div><div class="panel"><div class="paces">${e.runs.map((r, i) => `<div class="pace"><div class="lab">${esc(state.effort.runs[i].name)}<small>${r.date} · ${r.distKm.toFixed(1)} km · ${hm(r.durationSec)}</small></div><div class="bars"><i class="fr" style="width:${(r.weight * 100).toFixed(1)}%"></i></div><div class="num"><b>${Math.round(r.weight * 100)}%</b> weight</div></div>`).join("")}</div><p class="note">Each run counts with a weight that halves every ${state.settings.halfLifeDays} days of age, measured from your most recent run (an exponential decay, like a half-life). The paces below are the weighted average.</p></div>` : ""}
+    ${e.runs.length > 1 ? `<div class="sub-h">Your runs</div><div class="panel compact"><div class="paces">${e.runs.map((r, i) => `<div class="pace"><div class="lab">${esc(state.effort.runs[i].name)}<small>${r.date} · ${r.distKm.toFixed(1)} km · ${hm(r.durationSec)}</small></div><div class="bars"><i class="fr" style="width:${(r.weight * 100).toFixed(1)}%"></i></div><div class="num"><b>${Math.round(r.weight * 100)}%</b> weight</div></div>`).join("")}</div><p class="note">Each run counts with a weight that halves every ${state.settings.halfLifeDays} days of age, measured from your most recent run (an exponential decay, like a half-life). The paces below are the weighted average.</p></div>` : ""}
     <div class="sub-h">Pace by gradient</div>
-    <div class="panel">
+    <div class="panel compact">
       <div class="keyline"><span><i style="background:var(--accent)"></i>Fresh (first half of your run)</span><span><i style="background:color-mix(in srgb,var(--fg) 35%,transparent)"></i>Tired (second half)</span><span>Longer bar = slower. Pace in min/km.</span></div>
       <div class="paces">${rows}</div>
-      <p class="note">"Estimated" bands had under a minute of data in your run, so they use typical ratios to your flat pace. Flat drift above 5% means aerobic durability or fuelling is your limit, and a longer race will magnify it.</p>
+      <p class="note">"Estimated" bands had under a minute of data in your run, so they use typical ratios to your flat pace.</p>
     </div>`;
 }
 
@@ -507,8 +507,8 @@ const jumps = (items) => `<nav class="jumps" aria-label="In this section">${item
 let briefMap = null;
 
 /* ---------- 02 race briefing ---------- */
-function diffCell(c, maxScore) {
-  return `<div class="diff"><span class="chip l${c.level}">${LEVELS[c.level]}</span><span class="bar"><i style="width:${Math.round(Math.min(1, c.score / maxScore) * 100)}%"></i></span><span class="sc">${Math.round(c.score)}</span></div>`;
+function diffCell(c) {
+  return `<div class="diff"><span class="chip l${c.level}">${LEVELS[c.level]}</span></div>`;
 }
 function renderBriefing() {
   const box = $("#s2body");
@@ -517,7 +517,6 @@ function renderBriefing() {
   const brief = briefCourse(state.race.course, state.settings);
   const P = state.race.profile;
   const all = brief.climbs.flatMap((c) => [c, ...c.sections]);
-  const maxScore = Math.max(...all.map((c) => c.score), 1);
   const crux = all.reduce((a, c) => (c.score > (a ? a.score : -1) ? c : a), null);
   const top = Math.max(...P.map((p) => p[1]));
   const tiles = [
@@ -528,7 +527,7 @@ function renderBriefing() {
     crux ? tile("Crux", `#${crux.n}`, `km ${crux.startKm.toFixed(1)} · ${Math.round(crux.gain)} m at ${crux.avg.toFixed(1)}%`) : "",
   ].join("");
   const climbRow = (c, sec) => `<div class="row v${c.level} ${sec ? "sec" : ""}">
-      <div class="n">${c.n}</div>${cell("Km", kmRange(c))}${cell("Length", len(c.lenM))}${cell("Gain", `${Math.round(c.gain)} m`)}${cell("Average", `${c.avg.toFixed(1)}%`)}${cell("Steepest 100 m", `${Math.round(c.steep)}%`)}${diffCell(c, maxScore)}
+      <div class="n">${c.n}</div>${cell("Km", kmRange(c))}${cell("Length", len(c.lenM))}${cell("Gain", `${Math.round(c.gain)} m`)}${cell("Average", `${c.avg.toFixed(1)}%`)}${cell("Steepest 100 m", `${Math.round(c.steep)}%`)}${diffCell(c)}
     </div>`;
   const climbs = brief.climbs.map((c) => climbRow(c) + c.sections.map((x) => climbRow(x, true)).join("")).join("");
   const descents = brief.descents.map((d) => `<div class="row v${d.level}">
@@ -537,7 +536,7 @@ function renderBriefing() {
   const aid = parseAidStations(state.settings.aidStations).filter((a) => a.km <= brief.totalKm);
   // With a plan, the zones use your predicted times; before that, a typical runner's (Tobler's hiking function).
   const zones = state.plan ? state.plan.keyZones : keyZones(brief, P, aid, toblerClock(P));
-  const view = profileView(P, brief, null, zones);
+  if (state.bwin && state.bwin[1] > brief.totalKm) state.bwin = null;
   box.innerHTML = `
     ${jumps([["b-map", "Map"], ["b-prof", "Profile"], ["b-key", "★ Key zones"], ["b-list", `Climbs and descents`]])}
     <div class="tiles">${tiles}</div>
@@ -545,7 +544,7 @@ function renderBriefing() {
     <div class="b-map" id="briefMap"></div>
     <p class="note">Coloured like the profile: climbs by difficulty, dashed red for descents to brake on, a yellow glow on the key zones. Triangles are aid stations, numbers are km. Hover the profile to see where you are on the map.</p>
     <div class="sub-h" id="b-prof">Profile</div>
-    <div class="prof-wrap" id="briefProf">${view.html}${LEGEND}</div>
+    <div class="prof-wrap" id="briefProf"><div class="prof-tools"><span class="note" style="margin:0">Drag across the profile to zoom on a stretch.</span><button type="button" class="btn sm" id="profReset" hidden>Reset zoom</button></div><div id="briefProfSvg"></div>${LEGEND}</div>
     <div class="sub-h" id="b-key">★ Key zones · where the race is played</div>
     <p class="note" style="margin:-4px 0 12px">${state.plan ? "From your predicted times." : "For a typical runner, until both files are loaded: then from your own predicted times."} ${ZONE_NOTE}</p>
     ${zoneList(zones)}
@@ -572,19 +571,50 @@ function renderBriefing() {
   }));
 
   briefMap = courseMap($("#briefMap"), { route: state.race.route, totalKm: brief.totalKm, ...mapStyle(brief, aid, zones) });
-  // Hover (or touch) the profile: a cursor there, and a dot at the same km on the map.
-  const svg = $("#briefProf svg");
-  const cur = svg.querySelector(".pcur");
-  const show = (ev) => {
-    const b = svg.getBoundingClientRect();
-    const km = view.km(((ev.clientX - b.left) / b.width) * 1000);
-    cur.style.display = "";
-    cur.setAttribute("transform", `translate(${view.x(km).toFixed(1)},0)`);
-    cur.querySelector("circle").setAttribute("cy", view.y(elevAt(P, km)).toFixed(1));
-    briefMap.setRunner(km);
+  // The profile, drawn for the whole course or for the zoom window. Hover (or touch) it for a cursor
+  // there and a dot at the same km on the map; drag across it (like Strava) to zoom on that stretch.
+  const drawProf = () => {
+    const view = profileView(P, brief, null, zones, { win: state.bwin });
+    const host = $("#briefProfSvg");
+    host.innerHTML = view.html;
+    $("#profReset").hidden = !state.bwin;
+    const svg = host.querySelector("svg");
+    const cur = svg.querySelector(".pcur");
+    const kmAt = (ev) => { const b = svg.getBoundingClientRect(); return view.km(((ev.clientX - b.left) / b.width) * 1000); };
+    const sel = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    sel.setAttribute("class", "psel"); sel.setAttribute("y", String(view.top)); sel.setAttribute("height", String(view.base - view.top)); sel.style.display = "none";
+    svg.appendChild(sel);
+    let from = null;
+    const show = (ev) => {
+      const km = kmAt(ev);
+      cur.style.display = "";
+      cur.setAttribute("transform", `translate(${view.x(km).toFixed(1)},0)`);
+      cur.querySelector("circle").setAttribute("cy", view.y(elevAt(P, km)).toFixed(1));
+      briefMap.setRunner(km);
+      if (from !== null) {
+        const a = Math.min(from, km), b = Math.max(from, km);
+        sel.style.display = ""; sel.setAttribute("x", view.x(a).toFixed(1)); sel.setAttribute("width", Math.max(0, view.x(b) - view.x(a)).toFixed(1));
+      }
+    };
+    svg.addEventListener("pointermove", show);
+    svg.addEventListener("pointerdown", (ev) => { from = kmAt(ev); svg.setPointerCapture(ev.pointerId); show(ev); });
+    svg.addEventListener("pointercancel", () => { from = null; sel.style.display = "none"; });
+    svg.addEventListener("pointerup", (ev) => {
+      if (from === null) return;
+      const to = kmAt(ev), a = Math.min(from, to), b = Math.max(from, to);
+      from = null; sel.style.display = "none";
+      // A real drag (not a tap): at least 2% of what is on screen, and never under 300 m.
+      if (b - a >= Math.max(0.3, (view.K1 - view.K0) * 0.02)) {
+        state.bwin = [a, b];
+        trackEvent("briefing-zoom");
+        drawProf();
+        briefMap.show(a, b);
+      }
+    });
   };
-  svg.addEventListener("pointermove", show);
-  svg.addEventListener("pointerdown", show);
+  $("#profReset").addEventListener("click", () => { state.bwin = null; drawProf(); briefMap.fit(); });
+  drawProf();
+  if (state.bwin) briefMap.show(state.bwin[0], state.bwin[1]);
 }
 
 /* ---------- 03 D-day ---------- */
@@ -632,8 +662,8 @@ function renderDday() {
     return `<div class="panel target-card t-${tone}" id="d-target">
       <div class="tg-h"><span class="k">Targeted duration</span><b>${hm(target.targetSec)}</b><span class="chip tg-chip">${title}</span></div>
       <p>${why}</p>
-      <ul class="kv"><li><span>Versus your central scenario (${hm(plan.scenarios.central.finishSec)})</span><b>${Math.abs(pct) < 0.5 ? "the same" : `${Math.abs(pct).toFixed(1)}% ${pct > 0 ? "faster" : "slower"}`}</b></li>
-      <li><span>Average pace it needs, stops included</span><b>${mmss(target.paceSec)}/km <small>central ${mmss(target.centralPaceSec)}/km</small></b></li>
+      <ul class="kv"><li><span>Versus your average scenario (${hm(plan.scenarios.central.finishSec)})</span><b>${Math.abs(pct) < 0.5 ? "the same" : `${Math.abs(pct).toFixed(1)}% ${pct > 0 ? "faster" : "slower"}`}</b></li>
+      <li><span>Average pace it needs, stops included</span><b>${mmss(target.paceSec)}/km <small>average ${mmss(target.centralPaceSec)}/km</small></b></li>
       <li><span>Scenario range</span><b>${hm(plan.scenarios.best.finishSec)} to ${hm(plan.scenarios.cautious.finishSec)}</b></li></ul>
     </div>`;
   })() : state.settings.targetTime ? `<div class="panel target-card t-warn" id="d-target"><p>Write the targeted duration as hours:minutes, for example 10:15.</p></div>` : "";
@@ -641,7 +671,7 @@ function renderDday() {
   out.innerHTML = `
   ${jumps([["d-key", "★ Key zones"], ["d-card", "Race card"], ["d-climbs", "Climb by climb"], ["d-log", "Plan versus actual"], ["d-watch", "Watch messages"], ["d-export", "Export"], ["rpCockpit", "▶ Rehearse race day", "go"]])}
   <div class="dday-top">
-    ${tile(`Finish · ${sc.label.toLowerCase()}`, clock(st, sc.finishSec), `${hm(sc.finishSec)} on course · start ${clock(st, 0)}`, "big")}
+    ${tile(`Estimated duration · ${sc.label.toLowerCase()}`, hm(sc.finishSec), `finish at ${clock(st, sc.finishSec)} · start ${clock(st, 0)}`, "big")}
     <div class="panel" style="display:flex;flex-direction:column;gap:12px;justify-content:center">
       <div class="seg" role="group" aria-label="Scenario" id="scen">${seg}</div>
       <p class="note" style="margin:0">Race pace is ${((sc.factor - 1) * 100).toFixed(0)}% slower than your run on the same gradients: terrain factor plus the fade for a longer effort. Every clock time on this page follows the scenario you pick.</p>
@@ -649,14 +679,14 @@ function renderDday() {
   </div>
   ${targetHtml}
   <div class="prof-wrap">${profileView(plan.course.profile, brief, { ...sc, startSec: st, aid: aidMarks }, plan.keyZones).html}
-    <div class="legend" style="margin-top:10px"><span class="note" style="margin:0">Red dots: gels. Triangles: aid stations. Dotted lines: checkpoints. Shaded bands ★: key zones, where the race is played.</span></div>
+    <div class="legend" style="margin-top:10px"><span class="note" style="margin:0">Red dots: gels. Triangles: aid stations. Shaded bands ★: key zones, where the race is played.</span></div>
   </div>
 
   <div class="sub-h" id="d-key">★ Key zones · where you can make a difference</div>
   ${zoneList(plan.keyZones, (km) => `you get there at ${clock(st, secAtKm(plan, sid, km))}`)}
   <p class="note">${ZONE_NOTE}</p>
 
-  <div class="sub-h" id="d-card">Race card</div>
+  <details class="fold" id="d-card"><summary class="sub-h">Race card</summary>
   <div class="grid">
     <div class="panel card"><h3>Checkpoints</h3><ul class="kv">${ckList}</ul></div>
     ${plan.aidStations.length ? `<div class="panel card"><h3>Aid stations</h3><ul class="kv">${plan.aidStations.map((a) => `<li><span>km ${a.km.toFixed(1)} · ${esc(a.name)}</span><b>${clock(st, a.arrive[sid])}${a.stopMin ? ` → ${clock(st, a.arrive[sid] + a.stopMin * 60)}` : ""}</b></li>`).join("")}</ul><p class="note">Arrival → departure. ${plan.aidStations.reduce((t, a) => t + a.stopMin, 0)} min of stops in total, included in the finish time.</p></div>` : ""}
@@ -664,16 +694,18 @@ function renderDday() {
     <div class="panel card"><h3>Heart rate</h3><ul class="kv">${hrList}</ul><p class="note">Before each key zone: on pace with heart rate in the guide, commit to it. Above it, hold and eat, and save it for the next one.</p></div>
     <div class="panel card"><h3>Hike these</h3><ul class="kv">${hikeList}</ul><p class="note">Hiking from ${plan.params.hikeGrade}% (${state.settings.hikeGrade ? "set by you" : plan.effort.hikeGrade ? "learned from your cadence" : "default"}). A climb is hiked when its average is within 2 points of that, or just its steep part when a 100 m stretch reaches it.</p></div>
   </div>
+  </details>
 
-  <div class="sub-h" id="d-climbs">Climb by climb</div>
+  <details class="fold" id="d-climbs" ${state.foldClimbs === false ? "" : "open"}><summary class="sub-h">Climb by climb</summary>
   <div class="tabs" role="tablist" aria-label="Segments">
     <button type="button" role="tab" data-t="c" aria-selected="${state.tab === "c"}">Climbs</button>
     <button type="button" role="tab" data-t="d" aria-selected="${state.tab === "d"}">Descents</button>
   </div>
   <div class="rows" ${state.tab === "c" ? "" : "hidden"}>${climbRows}</div>
   <div class="rows" ${state.tab === "d" ? "" : "hidden"}>${descRows}</div>
+  </details>
 
-  <div class="sub-h" id="d-log">Plan versus actual</div>
+  <details class="fold" id="d-log"><summary class="sub-h">Plan versus actual <small>extra</small></summary>
   <div class="panel">
     <div class="actions" style="margin-bottom:8px">
       <label class="f" style="flex-direction:row;align-items:center;gap:8px">Log for
@@ -685,6 +717,7 @@ function renderDday() {
     <div id="logrows"></div>
     <p class="note">Type the first checkpoint as minutes and seconds if it is under an hour (56:30), the others as hours and minutes (1:55).</p>
   </div>
+  </details>
 
   <div class="sub-h" id="d-watch">Watch messages</div>
   <div id="dWatch">${watchPanelHtml(plan)}</div>
@@ -701,7 +734,8 @@ function renderDday() {
 
   /* wiring */
   out.querySelectorAll("#scen button").forEach((b) => b.addEventListener("click", () => { state.scenario = b.dataset.s; trackEvent("scenario", state.scenario); store.set("trp.scenario", state.scenario); renderDday(); renderReplay(); renderNav(); }));
-  out.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => { state.tab = b.dataset.t; trackEvent("dday-tab", state.tab); renderDday(); }));
+  out.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => { state.tab = b.dataset.t; state.foldClimbs = true; trackEvent("dday-tab", state.tab); renderDday(); }));
+  out.querySelectorAll("details.fold").forEach((d) => d.addEventListener("toggle", () => { if (d.open) trackEvent("fold-open", d.id); if (d.id === "d-climbs") state.foldClimbs = d.open; }));
   $("#logsel").addEventListener("change", (ev) => { trackEvent("log-mode", ev.target.value); store.set("trp.logMode", ev.target.value); drawLog(plan, logKey); });
   drawLog(plan, logKey);
   $("#copyMd").addEventListener("click", () => { trackEvent("export", "markdown"); copyText(planToMarkdown(plan, sid)); });
@@ -880,3 +914,12 @@ compute();
 initPrepRun({ getRuns: () => (state.effort ? state.effort.runs.map((r) => r.parsed) : []), getSettings: () => state.settings, onLoaded: () => renderNav(), cockpit: (box, plan, key) => mountCockpit(box, plan, "central", key, "Run") });
 setMode(new URLSearchParams(window.location.search).get("mode"), false);
 startAnalytics();
+
+// A jump link to a folded section opens it first, so the link lands on something to read.
+document.addEventListener("click", (ev) => {
+  const a = ev.target.closest && ev.target.closest(".jumps a[href^='#']");
+  if (!a) return;
+  const t = document.getElementById(a.getAttribute("href").slice(1));
+  const fold = t && (t.matches("details") ? t : t.closest("details"));
+  if (fold) fold.open = true;
+});

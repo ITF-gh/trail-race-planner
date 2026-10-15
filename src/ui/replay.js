@@ -101,7 +101,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
       <div class="rp-prog" aria-hidden="true"><i id="rpBar"></i></div>
       <div class="rp-leg" id="rpLeg"></div>
       <div class="rp-now" id="rpNow" hidden></div>
-      <div class="rp-cue" id="rpCue" aria-live="polite"></div>
+      <p class="rp-cue-line" id="rpCue" aria-live="polite"></p>
       <ul class="kv rp-next" id="rpNext"></ul>
     </div>
   <div class="prof-wrap rp-prof" id="rpProf">${prof.html}</div>
@@ -212,6 +212,8 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
             ${row("Section time", hm(l.durSec), "tnTime")}
           </tbody>
         </table>`;
+      // The latest moment (a key zone, a climb, an aid station...) is written first under the title.
+      els.leg.querySelector(".rp-leg-info").prepend(els.cue);
       els.tn = Object.fromEntries(["Pace", "Grade", "Ele", "Pct", "Time"].map((k) => [k, els.leg.querySelector(`#tn${k}`)]));
       lastNextHtml = ""; // the card changed height: fit the list below it again
     }
@@ -251,9 +253,9 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     if (ci !== lastCue) {
       lastCue = ci;
       const e = script[Math.max(0, ci)];
-      els.cue.className = `rp-cue k-${e.kind} lv${e.level}`;
+      els.cue.className = `rp-cue-line k-${e.kind} lv${e.level}`;
       els.cue.title = e.cue;
-      els.cue.innerHTML = `<span class="ic">${ICON[e.kind] || "•"}</span><div><div class="rp-cue-h"><b>${escR(e.title)}</b><small>km ${e.km.toFixed(1)} · ${clock(st, e.sec)}</small></div><p>${escR(e.cue)}</p></div>`;
+      els.cue.innerHTML = `<span class="ic">${ICON[e.kind] || "•"}</span><b>${escR(e.title)}</b><span class="d">km ${e.km.toFixed(1)} · ${clock(st, e.sec)}</span>`;
       els.list.querySelectorAll("li").forEach((li) => { li.classList.toggle("on", Number(li.dataset.i) === ci); li.classList.toggle("past", Number(li.dataset.i) < ci); });
     }
     if (els.cur) {
