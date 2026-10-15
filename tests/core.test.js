@@ -6,7 +6,7 @@ import { analyseEffort, hikeThreshold } from "../src/core/effort.js";
 import { predictScenario, SCENARIOS } from "../src/core/model.js";
 import { buildPlan, splitClimb, climbScore, climbLevel, climbTactic, parseAidStations } from "../src/core/plan.js";
 import { planToMarkdown } from "../src/core/markdown.js";
-import { raceScript, raceStateAt, secAtKm } from "../src/core/script.js";
+import { raceScript, raceStateAt, secAtKm, raceLegs, raceTotals, legAtKm } from "../src/core/script.js";
 import { keyZones, toblerClock, spreadAt } from "../src/core/keyzones.js";
 import { mmss, hm, clock, parseDuration, parseClock } from "../src/core/format.js";
 import { makeDemoRaceGpx, makeDemoEffortGpx, DEMO_RACE_PROFILE, DEMO_ULTRA_PROFILE, DEMO_ULTRA_AID, DEMO_LONG_RUN_PROFILE } from "../src/demo.js";
@@ -322,4 +322,39 @@ test("format helpers", () => {
   assert.equal(parseDuration("1:55"), 6900);
   assert.equal(parseDuration("1:55:30"), 6930);
   assert.equal(parseDuration("abc"), null);
+});
+
+test("race legs: the whole course in numbered sections, end to end, with the briefing's climbs", () => {
+  const ultra = parseGpx(makeDemoRaceGpx(DEMO_ULTRA_PROFILE, { startEle: 650 }));
+  const run = parseGpx(makeDemoEffortGpx({ profile: DEMO_LONG_RUN_PROFILE }));
+  const plan = buildPlan(ultra, run, { aidStations: DEMO_ULTRA_AID });
+  const legs = raceLegs(plan, "central");
+  assert.equal(legs[0].startKm, 0);
+  assert.equal(legs.at(-1).endKm, plan.course.totalKm);
+  legs.forEach((l, i) => {
+    assert.equal(l.i, i + 1);
+    assert.ok(l.endKm > l.startKm);
+    if (i) assert.equal(l.startKm, legs[i - 1].endKm, "no gap, no overlap");
+    assert.ok(l.durSec > 0 && l.endSec >= l.startSec);
+  });
+  // Every climb section of the briefing is a section here, and the times add up to the finish.
+  const parts = plan.climbs.flatMap((c) => (c.sections.length ? c.sections : [c]));
+  assert.equal(legs.filter((l) => l.kind === "climb").length, parts.length);
+  assert.equal(legs.filter((l) => l.kind === "descent").length, plan.descents.length);
+  assert.ok(Math.abs(legs.reduce((t, l) => t + l.durSec, 0) - plan.scenarios.central.finishSec) < 1);
+  assert.equal(legs.reduce((t, l) => t + l.gels.length, 0), plan.scenarios.central.gels.length);
+  assert.equal(legs.reduce((t, l) => t + l.aids.length, 0), plan.aidStations.length);
+  // A climb gains, a descent drops, and legAtKm finds the section you are in.
+  const c = legs.find((l) => l.kind === "climb" && l.level >= 3);
+  assert.ok(c.up > 50 && c.avg > 0);
+  assert.equal(legs[legAtKm(legs, (c.startKm + c.endKm) / 2)], c);
+  assert.equal(legAtKm(legs, plan.course.totalKm), legs.length - 1);
+
+  // Totals: pace is the finish time over the distance; the heart-rate forecast sits in the guide.
+  const t = raceTotals(plan, "central");
+  assert.equal(t.gels, plan.scenarios.central.gels.length);
+  assert.ok(Math.abs(t.paceSec * t.km - plan.scenarios.central.finishSec) < 1e-6);
+  assert.ok(t.movingPaceSec < t.paceSec, "aid stops left out of the moving pace");
+  assert.ok(t.hrAvg >= t.hrMin && t.hrAvg <= t.hrMax);
+  assert.equal(raceTotals({ ...plan, hrGuide: null }, "central").hrAvg, null);
 });
