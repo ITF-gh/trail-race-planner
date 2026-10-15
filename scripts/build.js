@@ -28,6 +28,7 @@ function visit(file) {
   if (seen.has(file)) return;
   seen.add(file);
   const src = readFileSync(file, "utf8");
+  if (/^import\s*\{[^}]*$/m.test(src)) throw new Error(`${file}: keep each import on one line; the bundler removes import lines one at a time.`);
   if (/^import\s*\{[^}]*\bas\b/m.test(src)) throw new Error(`${file}: do not rename imports with "as"; the bundler removes import lines, so the new name would not exist.`);
   for (const m of src.matchAll(/^import\s+.*?from\s+["'](.+?)["'];?\s*$/gm)) visit(resolve(dirname(file), m[1]));
   order.push(file);
@@ -53,6 +54,9 @@ const fonts = `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?fa
 const body = `<style>\n${css}\n</style>\n<div class="wrap" id="app"></div>\n<script>\n${js}\n</script>\n`;
 
 mkdirSync(join(root, "dist"), { recursive: true });
+// The server functions (supabase/functions) check achievements with the very same code as the
+// app: they get a copy of history.js (a test fails if the copy is out of date).
+cpSync(join(root, "src/core/history.js"), join(root, "supabase/functions/_shared/history.js"));
 // Photos are separate files (inlining them as base64 would make the page ~1.3x heavier and uncacheable).
 cpSync(join(root, "src/ui/photos"), join(root, "dist/photos"), { recursive: true });
 // Leaflet (the map library, BSD-2 licence) ships next to the page and is loaded only when a map

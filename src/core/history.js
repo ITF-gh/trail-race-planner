@@ -3,42 +3,17 @@
 // of summaries this file computes the menu: totals over the last 12 months, all-time bests, the
 // last runs, the achievements and the cairns they earn.
 //
-// Pure functions only: storing the summaries (IndexedDB, in the browser) is the UI's job, so the
-// same code can later run on a server to check an achievement before it pays out a cairn.
+// Pure functions only: storing the summaries (IndexedDB in the browser, and the account database
+// when signed in) is the UI's job. runRecord (src/core/runrecord.js) builds a summary from a run.
 
-import { runStats } from "./review.js";
-import { bestEffort, runKpis } from "./insights.js";
+// This file has NO imports on purpose: the server (supabase/functions/_shared/history.js, a copy
+// made by the build) runs the very same achievements and checks before it pays out a cairn.
 
 export const HISTORY_VERSION = 1; // bump when a summary field changes meaning, to know which runs to recompute
 
-/** Summary of one analysed run (the object analyseRun returns), ready to store. */
-export function runRecord(run, name = "") {
-  const st = runStats(run);
-  const k10 = run.totalKm >= 10 ? bestEffort(run, 10000) : null;
-  const vam = runKpis(run).find((k) => k.key === "vam");
-  return {
-    // Same start time and same distance = the same run, so loading a file twice keeps one copy.
-    id: `${Math.round(run.startMs / 1000)}-${Math.round(run.totalKm * 100)}`,
-    v: HISTORY_VERSION,
-    date: run.startMs,
-    name: String(name || run.name || "Run").slice(0, 80),
-    km: run.totalKm,
-    gain: run.gain,
-    movingSec: run.movingSec,
-    elapsedSec: run.elapsedSec,
-    gapPace: run.gapPace || null,
-    hrAvg: run.hasHr ? run.hrAvg : null,
-    fadePct: Number.isFinite(run.halves.fadePct) ? run.halves.fadePct : null,
-    decouplingPct: Number.isFinite(run.halves.decouplingPct) ? run.halves.decouplingPct : null,
-    vam: vam ? vam.value : null,
-    best1k: st.fastest1k ? st.fastest1k.sec : null,
-    best5k: st.fastest5k ? st.fastest5k.sec : null,
-    best10k: k10 ? k10.sec : null,
-  };
-}
-
 const HI_DAY = 86400000;
-const hiMonth = (ms) => { const d = new Date(ms); return `${d.getFullYear()}-${d.getMonth()}`; };
+// Calendar months in UTC, so the browser and the server always agree on which month a run is in.
+const hiMonth = (ms) => { const d = new Date(ms); return `${d.getUTCFullYear()}-${d.getUTCMonth()}`; };
 
 /**
  * The achievements: each one has a test on the whole log and a progress from 0 to 1, so the
@@ -113,5 +88,52 @@ export function historySummary(records, now = Date.now()) {
     achievements,
     unlocked: achievements.filter((a) => a.done).length,
     cairns: achievements.reduce((s, a) => s + (a.done ? a.cairns : 0), 0),
+  };
+}
+
+/**
+ * Is this summary believable? The server only counts runs that pass, so a hand-made summary
+ * cannot unlock an achievement with impossible numbers. Limits sit just beyond world records
+ * (1 km in 2:11, 5 km in 12:35, 10 km in 26:11) and human climbing speeds. Returns null when
+ * the run is fine, or the reason it is not.
+ */
+export function checkRecord(r, now = Date.now()) {
+  if (!r || typeof r !== "object") return "not a run";
+  const num = (k, lo, hi, optional) => {
+    const v = r[k];
+    if (v === null || v === undefined) return optional ? null : `${k} missing`;
+    if (typeof v !== "number" || !Number.isFinite(v) || v < lo || v > hi) return `${k} out of range`;
+    return null;
+  };
+  if (typeof r.id !== "string" || !/^\d{1,13}-\d{1,6}$/.test(r.id)) return "bad id";
+  if (typeof r.name !== "string" || r.name.length > 80) return "bad name";
+  const bad = num("date", Date.UTC(2000, 0, 1), now + HI_DAY) || num("km", 1, 400) || num("gain", 0, 25000)
+    || num("movingSec", 60, 7 * 86400) || num("elapsedSec", 60, 8 * 86400)
+    || num("gapPace", 120, 3600, true) || num("hrAvg", 30, 230, true) || num("fadePct", -100, 100, true)
+    || num("decouplingPct", -100, 100, true) || num("vam", 0, 2500, true)
+    || num("best1k", 130, 3600, true) || num("best5k", 750, 18000, true) || num("best10k", 1570, 36000, true);
+  if (bad) return bad;
+  if (r.movingSec / r.km < 150) return "faster than 2:30 /km on average";
+  if (r.gain / (r.movingSec / 3600) > 2500) return "climbs faster than 2,500 m/h on average";
+  if (r.elapsedSec < r.movingSec) return "moving time longer than the clock";
+  return null;
+}
+
+/**
+ * What an AI analysis receives: the run summaries as a compact table (one line per run, newest
+ * first, at most `max` runs) plus the athlete settings. No names, no GPS points, no email.
+ * Shown to the user before they spend a cairn, and built the same way on the server.
+ */
+export function aiDigest(records, athlete = {}, max = 300) {
+  const list = records.filter((r) => !checkRecord(r)).sort((a, b) => b.date - a.date).slice(0, max);
+  const f = (v, d = 0) => (v === null || v === undefined || !Number.isFinite(v) ? "" : v.toFixed(d));
+  const head = "date,km,gain_m,moving_min,elapsed_min,gap_pace_s_per_km,hr_avg,fade_pct,decoupling_pct,vam_m_per_h,best_1k_s,best_5k_s,best_10k_s";
+  const rows = list.map((r) => [new Date(r.date).toISOString().slice(0, 10), f(r.km, 1), f(r.gain), f(r.movingSec / 60), f(r.elapsedSec / 60),
+    f(r.gapPace), f(r.hrAvg), f(r.fadePct, 1), f(r.decouplingPct, 1), f(r.vam), f(r.best1k), f(r.best5k), f(r.best10k)].join(","));
+  const pick = (k, lo, hi) => (typeof athlete[k] === "number" && athlete[k] >= lo && athlete[k] <= hi ? athlete[k] : null);
+  return {
+    athlete: { hrMax: pick("hrMax", 120, 230), hrRest: pick("hrRest", 30, 100), weight: pick("weight", 30, 200) },
+    runs: list.length,
+    table: [head, ...rows].join("\n"),
   };
 }
