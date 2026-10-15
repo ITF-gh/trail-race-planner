@@ -24,8 +24,8 @@ export function prepHeroHtml(peak) {
   return `<div class="hero-row prep-only">
       <div>
         <div class="brand">${peak}Trail Race Planner · Prep my run</div>
-        <h1 style="margin-top:14px">Your next run,<br><em>on your wrist.</em></h1>
-        <p class="lead">Drop the GPX of a run you are about to do. The planner reads every climb and descent, writes the messages your watch will show along the way (hike here, brake there, the key moments), lets you check and edit them, and gives the course back ready for your watch. Your file never leaves this page.</p>
+        <h1 style="margin-top:14px">Ready for every climb.<br><em>Fired up to run it.</em></h1>
+        <p class="lead">Step out knowing what is coming, and wanting it. Drop the GPX of your next run: the planner reads every climb and descent, writes the messages your watch will show along the way (hike here, brake there, the key moments), lets you check and edit them, and gives the course back ready for your watch. Your file never leaves this page.</p>
       </div>
       <button class="btn primary" type="button" id="prepSample">Try a sample run</button>
     </div>
