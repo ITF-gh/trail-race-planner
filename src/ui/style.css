@@ -373,6 +373,11 @@ label.chk input{width:18px;height:18px;accent-color:var(--sun)}
 .rp-top{display:flex;justify-content:space-between;align-items:flex-end;gap:10px}
 .rp-run{display:flex;flex-direction:column;align-items:flex-end;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
 .rp-leg-tac{margin:8px 0 0;font-size:13.5px}
+/* Under the section name: its rule in a word, then the next section. */
+.rp-leg-sub{flex-basis:100%;display:flex;align-items:baseline;gap:6px 12px;min-width:0;font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden}
+.rp-leg-sub .rule{font-family:var(--f-display);font-weight:800;font-style:italic;text-transform:uppercase;letter-spacing:.06em;font-size:13px;color:var(--sun)}
+.rp-leg-sub .rule::before{content:"Rule ";color:var(--muted);font-style:normal;font-weight:700;font-size:10.5px;letter-spacing:.1em}
+.rp-leg-sub .nx{overflow:hidden;text-overflow:ellipsis} .rp-leg-sub .nx b{color:var(--fg);font-weight:600}
 .rp-leg-next{margin:8px 0 0;padding-top:8px;border-top:1px dashed var(--line);font-size:13.5px;color:var(--muted)}
 .rp-leg-next b{color:var(--fg)} .rp-leg .chip,.rp-legnow .chip,.rp-leg-next .chip{font-size:11px;padding:2px 8px 2px 7px}
 /* the section on the profile and on the map */
@@ -406,7 +411,8 @@ svg .pl-t{fill:var(--sun);font-weight:800;font-size:13px} svg .pl-tn{fill:var(--
 .rp-cockpit.nomap{grid-template-areas:"tot tot" "bar bar" "prof prof" "hud hud" "ctl ctl"}
 .rp-cockpit>.rp-totals{grid-area:tot;margin:0} .rp-cockpit>.rp-legbar{grid-area:bar;margin:0}
 .rp-cockpit>.rp-map{grid-area:map;min-height:150px;height:auto}
-.rp-cockpit>.rp-hud{grid-area:hud;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:12px}
+/* The panel never scrolls: what does not fit is left out (see fitPanel in replay.js). */
+.rp-cockpit>.rp-hud{grid-area:hud;min-height:0;overflow:hidden;padding:12px}
 .rp-hud>*{flex:none}
 .rp-cockpit>.rp-prof{grid-area:prof;padding:6px 8px 2px}
 .rp-cockpit>.rp-controls{grid-area:ctl;margin:0}
@@ -447,7 +453,13 @@ svg .pl-t{fill:var(--sun);font-weight:800;font-size:13px} svg .pl-tn{fill:var(--
   /* the profile now takes a row of its own: keep the numbers and the cue, drop the extra lines */
   .rp-cockpit .rp-leg-tac,.rp-cockpit .rp-leg-next{display:none} .rp-cockpit .rp-tg thead th{padding-top:0;padding-bottom:1px}
   .rp-cockpit .rp-tg th,.rp-cockpit .rp-tg td{padding:1px 6px} .rp-cockpit .rp-tg tbody tr:nth-child(-n+2) td.now{font-size:18px}
-  .rp-cockpit>.rp-prof{padding:2px 8px 0} .rp-cockpit .rp-cue{padding:6px 10px} .rp-cockpit .rp-clock b{font-size:26px} }
+  .rp-cockpit>.rp-prof{padding:2px 8px 0} .rp-cockpit .rp-cue{padding:6px 10px} .rp-cockpit .rp-clock b{font-size:26px}
+  /* short screens: the yellow column is Now (as on phones), no header row; the cue keeps 2 lines */
+  .rp-cockpit .rp-tg thead{display:none} .rp-cockpit>.rp-hud{gap:4px;padding:8px 10px} .rp-cockpit .rp-tg td{font-size:13.5px}
+  .rp-cockpit .rp-cue .rp-cue-h b{font-size:15px} .rp-cockpit .rp-cue p{font-size:12.5px}
+  .rp-cockpit .rp-tg th,.rp-cockpit .rp-tg td{line-height:1.15}
+  /* My run: the clock row repeats the big clock above it */
+  .rv-cockpit .rp-tg tbody tr:first-child{display:none} }
 @media (max-width:900px){
   /* phone and tablet: one column, still one screen high; the panel keeps only the numbers */
   .rp-cockpit{gap:5px;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto minmax(90px,1fr) auto auto;
@@ -456,7 +468,8 @@ svg .pl-t{fill:var(--sun);font-weight:800;font-size:13px} svg .pl-tn{fill:var(--
   .rp-cockpit>.rp-hud{overflow:visible;min-height:auto;padding:8px 10px;gap:5px}
   .rp-cockpit>.rp-map{min-height:0}
   .rp-cockpit .rp-totals{grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
-  .rp-cockpit .rp-leg-t{flex-wrap:nowrap;min-width:0;overflow:hidden}
+  .rp-cockpit .rp-leg-t{flex-wrap:wrap;min-width:0;overflow:hidden;row-gap:2px}
+  .rp-cockpit .rp-leg-sub{font-size:11.5px}
   .rp-cockpit .rp-leg-t>b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .rp-cockpit .rp-leg .chip{font-size:9.5px;padding:1px 6px;gap:4px} .rp-cockpit .rp-leg .chip::before{width:6px;height:6px}
   .rp-cockpit .rp-tot{padding:1px 5px}
