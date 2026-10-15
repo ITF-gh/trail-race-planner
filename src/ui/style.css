@@ -922,3 +922,6 @@ html[data-theme="sky"] .in-k b{color:var(--glow);text-shadow:0 0 12px rgba(255,1
 .in-set .note{flex-basis:100%;margin:0}
 @media (max-width:900px){ .in-wrap{grid-template-columns:1fr} .in-kgroup{grid-template-columns:1fr} .in-kg{padding-top:0} }
 @media (max-width:640px){ .in-kgrid{grid-template-columns:repeat(2,minmax(0,1fr))} .in-k b{font-size:19px} .in-k>small{display:none} .in-k.open>small{display:block} .in-k{cursor:pointer} }
+
+/* v0.29: section length right of the difficulty label in the SECTION card header */
+.rp-leg-len{display:inline-block;padding:.08em .5em;border-radius:999px;border:1px solid currentColor;font-weight:700;font-size:.82em;letter-spacing:.02em;font-variant-numeric:tabular-nums;white-space:nowrap;color:inherit;opacity:.9;vertical-align:middle}
