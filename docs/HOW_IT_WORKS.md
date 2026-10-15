@@ -134,6 +134,16 @@ The rest of the app looks forward. Check my run looks back at one recorded run a
 
 **Key moments.** The strongest and weakest climb, descent and runnable stretch (only when the gap to your average is 6% or more), stops of a minute or more, where the fade starts (the first point after a quarter of the run from which you stay under 95% of your day's average), a strong or tough finish (last 10%), heart-rate drift (speed per heartbeat, first half against second half: over 5% is the classic decoupling threshold), your hardest minute of heart rate, and stretches of 300 m or more walked on ground under 5% (cadence under 145 steps per minute). Each one says what happened with numbers, and most add a tip for next time.
 
+**Deep dive** (section 06, `src/core/insights.js`, `src/ui/insights.js`). Everything the watch recorded, as numbers and charts that react to you:
+- *Key numbers*: about 20 KPIs in groups (time, pace, climbing, form, heart, energy). Climbing speed is VAM, vertical metres per hour on +3% and steeper. Split ratio = second-half pace / first-half pace (under 1.00 is a negative split). Efficiency factor = GAP speed in m/min / average heart rate. Aerobic decoupling = how much that ratio drops from the first half to the second. Energy = Minetti's cost (J/kg/m) x weight x distance / 4184. Your weight, max and resting heart rate and sex are settings saved in the browser; without a max, the planner uses an estimate of at least 185 bpm, because the peak of one run is usually under the real max.
+- *Best efforts*: the fastest stretch for any distance (slider, 100 m steps) and the pace-distance curve, by sliding a window over the elapsed-time sums (T[i+w] - T[i]).
+- *Heart-rate zones*: time in Z1 to Z5 as a % of max (60/70/80/90), and Banister's TRIMP: each minute weighted by 0.64 x e^(1.92 x HRr) (0.86 and 1.67 for women), with HRr = (HR - rest) / (max - rest).
+- *Pace by gradient*: the run grouped into gradient bands (2, 3, 5 or 10% wide): share of time, pace, GAP, heart rate, cadence, hiked share and vertical speed per band.
+- *Pace distribution*: a histogram of the 100 m chunks' paces; two humps usually mean running and hiking.
+- *Explorer*: any two of gradient, distance, altitude, pace, GAP, speed, heart rate and cadence, one dot per 100 m coloured by time, with a least-squares line and Pearson's r. Axes go from the 1st to the 99th percentile so one GPS glitch does not squash the chart.
+- *Climbs and descents*: every one with its vertical, gradient, time, VAM or descent rate, heart rate, hiked share and verdict.
+A click on any point, bar, row or "Replay it" moves the replay above to that moment.
+
 **Honest limits.** GAP ignores terrain (mud, rocks, snow), wind and heat. A stop where your watch auto-paused leaves no points, which looks the same as a stop. "Strong" and "weak" are relative to your own day: an evenly run day has few moments, which is a good sign.
 
 ## 11. The plan on your watch (`src/core/garmin.js`)

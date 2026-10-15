@@ -484,3 +484,47 @@ test("review numbers: sliding-window records and splits that add up", () => {
   assert.equal(line.length, run.profile.length);
   assert.ok(line.every((p) => p.v >= 0 && p.v < 10));
 });
+
+import { bestEffort, bestCurve, gradeBands, hrZones, runChunks, paceHistogram, fitLine, runKpis, climbTable } from "../src/core/insights.js";
+
+test("deep dive: best efforts, gradient bands, zones and KPIs add up", () => {
+  const run = analyseRun(parseGpx(makeDemoRunGpx()));
+  // Best efforts: a longer stretch is never faster per km than a shorter one.
+  const curve = bestCurve(run);
+  assert.ok(curve.length >= 8);
+  for (let i = 1; i < curve.length; i++) assert.ok(curve[i].pace >= curve[i - 1].pace - 0.5, `${curve[i].m} m slower than ${curve[i - 1].m} m`);
+  const k1 = bestEffort(run, 1000);
+  assert.ok(Math.abs(k1.sec - runStats(run).fastest1k.sec) <= 2, "same 1 km as Your numbers");
+  // Gradient bands cover all the moving time.
+  for (const w of [2, 5, 10]) {
+    const share = gradeBands(run, w).reduce((s, b) => s + b.share, 0);
+    assert.ok(Math.abs(share - 1) < 0.01, `bands of ${w}% cover ${share}`);
+  }
+  const steep = gradeBands(run, 5).filter((b) => b.mid >= 10 && b.pace);
+  const flat = gradeBands(run, 5).find((b) => b.mid === 0);
+  assert.ok(steep.every((b) => b.pace > flat.pace), "steep climbs are slower than the flat");
+  // Heart-rate zones: shares add to 1; a higher max moves time to lower zones; TRIMP > 0.
+  const z = hrZones(run, 185);
+  assert.ok(Math.abs(z.zones.reduce((s, q) => s + q.share, 0) - 1) < 0.01);
+  assert.ok(z.trimp > 0);
+  assert.ok(hrZones(run, 200).zones[4].share <= z.zones[4].share);
+  assert.equal(hrZones({ hasHr: false }, 185), null);
+  // Pace histogram and chunks.
+  const h = paceHistogram(run, 15);
+  assert.ok(Math.abs(h.bins.reduce((s, b) => s + b.share, 0) - 1) < 0.01);
+  assert.ok(runChunks(run).length >= 270);
+  // KPIs: every one has a label, and energy grows with weight.
+  const k70 = runKpis(run, { weight: 70, hrMax: 185 }), k90 = runKpis(run, { weight: 90, hrMax: 185 });
+  assert.ok(k70.length >= 15 && k70.every((k) => k.label && k.group));
+  const en = (l) => l.find((k) => k.key === "kcal").value;
+  assert.ok(Math.abs(en(k90) / en(k70) - 90 / 70) < 0.01);
+  // Climbs table: one row per climb or descent, with a VAM on climbs.
+  const ct = climbTable(run);
+  assert.ok(ct.length >= 5 && ct.filter((c) => c.kind === "climb").every((c) => c.vam > 0));
+});
+
+test("fitLine finds a straight line and its correlation", () => {
+  const f = fitLine([1, 2, 3, 4], [3, 5, 7, 9]);
+  assert.ok(Math.abs(f.slope - 2) < 1e-9 && Math.abs(f.intercept - 1) < 1e-9 && Math.abs(f.r - 1) < 1e-9);
+  assert.ok(fitLine([1, 2, 3, 4], [4, 3, 2, 1]).r < -0.99);
+});

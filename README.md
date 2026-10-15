@@ -8,6 +8,8 @@ The switch at the top picks one of three modes. **Prep my race** (the default) i
 
 **Your numbers** lists the records of the run: average and best pace (held for one minute), fastest 200 m, 1 km and 5 km, steepest 100 m up and down, highest point, then the pace of every km as bars (click one to replay it) and a full table. On the profile, a thin blue line shows your pace (smoothed over 100 m, higher = faster) behind the elevation: a bright dot follows the runner, the stretch just run glows, and what is done fades.
 
+**Deep dive** goes further, with charts you can play with: about 20 key numbers (VAM, split ratio, grade-adjusted fade, cadence and stride, efficiency factor, aerobic decoupling, heart-rate zones and training load, energy), with your weight and heart rates as settings; best efforts for any distance on a slider; pace by gradient band; a pace histogram; an explorer to cross any two measures (with the best-fit line and correlation); and every climb and descent in a table. Click any point or row to replay that moment.
+
 Give it the **target** you were aiming for (a finish time or an average pace) and it compares: how far you were, how much of the gap was stops (1 min per hour is allowed), the fade (your second half run at your first-half effort) and real speed still to find. It spreads one even effort over the run, so every section gets a target time in proportion to how *you* run that kind of ground, and it shows where to find the time and where you spent too much too early. It also tells you whether the target is within reach, a stretch, or far for now, and suggests a realistic one. During the replay a ghost runner on the target pace shows how far ahead or behind you are.
 
 Your files are read on your own machine. Nothing is uploaded.

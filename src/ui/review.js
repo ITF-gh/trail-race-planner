@@ -15,6 +15,7 @@ import { fitPanel } from "./replay.js";
 import { mmss, hm, hms, clock } from "../core/format.js";
 import { trackEvent, trackOnce } from "./analytics.js";
 import { makeDemoRunGpx } from "../demo.js";
+import { mountInsights, emptyInsights } from "./insights.js";
 
 const rvEsc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const RV_SPEEDS = [
@@ -460,6 +461,8 @@ export function mountRun(box, run) {
   };
   const pause = () => { rv.playing = false; cancelAnimationFrame(rv.raf); draw(); };
   const seek = (sec) => { rv.sec = Math.max(0, Math.min(run.elapsedSec, sec)); els.cue.classList.remove("pulse"); draw(); };
+  // The deep dive below asks the replay to jump to a moment through this.
+  rv.seekTo = (sec) => { pause(); seek(sec + 1); $v("#rvCockpit").scrollIntoView({ behavior: "smooth", block: "start" }); };
   const jump = (dir) => {
     const list = dir > 0 ? moments.filter((e) => e.sec > rv.sec + 0.5) : moments.filter((e) => e.sec < rv.sec - 1.5).reverse();
     if (list[0]) { pause(); seek(list[0].sec + 1); }
@@ -564,7 +567,7 @@ export function initRunMode({ onLoaded } = {}) {
   const input = document.querySelector("#fileRun");
   const status = document.querySelector("#stRun");
   const body = document.querySelector("#s5body");
-  const empty = () => { body.innerHTML = `<div class="empty"><b>Drop the GPX of a run you did</b> above (or press Try a sample run): you get it replayed on the map with its key moments, good and bad.</div>`; };
+  const empty = () => { body.innerHTML = `<div class="empty"><b>Drop the GPX of a run you did</b> above (or press Try a sample run): you get it replayed on the map with its key moments, good and bad.</div>`; emptyInsights(document.querySelector("#s6body")); };
   const load = (xml, label, sample) => {
     try {
       const run = analyseRun(parseGpx(xml));
@@ -572,6 +575,7 @@ export function initRunMode({ onLoaded } = {}) {
       status.innerHTML = `<span class="ok">✓ ${rvEsc(rv.name)}</span> · ${run.totalKm.toFixed(1)} km · ${hm(run.elapsedSec)} · ${Math.round(run.gain)} m D+`;
       drop.classList.add("done");
       mountRun(body, run);
+      mountInsights(document.querySelector("#s6body"), run, { onSeek: (sec) => { if (rv.seekTo) rv.seekTo(sec); } });
       trackOnce("review-built", sample ? "sample" : "own");
       if (onLoaded) onLoaded(run);
       document.querySelector("#s5").scrollIntoView({ behavior: "smooth", block: "start" });
