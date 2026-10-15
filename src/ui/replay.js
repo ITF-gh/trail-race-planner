@@ -53,16 +53,20 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key }) {
   const TOT_KM = plan.course.totalKm;
   const pct = (km) => `${((km / TOT_KM) * 100).toFixed(3)}%`;
   const legCls = (l) => `k-${l.kind}${l.kind === "flat" ? "" : ` l${l.level}`}`;
-  const totTile = (k, v, sub) => `<div class="rp-tot"><span class="k">${k}</span><b>${v}</b>${sub ? `<small>${sub}</small>` : ""}</div>`;
+  const totTile = (k, v, sub, cls = "") => `<div class="rp-tot ${cls}"><span class="k">${k}</span><b>${v}</b>${sub ? `<small>${sub}</small>` : ""}</div>`;
 
+  // Everything you need while it plays sits in one screen-high "cockpit": race targets, the
+  // section bar, the map, the panel (clock, target vs now, cue), the profile and the controls.
+  // CSS grid places them; the map takes whatever height is left, so it shrinks on small screens.
   box.innerHTML = `
+  <div class="rp-cockpit${hasMap ? "" : " nomap"}" id="rpCockpit">
   <div class="rp-totals" aria-label="Race targets">
     ${totTile(`Finish · ${escR(sc.label.toLowerCase())}`, clock(st, tot.finishSec), `start ${clock(st, 0)}`)}
     ${totTile("Duration", hm(tot.durationSec), `${Math.round(tot.stopSec / 60)} min of stops`)}
     ${totTile("Average pace", `${mmss(tot.paceSec)}<small>/km</small>`, `moving ${mmss(tot.movingPaceSec)}/km`)}
-    ${totTile("Course", `${TOT_KM.toFixed(1)}<small>km</small>`, `${Math.round(tot.gain)} m D+ · ${legs.length} sections`)}
+    ${totTile("Course", `${TOT_KM.toFixed(1)}<small>km</small>`, `${Math.round(tot.gain)} m D+ · ${legs.length} sections`, "opt")}
     ${totTile("Gels", `${tot.gels}`, `one every ${tot.gelEveryMin} min`)}
-    ${totTile("Aid stations", `${tot.aids}`, tot.aids ? `${Math.round(tot.stopSec / 60)} min stopped` : "none set")}
+    ${totTile("Aid stations", `${tot.aids}`, tot.aids ? `${Math.round(tot.stopSec / 60)} min stopped` : "none set", "opt")}
     ${totTile("Heart rate · avg", tot.hrAvg ? `${tot.hrAvg}<small>bpm</small>` : "–", tot.hrAvg ? `forecast · ${tot.hrMin} to ${tot.hrMax} by phase` : "no heart rate in your run")}
   </div>
   <div class="rp-legbar">
@@ -75,7 +79,6 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key }) {
       <div class="rp-legend" aria-label="Legend"><span><i class="sw l1"></i>Easy</span><span><i class="sw l2"></i>Moderate</span><span><i class="sw l3"></i>Hard</span><span><i class="sw l4"></i>Crux</span><span><i class="sw fl"></i>Runnable</span><span><i class="sw ds"></i>Descent</span><span><i class="sw ds4"></i>Brake</span><span><i class="sw kz"></i>Key zone</span><span><i class="sw ad"></i>Aid</span></div>
     </div>
   </div>
-  <div class="rp-stage">
     ${hasMap ? `<div class="rp-map" id="rpMap"></div>` : ""}
     <div class="panel rp-hud">
       <div class="rp-top">
@@ -85,10 +88,10 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key }) {
       <div class="rp-prog" aria-hidden="true"><i id="rpBar"></i></div>
       <div class="rp-leg" id="rpLeg"></div>
       <div class="rp-now" id="rpNow" hidden></div>
+      <div class="rp-cue" id="rpCue" aria-live="polite"></div>
       <ul class="kv rp-next" id="rpNext"></ul>
     </div>
-  </div>
-  <div class="rp-cue" id="rpCue" aria-live="polite"></div>
+  <div class="prof-wrap rp-prof" id="rpProf">${prof.html}</div>
   <div class="rp-controls">
     <button class="btn icon" type="button" id="rpPrev" aria-label="Previous moment" title="Previous moment (←)">⏮</button>
     <button class="btn primary rp-play" type="button" id="rpPlay"></button>
@@ -98,7 +101,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key }) {
     <label class="chk"><input type="checkbox" id="rpPause" ${rp.pauseAt ? "checked" : ""}> Stop at each moment</label>
     ${hasMap ? `<label class="chk"><input type="checkbox" id="rpFollow" ${rp.follow ? "checked" : ""}> Follow the runner</label>` : ""}
   </div>
-  <div class="prof-wrap rp-prof" id="rpProf">${prof.html}</div>
+  </div>
   <div class="sub-h" id="rp-script">Race script · ${script.length} moments</div>
   <ol class="rp-script" id="rpScript">${script.map((e, i) => `<li data-i="${i}" class="k-${e.kind} lv${e.level}"><button type="button"><span class="ic">${ICON[e.kind] || "•"}</span><span class="t"><b>${escR(e.title)}</b><small>km ${e.km.toFixed(1)} · ${clock(st, e.sec)}</small></span><span class="cue">${escR(e.cue)}</span></button></li>`).join("")}</ol>`;
 
@@ -287,7 +290,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key }) {
     trackEvent("replay-moment", script[Number(b.parentElement.dataset.i)].kind);
     pause();
     seek(script[Number(b.parentElement.dataset.i)].sec + 1);
-    $r(".rp-stage").scrollIntoView({ behavior: "smooth", block: "nearest" });
+    $r(".rp-cockpit").scrollIntoView({ behavior: "smooth", block: "start" });
   }));
   // Click or drag on the profile to move the runner there.
   const svg = $r("#rpProf svg");

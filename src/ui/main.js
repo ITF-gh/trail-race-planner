@@ -561,7 +561,7 @@ function renderDday() {
   const logMode = store.get("trp.logMode") || "race";
 
   out.innerHTML = `
-  ${jumps([["d-key", "★ Key zones"], ["d-card", "Race card"], ["d-climbs", "Climb by climb"], ["d-log", "Plan versus actual"], ["d-export", "Export"], ["s4", "▶ Rehearse race day", "go"]])}
+  ${jumps([["d-key", "★ Key zones"], ["d-card", "Race card"], ["d-climbs", "Climb by climb"], ["d-log", "Plan versus actual"], ["d-export", "Export"], ["rpCockpit", "▶ Rehearse race day", "go"]])}
   <div class="dday-top">
     ${tile(`Finish · ${sc.label.toLowerCase()}`, clock(st, sc.finishSec), `${hm(sc.finishSec)} on course · start ${clock(st, 0)}`, "big")}
     <div class="panel" style="display:flex;flex-direction:column;gap:12px;justify-content:center">
@@ -653,11 +653,11 @@ function renderNav() {
   const sum = $("#tnSum");
   if (plan) {
     const sc = plan.scenarios[state.scenario] || plan.scenarios.central;
-    sum.innerHTML = `<span class="tn-fin"><small>Finish · ${esc(sc.label.toLowerCase())}</small><b>${clock(plan.startSec, sc.finishSec)}</b></span><a class="btn primary sm" href="#s4">▶ Race day</a>`;
+    sum.innerHTML = `<span class="tn-fin"><small>Finish · ${esc(sc.label.toLowerCase())}</small><b>${clock(plan.startSec, sc.finishSec)}</b></span><a class="btn primary sm" href="#rpCockpit">▶ Race day</a>`;
   } else sum.innerHTML = `<button class="btn ghost sm" type="button" id="tnDemo">Try the demo</button>`;
   const d = $("#tnDemo");
   if (d) d.addEventListener("click", () => $("#demo").click());
-  const go = sum.querySelector('a[href="#s4"]');
+  const go = sum.querySelector('a[href="#rpCockpit"]');
   if (go) go.addEventListener("click", () => trackEvent("nav", "race-day-button"));
 }
 (function wireNav() {
