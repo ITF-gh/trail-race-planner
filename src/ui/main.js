@@ -4,6 +4,9 @@
 //   02 Race briefing   what the course says, before knowing who runs it (race GPX only)
 //   03 D-day plan      both files plus your settings: clock times, tactics, gels
 //   04 Race day        the plan played back in time on the map and profile, to rehearse it
+// A second mode, "My run" (?mode=run), looks back instead: drop a run you just did and replay it
+// with its key moments, good and bad (ui/review.js). The two modes share the page; a data-mode
+// attribute on <html> hides what belongs to the other one.
 // Each section renders as soon as the files it needs are loaded. A sticky bar on top jumps
 // between sections and shows which one you are reading.
 
@@ -19,6 +22,7 @@ import { keyZones, toblerClock } from "../core/keyzones.js";
 import { secAtKm } from "../core/script.js";
 import { courseMap } from "./map.js";
 import { mountReplay, stopReplay } from "./replay.js";
+import { initRunMode, pauseRun } from "./review.js";
 import { startAnalytics, trackEvent, trackOnce, analyticsOn, analyticsName } from "./analytics.js";
 import { makeDemoRaceGpx, makeDemoEffortGpx, DEMO_ULTRA_PROFILE, DEMO_ULTRA_AID, DEMO_LONG_RUN_PROFILE } from "../demo.js";
 
@@ -52,13 +56,31 @@ const PHOTOS = {
 };
 const credit = (key) => `<a class="photo-credit" href="${PHOTOS[key].url}" target="_blank" rel="noopener">Photo: ${PHOTOS[key].by} / Pexels</a>`;
 const head = (num, kicker, title) => `<header class="sec-head"><div class="sec-num">${num}</div><div class="sec-kicker">${kicker}</div><h2>${title}</h2>${PHOTOS["s" + Number(num)] ? credit("s" + Number(num)) : ""}</header>`;
-const NAV = [["s1", "01", "Engine"], ["s2", "02", "Briefing"], ["s3", "03", "D-day"], ["s4", "04", "Race day"]];
+const NAV = [["s1", "01", "Engine"], ["s2", "02", "Briefing"], ["s3", "03", "D-day"], ["s4", "04", "Race day"], ["s5", "▶", "My run"]];
+const MODE_SEG = `<div class="seg mode-seg" role="group" aria-label="Mode"><button type="button" data-mode="plan">Plan a race</button><button type="button" data-mode="run">Review a run</button></div>`;
 
 $("#app").innerHTML = `
 <header class="hero" id="top">
   ${credit("hero")}
   <div class="hero-in">
-    <div class="hero-row">
+    ${MODE_SEG}
+    <div class="hero-row review-only">
+      <div>
+        <div class="brand">${PEAK}Trail Race Planner · My run</div>
+        <h1 style="margin-top:14px">Relive the run.<br><em>Learn from it.</em></h1>
+        <p class="lead">Drop the GPX of a run you just did. It plays back on the map at your real pace, and the planner finds the key moments: where you were strong, where it cost you, where you stopped, when you faded. Your file never leaves this page.</p>
+      </div>
+      <button class="btn primary" type="button" data-run-sample>Try a sample run</button>
+    </div>
+    <div class="drops review-only">
+      <div class="drop" id="dropRun">
+        <h3><span class="tag">▶</span>Your run</h3>
+        <p>The GPX your watch recorded (export it from Garmin Connect, Strava, Suunto, Coros...). Heart rate and cadence are a bonus.</p>
+        <div class="actions"><label class="btn ghost" for="fileRun">Choose GPX</label><input type="file" id="fileRun" accept=".gpx,application/gpx+xml,text/xml"></div>
+        <div class="status" id="stRun" aria-live="polite"></div>
+      </div>
+    </div>
+    <div class="hero-row plan-only">
       <div>
         <div class="brand">${PEAK}Trail Race Planner</div>
         <h1 style="margin-top:14px">Know the course.<br><em>Own the day.</em></h1>
@@ -66,7 +88,7 @@ $("#app").innerHTML = `
       </div>
       <button class="btn primary" id="demo" type="button">Try the demo</button>
     </div>
-    <div class="drops">
+    <div class="drops plan-only">
       <div class="drop" id="dropEffort">
         <h3><span class="tag">01</span>Your runs</h3>
         <p>One or more recorded runs of 1.5 h or more at a steady effort, with some climbs. Recent runs count more. Heart rate and cadence are a bonus.</p>
@@ -86,25 +108,26 @@ $("#app").innerHTML = `
 <nav class="topnav" id="topnav" aria-label="Sections">
   <div class="topnav-in">
     <a class="tn-brand" href="#top" aria-label="Back to top">${PEAK}</a>
-    <div class="tn-links">${NAV.map(([id, n, t]) => `<a href="#${id}" data-sec="${id}"><b>${n}</b>${t}</a>`).join("")}</div>
-    <div class="tn-sum" id="tnSum"></div>
+    <div class="tn-links">${NAV.map(([id, n, t]) => `<a href="#${id}" data-sec="${id}" class="${id === "s5" ? "review-only" : "plan-only"}"><b>${n}</b>${t}</a>`).join("")}</div>
+    <div class="tn-sum plan-only" id="tnSum"></div>
+    <div class="tn-sum review-only"><span id="tnRun"></span><button class="btn ghost sm" type="button" data-mode="plan">Plan a race</button></div>
   </div>
   <div class="tn-prog" aria-hidden="true"><i id="tnProg"></i></div>
 </nav>
 
-<section id="s1">
+<section id="s1" class="plan-only">
   ${head("01", "From your run", "Your engine")}
   <p class="sec-intro">What the planner reads from your own GPX: how fast you move on each gradient, fresh and tired, and how you fade.</p>
   <div id="s1body"></div>
 </section>
 
-<section id="s2">
+<section id="s2" class="plan-only">
   ${head("02", "From the race GPX", "Race briefing")}
   <p class="sec-intro">The course on its own: where the climbs and descents are, how hard each one is, and where the long climbs change character.</p>
   <div id="s2body"></div>
 </section>
 
-<section id="s3">
+<section id="s3" class="plan-only">
   ${head("03", "Your plan", "D-day")}
   <p class="sec-intro">Your engine on this course, with your race-day settings: finish time, clock time at every checkpoint, how to run each climb and descent, when to eat.</p>
   <div class="panel">
@@ -132,13 +155,19 @@ $("#app").innerHTML = `
   <div id="s3body" style="margin-top:22px"></div>
 </section>
 
-<section id="s4">
+<section id="s4" class="plan-only">
   ${head("04", "Rehearse it", "Race day")}
   <p class="sec-intro">Live the race before you run it. Press play and follow yourself along the course: the clock runs at your predicted pace, and every climb, gel and aid station shows what to do there. Replay it until the plan feels familiar.</p>
   <div id="s4body"></div>
 </section>
 
-<p class="foot">How it works: your run gives a pace for every gradient band, fresh and tired. Each 10 m of the course takes the pace of its band, sliding from fresh to tired along the race, scaled for terrain and for how much longer the race is than your run. Climbs and descents come from the course elevation, smoothed to ignore GPS noise. A model like this is usually within 5 to 10%: treat the three scenarios as a range, not a promise.</p>
+<section id="s5" class="review-only">
+  ${head("▶", "After the run", "My run")}
+  <p class="sec-intro">Your run played back at its real pace. The bar, the map and the profile are coloured by how you ran each stretch compared with your own average on the same kind of ground; each key moment stops the replay and says what it means.</p>
+  <div id="s5body"></div>
+</section>
+
+<p class="foot plan-only">How it works: your run gives a pace for every gradient band, fresh and tired. Each 10 m of the course takes the pace of its band, sliding from fresh to tired along the race, scaled for terrain and for how much longer the race is than your run. Climbs and descents come from the course elevation, smoothed to ignore GPS noise. A model like this is usually within 5 to 10%: treat the three scenarios as a range, not a promise.</p>
 ${analyticsOn ? `<p class="foot">Visits are counted anonymously with ${analyticsName}: no cookies, no personal data. Your GPX files and plans never leave your browser.</p>\n` : ""}<p class="foot">Photos by ${Object.values(PHOTOS).map((p) => `<a href="${p.url}" target="_blank" rel="noopener">${p.by}</a>`).join(", ")}, free to use under the <a href="https://www.pexels.com/license/" target="_blank" rel="noopener">Pexels licence</a>.</p>
 `;
 
@@ -654,7 +683,7 @@ function renderReplay() {
 // band across the middle of the viewport, without listening to every scroll event.
 function renderNav() {
   const plan = state.plan;
-  const ready = { s1: Boolean(state.effort), s2: Boolean(state.race), s3: Boolean(plan), s4: Boolean(plan) };
+  const ready = { s1: Boolean(state.effort), s2: Boolean(state.race), s3: Boolean(plan), s4: Boolean(plan), s5: Boolean($("#rvCockpit")) };
   document.querySelectorAll(".tn-links a").forEach((a) => a.classList.toggle("ready", ready[a.dataset.sec]));
   const sum = $("#tnSum");
   if (plan) {
@@ -769,5 +798,27 @@ function copyText(text) {
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
   else fallback();
 }
+/* ---------- mode: plan a race, or review a run ---------- */
+// The mode lives in the address (?mode=run), so a link or a refresh opens the same one.
+function setMode(mode, track = true) {
+  const m = mode === "run" ? "run" : "plan";
+  document.documentElement.dataset.mode = m;
+  document.querySelectorAll("button[data-mode]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === m)));
+  if (m === "run") stopReplay(); else pauseRun();
+  if (m === "plan") renderReplay();
+  try {
+    const u = new URL(window.location.href);
+    if (m === "run") u.searchParams.set("mode", "run"); else u.searchParams.delete("mode");
+    window.history.replaceState(null, "", u);
+  } catch (e) { /* file:// or a sandboxed frame */ }
+  if (track) trackEvent("mode", m);
+}
+document.querySelectorAll("button[data-mode]").forEach((b) => b.addEventListener("click", () => { setMode(b.dataset.mode); window.scrollTo({ top: 0 }); }));
+initRunMode({ onLoaded: (run) => {
+  $("#tnRun").innerHTML = `<a class="btn primary sm" href="#rvCockpit">▶ ${run.totalKm.toFixed(1)} km · ${hm(run.elapsedSec)}</a>`;
+  renderNav();
+} });
+
 compute();
+setMode(new URLSearchParams(window.location.search).get("mode") === "run" ? "run" : "plan", false);
 startAnalytics();

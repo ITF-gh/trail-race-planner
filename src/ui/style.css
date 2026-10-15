@@ -525,3 +525,45 @@ svg .pl-t{fill:var(--sun);font-weight:800;font-size:13px} svg .pl-tn{fill:var(--
 .zone-card.m-prepare{border-left-color:#4a9be0} .zone-card.m-manage{border-left-color:#3fd06a}
 .map-recenter{font:700 13px/1 var(--f-display);letter-spacing:.06em;text-transform:uppercase;padding:9px 12px;border-radius:999px;border:2px solid #fff;background:#0a1530;color:#fff;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.4);min-height:36px}
 .map-recenter.on{background:var(--accent);animation:cue .6s ease-out}
+
+/* ---------- mode: plan a race / review a run (My run) ---------- */
+/* One page, two modes: data-mode on <html> hides what belongs to the other one. */
+html[data-mode="run"] .plan-only{display:none!important}
+html:not([data-mode="run"]) .review-only{display:none!important}
+.mode-seg{align-self:flex-start}
+.mode-seg button{min-height:40px;font-size:14px;padding:6px 16px}
+#s5{--band:var(--band-2)}
+#s5 .sec-head{--banner:repeating-radial-gradient(ellipse at 85% 50%,transparent 0 18px,rgba(255,255,255,.07) 18px 19.5px),radial-gradient(circle at 85% 30%,rgba(63,208,106,.45),transparent 45%),radial-gradient(circle at 60% 90%,rgba(255,48,72,.35),transparent 50%),linear-gradient(120deg,#082019,#14523d 60%,#1f5aa6)}
+.rv-meta{margin:0 0 10px;color:var(--muted);font-size:14px}
+.rv-g{color:#6fe08f} .rv-b{color:#ff8394}
+/* verdict colours: stronger / your average / weaker than your own day on that kind of ground */
+.rp-legs .lg.rv-good,.rp-legend .sw.rv-good{background:#2fb85a}
+.rp-legs .lg.rv-ok,.rp-legend .sw.rv-ok{background:#7b8db3}
+.rp-legs .lg.rv-bad,.rp-legend .sw.rv-bad{background:#e8122f}
+.rp-legs .lg.rv-d,.rp-legend .sw.rv-d{background-image:repeating-linear-gradient(135deg,rgba(6,16,31,.55) 0 3px,transparent 3px 7px)}
+.rv-pin{position:absolute;top:-12px;width:0;height:0;margin-left:-5px;border:5px solid transparent;pointer-events:none;z-index:3}
+.rv-pin.good{border-bottom:8px solid #6fe08f;top:auto;bottom:-13px} .rv-pin.bad{border-top:8px solid #ff5a6e}
+.rv-pin-l{display:inline-block;width:0;height:0;border:5px solid transparent}
+.rv-pin-l.good{border-bottom:8px solid #6fe08f;margin-top:-6px} .rv-pin-l.bad{border-top:8px solid #ff5a6e;margin-bottom:-6px}
+.chip.rv-good{background:#173d2a;color:#8ff0a8} .chip.rv-ok{background:rgba(255,255,255,.12);color:var(--fg)} .chip.rv-bad{background:#541522;color:#ff96a3}
+.rp-leg.rv-leg{border-left-color:#7b8db3} .rp-leg.rv-good{border-left-color:#2fb85a} .rp-leg.rv-bad{border-left-color:#e8122f}
+.rp-cue.rv-good{background:linear-gradient(110deg,rgba(63,208,106,.24),rgba(63,208,106,.06));border-color:rgba(63,208,106,.55)} .rp-cue.rv-good .ic{background:#3fd06a;color:#04210f}
+.rp-cue.rv-bad{background:linear-gradient(110deg,rgba(255,48,72,.26),rgba(255,48,72,.06));border-color:rgba(255,90,110,.6)} .rp-cue.rv-bad .ic{background:#ff3048;color:#fff}
+.rp-cue em,.rv-script em{display:block;font-style:normal;color:var(--sun);margin-top:2px}
+.rv-script li.rv-good .ic{background:#3fd06a;color:#04210f} .rv-script li.rv-bad .ic{background:#ff3048;color:#fff} .rv-script li.rv-info .ic{background:rgba(255,255,255,.18);color:var(--fg)}
+.rv-script li.rv-good button{border-left:4px solid #3fd06a} .rv-script li.rv-bad button{border-left:4px solid #ff3048}
+.rv-how{max-width:95ch}
+/* form along the way, on the profile and the map: much weaker (1) to much stronger (5) */
+svg .rv-pf{fill:none;stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round}
+.rv-f1{stroke:#e8122f} .rv-f2{stroke:#ff8a6a} .rv-f3{stroke:#d7deec} .rv-f4{stroke:#6fe08f} .rv-f5{stroke:#1fae4c}
+.rv-rt{stroke-width:5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.rv-mglow{stroke-width:18;stroke-opacity:.4;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.rv-mglow.good{stroke:#3fd06a} .rv-mglow.bad{stroke:#ff3048}
+svg .rv-pin-p line{stroke-width:1;stroke-dasharray:2 3}
+svg .rv-pin-p.good line{stroke:#6fe08f} svg .rv-pin-p.bad line{stroke:#ff5a6e}
+svg .rv-pin-p.good circle{fill:#1f8a43} svg .rv-pin-p.bad circle{fill:#c4102a}
+svg .rv-pin-p text{fill:#fff;font-weight:800;font-size:13px}
+/* the review cue carries a tip: let it run its full length where the panel has room */
+@media (min-width:901px){ .rv-cockpit .rp-cue.rv-cue p{display:block;-webkit-line-clamp:unset;overflow:visible} }
+@media (max-width:900px){ .rv-cockpit .rp-cue.rv-cue p em{display:none} .rv-meta{font-size:12.5px;margin-bottom:6px} }
+@media (max-width:640px){ html[data-mode="run"] .tn-sum.review-only{display:flex;gap:6px} }

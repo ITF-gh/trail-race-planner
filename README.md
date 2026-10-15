@@ -4,6 +4,8 @@ Give it a race course (GPX) and one of your own recorded runs (GPX). It learns h
 
 Then it lets you **rehearse race day**: the course on an OpenStreetMap map, and a replay where a runner moves along the map and the profile at your predicted pace, stopping at each climb, gel and aid station with a short cue of what to do there. It also marks the **key zones**, the stretches where the race is played, ranked by the minutes at stake.
 
+And it has a second mode, **My run** (the "Review a run" switch at the top, or `?mode=run`): drop the GPX of a run you just did and it plays back on the map at your real pace, with your real stops and the real time of day. It finds the **key moments**, good and bad (your strongest and weakest climb and descent, stops, when the fade starts, heart-rate drift, walking where you could run) and colours every stretch by how you ran it compared with your own average on the same kind of ground. "Try a sample run" shows it on a made-up 28 km trail run.
+
 Your files are read on your own machine. Nothing is uploaded.
 
 ## Use it
@@ -48,9 +50,10 @@ src/core/format.js     time and pace formatting
 src/core/markdown.js   plan as Markdown
 src/core/keyzones.js   key zones: where the race is played, and how many minutes are at stake
 src/core/script.js     the race in time: key moments with cues, and where you are at any second
+src/core/review.js     My run: grade-adjusted pace, stops, sections with a verdict, key moments of a run you did
 src/demo.js            made-up GPX files for the demo and the tests
 src/ui/                the browser app (main.js, map.js for the map, replay.js for race day,
-                       analytics.js for anonymous visit and event counts)
+                       review.js for the My run mode, analytics.js for anonymous visit and event counts)
 src/vendor/leaflet/    Leaflet 1.9.4, the map library (BSD-2 licence), copied to dist/vendor/
 cli.js                 the command-line tool
 scripts/build.js       bundles the app into dist/index.html, no dependencies
