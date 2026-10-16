@@ -25,10 +25,10 @@ export const AI_PREP_VERSION = 3;
 export const AI_PREP_NOTES_MAX = 500, AI_PREP_QUESTION_MAX = 300;
 
 // Round to d decimals (0 by default), keeping null for a missing value.
-const rd = (v, d = 0) => (v === null || v === undefined || !Number.isFinite(v) ? null : Math.round(v * 10 ** d) / 10 ** d);
+export const rd = (v, d = 0) => (v === null || v === undefined || !Number.isFinite(v) ? null : Math.round(v * 10 ** d) / 10 ** d);
 // Clean a text typed by the runner: control characters become spaces, runs of spaces one space.
 // eslint-disable-next-line no-control-regex
-const aipClean = (s, max) => (typeof s === "string" ? s.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, max) : "");
+export const aipClean = (s, max) => (typeof s === "string" ? s.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, max) : "");
 
 /**
  * The steepest 100 m of a leg, from the briefing climb, climb section or descent it comes from
@@ -162,9 +162,9 @@ export const AI_PREP_INSTRUCTIONS = [AIP_ROLE, AIP_CHECK, AIP_TASK].join("\n\n")
 
 // A list of objects as CSV: a header line from `cols`, one line per row. Commas inside a value
 // are replaced by semicolons, so a value never splits a column.
-const aipCsv = (rows, cols) => [cols.join(","), ...rows.map((r) => cols.map((c) => (r[c] === null || r[c] === undefined ? "" : String(r[c]).replace(/,/g, ";"))).join(","))].join("\n");
+export const aipCsv = (rows, cols) => [cols.join(","), ...rows.map((r) => cols.map((c) => (r[c] === null || r[c] === undefined ? "" : String(r[c]).replace(/,/g, ";"))).join(","))].join("\n");
 // Seconds as h:mm:ss, for the lines a person may read in the prompt.
-const aipHms = (s) => (s ? `${Math.floor(s / 3600)}:${String(Math.floor((s % 3600) / 60)).padStart(2, "0")}:${String(Math.round(s % 60)).padStart(2, "0")}` : "none");
+export const aipHms = (s) => (s ? `${Math.floor(s / 3600)}:${String(Math.floor((s % 3600) / 60)).padStart(2, "0")}:${String(Math.round(s % 60)).padStart(2, "0")}` : "none");
 
 /** The data part of the prompt (blocks 4 to 6) for an INPUT object, as one text. */
 export function aiPrepData(x) {
@@ -205,13 +205,13 @@ export function aiPrepData(x) {
 // additionalProperties false; a field that may be empty is "this shape or null" (aipOrNull).
 // Length and range limits are checked afterwards by code (aiPrepMerge), not by the schema.
 
-const aipObj = (props) => ({ type: "object", additionalProperties: false, required: Object.keys(props), properties: props });
-const aipArr = (items) => ({ type: "array", items });
+export const aipObj = (props) => ({ type: "object", additionalProperties: false, required: Object.keys(props), properties: props });
+export const aipArr = (items) => ({ type: "array", items });
 // "This, or null": how strict mode lets a field be empty (anyOf = one of these shapes).
-const aipOrNull = (x) => ({ anyOf: [x, { type: "null" }] });
+export const aipOrNull = (x) => ({ anyOf: [x, { type: "null" }] });
 const S = { type: "string" }, N = { type: "number" }, I = { type: "integer" };
 const aipLegText = aipArr(aipObj({ legId: S, text: S }));
-const aipPoint = aipArr(aipObj({ what: S, proof: S, effect: S }));
+export const aipPoint = aipArr(aipObj({ what: S, proof: S, effect: S }));
 
 /** The strict JSON schema of the answer (the output contract, PREP-MY-RACE-SCHEMA.md section 2). */
 export const AI_PREP_SCHEMA = aipObj({
@@ -240,7 +240,7 @@ export const AI_PREP_MODELS = ["gpt-4o-mini", "gpt-5.4-mini"];
  * effort, and its thinking is billed as output tokens. Others (gpt-4o-mini) answer at once and
  * refuse the reasoning parameter, so it is only sent to reasoning models.
  */
-const aipReasons = (model) => /^(o\d|gpt-5)/.test(model);
+export const aipReasons = (model) => /^(o\d|gpt-5)/.test(model);
 
 /**
  * The body of the one OpenAI Responses API call (POST https://api.openai.com/v1/responses).
@@ -269,10 +269,10 @@ export function aiPrepRequest(input, opts = {}) {
  *   tokens  part 3, from the API's `usage` report: input, inputCached, output, reasoning, total
  *   error   "" when fine, else why there is no usable output (refused, cut short, not JSON)
  */
-export function aiPrepRead(res) {
+export function aiPrepRead(res, requestType = "prep_race") {
   const u = (res && res.usage) || {};
   const tokens = {
-    requestType: "prep_race", model: (res && res.model) || "",
+    requestType, model: (res && res.model) || "",
     input: u.input_tokens || 0, inputCached: (u.input_tokens_details && u.input_tokens_details.cached_tokens) || 0,
     output: u.output_tokens || 0, reasoning: (u.output_tokens_details && u.output_tokens_details.reasoning_tokens) || 0,
     total: u.total_tokens || 0,
@@ -291,7 +291,7 @@ export function aiPrepRead(res) {
 // ---------------------------------------------------------------------------------------------
 // The referee and the rebuild: the code takes the whole process again.
 
-const aipClamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+export const aipClamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
 /**
  * Check the AI output against the input and rebuild the plan from it.

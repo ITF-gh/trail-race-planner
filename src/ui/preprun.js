@@ -15,6 +15,11 @@
 //   (core/preprun.js) -> render(): summary, cockpit (replay.js through main.js), watch panel
 //   (watch.js), download buttons.
 //
+// The AI coach: once a GPX is loaded, a small shiny edelweiss sticker (beside Pimp my GPX) opens the Ask the AI coach window
+// (account.js). Its answer (core/airun.js) comes back as an AI doc; the Calculated / AI switch
+// above the cockpit (airace.js) then plays the session: the exercises as moments of the run
+// script, the faster reps in the clock, the AI message box.
+//
 // Main exports: prepHeroHtml (the mode's header and drop zone), initPrepRun (wires everything and
 // returns { rerender, current }).
 
@@ -25,6 +30,9 @@ import { hm, parseDuration } from "../core/format.js";
 import { makeDemoRaceGpx, DEMO_LONG_RUN_PROFILE } from "../demo.js";
 import { watchPanelHtml, mountWatch, watchPoints, downloadCourse, pimpBadge } from "./watch.js";
 import { trackEvent } from "./analytics.js";
+import { acctOpenRunAsk, acctAiBadge } from "./account.js";
+import { arUse, arState, arBarHtml } from "./airace.js";
+import { runSpots } from "../core/airun.js";
 
 // Escape text for HTML: each of & < > " (the regex's character set) becomes its entity.
 const prEsc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -73,17 +81,47 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
   //   startTime  start time typed here ("HH:MM"), null = use the planner's setting
   //   plan       the last plan built, key its localStorage key for the watch messages,
   //   source     where its times came from ("target", "runs" or "estimate", see SOURCE)
+  //   aiOn       the AI coach's session is shown (when there is one for this run)
+  let aiOn = false;
+  try { aiOn = localStorage.getItem("trp.ai.run.on") === "true"; } catch (e) { /* blocked: off */ }
   const st = { parsed: null, name: "", targetSec: 0, startTime: null, plan: null, key: "", source: "" };
   const $p = (s) => document.querySelector(s);
   // The cockpit (section bar, map, profile, run script) is the race-day one from main.js. Only one
   // can play at a time, so it is built when this mode is on screen and emptied when you leave it.
   // The current mode is stored as data-mode on the <html> element.
   const inMode = () => document.documentElement.dataset.mode === "prep";
+  // With the AI switch on and a session that fits this run, the cockpit plays the AI plan (rebuilt
+  // by code from the coach's answer, airace.js); the html class "ai-run-on" makes its values shine.
   const showCockpit = () => {
     const box = $p("#prepCockpit");
     if (!box || !cockpit || !st.plan) return;
-    if (inMode()) cockpit(box, st.plan, st.key); else box.innerHTML = "";
+    const ai = arState(st.plan, st.key, "prep_run");
+    const on = aiOn && ai.state === "ok";
+    document.documentElement.classList.toggle("ai-run-on", on && inMode());
+    if (!inMode()) { box.innerHTML = ""; return; }
+    const plan = on ? ai.result.plan : st.plan;
+    const bar = $p("#prepAi");
+    if (bar) bar.innerHTML = arBarHtml(ai, on, st.plan.scenarios.central.finishSec, plan.scenarios.central.finishSec);
+    cockpit(box, plan, st.key);
   };
+  // The switch and the edelweiss button (event delegation: the mode body is drawn again often).
+  $p("#sPrepBody").addEventListener("click", (ev) => {
+    const b = ev.target.closest("[data-ar]");
+    if (!b) return;
+    if (b.dataset.ar === "ask") { acctOpenRunAsk(); return; }
+    aiOn = b.dataset.ar === "ai";
+    try { localStorage.setItem("trp.ai.run.on", String(aiOn)); } catch (e) { /* kept for this visit */ }
+    trackEvent("ai-switch", `run-${b.dataset.ar}`);
+    showCockpit();
+  });
+  // A Prep my run AI doc to play (a new answer, or one picked in the AI docs): switch AI on.
+  document.addEventListener("trp-ai-use", (ev) => {
+    if (!ev.detail || ev.detail.mode !== "prep_run") return;
+    arUse(ev.detail);
+    aiOn = true;
+    try { localStorage.setItem("trp.ai.run.on", "true"); } catch (e) { /* kept for this visit */ }
+    showCockpit();
+  });
   // main.js announces a mode switch and a theme switch with these custom events on `document`.
   document.addEventListener("trp-mode", showCockpit);
   document.addEventListener("trp-theme", showCockpit); // redraw so the map takes the new tiles
@@ -148,7 +186,7 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
     // The target time box shows the current estimate as a hint ("3h05" -> "3:05").
     body.innerHTML = `
   <div class="panel prep-sum prep-ready">
-    ${pimpBadge("#prep-pimp", "Your run on your watch →")}
+    <div class="side-stack">${pimpBadge("#prep-pimp", "Your run on your watch →")}${acctAiBadge("run")}</div>
     <div class="prep-facts"><b>${prEsc(st.name)}</b><span>${plan.course.totalKm.toFixed(1)} km</span><span>+${Math.round(plan.course.gain)} m</span><span>-${Math.round(plan.course.loss)} m</span><span>${plan.climbs.length} climbs</span><span>${(plan.keyZones || []).length} key zones</span><span>about <b>${hm(finish)}</b></span></div>
     <p class="note">Times come from ${SOURCE[source]}.</p>
     <div class="prep-opts">
@@ -158,6 +196,7 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
   </div>
 
   <div class="sub-h">Your run, section by section</div>
+  <div id="prepAi"></div>
   <div id="prepCockpit"></div>
 
   <div class="sub-h" id="prep-pimp">◆ Pimp my GPX · watch messages</div>
@@ -221,5 +260,6 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
     load(makeDemoRaceGpx(DEMO_LONG_RUN_PROFILE, { name: "Sample long run 30K", startEle: 650, loop: true, center: [45.05, 5.7] }), "Sample long run 30K (made up)");
   });
   // current(): what is on screen, for the A4 export (ui/print.js); null before a GPX is loaded.
-  return { rerender: render, current: () => (st.plan ? { plan: st.plan, name: st.name, source: st.source } : null) };
+  // spots and key: for the Ask the AI coach window (account.js), which files its answer by key.
+  return { rerender: render, current: () => (st.plan ? { plan: st.plan, name: st.name, source: st.source, key: st.key, spots: runSpots(st.plan).filter((x) => x.kind !== "caution").length } : null) };
 }

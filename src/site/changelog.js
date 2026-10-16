@@ -2,7 +2,13 @@
 // technical detail). The first entry is the current version: the footer shows it on every page.
 
 export const CHANGELOG = [
-  { v: "0.41", date: "2026-10-16", items: ["Race-day settings (start time, targeted duration, terrain, gels, aid stations and Advanced) moved to Your route. Your plan now only shows what is computed: sections, clock times and pace strategy."] },
+  { v: "2.1", date: "2026-10-16", items: ["Race-day settings (start time, targeted duration, terrain, gels, aid stations and Advanced) moved to Your route. Your plan now only shows what is computed: sections, clock times and pace strategy."] },
+  { v: "2.0", date: "2026-10-16", items: [
+    "Version 2: AI comes to Prep my race and Prep my run. A small shiny edelweiss beside Pimp my GPX opens the Ask the AI window of each mode.",
+    "Prep my race: the AI tailors your race plan; Your race gets a Calculated / AI switch and an AI message box.",
+    "Prep my run: an AI coach finds exercises on your route (strides on long flats, hill repeats, uphill threshold, downhill technique...), checked by the app, and plays the session with its own switch.",
+    "Every AI answer is kept in AI docs (account menu). The AI opens with the online account: for now the button sends nothing.",
+  ] },
   { v: "0.40", date: "2026-10-16", items: [
     "Ask the AI for Prep my race is ready to read: race, runs, goal, target, free information and a question, with checks before anything is sent. It opens with the online account; for now the button sends nothing.",
     "Your race gets a Calculated / AI switch and an AI message box, ready for the first AI plans.",
