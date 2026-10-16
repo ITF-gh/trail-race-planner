@@ -26,7 +26,8 @@ import { keyZones, toblerClock } from "../core/keyzones.js";
 import { secAtKm } from "../core/script.js";
 import { courseMap } from "./map.js";
 import { mountReplay, stopReplay } from "./replay.js";
-import { initRunMode, pauseRun } from "./review.js";
+import { initRunMode, pauseRun, currentRun } from "./review.js";
+import { initPrint } from "./print.js";
 import { initAccount, acctSaveRun, acctSaveGpx } from "./account.js";
 import { startAnalytics, trackEvent, trackOnce, analyticsOn, analyticsName } from "./analytics.js";
 import { makeDemoRaceGpx, makeDemoEffortGpx, DEMO_ULTRA_PROFILE, DEMO_ULTRA_AID, DEMO_LONG_RUN_PROFILE } from "../demo.js";
@@ -137,6 +138,7 @@ $("#app").innerHTML = `
   <div class="topnav-in">
     <a class="tn-brand" href="#top" aria-label="Back to top">${PEAK}</a>
     <div class="tn-links">${NAV.map(([id, n, t]) => `<a href="#${id}" data-sec="${id}" class="${navClass(id)}"><b>${n}</b>${t}</a>`).join("")}</div>
+    <button class="btn ghost sm tn-print" type="button" id="printBtn" title="Export this mode as A4 pages: print them, or choose Save as PDF"><span aria-hidden="true">⎙</span> <span class="tn-pl">Export </span>A4</button>
     <button class="btn ghost sm tn-theme" type="button" id="themeBtn" aria-pressed="false"></button>
     <div class="tn-sum plan-only" id="tnSum"></div>
     <div class="tn-sum review-only"><span id="tnRun"></span><button class="btn ghost sm" type="button" data-mode="plan">Prep my race</button></div>
@@ -767,6 +769,7 @@ function renderDday() {
   <div class="actions">
     <button class="btn primary" id="copyMd" type="button">Copy plan as Markdown</button>
     <button class="btn" id="copyJson" type="button">Copy as JSON</button>
+    <button class="btn" id="printDday" type="button">⎙ Export A4 (print or PDF)</button>
     <span class="status" id="exportStat" aria-live="polite"></span>
   </div>`;
 
@@ -778,6 +781,7 @@ function renderDday() {
   drawLog(plan, logKey);
   $("#copyMd").addEventListener("click", () => { trackEvent("export", "markdown"); copyText(planToMarkdown(plan, sid)); });
   $("#copyJson").addEventListener("click", () => { trackEvent("export", "json"); copyText(JSON.stringify(slimPlan(plan, sid), null, 2)); });
+  $("#printDday").addEventListener("click", () => { trackEvent("export", "a4-plan"); printA4(); });
   // The race on a map, coloured like the profile, with your aid stations and key zones.
   if (state.race && state.race.route) ddayMap = courseMap($("#ddayMap"), { route: state.race.route, totalKm: plan.course.totalKm, ...mapStyle(brief, parseAidStations(state.settings.aidStations).filter((a) => a.km <= plan.course.totalKm), plan.keyZones) });
   else $("#ddayMap").remove();
@@ -848,6 +852,7 @@ function renderNav() {
   } else sum.innerHTML = `<button class="btn ghost sm" type="button" id="tnDemo">Try the demo</button>`;
   const d = $("#tnDemo");
   if (d) d.addEventListener("click", () => $("#demo").click());
+  updatePrintBtn();
   const go = sum.querySelector('a[href="#rpCockpit"]');
   if (go) go.addEventListener("click", () => trackEvent("nav", "race-day-button"));
 }
@@ -978,8 +983,30 @@ initRunMode({ onLoaded: (run, { sample, name } = {}) => {
   renderNav();
 } });
 
+/* ---------- export A4 (ui/print.js): the mode on screen, laid out for paper ---------- */
+let prepCtl = null;
+function printData(mode) {
+  if (mode === "run") {
+    const r = currentRun();
+    return r ? { ...r, athlete: store.get("trp.athlete") || {} } : null;
+  }
+  if (mode === "prep") return prepCtl ? prepCtl.current() : null;
+  if (!state.plan) return null;
+  const sid = state.plan.scenarios[state.scenario] ? state.scenario : "central";
+  return { plan: state.plan, sid, raceName: (state.race && state.race.name) || "Race", effort: state.effort, settings: state.settings };
+}
+const printA4 = initPrint({ collect: printData });
+function updatePrintBtn() {
+  const b = $("#printBtn");
+  const ready = Boolean(printData(document.documentElement.dataset.mode || "plan"));
+  b.disabled = !ready;
+  b.title = ready ? "Export this mode as A4 pages: print them, or choose Save as PDF" : "Load a GPX first: there is nothing to export yet";
+}
+$("#printBtn").addEventListener("click", () => { trackEvent("export", `a4-${document.documentElement.dataset.mode || "plan"}`); printA4(); });
+document.addEventListener("trp-mode", updatePrintBtn);
+
 compute();
-initPrepRun({ getRuns: () => (state.effort ? state.effort.runs.map((r) => r.parsed) : []), getSettings: () => state.settings, onLoaded: () => renderNav(), cockpit: (box, plan, key) => mountCockpit(box, plan, "central", key, "Run") });
+prepCtl = initPrepRun({ getRuns: () => (state.effort ? state.effort.runs.map((r) => r.parsed) : []), getSettings: () => state.settings, onLoaded: () => renderNav(), cockpit: (box, plan, key) => mountCockpit(box, plan, "central", key, "Run") });
 setMode(new URLSearchParams(window.location.search).get("mode"), false);
 startAnalytics();
 initAccount();
