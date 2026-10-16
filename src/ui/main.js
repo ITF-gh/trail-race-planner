@@ -53,6 +53,8 @@ import { courseMap } from "./map.js";
 import { mountReplay, stopReplay } from "./replay.js";
 import { initRunMode, pauseRun, currentRun } from "./review.js";
 import { initPrint } from "./print.js";
+import { initHelp } from "./help.js";
+import { siteFooter } from "../site/site.js";
 import { initAccount, acctSaveRun, acctSaveGpx } from "./account.js";
 import { startAnalytics, trackEvent, trackOnce, analyticsOn, analyticsName } from "./analytics.js";
 import { makeDemoRaceGpx, makeDemoEffortGpx, DEMO_ULTRA_PROFILE, DEMO_ULTRA_AID, DEMO_LONG_RUN_PROFILE } from "../demo.js";
@@ -302,7 +304,7 @@ $("#app").innerHTML = `
 </section>
 
 <p class="foot plan-only">How it works: your run gives a pace for every gradient band, fresh and tired. Each 10 m of the course takes the pace of its band, sliding from fresh to tired along the race, scaled for terrain and for how much longer the race is than your run. Climbs and descents come from the course elevation, smoothed to ignore GPS noise. A model like this is usually within 5 to 10%: treat the three scenarios as a range, not a promise.</p>
-${analyticsOn ? `<p class="foot">Visits are counted anonymously with ${analyticsName}: no cookies, no personal data. Your GPX files and plans never leave your browser.</p>\n` : ""}<p class="foot">Photos by ${Object.values(PHOTOS).filter((p, i, all) => all.findIndex((q) => q.by === p.by) === i).map((p) => `<a href="${p.url}" target="_blank" rel="noopener">${p.by}</a>`).join(", ")}, free to use under the <a href="https://www.pexels.com/license/" target="_blank" rel="noopener">Pexels licence</a>.</p>
+${siteFooter({ analytics: analyticsOn ? analyticsName : "" })}
 `;
 
 // FIELDS: the ids of the settings inputs. Each one, when changed, re-reads the form and
@@ -1368,6 +1370,7 @@ prepCtl = initPrepRun({ getRuns: () => (state.effort ? state.effort.runs.map((r)
 setMode(new URLSearchParams(window.location.search).get("mode"), false);
 startAnalytics();
 initAccount();
+initHelp();
 
 // This is event delegation: one listener on the whole document handles every jump link, even
 // the ones drawn after start-up. closest() climbs from the clicked element to the nearest

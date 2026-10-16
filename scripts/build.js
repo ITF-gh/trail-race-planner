@@ -23,9 +23,12 @@
 // match at the start and end of every LINE (not only of the whole text), and the `g` flag
 // finds every match instead of the first one.
 
-import { readFileSync, writeFileSync, mkdirSync, cpSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, cpSync, existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { sitePages, headMeta } from "./site-pages.js";
+import { SITE } from "../src/site/site.js";
+import { ANALYTICS, PROVIDERS } from "../src/ui/analytics.js";
 
 // The project folder: import.meta.url is this file's address (file:///.../scripts/build.js);
 // turn it into a path, take its folder (scripts/) and go one level up.
@@ -93,8 +96,9 @@ const js = `(function(){\n"use strict";\n${parts.join("\n")}\n})();`.replace(/<\
 
 // The page's content: the stylesheet inline in <style>, the empty <div id="app"> that the
 // app fills in when it starts, and the bundled code inline in <script>.
+// The styles are the app's (src/ui/style.css), then the site's (footer, "?" bubbles, the static pages).
 // The fonts (Barlow and Barlow Condensed) are loaded from Google Fonts.
-const css = readFileSync(join(root, "src/ui/style.css"), "utf8");
+const css = readFileSync(join(root, "src/ui/style.css"), "utf8") + "\n" + readFileSync(join(root, "src/site/site.css"), "utf8");
 const fonts = `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,700;1,800&family=Barlow:wght@400;500;600&display=swap">`;
 const body = `<style>\n${css}\n</style>\n<div class="wrap" id="app"></div>\n<script>\n${js}\n</script>\n`;
 
@@ -109,13 +113,34 @@ cpSync(join(root, "src/ui/photos"), join(root, "dist/photos"), { recursive: true
 // Leaflet (the map library, BSD-2 licence) ships next to the page and is loaded only when a map
 // is shown, so the page stays light and the map code works offline.
 cpSync(join(root, "src/vendor/leaflet"), join(root, "dist/vendor/leaflet"), { recursive: true });
+// The page title comes from SITE (src/site/site.js). In HTML, "&" must be written "&amp;".
+const title = `${SITE.name} · ${SITE.tagline}`;
+const titleHtml = title.replace(/&/g, "&amp;");
 // fragment.html: the content without <html>/<head>/<body>, for a host page that adds its own.
-writeFileSync(join(root, "dist/fragment.html"), `<title>Prep my race · Trail race &amp; run planner</title>\n${fonts}\n${body}`);
+writeFileSync(join(root, "dist/fragment.html"), `<title>${titleHtml}</title>\n${fonts}\n${body}`);
 // index.html: a complete page. The viewport meta tag makes it render at phone width on phones;
-// viewport-fit=cover lets it use the whole screen on phones with a notch.
+// viewport-fit=cover lets it use the whole screen on phones with a notch. headMeta adds the
+// description, icons and share-preview tags.
 writeFileSync(
   join(root, "dist/index.html"),
-  `<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n<title>Prep my race · Trail race &amp; run planner</title>\n${fonts}\n</head>\n<body>\n${body}</body>\n</html>\n`
+  `<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n<title>${titleHtml}</title>\n${headMeta({ title })}\n${fonts}\n</head>\n<body>\n${body}</body>\n</html>\n`
 );
+
+// The static pages (guide, about, privacy, what's new, 404) share the app's stylesheet as a file.
+// They count visits the same way as the app, with a plain script tag (they run no app code).
+writeFileSync(join(root, "dist/style.css"), css);
+const prov = PROVIDERS[ANALYTICS.provider];
+let counter = null;
+if (prov && ANALYTICS.site) {
+  const { src, attrs } = prov.script(ANALYTICS.site);
+  const a = Object.entries(attrs).map(([k, v]) => ` ${k}='${v}'`).join("");
+  counter = { name: { goatcounter: "GoatCounter", plausible: "Plausible", cloudflare: "Cloudflare Web Analytics" }[ANALYTICS.provider], tag: `<script async src="${src}"${a}></script>` };
+}
+const howMd = readFileSync(join(root, "docs/HOW_IT_WORKS.md"), "utf8");
+for (const [file, html] of sitePages({ fonts, counter, howMd })) writeFileSync(join(root, "dist", file), html);
+// Icons, the share-preview image and the guide screenshots (made once by scripts/site-images.mjs
+// and scripts/guide-shots.mjs, kept in src/site).
+cpSync(join(root, "src/site/icons"), join(root, "dist"), { recursive: true });
+if (existsSync(join(root, "src/site/guide"))) cpSync(join(root, "src/site/guide"), join(root, "dist/guide"), { recursive: true });
 // Report the number of modules and the size of code in KB (characters / 1024).
 console.log(`built dist/index.html: ${order.length} modules, ${Math.round((css.length + js.length) / 1024)} KB of code`);
