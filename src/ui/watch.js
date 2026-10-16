@@ -54,7 +54,7 @@ export function pimpBadge(href, sub = "Put this plan on your watch →") {
  */
 export function watchPanelHtml(plan) {
   return `<div class="panel wm">
-    <p class="note" style="margin-top:0">What your watch will show along the course: one message each time the strategy changes, one at every key zone (marked "!"). Check them, rewrite any (${POINT_NAME_MAX} characters, the watch cuts the rest), untick the ones you do not want, add your own. Your version goes into the course files and is saved in this browser.</p>
+    <p class="note" style="margin-top:0">What your watch will show along the course: one message each time the strategy changes, one at every key zone (marked "!"). Check them, rewrite any (${POINT_NAME_MAX} characters, the watch cuts the rest), move any to another km (it stays at least 200 m and 1 minute after the one before), untick the ones you do not want, add your own. Your version goes into the course files and is saved in this browser.</p>
     <div class="wm-row wm-head"><span>Km</span><span>Arrive</span><span>Message on the watch</span><span>Keep</span></div>
     <div class="wm-rows"></div>
     <div class="wm-add">
@@ -82,14 +82,14 @@ export function mountWatch(root, { plan, sid, key, say = () => {} }) {
     const ed = wmGet(key);
     // Two lists: `all` ignores the "off" edits (so an unticked message stays visible, greyed,
     // and can be ticked again), `on` is the set of ids actually sent to the watch.
-    const all = editedPoints(plan, sid, { names: ed.names, extra: ed.extra }); // unticked ones stay listed
+    const all = editedPoints(plan, sid, { names: ed.names, kms: ed.kms, extra: ed.extra }); // unticked ones stay listed
     const on = new Set(editedPoints(plan, sid, ed).map((p) => p.id));
     const box = q(".wm-rows");
     // One row per message: km, arrival clock time (with the kind: "Yours", "Key zone" for ids
     // like "k1" (regex ^k\d: a "k" then a digit at the start), or the word from WM_KIND), the
     // editable text with a character counter, and a Keep box (or a remove button for your own).
     box.innerHTML = all.map((p) => `<div class="wm-row${on.has(p.id) ? "" : " off"}${p.name.startsWith("!") ? " key" : ""}" data-id="${wmEsc(p.id)}">
-      <span class="wm-km">${p.km.toFixed(1)}</span>
+      <span class="wm-km"><input type="number" step="0.1" min="0" max="${plan.course.totalKm.toFixed(1)}" value="${p.km.toFixed(1)}" aria-label="Km of this message" title="Move this message: type the km where you want it"></span>
       <span class="wm-t">${clock(plan.startSec, secAtKm(plan, sid, p.km))}<small>${p.added ? "Yours" : /^k\d/.test(p.id) ? "Key zone" : WM_KIND[p.type] || ""}</small></span>
       <span class="wm-msg"><input type="text" maxlength="${POINT_NAME_MAX}" value="${wmEsc(p.name)}" aria-label="Message at km ${p.km.toFixed(1)}" title="${wmEsc(p.text)}"><small class="wm-n">${p.name.length}/${POINT_NAME_MAX}</small></span>
       <span class="wm-keep">${p.added ? `<button class="btn ghost sm" type="button" data-del="1" aria-label="Remove">✕</button>` : `<input type="checkbox" ${on.has(p.id) ? "checked" : ""} aria-label="Keep this message">`}</span>
@@ -98,6 +98,18 @@ export function mountWatch(root, { plan, sid, key, say = () => {} }) {
     box.querySelectorAll(".wm-row").forEach((row) => {
       const id = row.dataset.id;
       const inp = row.querySelector(".wm-msg input");
+      // Km: move the message along the course. Your own messages keep their km in `extra`, the
+      // planner's in `kms` by id; an empty box puts a planner message back where it was.
+      const kmIn = row.querySelector(".wm-km input");
+      kmIn.addEventListener("change", () => {
+        const v = kmIn.value.trim() === "" ? null : parseFloat(kmIn.value);
+        if (v !== null && !Number.isFinite(v)) return;
+        const e = wmGet(key);
+        const x = (e.extra || []).find((r) => r.id === id);
+        if (x) { if (v !== null) x.km = v; }
+        else { e.kms = { ...(e.kms || {}) }; if (v === null) delete e.kms[id]; else e.kms[id] = v; }
+        wmSet(key, e); trackEvent("watch-msg", "move"); draw();
+      });
       // While typing ("input" event): update the character counter only.
       inp.addEventListener("input", () => { row.querySelector(".wm-n").textContent = `${inp.value.length}/${POINT_NAME_MAX}`; });
       // When the text box is left ("change" event): save. An added message is edited in place in
