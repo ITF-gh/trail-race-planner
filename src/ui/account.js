@@ -6,7 +6,7 @@
 // The menu is re-drawn from the stored summaries (src/core/history.js).
 //
 // Signed in (cloud.js, when the online account is set up), the same summaries are also kept in
-// the account, so they follow you to every device, and the account holds your AI tokens (fireflies): earned
+// the account, so they follow you to every device, and the account holds your AI tokens (edelweiss): earned
 // with achievements (checked by the server), spent on an AI analysis of all your runs.
 
 import { parseGpx } from "../core/track.js";
@@ -75,7 +75,7 @@ const acDate = (ms) => new Date(ms).toLocaleDateString(undefined, { day: "numeri
 const acNum = (x) => Math.round(x).toLocaleString("en-US");
 // The AI token: earned with achievements and events, 1 token = 1 AI analysis. Its name lives here
 // only (the database and the server still call it a "cairn" internally, which nobody sees).
-const AC_TOKEN = { one: "firefly", many: "fireflies" };
+const AC_TOKEN = { one: "edelweiss", many: "edelweiss" }; // the same word in the singular and the plural
 const acTok = (n) => `${n} ${n === 1 ? AC_TOKEN.one : AC_TOKEN.many}`;
 const AC_SPARK = `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M14 3c.9 6.2 3.8 9.1 10 10-6.2.9-9.1 3.8-10 10-.9-6.2-3.8-9.1-10-10 6.2-.9 9.1-3.8 10-10z" fill="#ffc928"/><path d="M25 18.5c.4 2.7 1.6 3.9 4.3 4.3-2.7.4-3.9 1.6-4.3 4.3-.4-2.7-1.6-3.9-4.3-4.3 2.7-.4 3.9-1.6 4.3-4.3z" fill="#fff1b8"/></svg>`;
 
@@ -87,7 +87,7 @@ let acList = [], acDemo = false; // the runs the menu shows (yours, or User1's)
 function acTokensHtml(S) {
   const signedIn = cloudOn() && cloudUser();
   const n = signedIn ? (ac.ledger ? acBalance() : "…") : S.cairns;
-  let note = `Earned with achievements and events. 1 ${AC_TOKEN.one} lights 1 AI analysis of the runs you choose.`;
+  let note = `Earned with achievements and events. 1 ${AC_TOKEN.one} buys 1 AI analysis of the runs you choose.`;
   if (signedIn && ac.msg) note = acEsc(ac.msg);
   else if (signedIn && ac.job) note = "Claude is reading your runs. It takes about a minute; you can close this menu.";
   const signin = cloudOn() && !signedIn ? `<form class="acct-signin" data-acct-form="signin">
