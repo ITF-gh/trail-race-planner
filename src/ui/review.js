@@ -270,7 +270,7 @@ export function mountRun(box, run) {
     <label class="chk"><input type="checkbox" id="rvFollow" ${rv.follow ? "checked" : ""}> Follow the runner</label>
   </div>
   </div>
-  <div class="sub-h" id="rv-stats">Your numbers</div>
+  <div class="sub-h" id="rv-stats">Recap</div>
   ${rvStatsHtml(run, st)}
   <div class="sub-h" id="rv-target">Against your target</div>
   <div id="rvTgt">${rvTargetHtml(run, tgt)}</div>

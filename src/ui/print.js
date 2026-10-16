@@ -5,7 +5,7 @@
 //                  every climb and descent, and your engine (pace by gradient)
 //   Prep my run    key figures, profile, course sketch, key zones, the run section by section,
 //                  every climb and descent with its tactic
-//   Check my run   key figures, profile coloured by how you ran, key moments, your target,
+//   Rewind my run  key figures, profile coloured by how you ran, key moments, your target,
 //                  every section, your numbers, km splits, the deep-dive KPIs and climbs
 // Pimp my GPX (watch messages, .fit/.gpx) is never printed: it belongs on the watch, not on paper.
 //
@@ -47,7 +47,7 @@ function p4Top(modeLabel, title, sub, kpis) {
   const now = new Date();
   const date = now.toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
   return `<header class="p4-top">
-    <div class="p4-brand">${P4_PEAK}Trail Race Planner · ${modeLabel}</div><div class="p4-date">Printed ${p4Esc(date)}</div>
+    <div class="p4-brand">${P4_PEAK}Prep my race${modeLabel && modeLabel !== "Prep my race" ? ` · ${modeLabel}` : ""}</div><div class="p4-date">Printed ${p4Esc(date)}</div>
   </header>
   <h1>${p4Esc(title)}</h1>${sub ? `<p class="p4-sub">${sub}</p>` : ""}
   <div class="p4-kpis">${kpis.join("")}</div>`;
@@ -229,7 +229,7 @@ function p4PlanSheet({ plan, sid, raceName, effort, settings }) {
     const bandRows = e.bands.map((b) => `<tr><td>${p4Esc(b.label)}</td><td class="r"><b>${mmss(b.fresh)}</b></td><td class="r">${mmss(b.tired)}</td><td class="r">+${((b.tired / b.fresh - 1) * 100).toFixed(0)}%</td><td>${p4Esc(b.source)}${b.hr ? ` · HR ${Math.round(b.hr)}` : ""}</td></tr>`);
     const runRows = e.runs.map((r, i) => `<tr><td>${p4Esc(effort.runs[i].name)}</td><td>${p4Esc(r.date)}</td><td class="r">${r.distKm.toFixed(1)} km</td><td class="r">${hm(r.durationSec)}</td><td class="r">${Math.round(r.weight * 100)}%</td></tr>`);
     html += `<section class="p4-part">
-      ${p4H("Your engine", "what your runs say about you")}
+      ${p4H("Engine", "what your runs say about you")}
       <div class="p4-kpis p4-kpis-s">${[
         p4Kpi("Flat pace", `${mmss(e.flatPace)}<small> /km</small>`, e.flatHr ? `at HR ${Math.round(e.flatHr)}` : ""),
         e.flatCad ? p4Kpi("Cadence", `${Math.round(e.flatCad)}<small> spm</small>`, "on the flat") : "",
@@ -280,7 +280,7 @@ function p4PrepSheet({ plan, name, source }) {
   <section class="p4-part p4-new">${p4ClimbTable(plan, sid, st)}</section>`;
 }
 
-/* ---------- Check my run ---------- */
+/* ---------- Rewind my run ---------- */
 const P4_STATUS = { reached: ["good", "Target reached"], reach: ["good", "Within reach"], stretch: ["info", "A stretch"], far: ["bad", "Far for now"] };
 const P4_TONE_LABEL = { good: "Went well", bad: "Cost you", info: "Worth knowing" };
 function p4KpiFmt(k) {
@@ -369,13 +369,13 @@ function p4RunSheet({ run, name, target, athlete = {} }) {
   const ctRows = ct.map((c) => `<tr><td class="p4-n"><i style="background:${P4_TONE[c.tone] || P4_TONE.info}"></i>${c.i}</td><td>${c.kind === "climb" ? "▲" : "▼"} ${p4Esc(c.title)}</td><td>${p4Km(c.startKm, c.endKm)}</td><td class="r">${c.kind === "climb" ? `+${Math.round(c.up)}` : `−${Math.round(c.down)}`} m</td><td class="r">${c.avg > 0 ? "+" : ""}${c.avg.toFixed(1)}%</td><td class="r">${hm(c.movSec)}</td><td class="r">${c.vam ? `${Math.round(c.vam)} m/h` : c.rate ? `${Math.round(c.rate)} m/h` : "–"}</td>${run.hasHr ? `<td class="r">${c.hr ? Math.round(c.hr) : "–"}</td>` : ""}${run.hasCad ? `<td class="r">${c.hikeShare !== null && c.hikeShare !== undefined ? `${Math.round(c.hikeShare * 100)}%` : "–"}</td>` : ""}<td>${p4Esc(c.verdict || "")}</td></tr>`);
 
   return `<section class="p4-part">
-    ${p4Top("Check my run", name, `Run review${when ? ` · ${p4Esc(when)}` : ""} · start ${clock(st, 0)}`, kpis)}
+    ${p4Top("Rewind my run", name, `Run review${when ? ` · ${p4Esc(when)}` : ""} · start ${clock(st, 0)}`, kpis)}
     ${p4H("Profile", "coloured by how you ran each section against your own average on the same ground")}
     ${p4Profile(run.profile, { segs, stops })}
     <div class="p4-legend"><span><i style="background:${P4_TONE.good}"></i>Stronger than your average</span><span><i style="background:${P4_TONE.info}"></i>Your average</span><span><i style="background:${P4_TONE.bad}"></i>Weaker</span><span><i style="background:#14181f;width:3px"></i>Stop of a minute or more</span></div>
     <div class="p4-grid2">
       <div class="p4-box">${p4H("Course", "start ● finish ●")}${p4Route(run.route, run.profile, { segs }) || p4Note("No GPS points to draw the course.")}</div>
-      <div>${p4H("Your numbers")}<div class="p4-kpis p4-kpis-s p4-kpis-2">${rec.join("")}</div></div>
+      <div>${p4H("Recap")}<div class="p4-kpis p4-kpis-s p4-kpis-2">${rec.join("")}</div></div>
     </div>
     ${p4H("Key moments", "good, bad and worth knowing, in the order they happened")}
     ${p4Table(["", "#Km", "#Clock", "What happened"], moments, "p4-mom")}
@@ -405,15 +405,15 @@ const P4_EMPTY = {
 };
 /** The whole printable document for a mode ("plan", "prep" or "run") from its data, or null. */
 export function printSheet(mode, data) {
-  if (!data) return `<div class="p4"><section class="p4-part">${p4Top({ plan: "Prep my race", prep: "Prep my run", run: "Check my run" }[mode] || "", "Nothing to export yet", P4_EMPTY[mode] || "", [])}</section></div>`;
+  if (!data) return `<div class="p4"><section class="p4-part">${p4Top({ plan: "Prep my race", prep: "Prep my run", run: "Rewind my run" }[mode] || "", "Nothing to export yet", P4_EMPTY[mode] || "", [])}</section></div>`;
   const body = mode === "run" ? p4RunSheet(data) : mode === "prep" ? p4PrepSheet(data) : p4PlanSheet(data);
-  return `<div class="p4 p4-${mode}">${body}<footer class="p4-foot">Trail Race Planner · itf-gh.github.io/trail-race-planner · a model is usually within 5 to 10%: treat times as a guide, not a promise.</footer></div>`;
+  return `<div class="p4 p4-${mode}">${body}<footer class="p4-foot">Prep my race · itf-gh.github.io/trail-race-planner · a model is usually within 5 to 10%: treat times as a guide, not a promise.</footer></div>`;
 }
 /** The file name the browser offers when saving as PDF (it takes the page title). */
 export function printTitle(mode, data) {
   if (!data) return null;
   const name = mode === "run" ? data.name : mode === "prep" ? data.name : data.raceName;
-  return `${String(name || "Trail Race Planner").replace(/[\\/:*?"<>|]+/g, " ").trim()} · ${{ plan: "race plan", prep: "run briefing", run: "run review" }[mode]}`;
+  return `${String(name || "Prep my race").replace(/[\\/:*?"<>|]+/g, " ").trim()} · ${{ plan: "race plan", prep: "run briefing", run: "run review" }[mode]}`;
 }
 
 /**
