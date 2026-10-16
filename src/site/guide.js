@@ -58,7 +58,7 @@ export const GUIDE = [
         tip: "Compare like with like: the colours already account for the gradient, so a slow climb can still be green." },
       { id: "deep-dive", sec: "s6", num: "▶▶", name: "Deep dive", shot: "deep-dive",
         what: "Everything your watch recorded, turned into numbers and charts you can play with. Click a point or a row and the replay above jumps there.",
-        how: ["Read the key figures at the top (about twenty of them).", "Change a distance, a band width or your heart rates: the charts redraw.", "Set your max and resting heart rate once: they are kept in this browser."],
+        how: ["Read the key figures at the top (about twenty of them).", "Change a distance or a band width: the charts redraw.", "Set your weight once: it is kept in this browser. Heart rate from the file is not used."],
         tip: "The best-effort curve shows your strongest pace for every duration: watch it rise over a season." },
     ],
   },
@@ -81,12 +81,12 @@ export const GUIDE = [
 
 // Short questions, short answers. Shown at the end of the guide (guide.html#faq).
 export const FAQ = [
-  ["Which GPX files work?", "Any GPX with a track: from Garmin Connect, Strava, Suunto, Coros, Polar, a race website. For your own runs, time stamps are needed; heart rate and cadence are a bonus. The race GPX needs elevation."],
+  ["Which GPX files work?", "Any GPX with a track: from Garmin Connect, Strava, Suunto, Coros, Polar, a race website. For your own runs, time stamps are needed; cadence is a bonus. Heart rate in the file is ignored. The race GPX needs elevation."],
   ["Where do I export a GPX of my run?", "Garmin Connect: open the activity, gear icon, Export to GPX. Strava: open the activity, the ... menu, Export GPX. Suunto and Coros: open the activity in the app or website, then Export or Share as GPX."],
   ["Are my files uploaded somewhere?", "No. The planner runs in your browser: files are read on your device and never sent. Settings and the run log stay in this browser. See the <a href=\"privacy.html\">privacy page</a>."],
   ["Why is my finish time different from the race's estimate?", "Race estimates are for an average runner. This plan is built from your own pace on each gradient, so it fits you better, if the runs you gave are recent and honest. Expect 5 to 10% either way."],
   ["Which run should I give for the Engine?", "A recent run of 1.5 h or more, at a steady effort, with some climbs and descents. Several runs are better: recent ones count more."],
-  ["I have no heart rate on my watch. Does it still work?", "Yes. Heart rate only adds the heart-rate guide and some charts. Pace on each gradient comes from your speed and the elevation."],
+  ["Why is my heart rate not shown?", "On purpose: heart rate is health data, so the app never reads it from your files. Type your max and resting heart rate in your profile (account icon, then Account): they give the plan its heart-rate guide."],
   ["How do I get the watch messages on my Garmin?", "In Watch (Prep my race) or with the sticker in Prep my run, download the .fit course. In Garmin Connect, open Training, Courses, Import, then send it to your watch. Start it as a course on race day."],
   ["Can I use it offline?", "Once the page is open, it works without network, except the map tiles and the photos. An installable offline version is planned."],
   ["Is it free?", "Yes, with no account needed. An optional online account is being prepared, with AI analyses paid in cairns earned by running, not with money."],

@@ -4,7 +4,7 @@ This note explains the ideas behind the planner, in the order the data flows thr
 
 ## 1. From GPX to evenly spaced samples (`src/core/track.js`)
 
-A GPX file is a list of GPS points: latitude, longitude, elevation, and for a recorded run a timestamp, heart rate and cadence. A watch records them roughly once per second, so the points are close together when you run slowly and far apart when you run fast. Almost every calculation here is simpler on a regular grid, so the first step is **resampling**: walk along the track and produce one sample every 10 metres, interpolating each channel between the two surrounding GPS points.
+A GPX file is a list of GPS points: latitude, longitude, elevation, and for a recorded run a timestamp, cadence and often heart rate. **The app never reads the heart rate** (it is health data): the only heart data it uses is the max and resting heart rate the runner types in their profile. A watch records them roughly once per second, so the points are close together when you run slowly and far apart when you run fast. Almost every calculation here is simpler on a regular grid, so the first step is **resampling**: walk along the track and produce one sample every 10 metres, interpolating each channel between the two surrounding GPS points.
 
 Distance between two points uses the **haversine formula**, which gives great-circle distance on a sphere. It is accurate to well under 1% for our distances.
 
@@ -30,7 +30,7 @@ The model needs to know your pace on each gradient. Rather than use a formula fo
 1. Slide a window along the reference run and measure speed (distance over time) and gradient.
 2. Drop windows where you were almost stopped (below 0.6 m/s).
 3. Sort the remaining slices into **gradient bands**: flat, +2 to +6%, +6 to +10%, and so on, plus the descent bands.
-4. In each band, compute your pace, heart rate and cadence. Do it separately for the first half of the run ("fresh") and the second half ("tired").
+4. In each band, compute your pace and cadence. Do it separately for the first half of the run ("fresh") and the second half ("tired").
 
 The gap between fresh and tired is your personal **fatigue curve**. A runner who loses 25% of their climbing speed but only 5% on the flat gets a different plan from one who fades evenly.
 
@@ -39,7 +39,7 @@ Bands with under a minute of data fall back to typical ratios to your flat pace 
 ### Extras read from the same file
 
 - **Cadence per foot.** Many devices record 85 instead of 170. If the median cadence while running is under 120, the app doubles it.
-- **Heart-rate drift.** Compare speed per heartbeat on the flat in the first and second half. A drop above about 5% (called cardiac decoupling) means your aerobic durability or fuelling limits you.
+- **Heart-rate drift.** Not computed any more: heart rate is never read from a file.
 - **Hiking threshold.** When running turns into hiking, cadence collapses below about 145 steps per minute. Every uphill slice of your run is labelled run or hike by its cadence, and the app looks for the one gradient that best separates the two with the rule "hike when it is this steep or steeper": the gradient that misclassifies the fewest seconds. This is a **decision stump**, the simplest classifier in machine learning. An earlier version averaged cadence per gradient band, which failed on a band you half run and half hike (170 and 124 average to 147, which is neither).
 
 ### Several reference runs
@@ -80,7 +80,7 @@ The duration rule is a cousin of the **Riegel formula** (time2 = time1 × (dista
 - **Descents** are tagged Brake (steepest 100 m of 20% or more, or average 12% or more), Control, or Let it run.
 - **Gels** go every N minutes, counted from the previous gel actually taken. A gel due within 10 minutes of an aid station is taken there; otherwise it moves to the top of a climb when it would land mid-climb (eating while climbing hard is harder than on easy ground), or to the bottom of a technical descent. If that top or bottom is more than 20 minutes away (a long alpine climb), the gel is taken at the end of the current climb section, or on the way up; before a long descent, it is taken just before dropping in. No gel in the last 15 minutes.
 - **Aid stations** are typed as "km name minutes". Each stop is added to every clock time after the station, so checkpoints and the finish include them. The race-length fade is computed on moving time only.
-- **Heart-rate guide** is anchored on the average heart rate of your reference run: lower early, around the reference in the middle, a few beats higher late if the legs allow. If you give a max heart rate, the guide is capped at 92% of it.
+- **Heart-rate guide** comes from the profile only: three rising ceilings (first 35%, up to 69%, the rest). With max and resting heart rate, they are taken on the heart-rate reserve (Karvonen: rest + 65%, 72%, 80% of max − rest); with the max alone, 75%, 80% and 86% of it. No heart rate in the profile: no guide.
 
 ## 7. Two front ends, one core (`cli.js`, `src/ui/`)
 
@@ -137,7 +137,7 @@ The rest of the app looks forward. Rewind my run looks back at one recorded run 
 **Deep dive** (section 06, `src/core/insights.js`, `src/ui/insights.js`). Everything the watch recorded, as numbers and charts that react to you:
 - *Key numbers*: about 20 KPIs in groups (time, pace, climbing, form, heart, energy). Climbing speed is VAM, vertical metres per hour on +3% and steeper. Split ratio = second-half pace / first-half pace (under 1.00 is a negative split). Efficiency factor = GAP speed in m/min / average heart rate. Aerobic decoupling = how much that ratio drops from the first half to the second. Energy = Minetti's cost (J/kg/m) x weight x distance / 4184. Your weight, max and resting heart rate and sex are settings saved in the browser; without a max, the planner uses an estimate of at least 185 bpm, because the peak of one run is usually under the real max.
 - *Best efforts*: the fastest stretch for any distance (slider, 100 m steps) and the pace-distance curve, by sliding a window over the elapsed-time sums (T[i+w] - T[i]).
-- *Heart-rate zones*: time in Z1 to Z5 as a % of max (60/70/80/90), and Banister's TRIMP: each minute weighted by 0.64 x e^(1.92 x HRr) (0.86 and 1.67 for women), with HRr = (HR - rest) / (max - rest).
+- *Heart-rate zones*: removed, since heart rate is never read from a file (the code in `core/insights.js` `hrZones` stays, returning null).
 - *Pace by gradient*: the run grouped into gradient bands (2, 3, 5 or 10% wide): share of time, pace, GAP, heart rate, cadence, hiked share and vertical speed per band.
 - *Pace distribution*: a histogram of the 100 m chunks' paces; two humps usually mean running and hiking.
 - *Explorer*: any two of gradient, distance, altitude, pace, GAP, speed, heart rate and cadence, one dot per 100 m coloured by time, with a least-squares line and Pearson's r. Axes go from the 1st to the 99th percentile so one GPS glitch does not squash the chart.

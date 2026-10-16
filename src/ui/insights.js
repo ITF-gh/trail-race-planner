@@ -1,6 +1,6 @@
 // insights.js (ui): the "Deep dive" section of Check my run. Cards of numbers and charts you can
-// play with: the headline KPIs (with your weight and heart rates as settings), best efforts for
-// any distance, pace by gradient band, the pace distribution, heart-rate zones, a scatter
+// play with: the headline KPIs (with your weight as a setting), best efforts for
+// any distance, pace by gradient band, the pace distribution, a scatter
 // explorer where you pick both axes, and the climbs and descents table. Every chart is plain SVG
 // built as a string, re-drawn when its own setting changes; a click on a point or a row asks the
 // replay above to jump there (onSeek), so the charts and the replay stay linked.
@@ -13,12 +13,13 @@
 // Ideas worth knowing:
 //   - A chart is a string of SVG built in a loop, then written with innerHTML. Each chart maps its data
 //     to SVG units with small "scale" functions (a value in, an x or y position out).
-//   - The athlete settings (weight, heart rates, sex) live in localStorage under "trp.athlete".
+//   - The athlete settings (weight; heart rates set in the profile) live in localStorage under
+//     "trp.athlete". Heart rate is never read from a file (core/track.js), so no heart-rate card.
 //   - Every element with a data-sec attribute is clickable: seekable() adds the listeners.
 //   - On a phone (640 px wide or less) the charts are drawn 440 units wide instead of 1000, so their
 //     text is not shrunk too much; matchMedia tells when the width crosses that line.
 
-import { bestEffort, bestCurve, gradeBands, hrZones, runChunks, paceHistogram, fitLine, runKpis, climbTable } from "../core/insights.js";
+import { bestEffort, bestCurve, gradeBands, runChunks, paceHistogram, fitLine, runKpis, climbTable } from "../core/insights.js";
 import { mmss, hm } from "../core/format.js";
 import { trackEvent } from "./analytics.js";
 
@@ -42,8 +43,6 @@ const IN_AXES = {
   hr: { label: "Heart rate", unit: "bpm", get: (c) => c.hr, fmt: (v) => `${Math.round(v)} bpm`, needs: "hasHr" },
   cad: { label: "Cadence", unit: "spm", get: (c) => c.cad, fmt: (v) => `${Math.round(v)} spm`, needs: "hasCad" },
 };
-// CSS classes of the five heart-rate zones, Z1 to Z5.
-const IN_ZONE_CLS = ["z1", "z2", "z3", "z4", "z5"];
 
 // Settings survive a reload, in this browser only.
 // inState is built by a function that runs at once (an IIFE: (() => {...})()), so `saved` stays
@@ -61,9 +60,14 @@ const inState = (() => {
   try { saved = JSON.parse(localStorage.getItem(IN_STORE) || "{}") || {}; } catch { saved = {}; }
   return { athlete: { weight: 70, hrRest: 60, hrMax: 0, female: false, ...saved }, effortM: 0, band: 5, bin: 15, x: "grade", y: "pace" };
 })();
-// Save the athlete settings. Errors (private mode, full storage) are ignored on purpose.
+// Save the weight. Only that field is written, over what is stored now, so the heart rates the
+// profile (ui/profile.js) keeps in the same place are never overwritten with defaults. Errors
+// (private mode, full storage) are ignored on purpose.
 function inSave() {
-  try { localStorage.setItem(IN_STORE, JSON.stringify(inState.athlete)); } catch { /* private mode: keep for this visit */ }
+  try {
+    const cur = JSON.parse(localStorage.getItem(IN_STORE) || "{}") || {};
+    localStorage.setItem(IN_STORE, JSON.stringify({ ...cur, weight: inState.athlete.weight }));
+  } catch { /* private mode: keep for this visit */ }
 }
 
 /**
@@ -138,46 +142,32 @@ const inW = () => (IN_NARROW && IN_NARROW.matches ? 440 : 1000);
 
 /* ---------- the cards ---------- */
 
-// The max heart rate to work with: the runner's own, else an estimate. The peak of one run is
-// usually under the real max (few runs go all out), so the estimate is never below 185 bpm.
-const IN_HRMAX_FLOOR = 185;
-// Returns {bpm, est}: the max heart rate to use, and est = true when it is an estimate.
-function inHrMax(run) {
-  const a = inState.athlete;
-  if (a.hrMax) return { bpm: a.hrMax, est: false };
-  return { bpm: Math.max(IN_HRMAX_FLOOR, Math.round(run.hrMax || 0)), est: true };
-}
 
 /**
  * The "Key numbers" card body: the KPIs of runKpis (core/insights.js) in groups (time, pace,
  * climbing, form, heart, energy). Each KPI is a tile with its label, its value and a hint (shown
  * on hover, or on a tap on a phone). new Set(...) keeps each group name once, in the order first
- * seen; [...set] turns it back into an array. The heart-rate max passed in is yours or the
- * estimate, and null when the file has no heart rate.
+ * seen; [...set] turns it back into an array. No heart-rate KPI: heart rate is never read from
+ * a file.
  */
 function inKpis(run) {
   const a = inState.athlete;
-  const list = runKpis(run, { ...a, hrMax: run.hasHr ? inHrMax(run).bpm : null });
+  const list = runKpis(run, { ...a, hrMax: null }); // no heart rate from files, so no heart-rate KPI
   const groups = [...new Set(list.map((k) => k.group))];
   return groups.map((g) => `<div class="in-kgroup"><div class="in-kg">${g}</div><div class="in-kgrid">${list.filter((k) => k.group === g).map((k) => `<div class="in-k" title="${inEsc(k.hint)}"><span class="k">${k.label}</span><b>${inFmt(k)}</b><small>${inEsc(k.hint)}</small></div>`).join("")}</div></div>`).join("");
 }
 
 /**
- * The settings form: weight, and when the file has heart rate, max and resting heart rate and sex
- * (Banister's TRIMP uses different constants for men and women). The max field stays empty when
- * you have not set it, with the estimate shown as a grey placeholder. onsubmit="return false"
- * stops Enter from reloading the page. mountInsights listens to "input" on the form and saves each
- * change.
+ * The settings form: the weight, for the energy. Heart rates are no longer asked here: the app
+ * never reads heart rate from a file, and the runner's own max and resting heart rate live in
+ * their profile (the Account window). onsubmit="return false" stops Enter from reloading the
+ * page; mountInsights listens to "input" on the form and saves each change.
  */
-function inSettings(run) {
+function inSettings() {
   const a = inState.athlete;
-  const maxPh = inHrMax(run).est ? inHrMax(run).bpm : Math.max(IN_HRMAX_FLOOR, Math.round(run.hrMax || 0));
   return `<form class="in-set" id="inSet" onsubmit="return false">
     <label class="f">Weight<span class="in-u"><input type="number" id="inW" min="30" max="150" step="1" value="${a.weight}"> kg</span></label>
-    ${run.hasHr ? `<label class="f">Max heart rate<span class="in-u"><input type="number" id="inMax" min="120" max="230" step="1" value="${a.hrMax || ""}" placeholder="${maxPh}"> bpm</span></label>
-    <label class="f">Resting heart rate<span class="in-u"><input type="number" id="inRest" min="30" max="100" step="1" value="${a.hrRest}"> bpm</span></label>
-    <label class="f">Training load for<select id="inSex"><option value="m" ${a.female ? "" : "selected"}>a man</option><option value="f" ${a.female ? "selected" : ""}>a woman</option></select></label>` : ""}
-    <p class="note">Used for the energy, the heart-rate zones and the training load. ${run.hasHr ? `Leave the max empty to use an estimate (${maxPh} bpm: this run's peak was ${Math.round(run.hrMax || 0)}, and one run rarely reaches your real max). Your own max makes the zones right.` : ""} Saved in this browser only.</p>
+    <p class="note">Used for the energy. Saved in this browser only, shared with your profile.</p>
   </form>`;
 }
 
@@ -303,29 +293,6 @@ function inHist(run, list) {
 }
 
 /**
- * The "Heart-rate zones" card: time in Z1 to Z5 (zones as % of the max heart rate: 60/70/80/90)
- * as one stacked bar and a table, then Banister's TRIMP training load. hrZones (core/insights.js)
- * does the counting. Returns a note instead when the file has no heart rate.
- */
-function inZones(run) {
-  if (!run.hasHr) return `<p class="note">No heart rate in this file.</p>`;
-  const a = inState.athlete;
-  // Destructuring with renaming: the bpm field goes into a variable called max, est keeps its name.
-  const { bpm: max, est } = inHrMax(run);
-  const z = hrZones(run, max, a.hrRest, a.female);
-  if (!z) return "";
-  let x = 0;
-  // The stacked bar: each zone is a block placed x % from the left and w % wide; x adds up the widths
-  // as it goes.
-  const bar = z.zones.map((q, k) => { const w = q.share * 100; const out = `<i class="in-z ${IN_ZONE_CLS[k]}" style="left:${x.toFixed(2)}%;width:${w.toFixed(2)}%" title="${q.name}: ${hm(q.sec)} (${Math.round(w)}%)"></i>`; x += w; return out; }).join("");
-  return `<div class="in-zbar">${bar}</div>
-    <table class="rp-tg in-t in-zt"><thead><tr><th>Zone</th><th>Heart rate</th><th>Time</th><th>Share</th></tr></thead><tbody>
-    ${z.zones.map((q, k) => `<tr><th><i class="sw in-z ${IN_ZONE_CLS[k]}"></i>${q.name}</th><td>${q.toBpm ? `${q.fromBpm}–${q.toBpm}` : `${q.fromBpm}+`} bpm</td><td>${hm(q.sec)}</td><td>${Math.round(q.share * 100)}%</td></tr>`).join("")}
-    </tbody></table>
-    <p class="in-res">Training load (TRIMP): <b>${Math.round(z.trimp)}</b> <small>· zones as % of a max of ${max} bpm${est ? " (estimated: set your own in Key numbers)" : ""}</small></p>`;
-}
-
-/**
  * The "Explorer" card: a scatter plot of any two measures (inState.x across, inState.y up), one
  * dot per 100 m chunk coloured by when in the run (5 shades, start to end), with the least-squares
  * line and Pearson's correlation r (fitLine, core/insights.js). A click on a dot replays there.
@@ -416,9 +383,8 @@ export function mountInsights(box, run, { onSeek } = {}) {
   // 2. All the cards. The best-efforts card uses a function called at once to build its chart first,
   // then put the slider above it.
   box.innerHTML = `<div class="in-wrap">
-    ${inCard("inKpi", "Key numbers", "tap or hover a number for what it means", `<div id="inKpiBody">${inKpis(run)}</div><details class="in-more"><summary>Your settings: weight${run.hasHr ? ", max and resting heart rate" : ""}</summary>${inSettings(run)}</details>`, true)}
+    ${inCard("inKpi", "Key numbers", "tap or hover a number for what it means", `<div id="inKpiBody">${inKpis(run)}</div><details class="in-more"><summary>Your settings: weight</summary>${inSettings()}</details>`, true)}
     ${inCard("inBest", "Best efforts", "your fastest stretch for any distance", `${(() => { const b = inBest(run); return `${inBestCtl(run)}<div id="inBestBody">${b}</div>`; })()}<p class="note">Each point is your fastest stretch of that length on the clock (a stop inside it counts). Faster is higher. The curve always falls: the longer the effort, the slower the best pace.</p>`)}
-    ${inCard("inZone", "Heart-rate zones", run.hasHr ? "time in each zone, from your max heart rate" : "", `<div id="inZoneBody">${inZones(run)}</div>`)}
     ${inCard("inBandC", "Pace by gradient", "where your time went, and how fast you were there", `<div id="inBandBody">${inBands(run)}</div>`)}
     ${inCard("inHistC", "Pace distribution", "how much time at each pace", `<div id="inHistBody">${inHist(run, list)}</div>`)}
     ${inCard("inScat", "Explorer", "pick any two measures and see how they move together", `<div id="inScatBody">${inScatter(run, list)}</div>`, true)}
@@ -470,18 +436,15 @@ export function mountInsights(box, run, { onSeek } = {}) {
   });
   // On a phone the explanations are hidden: a tap on a number shows its own.
   $i("#inKpiBody").addEventListener("click", (e) => { const k = e.target.closest(".in-k"); if (k) k.classList.toggle("open"); });
-  // Athlete settings: re-draw the numbers and the zones on each change.
+  // Athlete settings: re-draw the numbers on each change.
   const set = $i("#inSet");
   if (set) set.addEventListener("input", () => {
-    // The value of a number field, or 0 when it is empty. An empty weight falls back to 70 kg, an empty
-    // resting heart rate to 60 bpm.
+    // The value of a number field, or 0 when it is empty. An empty weight falls back to 70 kg.
     const num = (id) => { const el = $i(id); return el && el.value !== "" ? Number(el.value) : 0; };
     const a = inState.athlete;
     a.weight = num("#inW") || 70;
-    if ($i("#inMax")) { a.hrMax = num("#inMax"); a.hrRest = num("#inRest") || 60; a.female = $i("#inSex").value === "f"; }
     inSave();
     $i("#inKpiBody").innerHTML = inKpis(run);
-    redraw("#inZoneBody", inZones(run));
   });
 }
 
@@ -492,5 +455,5 @@ export function mountInsights(box, run, { onSeek } = {}) {
 export function emptyInsights(box) {
   if (!box) return;
   box.dataset.inMount = String(Number(box.dataset.inMount || 0) + 1);
-  box.innerHTML = `<div class="empty"><b>Load a run above</b> (or press Try a sample run) to open its deep dive: key numbers, best efforts, heart-rate zones, pace by gradient and an explorer to cross any two measures.</div>`;
+  box.innerHTML = `<div class="empty"><b>Load a run above</b> (or press Try a sample run) to open its deep dive: key numbers, best efforts, pace by gradient and an explorer to cross any two measures.</div>`;
 }

@@ -35,11 +35,12 @@
 
 import { parseGpx } from "../core/track.js";
 import { analyseRun } from "../core/review.js";
-import { historySummary, aiSelect, AI_FOCUS, AI_QUESTION_MAX } from "../core/history.js";
+import { historySummary, aiSelect, recordClean, AI_FOCUS, AI_QUESTION_MAX } from "../core/history.js";
 import { runRecord } from "../core/runrecord.js";
 import { demoRecords, DEMO_USER } from "../core/demorecords.js";
 import { mmss, hms } from "../core/format.js";
 import { trackEvent } from "./analytics.js";
+import { profileHtml, profileInput, profileAction, profileAthlete, profileWho } from "./profile.js";
 import { cloudOn, cloudUser, cloudFromUrl, cloudSendLink, cloudSignOut, cloudRuns, cloudPutRuns, cloudDeleteRuns, cloudLedger, cloudClaim, cloudAnalyse, cloudJob, cloudJobs, cloudDeleteAccount } from "./cloud.js";
 
 // Database name and its one "object store" (IndexedDB's word for a table) of run summaries.
@@ -82,9 +83,18 @@ async function acTx(mode, make) {
     } catch (e) { db.close(); ok(null); }
   });
 }
-/** All stored run summaries, read from the database once and then served from acCache. */
+/**
+ * All stored run summaries, read from the database once and then served from acCache.
+ * Summaries saved before the "no heart rate from files" rule may still hold heart data: they are
+ * cleaned (recordClean) and written back once, so none stays on the device.
+ */
 async function acAll() {
-  if (!acCache) acCache = (await acTx("readonly", (s) => s.getAll())) || [];
+  if (!acCache) {
+    const raw = (await acTx("readonly", (s) => s.getAll())) || [];
+    acCache = raw.map(recordClean);
+    const old = raw.filter((r) => r && ("hrAvg" in r || "decouplingPct" in r));
+    if (old.length) await acTx("readwrite", (s) => { old.forEach((r) => s.put(recordClean(r))); return null; });
+  }
   return acCache;
 }
 
@@ -205,7 +215,10 @@ function acMenuHtml(S, demo = false) {
   const user = cloudOn() && cloudUser();
   // The line under the name: demo profile, signed-in email, or runs on this device only.
   const where = demo ? `Demo profile · ${S.count} sample runs` : user ? `${acEsc(user.email)} · ${S.count} run${S.count === 1 ? "" : "s"} synced` : `${S.count || "No"} run${S.count === 1 ? "" : "s"} on this device`;
-  const who = `<section class="acct-who"><div><b>${demo ? DEMO_USER : "My account"}</b><small>${where}</small></div></section>`;
+  // The name and flag typed in the Account window, else User1 (demo) or "My account". The
+  // "Account" button opens that window (profile.js).
+  const me = profileWho();
+  const who = `<section class="acct-who"><div><b>${me.flag ? `${me.flag} ` : ""}${acEsc(me.name || (demo ? DEMO_USER : "My account"))}</b><small>${where}</small></div><button class="btn ghost acct-prof" type="button" data-acct="profile">Account</button></section>`;
   // The links at the bottom: bests (when there are runs), export and delete (own runs only),
   // sign out and delete account (signed in only).
   const links = `<section class="acct-links">${S.count ? `<button type="button" data-acct="bests">All-time bests</button>` : ""}${S.count && !demo ? `<button type="button" data-acct="export">Export</button><button type="button" data-acct="clear">Delete runs</button>` : ""}${user ? `<button type="button" data-acct="signout">Sign out</button><button type="button" data-acct="delete">Delete account</button>` : ""}</section>`;
@@ -244,7 +257,7 @@ function acBestsHtml(S) {
   const B = S.bests;
   // One line of the table, or "" when that best is missing; f formats the value.
   const row = (label, b, f) => (b ? `<div class="acct-row"><span>${label}</span><b>${f(b.value, b.run)} <small>${acDate(b.run.date)}</small></b></div>` : "");
-  return `<p class="acct-kicker">${acDemo ? DEMO_USER : "My account"}</p><h3>All-time bests</h3>
+  return `<p class="acct-kicker">${acEsc(profileWho().name || (acDemo ? DEMO_USER : "My account"))}</p><h3>All-time bests</h3>
     <div class="acct-bests">
       ${row("Fastest 1 km", B.best1k, (v) => mmss(v))}
       ${row("Fastest 5 km", B.best5k, (v) => mmss(v))}
@@ -334,7 +347,7 @@ function acAskHtml() {
     <div class="acct-chips">${AI_FOCUS.map((f) => chip(`data-acct="focus:${f.code}"`, f.label, acAsk.focus === f.code)).join("")}</div>
     <h4>3 · Your question <small>(optional)</small></h4>
     <textarea class="acct-q" data-ask="question" maxlength="${AI_QUESTION_MAX}" rows="2" placeholder="How can I go sub-40 in 10K in a month?">${acEsc(acAsk.question)}</textarea>
-    <p class="acct-note">Sent: the numbers of the selected runs (date, distance, climbing, times, grade-adjusted pace, heart rate, fade, heart drift, climbing speed, fastest 1, 5 and 10 km), your athlete settings, the axis and your question. <b>Not sent:</b> run names, GPS tracks, your email. If the analysis fails, your ${AC_TOKEN.one} comes back.</p>
+    <p class="acct-note">Sent: the numbers of the selected runs (date, distance, climbing, times, grade-adjusted pace, fade, climbing speed, fastest 1, 5 and 10 km), the heart rates and weight from your profile, the axis and your question. <b>Not sent:</b> run names, GPS tracks, your email, and no heart rate from your runs (the app never keeps it). If the analysis fails, your ${AC_TOKEN.one} comes back.</p>
     <div class="acct-actions"><button class="btn primary" type="button" data-acct="go"${sum.block ? " disabled" : ""}>${AC_SPARK}Spend 1 ${AC_TOKEN.one}</button><button class="btn ghost" type="button" data-acct="close">Cancel</button></div>
     <p class="acct-note acct-ask-block">${sum.block}</p>`;
 }
@@ -422,8 +435,8 @@ async function acSync() {
  * `html` is the content, `label` the name screen readers announce. A close button is added and
  * gets the keyboard focus, so the Escape and Enter keys work at once.
  */
-function acShowPanel(html, label = "AI analysis") {
-  acPanel.innerHTML = `<div class="acct-panel-in" role="dialog" aria-modal="true" aria-label="${label}"><button class="acct-x" type="button" data-acct="close" aria-label="Close">×</button>${html}</div>`;
+function acShowPanel(html, label = "AI analysis", cls = "") {
+  acPanel.innerHTML = `<div class="acct-panel-in${cls ? ` ${cls}` : ""}" role="dialog" aria-modal="true" aria-label="${label}"><button class="acct-x" type="button" data-acct="close" aria-label="Close">×</button>${html}</div>`;
   acPanel.hidden = false;
   const x = acPanel.querySelector(".acct-x");
   if (x) x.focus();
@@ -444,13 +457,6 @@ function acResultHtml(r, when) {
     <div class="acct-ai-cols"><div><h4>Strengths</h4>${list(r.strengths)}</div><div><h4>To work on</h4>${list(r.focus)}</div></div>
     ${r.next_weeks ? `<h4>Next weeks</h4><p>${acEsc(r.next_weeks)}</p>` : ""}`;
 }
-/**
- * The athlete settings saved by ui/insights.js under "trp.athlete" in localStorage: max and resting
- * heart rate and weight, each null when not set. Sent with an AI analysis request.
- */
-function acAthlete() {
-  try { const a = JSON.parse(localStorage.getItem("trp.athlete") || "{}") || {}; return { hrMax: a.hrMax || null, hrRest: a.hrRest || null, weight: a.weight || null }; } catch (e) { return {}; }
-}
 
 /**
  * Start an AI analysis (the "Spend 1 edelweiss" button) and wait for its result.
@@ -464,7 +470,7 @@ async function acStartAi() {
   acPanel.hidden = true;
   ac.msg = "";
   try {
-    const r = await cloudAnalyse(acAthlete(), acAskPayload());
+    const r = await cloudAnalyse(profileAthlete(), acAskPayload());
     ac.job = r.job;
     trackEvent("ai-start");
     ac.ledger = await cloudLedger();
@@ -496,6 +502,25 @@ async function acStartAi() {
 }
 
 /**
+ * Open (or redraw) the Account window in the pop-up panel. `keep` = true keeps the scroll
+ * position, so a redraw after a change does not jump back to the top. The menu is redrawn too,
+ * since its first line shows the profile's name and flag.
+ */
+function acProfile(keep = false) {
+  const box = acPanel.querySelector(".acct-panel-in");
+  const top = keep && box ? box.scrollTop : 0;
+  // The field or button that has the focus (named by its data-pf or data-acct), to give it back.
+  const f = keep && document.activeElement && acPanel.contains(document.activeElement) ? document.activeElement : null;
+  const sel = f ? (f.dataset.pf ? `[data-pf="${f.dataset.pf}"]` : f.dataset.acct ? `[data-acct="${f.dataset.acct}"]` : "") : "";
+  acShowPanel(profileHtml(acList, acDemo, acDemo ? DEMO_USER : "My account"), "Account", "acct-profile");
+  const nb = acPanel.querySelector(".acct-panel-in");
+  if (nb) nb.scrollTop = top;
+  const again = sel ? acPanel.querySelector(sel) : null;
+  if (again) again.focus({ preventScroll: true });
+  if (keep) acRender();
+}
+
+/**
  * Run the action named `what` (the data-acct attribute of the button clicked):
  *   export      download all stored run summaries as a JSON file
  *   clear       delete all runs (after a confirm), here and in the account
@@ -506,6 +531,7 @@ async function acStartAi() {
  *   range:N     set the range to the last N days (0 = everything)
  *   focus:X     choose the axis of analysis
  *   bests       open the all-time bests pop-up
+ *   profile     open the Account window (profile.js); pf:X are its own buttons
  *   go          start the analysis; last = show the last result; close = hide the pop-up
  * "mode:" and "range:" redraw the window; "focus:" only moves the highlight, so a question being
  * typed is kept either way (it lives in acAsk).
@@ -561,6 +587,11 @@ async function acAction(what) {
     // in the selector means "starts with focus:".
     acAsk.focus = what.slice(6);
     acPanel.querySelectorAll('[data-acct^="focus:"]').forEach((b) => b.classList.toggle("on", b.dataset.acct === what));
+  } else if (what === "profile") {
+    acProfile();
+    trackEvent("profile-open");
+  } else if (what.startsWith("pf:")) {
+    if (profileAction(what.slice(3))) acProfile(true);
   } else if (what === "bests") {
     acShowPanel(acBestsHtml(historySummary(acList)), "All-time bests");
   } else if (what === "go") {
@@ -622,13 +653,23 @@ export async function initAccount() {
   // stopPropagation(): the click stops here, so the document listener below (which closes the
   // menu on any outside click) does not see it.
   btn.addEventListener("click", (e) => { e.stopPropagation(); set(!acMenu.classList.contains("open")); });
-  acEl.addEventListener("click", (e) => { const b = e.target.closest("[data-acct]"); if (b) acAction(b.dataset.acct); });
+  // The Account window replaces the menu on screen: the menu closes when it opens.
+  acEl.addEventListener("click", (e) => { const b = e.target.closest("[data-acct]"); if (!b) return; if (b.dataset.acct === "profile") set(false); acAction(b.dataset.acct); });
   // The sign-in form: preventDefault() stops the browser from submitting it as a page load.
   acEl.addEventListener("submit", (e) => { const f = e.target.closest("[data-acct-form=signin]"); if (f) { e.preventDefault(); acSignIn(f); } });
   // A click on the dimmed backdrop itself (not on the panel's content) closes the pop-up.
   acPanel.addEventListener("click", (e) => { if (e.target === acPanel) acPanel.hidden = true; });
   // The "input" event fires on every keystroke, date change or tick in the Ask the AI window.
-  acPanel.addEventListener("input", (e) => { if (e.target.dataset && e.target.dataset.ask) acAskInput(e.target); });
+  acPanel.addEventListener("input", (e) => {
+    if (!e.target.dataset) return;
+    if (e.target.dataset.ask) acAskInput(e.target);
+    else if (e.target.dataset.pf && profileInput(e.target, false)) acProfile(true);
+  });
+  // "change" fires when a field of the Account window is left (or a list choice made): times and
+  // numbers are read then, and the window redrawn when the card or the "to go" column changed.
+  // The redraw waits a moment (setTimeout 0): a Tab press fires "change" before the focus moves
+  // to the next field, and redrawing at once would lose where the focus is going.
+  acPanel.addEventListener("change", (e) => { if (e.target.dataset && e.target.dataset.pf && profileInput(e.target, true)) setTimeout(() => acProfile(true), 0); });
   // Any click outside the account element closes the menu.
   document.addEventListener("click", (e) => { if (!acEl.contains(e.target)) set(false); });
   // Escape closes the pop-up first, then the menu (and gives the focus back to the icon).

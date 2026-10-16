@@ -15,11 +15,13 @@ const race = parseGpx(makeDemoRaceGpx());
 const effort = parseGpx(makeDemoEffortGpx());
 const total = DEMO_RACE_PROFILE.reduce((s, [l]) => s + l, 0);
 
-test("parseGpx reads elevation, time, heart rate and cadence", () => {
+test("parseGpx reads elevation, time and cadence, never heart rate", () => {
   assert.ok(race.points.length > 500);
   assert.equal(race.points[0].time, null);
   assert.ok(effort.points[0].time > 0);
-  assert.ok(effort.points[10].hr >= 150);
+  // The demo effort file does carry <ns3:hr> tags: they must be ignored (owner's rule).
+  assert.ok(/<ns3:hr>/.test(makeDemoEffortGpx()));
+  assert.ok(effort.points.every((p) => p.hr === null), "no heart rate is read from a file");
   assert.ok(effort.points[10].cad > 0);
   assert.equal(race.name, "Demo Trail 20K");
 });
@@ -75,7 +77,7 @@ test("analyseEffort recovers the generating pace table and the fatigue", () => {
   assert.ok(flat.tired > flat.fresh, "tired must be slower than fresh");
   assert.ok(Math.abs(e.flatCad - 172) < 4, `cadence ${e.flatCad}`);
   assert.equal(e.cadenceWasPerFoot, true);
-  assert.ok(e.drift.decouplingPct > 0);
+  assert.equal(e.avgHr, null, "no heart rate from the file");
   for (const b of e.bands) assert.ok(b.tired >= b.fresh, `${b.id} tired >= fresh`);
 });
 
@@ -110,15 +112,21 @@ test("buildPlan: checkpoints, gels and tactics are coherent", () => {
   assert.ok(steep.length > 0);
   assert.ok(steep.every((c) => /^Hike/.test(c.tactic)), "steep climbs are hiked");
   assert.ok(low.climbs.filter((c) => c.avg < 3).every((c) => !/Hike/.test(c.tactic)), "gentle climbs are run");
-  assert.ok(plan.hrGuide.length === 3);
+  assert.equal(plan.hrGuide, null, "no heart-rate guide without heart rates in the profile");
   assert.ok(plan.climbs.every((c) => c.level >= 1 && c.level <= 4));
   assert.ok(plan.climbs.every((c) => c.effortMatch));
 });
 
-test("buildPlan caps the heart-rate guide at 92% of max HR", () => {
-  const plan = buildPlan(race, effort, { maxHr: 150 });
-  const top = Number(/\d+/.exec(plan.hrGuide[2].text)[0]);
-  assert.ok(top <= Math.round(150 * 0.92));
+test("buildPlan: the heart-rate guide comes from the profile's heart rates only", () => {
+  // Max only: ceilings at 75%, 80% and 86% of the max.
+  const plan = buildPlan(race, effort, { maxHr: 190 });
+  assert.equal(plan.hrGuide.length, 3);
+  const nums = plan.hrGuide.map((h) => Number(/\d+/.exec(h.text.replace(/^\d+ to /, ""))[0]));
+  assert.deepEqual(nums, [Math.round(0.75 * 190), Math.round(0.8 * 190), Math.round(0.86 * 190)]);
+  // Max and rest: heart-rate reserve (Karvonen), rest + 65% / 72% / 80% of (max - rest).
+  const k = buildPlan(race, effort, { maxHr: 190, restHr: 50 });
+  assert.equal(k.hrGuide[0].text, `${Math.round(50 + 0.65 * 140)} or lower`);
+  assert.ok(k.hrGuide.every((h, i) => i === 0 || h.bpm >= k.hrGuide[i - 1].bpm), "ceilings rise along the race");
 });
 
 test("splitClimb cuts where the gradient changes and respects the minimum length", () => {
@@ -406,7 +414,7 @@ test("review: key moments find the story written into the sample run", () => {
   assert.ok(find("fade", "bad").km > 14, "the fade starts after 60% of the run");
   const walk = find("walk", "bad");
   assert.ok(walk && walk.km > 18.8 && walk.km < 19.4, "walking on the flat at km 19");
-  assert.ok(find("drift", "bad"), "heart rate drifts upwards");
+  assert.ok(!m.some((x) => x.kind === "drift"), "no heart-rate moment: heart rate is never read from the file");
   assert.equal(m.filter((x) => x.kind === "stop").length, 2);
 });
 
@@ -487,7 +495,7 @@ test("review numbers: sliding-window records and splits that add up", () => {
 
 import { bestEffort, bestCurve, gradeBands, hrZones, runChunks, paceHistogram, fitLine, runKpis, climbTable } from "../src/core/insights.js";
 
-test("deep dive: best efforts, gradient bands, zones and KPIs add up", () => {
+test("deep dive: best efforts, gradient bands and KPIs add up", () => {
   const run = analyseRun(parseGpx(makeDemoRunGpx()));
   // Best efforts: a longer stretch is never faster per km than a shorter one.
   const curve = bestCurve(run);
@@ -503,12 +511,9 @@ test("deep dive: best efforts, gradient bands, zones and KPIs add up", () => {
   const steep = gradeBands(run, 5).filter((b) => b.mid >= 10 && b.pace);
   const flat = gradeBands(run, 5).find((b) => b.mid === 0);
   assert.ok(steep.every((b) => b.pace > flat.pace), "steep climbs are slower than the flat");
-  // Heart-rate zones: shares add to 1; a higher max moves time to lower zones; TRIMP > 0.
-  const z = hrZones(run, 185);
-  assert.ok(Math.abs(z.zones.reduce((s, q) => s + q.share, 0) - 1) < 0.01);
-  assert.ok(z.trimp > 0);
-  assert.ok(hrZones(run, 200).zones[4].share <= z.zones[4].share);
-  assert.equal(hrZones({ hasHr: false }, 185), null);
+  // Heart-rate zones: none, the file's heart rate is never read.
+  assert.equal(run.hasHr, false);
+  assert.equal(hrZones(run, 185), null);
   // Pace histogram and chunks.
   const h = paceHistogram(run, 15);
   assert.ok(Math.abs(h.bins.reduce((s, b) => s + b.share, 0) - 1) < 0.01);
