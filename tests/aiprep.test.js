@@ -40,6 +40,7 @@ test("request: fixed instructions, data with tagged notes and question, strict s
   assert.equal(r.instructions, AI_PREP_INSTRUCTIONS);
   assert.match(r.instructions, /CHECK FIRST/);
   assert.match(r.input, /^PARAMETERS/);
+  assert.match(r.input, /dataset check: LEGS has \d+ rows over [\d.]+ km.*NOT empty/);
   assert.match(r.input, /<athlete_notes>Knee pain<\/athlete_notes>/);
   assert.match(r.input, /<question>Is 10:00 realistic\?<\/question>/);
   assert.equal(r.text.format.strict, true);
@@ -111,7 +112,12 @@ test("merge: the referee drops unknown ids, replaces impossible times, keeps mis
 });
 
 test("merge: null answers, and too few legs, give an empty result", () => {
-  assert.equal(aiPrepMerge(plan, input, { check: { status: "null", reason: "empty_dataset" }, dataset: null, texts: null }).reason, "empty_dataset");
+  assert.equal(aiPrepMerge(plan, input, { check: { status: "null", reason: "out_of_scope" }, dataset: null, texts: null }).reason, "out_of_scope");
+  // "Empty" said of a dataset that has legs is the AI's mistake: an invalid answer.
+  const wrong = aiPrepMerge(plan, input, { check: { status: "null", reason: "empty_dataset" }, dataset: null, texts: null });
+  assert.equal(wrong.reason, "invalid_answer");
+  assert.match(wrong.fixes[0], /dataset was empty/);
+  assert.equal(aiPrepMerge(plan, { ...input, race: { ...input.race, legs: [] } }, { check: { status: "null", reason: "empty_dataset" }, dataset: null, texts: null }).reason, "empty_dataset");
   assert.equal(aiPrepMerge(plan, input, null).reason, "invalid_answer");
   const out = same();
   out.dataset.legs = out.dataset.legs.slice(0, 5);
