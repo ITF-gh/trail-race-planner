@@ -5,6 +5,7 @@ export const CHANGELOG = [
   { v: "2.2", date: "2026-10-16", items: [
     "Every replay now shows the pace line on its profile, like Rewind my run: Your race (calculated or AI) and Prep my run (with or without the AI coach). Faster is higher, the section you are on is lit, and the dot gives the pace at the runner.",
   ] },
+  { v: "2.1", date: "2026-10-16", items: ["Race-day settings (start time, targeted duration, terrain, gels, aid stations and Advanced) moved to Your route. Your plan now only shows what is computed: sections, clock times and pace strategy."] },
   { v: "2.0", date: "2026-10-16", items: [
     "Version 2: AI comes to Prep my race and Prep my run. A small shiny edelweiss beside Pimp my GPX opens the Ask the AI window of each mode.",
     "Prep my race: the AI tailors your race plan; Your race gets a Calculated / AI switch and an AI message box.",
