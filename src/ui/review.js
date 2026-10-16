@@ -271,7 +271,7 @@ function rvStatsHtml(run, st) {
 //   onKey    the keyboard listener, kept so it can be removed later
 // Two more fields are added later: last (time stamp of the previous frame, in ms) and seekTo
 // (a function the deep dive calls to move the replay).
-const rv = { run: null, name: "", target: rvLoadTarget(), sec: 0, playing: false, speed: 180, pauseAt: true, follow: true, raf: 0, map: null, onKey: null };
+const rv = { run: null, name: "", target: rvLoadTarget(), sec: 0, playing: false, speed: 180, pauseAt: false, follow: false, raf: 0, map: null, onKey: null };
 
 /**
  * Seconds since midnight, local time, when the run started (for clock times of day).

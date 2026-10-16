@@ -138,10 +138,12 @@ function applyTheme(t) {
 applyTheme(initialTheme());
 
 // PHOTOS: who took each banner photo and its Pexels page, used for the credit links.
-// Keys: hero / heroRun (top banner in plan / review mode), s1..s5 (section banners).
+// Keys: hero / heroRun / heroRewind (top banner in Prep my race / Prep my run / Rewind my run),
+// s1..s5 (section banners).
 const PHOTOS = {
   hero: { by: "Artem Meletov", url: "https://www.pexels.com/photo/person-standing-on-mountain-peak-above-clouds-8910505/" },
   heroRun: { by: "Cara Denison", url: "https://www.pexels.com/photo/silhouette-of-jogger-at-sunset-in-park-34730429/" },
+  heroRewind: { by: "Boys in Bristol Photography", url: "https://www.pexels.com/photo/silhouette-of-a-man-running-in-a-meadow-against-the-sky-20498424/" },
   s1: { by: "Hobi Photography", url: "https://www.pexels.com/photo/hiker-with-flashlight-looking-at-starry-night-sky-27790902/" },
   s2: { by: "Elina Volkova", url: "https://www.pexels.com/photo/misty-forest-path-in-dense-woodland-29579873/" },
   s3: { by: "Jack Davis", url: "https://www.pexels.com/photo/back-view-of-a-woman-running-up-the-mountain-trail-8949023/" },
@@ -174,7 +176,7 @@ const MODE_SEG = `<div class="seg mode-seg" role="group" aria-label="Mode">${MOD
  */
 $("#app").innerHTML = `
 <header class="hero" id="top">
-  ${credit("hero", "plan-only")}${credit("heroRun", "review-only")}
+  ${credit("hero", "plan-only")}${credit("heroRun", "prep-only")}${credit("heroRewind", "review-only")}
   <div class="hero-in">
     ${MODE_SEG}
     ${prepHeroHtml(PEAK)}
@@ -221,7 +223,7 @@ $("#app").innerHTML = `
 
 <nav class="topnav" id="topnav" aria-label="Sections">
   <div class="topnav-in">
-    <a class="tn-brand" href="#top" aria-label="Back to top">${PEAK}</a>
+    <a class="tn-brand" href="#top" aria-label="Back to the top menu" title="Back to the top menu">${PEAK}</a>
     <div class="tn-links">${NAV.map(([id, n, t]) => `<a href="#${id}" data-sec="${id}" class="${navClass(id)}"><b>${n}</b>${t}</a>`).join("")}</div>
     <button class="btn ghost sm tn-print" type="button" id="printBtn" title="Export this mode as A4 pages: print them, or choose Save as PDF"><span aria-hidden="true">⎙</span> <span class="tn-pl">Export </span>A4</button>
     <button class="btn ghost sm tn-theme" type="button" id="themeBtn" aria-pressed="false"></button>

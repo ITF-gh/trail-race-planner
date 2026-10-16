@@ -22,9 +22,11 @@
   color-scheme:dark;
 }
 @media (max-width:640px){ :root{--photo-hero:url("photos/hero-portrait.webp");--photo-hero-pos:50% 50%} }
-/* "Review a run" mode swaps the hero for a sport shot */
-html[data-mode="run"],html[data-mode="prep"]{--photo-hero:url("photos/hero-run.webp");--photo-hero-pos:50% 60%}
-@media (max-width:640px){ html[data-mode="run"],html[data-mode="prep"]{--photo-hero:url("photos/hero-run-portrait.webp");--photo-hero-pos:50% 50%} }
+/* "Prep my run" and "Rewind my run" swap the hero for a sport shot each */
+html[data-mode="prep"]{--photo-hero:url("photos/hero-run.webp");--photo-hero-pos:50% 60%}
+@media (max-width:640px){ html[data-mode="prep"]{--photo-hero:url("photos/hero-run-portrait.webp");--photo-hero-pos:50% 50%} }
+html[data-mode="run"]{--photo-hero:url("photos/hero-rewind.webp");--photo-hero-pos:50% 40%}
+@media (max-width:640px){ html[data-mode="run"]{--photo-hero:url("photos/hero-rewind-portrait.webp");--photo-hero-pos:50% 50%} }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{overflow-x:hidden}
@@ -269,7 +271,7 @@ details.adv summary{cursor:pointer;font-family:var(--f-display);font-weight:700;
 .btn.icon{min-width:44px;padding:8px 10px}
 @media (max-width:640px){
   .topnav-in{gap:8px;min-height:50px;padding:0 10px}
-  .tn-brand{display:none}
+  .tn-brand svg{width:22px;height:22px}
   .tn-links a{padding:7px 9px;font-size:14px;gap:4px}
   .tn-fin{display:none}
   .btn.sm{min-height:34px;padding:4px 10px;font-size:13px}

@@ -90,7 +90,7 @@ const ICON = { start: "▶", climb: "▲", top: "⛰", descent: "▼", gel: "G",
 //   raf      id of the pending requestAnimationFrame, to cancel it
 //   map      the map controller from map.js, or null
 // Set later: last (timestamp of the previous frame, ms) and onKey (the keyboard listener).
-const rp = { key: "", sec: 0, playing: false, speed: 360, pauseAt: true, follow: true, raf: 0, map: null };
+const rp = { key: "", sec: 0, playing: false, speed: 360, pauseAt: false, follow: false, raf: 0, map: null };
 
 /**
  * Mount the replay in `box`. `prof` draws the profile: {html, x(km), y(ele)} in SVG units of a
