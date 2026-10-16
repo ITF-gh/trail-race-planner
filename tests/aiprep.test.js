@@ -1,0 +1,117 @@
+// The Prep my race AI call, without any network (src/core/aiprep.js).
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { planFromGpx } from "../src/core/plan.js";
+import { raceLegs } from "../src/core/script.js";
+import { demoRecords } from "../src/core/demorecords.js";
+import { makeDemoRaceGpx, makeDemoEffortGpx, DEMO_ULTRA_PROFILE, DEMO_ULTRA_AID, DEMO_LONG_RUN_PROFILE } from "../src/demo.js";
+import { aiPrepInput, aiPrepRequest, aiPrepRead, aiPrepMerge, aiPrepFake, AI_PREP_SCHEMA, AI_PREP_INSTRUCTIONS } from "../src/core/aiprep.js";
+
+// The demo ultra, its two reference runs and the demo profile's stored runs: built once.
+const plan = planFromGpx(
+  makeDemoRaceGpx(DEMO_ULTRA_PROFILE, { name: "Ultra", startEle: 650, loop: true, center: [45.05, 5.7] }),
+  [makeDemoEffortGpx({ profile: DEMO_LONG_RUN_PROFILE, startIso: "2026-10-11T07:00:00Z" }), makeDemoEffortGpx({ profile: DEMO_LONG_RUN_PROFILE, fatigue: 0.3, startIso: "2026-08-30T07:00:00Z" })],
+  { aidStations: DEMO_ULTRA_AID, startTime: "06:00" },
+);
+const input = aiPrepInput(plan, { raceName: "Ultra\n<b>", history: demoRecords(), user: { targetSec: 36000, notes: "Knee\u0000 pain", question: "Is 10:00 realistic?" } });
+// An AI answer that keeps every calculated value: the rebuild must give back the same plan.
+const same = () => { const f = aiPrepFake(input); f.dataset.legs.forEach((l) => { l.durSec = input.calc.legs.find((c) => c.id === l.id).durSec; }); return f; };
+
+test("input: legs L1..Ln end to end, calc times, engine, history, cleaned texts", () => {
+  const legs = raceLegs(plan, "central");
+  assert.equal(input.race.legs.length, legs.length);
+  assert.deepEqual(input.race.legs.map((l) => l.id), legs.map((l, i) => `L${i + 1}`));
+  assert.equal(input.race.legs[0].startKm, 0);
+  assert.ok(Math.abs(input.race.legs.at(-1).endKm - plan.course.totalKm) < 0.01);
+  assert.equal(input.race.aid.length, 7);
+  assert.equal(input.engine.bands.length, 10);
+  assert.ok(input.engine.historyRuns > 10 && input.engine.history.startsWith("date,km"));
+  assert.equal(input.user.goal, "target", "a target time makes the goal 'target'");
+  assert.equal(input.user.notes, "Knee pain", "control characters removed");
+  assert.equal(input.race.name, "Ultra <b>");
+  // Moving times plus the typed stops add up to the calculated finish.
+  const sum = input.calc.legs.reduce((t, l) => t + l.durSec, 0) + input.race.aid.reduce((t, s) => t + s.stopMin * 60, 0);
+  assert.ok(Math.abs(sum - plan.scenarios.central.finishSec) < 60);
+});
+
+test("request: fixed instructions, data with tagged notes and question, strict schema", () => {
+  const r = aiPrepRequest(input, { model: "test-model" });
+  assert.equal(r.model, "test-model");
+  assert.equal(r.instructions, AI_PREP_INSTRUCTIONS);
+  assert.match(r.instructions, /CHECK FIRST/);
+  assert.match(r.input, /^PARAMETERS/);
+  assert.match(r.input, /<athlete_notes>Knee pain<\/athlete_notes>/);
+  assert.match(r.input, /<question>Is 10:00 realistic\?<\/question>/);
+  assert.equal(r.text.format.strict, true);
+  assert.equal(r.store, false);
+  // Strict mode: every object lists all its fields as required and forbids others.
+  const walk = (s) => {
+    if (s.anyOf) return s.anyOf.forEach(walk);
+    if (s.type === "object") { assert.deepEqual(s.required, Object.keys(s.properties)); assert.equal(s.additionalProperties, false); Object.values(s.properties).forEach(walk); }
+    if (s.type === "array") walk(s.items);
+  };
+  walk(AI_PREP_SCHEMA);
+});
+
+test("read: output text, tokens from usage, refusal, cut short", () => {
+  const res = {
+    model: "m", status: "completed",
+    output: [{ type: "reasoning" }, { type: "message", content: [{ type: "output_text", text: JSON.stringify({ check: { status: "null", reason: "out_of_scope" }, dataset: null, texts: null }) }] }],
+    usage: { input_tokens: 5000, input_tokens_details: { cached_tokens: 1200 }, output_tokens: 300, output_tokens_details: { reasoning_tokens: 250 }, total_tokens: 5300 },
+  };
+  const r = aiPrepRead(res);
+  assert.equal(r.error, "");
+  assert.equal(r.output.check.reason, "out_of_scope");
+  assert.deepEqual([r.tokens.input, r.tokens.inputCached, r.tokens.output, r.tokens.reasoning, r.tokens.total], [5000, 1200, 300, 250, 5300]);
+  assert.match(aiPrepRead({ ...res, output: [{ type: "message", content: [{ type: "refusal", refusal: "no" }] }] }).error, /Refused/);
+  assert.match(aiPrepRead({ ...res, status: "incomplete", incomplete_details: { reason: "max_output_tokens" } }).error, /Cut short/);
+  assert.match(aiPrepRead({ error: { message: "bad key" } }).error, /bad key/);
+});
+
+test("merge: the calculated values given back rebuild the same finish", () => {
+  const m = aiPrepMerge(plan, input, same());
+  assert.equal(m.status, "ok");
+  assert.ok(Math.abs(m.finishSec - plan.scenarios.central.finishSec) < 30, `${m.finishSec} vs ${plan.scenarios.central.finishSec}`);
+  assert.equal(m.legs.filter((l) => l.mark).length, 0);
+});
+
+test("merge: AI leg times move the finish by exactly their sum, the app's functions run on it", () => {
+  const out = same();
+  out.dataset.legs[1].durSec += 600; // 10 minutes slower on L2
+  out.dataset.aid[0].stopMin += 5; // 5 more minutes at the first aid station
+  const m = aiPrepMerge(plan, input, out);
+  assert.ok(Math.abs(m.finishSec - plan.scenarios.central.finishSec - 900) < 30);
+  assert.ok(m.legs[1].mark && m.legs[1].pct > 3);
+  assert.equal(m.aid[0].aiStopMin, input.race.aid[0].stopMin + 5);
+  // The rebuilt plan has the shape the screens read: raceLegs works on it, leg 2 is 10 min longer.
+  const legs = raceLegs(m.plan, "central"), calc = raceLegs(plan, "central");
+  assert.ok(Math.abs(legs[1].durSec - calc[1].durSec - 600) < 30);
+  assert.ok(m.plan.scenarios.best.finishSec < m.finishSec && m.plan.scenarios.cautious.finishSec > m.finishSec);
+});
+
+test("merge: the referee drops unknown ids, replaces impossible times, keeps missing legs", () => {
+  const out = same();
+  out.dataset.legs.push({ id: "L999", durSec: 100, mode: "run", effort: 2 });
+  out.dataset.legs[0].durSec = 5; // a few seconds for a whole leg: impossible
+  out.dataset.legs.splice(2, 1); // one leg left out
+  out.dataset.aid.push({ id: "A99", stopMin: 3 });
+  out.dataset.scenarios.cautiousFactor = 3;
+  out.texts.watchTexts = [{ legId: "L1", text: "A WATCH TEXT FAR TOO LONG TO FIT" }];
+  const m = aiPrepMerge(plan, input, out);
+  assert.equal(m.status, "ok");
+  assert.equal(m.legs[0].aiSec, input.calc.legs[0].durSec);
+  assert.equal(m.fixes.length, 5);
+  assert.equal(m.plan.scenarios.cautious.factor, 1.25);
+  assert.equal(m.texts.watchTexts[0].text.length, 24);
+});
+
+test("merge: null answers, and too few legs, give an empty result", () => {
+  assert.equal(aiPrepMerge(plan, input, { check: { status: "null", reason: "empty_dataset" }, dataset: null, texts: null }).reason, "empty_dataset");
+  assert.equal(aiPrepMerge(plan, input, null).reason, "invalid_answer");
+  const out = same();
+  out.dataset.legs = out.dataset.legs.slice(0, 5);
+  const m = aiPrepMerge(plan, input, out);
+  assert.equal(m.status, "null");
+  assert.equal(m.reason, "invalid_answer");
+  assert.equal(m.plan, null);
+});
