@@ -243,13 +243,7 @@ $("#app").innerHTML = `
 
 <section id="s2" class="plan-only">
   ${head("02", "What the mountain asks, climb by climb", "Your route")}
-  <p class="sec-intro">The course on its own: where the climbs and descents are, how hard each one is, and where the long climbs change character.</p>
-  <div id="s2body"></div>
-</section>
-
-<section id="s3" class="plan-only">
-  ${head("03", "Clock times, pace, gels, where to walk", "Your plan")}
-  <p class="sec-intro">Your engine on this course, with your race-day settings: finish time, clock time at every checkpoint, how to run each climb and descent, when to eat.</p>
+  <p class="sec-intro">The course and your race-day settings: start time, terrain, gels and aid stations, then where the climbs and descents are, how hard each one is, and where the long climbs change character.</p>
   <div class="panel">
     <div class="fields">
       <label class="f">Start time<input type="time" id="startTime"></label>
@@ -270,8 +264,14 @@ $("#app").innerHTML = `
         <label class="f">Faster on gentle descents (%)<input type="number" id="descentBoost" step="1" min="0" max="10"><span class="hint">Only if your quads can take it. 0 is safe.</span></label>
       </div>
     </details>
-    <div id="planErr"></div>
   </div>
+  <div id="s2body" style="margin-top:22px"></div>
+</section>
+
+<section id="s3" class="plan-only">
+  ${head("03", "Clock times, pace, gels, where to walk", "Your plan")}
+  <p class="sec-intro">What the planner computes from your engine and the route settings: finish time, clock time at every checkpoint, the pace strategy for each climb and descent, when to eat.</p>
+  <div id="planErr"></div>
   <div id="s3body" style="margin-top:22px"></div>
 </section>
 
