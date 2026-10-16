@@ -18,6 +18,22 @@ Your files are read on your own machine. Nothing is uploaded.
 
 **Online account (optional).** Signing in with an email link keeps the run log and the cairns in your account (Supabase, EU). The server recomputes the achievements from your runs and pays each one once. **Ask the AI** opens the Prep my race window: (1) the target race from the race GPX, (2) your old runs, both the GPX files in Your runs and the runs stored in your account (a date range or the runs you tick), (3) your goal (finish safely, target time or best possible), target time and risk (prudent, balanced, bold), (4) free information and (5) an optional question; 1 edelweiss buys 1 call. A click on Spend first runs free code checks (`src/core/aichecks.js`): hard stops (no account, not signed in, no edelweiss) can only be fixed; warnings (no race GPX, no old runs, odd target, a request that is not about the data) offer Fix and retry, Send anyway or Cancel, and everything typed is kept. The AI side of this mode (input and output schema) is designed but not built yet: the server still runs the earlier run-log analysis. Internally (database, server) the token is still called a cairn. Setup: [supabase/SETUP.md](supabase/SETUP.md). Not open yet: writes are closed in the app (`CLOUD.open` in `src/ui/cloud.js`) and in the database (`writes_open()`), so nothing is sent or stored.
 
+**Try the Prep my race AI call locally.** `node scripts/ai-local.js` runs the whole chain on your computer, without the online account: the calculated plan from your GPX files, the code checks of the Ask the AI window, the input and the one OpenAI request (`src/core/aiprep.js`), then the referee and the rebuild of the plan from the AI's leg times. Put your key in a file `.env.local` at the repo root (`OPENAI_API_KEY=sk-...`; ignored by git, never in a commit or a chat). Examples:
+
+```
+node scripts/ai-local.js --demo --dry                     # the demo ultra: writes the prompt, sends nothing
+node scripts/ai-local.js --demo --fake                    # a made-up answer, to test the pipeline for free
+node scripts/ai-local.js --race race.gpx --runs long1.gpx --runs long2.gpx --history my-trail-runs.json \
+  --aid "16.5 Le Moulin 3" --aid "29.5 Refuge 4" --start 06:00 --target 10:00 --risk balanced \
+  --notes "Knee pain on long descents. I race with poles." --question "Is 10:00 realistic?"
+```
+
+`--history` takes the file from the account menu's Export. Options: `--goal finish|target|best`, `--max-hr`, `--rest-hr`, `--weight`, `--model` (default `gpt-4o-mini`, or `OPENAI_MODEL`; `gpt-5.4-mini` thinks first and costs more), `--effort low|medium|high` (reasoning models only), `--force` to send despite warnings. Each run writes `ai-runs/<date-time>/`: `prompt.txt`, `request.json`, `response.json`, `output.json`, `result.json` and a readable `report.md` (tokens, finish, leg by leg calculated vs AI, aid stops, fuel, referee fixes).
+
+**Or in your browser.** `npm run ai-browser`, then open http://localhost:5174: the app as usual, and in the account menu, Ask the AI sends the window's inputs to OpenAI through a small local server (`scripts/ai-serve.js`, which holds the key from `.env.local`; the page never sees it). No account and no edelweiss are needed there. The result opens in the window (finish, every leg compared, aid stops, texts, referee fixes, tokens), and each test is saved in `ai-runs/<date-time>-browser/`. "Fake answer" runs the whole chain for free, without a key. With no install at all: unzip a built copy (`npm run build`, the `dist/` folder) and double-click `index.html`; opened as a file, the window asks for the key itself (kept in the tab's memory only) and offers the test as a download.
+
+**The AI plan in Your race.** A usable answer is kept for its race (localStorage, `src/ui/airace.js`) and section 04 gets a Calculated / AI switch. With AI on, the cockpit plays the plan rebuilt by code from the answer (`aiPrepMerge`): AI section times and aid stops on the clock, the AI's run / hike / mix as each section's tactic with its note and effort, the AI's intakes as gels, its key moments in the race script, and its headline, verdict and answer above. The course, sections and key zones stay calculated. An answer made from an older plan is shown as out of date until you ask again. Every answer is also kept as an **AI doc** (account menu > AI docs, IndexedDB `trp-ai-docs`, `src/ui/aidocs.js`): open it, play it again in Your race, download it or delete it.
+
 ## Use it
 
 **In the browser.** Open `dist/index.html` (run `npm run build` first). Press "Try the demo" to see a full plan on made-up data (a 78 km mountain ultra with 3,800 m of climbing and seven aid stations, planned from two 30 km mountain long runs), or drop in your own two files.
@@ -65,7 +81,7 @@ src/core/history.js    the run log: 12-month totals, bests, achievements and cai
 src/core/runrecord.js  one small summary per run
 src/demo.js            made-up GPX files for the demo and the tests
 src/ui/                the browser app (main.js, map.js for the map, replay.js for race day,
-                       review.js for the Rewind my run mode, print.js for the Export A4 pages (print or save as PDF), account.js for the account menu and its IndexedDB store, cloud.js for the online account, analytics.js for anonymous visit and event counts)
+                       review.js for the Rewind my run mode, print.js for the Export A4 pages (print or save as PDF), account.js for the account menu and its IndexedDB store, ailocal.js for the local AI test of npm run ai-browser, cloud.js for the online account, analytics.js for anonymous visit and event counts)
 src/vendor/leaflet/    Leaflet 1.9.4, the map library (BSD-2 licence), copied to dist/vendor/
 cli.js                 the command-line tool
 scripts/build.js       bundles the app into dist/index.html, no dependencies

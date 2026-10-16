@@ -77,7 +77,7 @@ function eleOn(P, km) {
 // Length and climb of a section, written out under its title.
 const legData = (l) => `${(l.endKm - l.startKm).toFixed(1)} km · +${Math.round(l.up)} / −${Math.round(l.down)} m`;
 // The symbol shown for each kind of moment or section (the "kind" field from core/script.js).
-const ICON = { start: "▶", climb: "▲", top: "⛰", descent: "▼", gel: "G", aid: "⛺", phase: "◐", key: "★", finish: "🏁" };
+const ICON = { start: "▶", climb: "▲", top: "⛰", descent: "▼", gel: "G", aid: "⛺", phase: "◐", key: "★", ai: "✦", finish: "🏁" };
 
 // Survives re-renders (a scenario switch, a settings change), so the replay keeps its place.
 // It lives at module level (outside any function), so there is one for the whole page.
@@ -198,6 +198,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
       <div class="rp-leg" id="rpLeg"></div>
       <div class="rp-now" id="rpNow" hidden></div>
       <p class="rp-cue-line" id="rpCue" aria-live="polite"></p>
+      ${plan.ai ? `<div class="rp-ai-box" id="rpAi" aria-live="polite"></div>` : ""}
       <ul class="kv rp-next" id="rpNext"></ul>
     </div>
   <div class="prof-wrap rp-prof" id="rpProf">${prof.html}</div>
@@ -217,7 +218,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
   // 3. Find the elements once and keep them in `els`, so each frame does not search the page.
   // $r(selector) is a short name for "the first element in this box matching the CSS selector".
   const $r = (s) => box.querySelector(s);
-  const els = { leg: $r("#rpLeg"), legNow: $r("#rpLegNow"), legPos: $r("#rpLegPos"), legBtns: [...box.querySelectorAll("#rpLegs .lg")], clock: $r("#rpClock"), el: $r("#rpElapsed"), bar: $r("#rpBar"), km: $r("#rpKm"), now: $r("#rpNow"), next: $r("#rpNext"), cue: $r("#rpCue"), play: $r("#rpPlay"), seek: $r("#rpSeek"), cur: $r("#rpProf .pcur"), list: $r("#rpScript") };
+  const els = { leg: $r("#rpLeg"), legNow: $r("#rpLegNow"), legPos: $r("#rpLegPos"), legBtns: [...box.querySelectorAll("#rpLegs .lg")], clock: $r("#rpClock"), el: $r("#rpElapsed"), bar: $r("#rpBar"), km: $r("#rpKm"), now: $r("#rpNow"), next: $r("#rpNext"), cue: $r("#rpCue"), ai: box.querySelector("#rpAi"), play: $r("#rpPlay"), seek: $r("#rpSeek"), cur: $r("#rpProf .pcur"), list: $r("#rpScript") };
   // A window resize changes the room in the panel: fit the "coming next" list again.
   if (typeof ResizeObserver === "function") new ResizeObserver(() => fitPanel(els.next)).observe($r(".rp-hud"));
   alignBar($r(".rp-legbar"), $r("#rpProf svg"), prof.x(0), prof.x(plan.course.totalKm));
@@ -329,6 +330,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
           </span></div>
         <div class="rp-leg-info">
           <p class="k-${l.kind}"><span class="ic">${ICON[l.kind] || "➜"}</span><b title="${escR(l.tactic)}">${escR(l.tactic)}</b><span class="d">${legData(l)}</span></p>
+          ${l.ai && l.ai.effort ? `<p class="rp-ai-note"><span class="ic">${ICON.ai}</span><b>Effort ${l.ai.effort}/5</b><span>${escR(l.ai.mode || "")}</span></p>` : ""}
           <p class="nx ${n ? `k-${n.kind}` : ""}"><span class="lab">Next</span>${n ? `<span class="ic">${ICON[n.kind] || "➜"}</span><b>${n.i}. ${escR(n.title)}</b><span class="d">${legData(n)}</span>` : `<span class="ic">${ICON.finish}</span><b>Finish</b>`}</p>
         </div>
         <table class="rp-tg">
@@ -396,6 +398,16 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     // (0.5 s of tolerance, as moments are reached by seeking to their second + 1).
     let ci = -1;
     for (let i = 0; i < script.length && script[i].sec <= s.sec + 0.5; i++) ci = i;
+    // AI plan only: the AI message box. An AI key moment reached in this section speaks first,
+    // else the AI's note and reason for the section. Redrawn when the section or the moment changes.
+    if (els.ai && (ci !== lastCue || els.ai.dataset.leg !== String(li))) {
+      els.ai.dataset.leg = String(li);
+      const e = ci >= 0 ? script[ci] : null;
+      const m = e && e.kind === "ai" && e.km >= l.startKm - 1e-6 ? e : null;
+      const a = l.ai || {};
+      const lines = m ? [`<b>${escR(m.title)}</b> ${escR(m.cue)}`] : [a.note ? escR(a.note) : "", a.why ? `<small>Why: ${escR(a.why)}</small>` : ""].filter(Boolean);
+      els.ai.innerHTML = lines.length ? `<span class="ic">${ICON.ai}</span><div>${lines.map((x) => `<p>${x}</p>`).join("")}</div>` : `<span class="ic">${ICON.ai}</span><div><p class="muted">No AI message on this section.</p></div>`;
+    }
     if (ci !== lastCue) {
       lastCue = ci;
       // Before the first moment, show the first one anyway (Math.max avoids index -1).
