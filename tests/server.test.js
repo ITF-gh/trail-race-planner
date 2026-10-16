@@ -129,7 +129,12 @@ test("the runner chooses the runs (dates or a list), the axis and the question",
   const a = aiAsk({ focus: "speed", question: "How can I go\nsub-40 in 10K   in a month?" + "x".repeat(400), ids: [1, {}] });
   assert.equal(a.focus, "speed");
   assert.ok(a.question.startsWith("How can I go sub-40 in 10K in a month?") && a.question.length === 300);
-  assert.equal(a.ids, null);
+  assert.deepEqual(a.ids, [], "invalid ids leave an empty pick");
+  assert.deepEqual(aiSelect(runs, { ids: [] }), [], "every run unticked selects nothing, not everything");
+  assert.deepEqual(aiSelect(runs, { ids: [], from: NOW - 10 * DAY }), [], "an empty pick ignores the dates");
+  const db0 = fakeDb(runs, [{ delta: 1, reason: "ach:first" }]);
+  assert.equal((await aiStart({ db: db0, userId: "u", ask: { ids: [] }, now: NOW, newId: () => "j0" })).status, 400);
+  assert.equal(balance(db0), 1, "nothing spent on an empty pick");
   assert.equal(aiAsk({ focus: "hack" }).focus, "overall", "unknown axis falls back");
   const db = fakeDb(runs, [{ delta: 1, reason: "ach:first" }]);
   const s = await aiStart({ db, userId: "u", ask: { from: NOW - 10 * DAY, to: NOW, focus: "speed", question: "How can I go sub-40 in 10K in a month?" }, now: NOW, newId: () => "j1" });
