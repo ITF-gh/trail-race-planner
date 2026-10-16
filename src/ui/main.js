@@ -55,7 +55,7 @@ import { initRunMode, pauseRun, currentRun } from "./review.js";
 import { initPrint } from "./print.js";
 import { initHelp } from "./help.js";
 import { siteFooter } from "../site/site.js";
-import { initAccount, acctSaveRun, acctSaveGpx, acctOpenAsk } from "./account.js";
+import { initAccount, acctSaveRun, acctSaveGpx, acctOpenAsk, acctAiBadge } from "./account.js";
 import { arUse, arState, arBarHtml } from "./airace.js";
 import { startAnalytics, trackEvent, trackOnce, analyticsOn, analyticsName } from "./analytics.js";
 import { makeDemoRaceGpx, makeDemoEffortGpx, DEMO_ULTRA_PROFILE, DEMO_ULTRA_AID, DEMO_LONG_RUN_PROFILE } from "../demo.js";
@@ -996,7 +996,7 @@ function renderDday() {
       <div class="seg" role="group" aria-label="Scenario" id="scen">${seg}</div>
       <p class="note" style="margin:0">Race pace is ${((sc.factor - 1) * 100).toFixed(0)}% slower than your run on the same gradients: terrain factor plus the fade for a longer effort. Every clock time on this page follows the scenario you pick.</p>
     </div>
-    ${pimpBadge("#s-pimp")}
+    <div class="side-stack">${pimpBadge("#s-pimp")}${acctAiBadge("race")}</div>
   </div>
   ${targetHtml}
   <div class="prof-wrap">${profileView(plan.course.profile, brief, { ...sc, startSec: st, aid: aidMarks }, plan.keyZones).html}

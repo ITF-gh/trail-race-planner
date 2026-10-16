@@ -717,6 +717,14 @@ async function acDocShow(id) {
   acShowPanel(aiLocalHtml({ docId: d.id, when: acDate(Date.parse(d.at)), input: d.input, read: { tokens: d.tokens, output: d.output }, result: d.result, stamp: d.at.slice(0, 19).replace(/[:T]/g, "-"), download }), "AI doc", "acct-local");
 }
 
+/**
+ * The small edelweiss sticker that opens an Ask the AI window, set beside the Pimp my GPX
+ * sticker: mode "race" (Prep my race) or "run" (Prep my run, the AI coach). Its clicks are
+ * caught by one listener in initAccount (data-ai-ask), so it works wherever it is drawn.
+ */
+export function acctAiBadge(mode) {
+  return `<button class="ai-badge" type="button" data-ai-ask="${mode}" aria-label="Ask the AI ${mode === "run" ? "coach" : "for a race plan"}">${AC_SPARK}<span><b>Ask the AI</b><small>${mode === "run" ? "coach · exercises" : "race plan"}</small></span></button>`;
+}
 /** Open the Ask the AI window (for the "Ask the AI" link of Your race). */
 export function acctOpenAsk() { acAction("ai"); }
 /** Open the Ask the AI coach window (the edelweiss button of Prep my run). */
@@ -972,6 +980,11 @@ export async function initAccount(opts = {}) {
   // The redraw waits a moment (setTimeout 0): a Tab press fires "change" before the focus moves
   // to the next field, and redrawing at once would lose where the focus is going.
   acPanel.addEventListener("change", (e) => { if (e.target.dataset && e.target.dataset.pf && profileInput(e.target, true)) setTimeout(() => acProfile(true), 0); });
+  // The edelweiss stickers of the modes (acctAiBadge) open their Ask the AI window.
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest && e.target.closest("[data-ai-ask]");
+    if (b) acAction(b.dataset.aiAsk === "run" ? "ai-run-ask" : "ai");
+  });
   // Any click outside the account element closes the menu.
   document.addEventListener("click", (e) => { if (!acEl.contains(e.target)) set(false); });
   // Escape closes the pop-up first, then the menu (and gives the focus back to the icon).

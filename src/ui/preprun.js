@@ -15,7 +15,7 @@
 //   (core/preprun.js) -> render(): summary, cockpit (replay.js through main.js), watch panel
 //   (watch.js), download buttons.
 //
-// The AI coach: once a GPX is loaded, a shiny edelweiss button opens the Ask the AI coach window
+// The AI coach: once a GPX is loaded, a small shiny edelweiss sticker (beside Pimp my GPX) opens the Ask the AI coach window
 // (account.js). Its answer (core/airun.js) comes back as an AI doc; the Calculated / AI switch
 // above the cockpit (airace.js) then plays the session: the exercises as moments of the run
 // script, the faster reps in the clock, the AI message box.
@@ -30,7 +30,7 @@ import { hm, parseDuration } from "../core/format.js";
 import { makeDemoRaceGpx, DEMO_LONG_RUN_PROFILE } from "../demo.js";
 import { watchPanelHtml, mountWatch, watchPoints, downloadCourse, pimpBadge } from "./watch.js";
 import { trackEvent } from "./analytics.js";
-import { AC_SPARK, acctOpenRunAsk } from "./account.js";
+import { acctOpenRunAsk, acctAiBadge } from "./account.js";
 import { arUse, arState, arBarHtml } from "./airace.js";
 import { runSpots } from "../core/airun.js";
 
@@ -186,8 +186,7 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
     // The target time box shows the current estimate as a hint ("3h05" -> "3:05").
     body.innerHTML = `
   <div class="panel prep-sum prep-ready">
-    ${pimpBadge("#prep-pimp", "Your run on your watch →")}
-    <button class="prep-ai" type="button" data-ar="ask">${AC_SPARK}<span><b>Ask the AI coach</b><small>Exercises on this route</small></span></button>
+    <div class="side-stack">${pimpBadge("#prep-pimp", "Your run on your watch →")}${acctAiBadge("run")}</div>
     <div class="prep-facts"><b>${prEsc(st.name)}</b><span>${plan.course.totalKm.toFixed(1)} km</span><span>+${Math.round(plan.course.gain)} m</span><span>-${Math.round(plan.course.loss)} m</span><span>${plan.climbs.length} climbs</span><span>${(plan.keyZones || []).length} key zones</span><span>about <b>${hm(finish)}</b></span></div>
     <p class="note">Times come from ${SOURCE[source]}.</p>
     <div class="prep-opts">
