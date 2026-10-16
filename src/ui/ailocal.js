@@ -105,13 +105,16 @@ export function aiLocalHtml(r) {
   const tokens = `<table class="acct-tbl"><tr><th>Input</th><th>Cached</th><th>Output</th><th>Reasoning</th><th>Total</th><th>Model</th></tr>
     <tr><td>${tk.input}</td><td>${tk.inputCached}</td><td>${tk.output}</td><td>${tk.reasoning}</td><td>${tk.total}</td><td>${alEsc(tk.model)}</td></tr></table>`;
   const saved = r.download
-    ? `<p class="acct-note"><a class="btn ghost sm" href="${r.download}" download="ai-test-${alEsc(r.stamp)}.json">Download this test</a> to send it back for tuning (it holds no key).</p>`
+    ? `<p class="acct-note"><a class="btn ghost sm" href="${r.download}" download="ai-${r.docId ? "doc" : "test"}-${alEsc(r.stamp)}.json">Download this ${r.docId ? "doc" : "test"}</a> to send it back for tuning (it holds no key).</p>`
     : r.stamp ? `<p class="acct-note">Saved in ai-runs/${alEsc(r.stamp)}/ on your computer.</p>` : "";
+  // A saved AI doc (account menu > AI docs) gets its own buttons: play it, or delete it.
+  const kick = r.docId ? `AI doc · ${alEsc(r.when || "")}` : "Local AI test";
+  const docBtns = r.docId ? `<div class="acct-actions">${m.status === "ok" ? `<button class="btn primary" type="button" data-acct="doc-use:${alEsc(r.docId)}">▶ Use in Your race</button>` : ""}<button class="btn ghost" type="button" data-acct="doc-del:${alEsc(r.docId)}">Delete this doc</button></div>` : "";
   const fixes = `<h4>Referee fixes</h4>${m.fixes.length ? `<ul>${m.fixes.map((f) => `<li>${alEsc(f)}</li>`).join("")}</ul>` : "<p>None: the answer was used as given.</p>"}`;
   if (m.status !== "ok") {
-    return `<p class="acct-kicker">Local AI test · empty result</p><h3>The AI answer is not used</h3>
+    return `<p class="acct-kicker">${kick} · empty result</p><h3>The AI answer is not used</h3>
       <p>Reason: <b>${alEsc(m.reason || "unknown")}</b>. In the app, this answer would show nothing and change nothing.</p>
-      ${m.fixes.length ? fixes : ""}<h4>Tokens</h4>${tokens}${saved}`;
+      ${m.fixes.length ? fixes : ""}<h4>Tokens</h4>${tokens}${saved}${docBtns}`;
   }
   const pts = (a) => (a && a.length ? `<ul>${a.map((p) => `<li><b>${alEsc(p.what)}</b>: ${alEsc(p.effect)} <small>(${alEsc(p.proof)})</small></li>`).join("")}</ul>` : "<p>-</p>");
   const legs = `<div class="acct-tbl-wrap"><table class="acct-tbl"><tr><th>Leg</th><th>km</th><th>Calc.</th><th>AI</th><th>Diff</th><th>Mode</th><th>Why</th></tr>
@@ -119,9 +122,9 @@ export function aiLocalHtml(r) {
   const aid = m.aid.length ? `<h4>Aid stations</h4><div class="acct-tbl-wrap"><table class="acct-tbl"><tr><th>Aid</th><th>km</th><th>Typed stop</th><th>AI stop</th><th>Arrival</th></tr>
     ${m.aid.map((s) => `<tr${s.aiStopMin !== s.stopMin ? ' class="mark"' : ""}><td>${alEsc(s.name)}</td><td>${s.km}</td><td>${s.stopMin} min</td><td>${s.aiStopMin} min</td><td>${hms(s.arriveSec)}</td></tr>`).join("")}</table></div>` : "";
   const D = m.dataset;
-  return `<p class="acct-kicker">Local AI test · ${alEsc(tk.model)}</p>
+  return `<p class="acct-kicker">${kick} · ${alEsc(tk.model)}</p>
     <h3>${alEsc(T.headline)}</h3>
-    <div class="acct-actions"><button class="btn primary" type="button" data-acct="ai-race">▶ Play it in Your race</button></div>
+    ${r.docId ? docBtns : `<div class="acct-actions"><button class="btn primary" type="button" data-acct="ai-race">▶ Play it in Your race</button></div><p class="acct-note">Kept in your AI docs (account menu).</p>`}
     <p>Calculated finish <b>${hms(input.calc.finishSec.central)}</b> · AI finish (summed by code) <b>${hms(m.finishSec)}</b> · AI's own estimate ${hms(m.aiFinishSec)} · verdict <b>${alEsc(D.target.verdict)}</b></p>
     ${T.answer ? `<p class="acct-answer">${alEsc(T.answer)}</p>` : ""}
     <p>${alEsc(T.synthesis)}</p>

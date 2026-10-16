@@ -43,6 +43,7 @@ import { mmss, hms, hm, parseDuration } from "../core/format.js";
 import { trackEvent } from "./analytics.js";
 import { profileHtml, profileInput, profileAction, profileAthlete, profileWho } from "./profile.js";
 import { aiLocalProbe, aiLocalRun, aiLocalHtml } from "./ailocal.js";
+import { aiDocsAll, aiDocsPut, aiDocsGet, aiDocsDelete } from "./aidocs.js";
 import { cloudOn, cloudUser, cloudFromUrl, cloudSendLink, cloudSignOut, cloudRuns, cloudPutRuns, cloudDeleteRuns, cloudLedger, cloudClaim, cloudAnalyse, cloudJob, cloudJobs, cloudDeleteAccount } from "./cloud.js";
 
 // Database name and its one "object store" (IndexedDB's word for a table) of run summaries.
@@ -169,7 +170,7 @@ const AC_SPARK = (() => {
 //   job     id of the analysis running now, null when none
 //   msg     a message to show in the tokens section ("" = none)
 //   busy    true while a sign-in link is being sent (greys out the button)
-const ac = { ledger: null, jobs: [], job: null, msg: "", busy: false };
+const ac = { ledger: null, jobs: [], job: null, msg: "", busy: false, docs: [] };
 // Token balance = the sum of all ledger lines (+ earned, - spent). Nothing is read yet: 0.
 const acBalance = () => (ac.ledger ? ac.ledger.reduce((s, r) => s + r.delta, 0) : 0);
 // acList: the run summaries the menu and the AI window work on; acDemo: true when they are the
@@ -227,7 +228,7 @@ function acMenuHtml(S, demo = false) {
   if (!S.count) {
     return `${who}
     <section><p class="acct-empty">Open one of your runs in <b>Rewind my run</b>, or add it to <b>Your runs</b> in Prep my race: its numbers are kept here${user ? "" : ", on this device only"}, and your stats, records and achievements build up run after run.</p></section>
-    ${acTokensHtml(S)}${links}`;
+    ${acDocsHtml(ac.docs)}${acTokensHtml(S)}${links}`;
   }
   // Big climbing totals in thousands: 12345 m -> "12.3k".
   const gainK = S.year.gain >= 10000 ? `${(S.year.gain / 1000).toFixed(1)}k` : acNum(S.year.gain);
@@ -246,6 +247,7 @@ function acMenuHtml(S, demo = false) {
     <section><h4>Achievements · ${S.unlocked} / ${S.achievements.length}</h4>
       <div class="acct-medals mini">${medals.map((a) => `<span class="${a.done ? "" : "lock"}" title="${acEsc(a.label)}: ${acEsc(a.hint)}${a.done ? "" : ` (${Math.floor(a.progress * 100)}%)`}${a.cairns ? ` · +${acTok(a.cairns)}` : ""}">${a.icon}</span>`).join("")}</div>
     </section>
+    ${acDocsHtml(ac.docs)}
     ${acTokensHtml(S)}
     ${links}`;
 }
@@ -453,6 +455,7 @@ async function acRender() {
   // so the menu is never empty. Your first saved run replaces it.
   acDemo = !mine.length && !(cloudOn() && cloudUser());
   acList = acDemo ? demoRecords() : mine;
+  ac.docs = await aiDocsAll();
   acMenu.innerHTML = acMenuHtml(historySummary(acList), acDemo);
 }
 
@@ -585,9 +588,39 @@ async function acStartLocal(forced) {
     athlete: { maxHr: a.hrMax, restHr: a.hrRest, weightKg: a.weight },
     history: acAskRuns(),
   });
-  // A usable answer goes to Your race (main.js keeps it and turns the AI switch on).
-  if (r.result && r.result.status === "ok") document.dispatchEvent(new CustomEvent("trp-ai-answer", { detail: { input: r.input, output: r.read.output, tokens: r.read.tokens } }));
+  // Every answer that came back is kept as an AI doc (aidocs.js); a usable one also goes to
+  // Your race (main.js plays it and turns the AI switch on).
+  if (!r.error) {
+    const m = r.result;
+    const doc = {
+      id: `ai-${Date.now()}`, at: new Date().toISOString(), mode: "prep_race", race: R.key, raceName: R.race ? R.race.name : "Race",
+      input: r.input, output: r.read.output, tokens: r.read.tokens,
+      // The referee's summary, without the rebuilt plan (rebuilt from the output when played).
+      result: { status: m.status, reason: m.reason, finishSec: m.finishSec, aiFinishSec: m.aiFinishSec, fixes: m.fixes, legs: m.legs, aid: m.aid, texts: m.texts, dataset: m.dataset || null },
+    };
+    await aiDocsPut(doc);
+    if (m.status === "ok") document.dispatchEvent(new CustomEvent("trp-ai-use", { detail: doc }));
+  }
   acShowPanel(aiLocalHtml(r), "Local AI test", "acct-local");
+}
+
+/** One AI doc as a menu row: date, race, then the verdict and AI finish (or "empty"). */
+function acDocRow(d) {
+  const ok = d.result && d.result.status === "ok";
+  const v = ok ? `${acEsc(d.result.dataset.target.verdict)} · ${hm(d.result.finishSec)}` : "empty";
+  return `<button type="button" class="acct-row acct-doc" data-acct="doc:${acEsc(d.id)}"><span>✦ ${acDate(Date.parse(d.at))} ${new Date(d.at).toTimeString().slice(0, 5)} · ${acEsc(d.raceName)}</span><b>${v}</b></button>`;
+}
+/** HTML of the AI docs block of the menu: the last few docs, newest first ("" when none). */
+function acDocsHtml(docs) {
+  if (!docs.length) return "";
+  return `<section><h4>AI docs · ${docs.length}</h4>${docs.slice(0, 4).map(acDocRow).join("")}${docs.length > 4 ? `<button type="button" class="acct-linkbtn" data-acct="docs">All ${docs.length} AI docs</button>` : ""}</section>`;
+}
+/** Open one AI doc in the panel: the same view as a fresh answer, with its own buttons. */
+async function acDocShow(id) {
+  const d = await aiDocsGet(id);
+  if (!d) return;
+  const download = URL.createObjectURL(new Blob([JSON.stringify(d, null, 2)], { type: "application/json" }));
+  acShowPanel(aiLocalHtml({ docId: d.id, when: acDate(Date.parse(d.at)), input: d.input, read: { tokens: d.tokens, output: d.output }, result: d.result, stamp: d.at.slice(0, 19).replace(/[:T]/g, "-"), download }), "AI doc", "acct-local");
 }
 
 /** Open the Ask the AI window (for the "Ask the AI" link of Your race). */
@@ -722,6 +755,18 @@ async function acAction(what) {
     acStartAi(checks.map((k) => k.code));
   } else if (what === "last" && ac.jobs[0]) {
     acShowPanel(acResultHtml(ac.jobs[0].result, ac.jobs[0].created_at));
+  } else if (what.startsWith("doc:")) {
+    acDocShow(what.slice(4));
+  } else if (what === "docs") {
+    acShowPanel(`<p class="acct-kicker">AI docs</p><h3>Every AI answer on this device</h3><section>${ac.docs.map(acDocRow).join("")}</section>`, "AI docs");
+  } else if (what.startsWith("doc-use:")) {
+    aiDocsGet(what.slice(8)).then((d) => {
+      if (!d) return;
+      document.dispatchEvent(new CustomEvent("trp-ai-use", { detail: d }));
+      acAction("ai-race");
+    });
+  } else if (what.startsWith("doc-del:")) {
+    aiDocsDelete(what.slice(8)).then(() => { acPanel.hidden = true; acRender(); });
   } else if (what === "ai-race") {
     // From an AI result: close the window and go to Your race, where the AI plan now plays.
     acPanel.hidden = true;

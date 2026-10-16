@@ -23,9 +23,9 @@ const arEsc = (s) => String(s === null || s === undefined ? "" : s).replace(/[&<
 // The last merge, so redraws (scenario change, theme) do not rebuild it: same plan, same answer.
 let arCache = { plan: null, at: null, result: null };
 
-/** Keep a new AI answer for `race` (the race key "name|km"): { input, output, tokens }. */
-export function arSave(race, x) {
-  const rec = { race, at: new Date().toISOString(), input: x.input, output: x.output, tokens: x.tokens };
+/** Make an AI doc (aidocs.js) the one Your race plays: { id, race, raceName, at, input, output, tokens }. */
+export function arUse(doc) {
+  const rec = { id: doc.id, race: doc.race, raceName: doc.raceName, at: doc.at, input: doc.input, output: doc.output, tokens: doc.tokens };
   try { localStorage.setItem(AR_KEY, JSON.stringify(rec)); } catch (e) { /* full or blocked: kept for this visit only */ }
   arMem = rec;
 }
@@ -45,7 +45,8 @@ function arLoad() {
  */
 export function arState(plan, race) {
   const rec = arLoad();
-  if (!plan || !rec || rec.race !== race) return { state: "none", rec: null, result: null };
+  if (!plan || !rec) return { state: "none", rec: null, result: null };
+  if (rec.race !== race) return { state: "other", rec, result: null };
   const legs = rec.input && rec.input.race && rec.input.race.legs;
   const calc = rec.input && rec.input.calc && rec.input.calc.finishSec;
   // Same plan: same number of sections and the same calculated finish (within a minute).
@@ -65,6 +66,7 @@ export function arState(plan, race) {
 export function arBarHtml(s, on, calcSec, aiSec) {
   const can = s.state === "ok";
   const note = {
+    other: `The AI doc in use is for another race (${arEsc(s.rec && s.rec.raceName)}). Pick one for this race in the account menu > AI docs, or <button class="ar-link" type="button" data-ar="ask">✦ Ask the AI</button>`,
     none: `No AI plan for this race yet. <button class="ar-link" type="button" data-ar="ask">✦ Ask the AI</button>`,
     stale: `Your plan changed since the AI answer (other files or settings). <button class="ar-link" type="button" data-ar="ask">✦ Ask again</button>`,
     empty: `The last AI answer was empty (${arEsc(s.result && s.result.reason)}): nothing to show. <button class="ar-link" type="button" data-ar="ask">✦ Ask again</button>`,

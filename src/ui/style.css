@@ -1273,3 +1273,6 @@ html[data-theme="sky"] .tn-links a.tn-star{color:transparent;filter:drop-shadow(
 .ai-on #s4 .rp-tot:not(:nth-child(2)) .k::after{content:" ✦";color:#b98cff}
 @keyframes aiShine{0%{background-position:100% 0}60%,100%{background-position:0 0}}
 @media (prefers-reduced-motion:reduce){.ai-on #s4 .rp-tot b,.ai-on #s4 #rpClock,.ai-on #s4 .rp-tg td,.ai-on #s4 .rp-leg-info b{animation:none}}
+/* Account menu > AI docs: each doc is a row button (date · race, then verdict · AI finish). */
+.acct-doc{width:100%;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer;border-radius:6px}
+.acct-doc:hover{background:rgba(185,140,255,.12)} .acct-doc b{color:#b98cff}

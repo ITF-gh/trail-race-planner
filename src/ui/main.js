@@ -56,7 +56,7 @@ import { initPrint } from "./print.js";
 import { initHelp } from "./help.js";
 import { siteFooter } from "../site/site.js";
 import { initAccount, acctSaveRun, acctSaveGpx, acctOpenAsk } from "./account.js";
-import { arSave, arState, arBarHtml } from "./airace.js";
+import { arUse, arState, arBarHtml } from "./airace.js";
 import { startAnalytics, trackEvent, trackOnce, analyticsOn, analyticsName } from "./analytics.js";
 import { makeDemoRaceGpx, makeDemoEffortGpx, DEMO_ULTRA_PROFILE, DEMO_ULTRA_AID, DEMO_LONG_RUN_PROFILE } from "../demo.js";
 
@@ -1142,10 +1142,11 @@ $("#s4ai").addEventListener("click", (ev) => {
   trackEvent("ai-switch", what);
   renderReplay();
 });
-// A new AI answer (the Ask the AI window, account.js): keep it for this race and show it.
-document.addEventListener("trp-ai-answer", (ev) => {
+// An AI doc to play (a new answer, or one picked in the account menu's AI docs): Your race
+// plays it, with the AI switch on.
+document.addEventListener("trp-ai-use", (ev) => {
+  arUse(ev.detail);
   if (!state.plan) return;
-  arSave(raceKey(), ev.detail);
   state.aiOn = true;
   store.set("trp.ai.on", true);
   renderReplay();
@@ -1415,6 +1416,8 @@ initAccount({
     gpxRuns: state.effort ? state.effort.runs.length : 0,
     targetText: state.settings.targetTime || "",
     centralSec: state.plan ? state.plan.scenarios.central.finishSec : null,
+    // The race key the AI docs are filed under (the same as Your race's).
+    key: state.plan ? raceKey() : null,
     // The whole plan, for the local AI test (ailocal.js builds the AI input from it).
     plan: state.plan,
   }),
