@@ -48,7 +48,7 @@ import { watchPanelHtml, mountWatch, watchPoints, downloadCourse, pimpBadge } fr
 import { prepHeroHtml, initPrepRun } from "./preprun.js";
 import { mmss, hm, clock, parseDuration } from "../core/format.js";
 import { keyZones, toblerClock } from "../core/keyzones.js";
-import { secAtKm } from "../core/script.js";
+import { secAtKm, raceLegs } from "../core/script.js";
 import { courseMap } from "./map.js";
 import { mountReplay, stopReplay } from "./replay.js";
 import { initRunMode, pauseRun, currentRun } from "./review.js";
@@ -1368,7 +1368,21 @@ compute();
 prepCtl = initPrepRun({ getRuns: () => (state.effort ? state.effort.runs.map((r) => r.parsed) : []), getSettings: () => state.settings, onLoaded: () => renderNav(), cockpit: (box, plan, key) => mountCockpit(box, plan, "central", key, "Run") });
 setMode(new URLSearchParams(window.location.search).get("mode"), false);
 startAnalytics();
-initAccount();
+// The Ask the AI window (account.js) reads the race being prepared through this function: the
+// race GPX (name, km, climbing, sections once the plan exists, aid stations typed), how many GPX
+// files are in Your runs, the target time typed and the calculated central finish time.
+initAccount({
+  getRace: () => ({
+    race: state.race ? {
+      name: state.race.name, km: state.race.course.totalKm, gain: state.race.course.gain,
+      legs: state.plan ? raceLegs(state.plan, "central").length : state.race.course.climbs.length + state.race.course.descents.length,
+      aid: parseAidStations(state.settings.aidStations).length,
+    } : null,
+    gpxRuns: state.effort ? state.effort.runs.length : 0,
+    targetText: state.settings.targetTime || "",
+    centralSec: state.plan ? state.plan.scenarios.central.finishSec : null,
+  }),
+});
 initHelp();
 
 // This is event delegation: one listener on the whole document handles every jump link, even

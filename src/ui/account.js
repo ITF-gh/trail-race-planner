@@ -35,10 +35,11 @@
 
 import { parseGpx } from "../core/track.js";
 import { analyseRun } from "../core/review.js";
-import { historySummary, aiSelect, recordClean, AI_FOCUS, AI_QUESTION_MAX } from "../core/history.js";
+import { historySummary, aiSelect, recordClean, AI_QUESTION_MAX } from "../core/history.js";
+import { aiRaceChecks, AI_GOALS, AI_RISKS, AI_NOTES_MAX } from "../core/aichecks.js";
 import { runRecord } from "../core/runrecord.js";
 import { demoRecords, DEMO_USER } from "../core/demorecords.js";
-import { mmss, hms } from "../core/format.js";
+import { mmss, hms, hm, parseDuration } from "../core/format.js";
 import { trackEvent } from "./analytics.js";
 import { profileHtml, profileInput, profileAction, profileAthlete, profileWho } from "./profile.js";
 import { cloudOn, cloudUser, cloudFromUrl, cloudSendLink, cloudSignOut, cloudRuns, cloudPutRuns, cloudDeleteRuns, cloudLedger, cloudClaim, cloudAnalyse, cloudJob, cloudJobs, cloudDeleteAccount } from "./cloud.js";
@@ -178,8 +179,8 @@ let acList = [], acDemo = false; // the runs the menu shows (yours, or User1's)
  * HTML of the tokens section of the menu ("AI edelweiss"). `S` is the summary from
  * historySummary(). The count shown is the server's balance when signed in ("…" until the
  * ledger is read), otherwise S.cairns: what the achievements in this browser would earn.
- * The note under it is, in order of priority: a message (signed in), "Claude is reading your
- * runs" while an analysis runs, or what tokens are for. Signed out with the account open: a
+ * The note under it is, in order of priority: a message (signed in), "The AI is reading your
+ * race and runs" while an analysis runs, or what tokens are for. Signed out with the account open: a
  * sign-in form. Signed in: a link to the last analysis, when there is one.
  * The "Ask the AI" button is only disabled while an analysis runs; the Ask the AI window then
  * says what (if anything) blocks it.
@@ -187,9 +188,9 @@ let acList = [], acDemo = false; // the runs the menu shows (yours, or User1's)
 function acTokensHtml(S) {
   const signedIn = cloudOn() && cloudUser();
   const n = signedIn ? (ac.ledger ? acBalance() : "…") : S.cairns;
-  let note = `Earned with achievements and events. 1 ${AC_TOKEN.one} buys 1 AI analysis of the runs you choose.`;
+  let note = `Earned with achievements and events. 1 ${AC_TOKEN.one} buys 1 AI-tailored race plan.`;
   if (signedIn && ac.msg) note = acEsc(ac.msg);
-  else if (signedIn && ac.job) note = "Claude is reading your runs. It takes about a minute; you can close this menu.";
+  else if (signedIn && ac.job) note = "The AI is reading your race and runs. It takes about a minute; you can close this menu.";
   // The sign-in form, only when the account exists but nobody is signed in. data-acct-form names
   // it for the submit listener in initAccount.
   const signin = cloudOn() && !signedIn ? `<form class="acct-signin" data-acct-form="signin">
@@ -267,113 +268,167 @@ function acBestsHtml(S) {
     </div>`;
 }
 
-// The AI window: the runner picks the source data (a date range or chosen runs), an axis and a question.
-// Its state, kept between openings of the window:
-//   mode      "dates" (a date range) or "runs" (runs ticked one by one)
+// The AI window, Prep my race version: the runner sees the target race (from the race GPX), picks
+// their old runs (the GPX files of "Your runs" plus a choice of the runs stored in the account)
+// and gives their own input (goal, target time, risk, free information, question).
+// Its state, kept between openings of the window (nothing typed is lost, whatever is clicked):
+//   mode      "dates" (a date range) or "runs" (stored runs ticked one by one)
 //   from, to  the range, as ms at midnight UTC of the first and last day (both days included);
 //             null until the window first opens, then the last 90 days
 //   ids       a Set of the ticked run ids (a Set holds each value once, quick to test)
-//   focus     the axis of analysis, a code from AI_FOCUS (history.js), e.g. "climbing"
+//   goal      a code from AI_GOALS (aichecks.js): "finish", "target" or "best"
+//   risk      a code from AI_RISKS: "prudent", "balanced" or "bold"
+//   target    the target time as typed ("7:30"); null until the window first opens, then the
+//             plan's own target time
+//   notes     free information about the runner or the race, "" when none
 //   question  the runner's own question, "" when none
-const acAsk = { mode: "dates", from: null, to: null, ids: new Set(), focus: "overall", question: "" };
+//   checks    the failed checks shown after a click on "Spend", or null when none are shown
+const acAsk = { mode: "dates", from: null, to: null, ids: new Set(), goal: "target", risk: "balanced", target: null, notes: "", question: "", checks: null };
 // A date in ms as "2026-10-16", the format an <input type="date"> reads and shows.
 const acDay = (ms) => new Date(ms).toISOString().slice(0, 10);
 // Today at midnight UTC, in ms (Date.UTC builds the moment from year, month, day).
 const acToday = () => { const d = new Date(); return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()); };
+// What the page knows about the race being prepared, given by main.js to initAccount (getRace):
+// { race: { name, km, gain, legs, aid } or null, gpxRuns, targetText, centralSec }.
+let acGetRace = () => ({ race: null, gpxRuns: 0, targetText: "", centralSec: null });
 /**
- * What is sent to the server as the `ask`: the ticked ids, or the date range, plus the axis and
- * the question. The server cleans it again (aiAsk in history.js) and never trusts it as is.
+ * What is sent to the server as the `ask`: the stored runs (ticked ids or the date range), the
+ * goal, target time, risk, free information and question, and `forced`: the codes of the
+ * warnings the runner chose to send anyway. `focus: "race"` keeps the server of today working
+ * (it reads only the runs, the focus and the question). The server cleans it all again.
  */
-function acAskPayload() {
-  return acAsk.mode === "runs"
-    ? { ids: [...acAsk.ids], focus: acAsk.focus, question: acAsk.question }
-    : { from: acAsk.from, to: acAsk.to, focus: acAsk.focus, question: acAsk.question };
+function acAskPayload(forced = []) {
+  const runs = acAsk.mode === "runs" ? { ids: [...acAsk.ids] } : { from: acAsk.from, to: acAsk.to };
+  return { ...runs, mode: "prep_race", focus: "race", goal: acAsk.goal, risk: acAsk.risk, targetSec: parseDuration(acAsk.target), notes: acAsk.notes, question: acAsk.question, forced };
 }
+/** The stored runs the window currently selects (aiSelect: the same rule as on the server). */
+const acAskRuns = () => aiSelect(acList, acAskPayload());
 /**
- * The runs the window currently selects (aiSelect: the same rule as on the server), and `block`:
- * the reason the analysis cannot start, or "" when it can. Checked in order: no run selected,
- * account not open yet, not signed in, no token left.
+ * The code checks of a click on "Spend" (aiRaceChecks in core/aichecks.js), from what the window
+ * and the page hold now. Returns the failed checks, hard stops first ([] = all clear).
  */
-function acAskState() {
-  const runs = aiSelect(acList, acAskPayload());
-  const signedIn = cloudOn() && cloudUser();
-  const bal = acBalance();
-  let block = "";
-  if (!runs.length) block = "Choose at least one run.";
-  else if (!cloudOn()) block = acDemo ? "Demo profile: the AI opens with the online account." : "The AI opens with the online account, soon.";
-  else if (!signedIn) block = "Sign in first (in the menu).";
-  else if (bal < 1) block = `No ${AC_TOKEN.one} left: earn one with an achievement or an event.`;
-  return { runs, block };
+function acAskChecks() {
+  const R = acGetRace();
+  const signedIn = Boolean(cloudOn() && cloudUser());
+  return aiRaceChecks({
+    race: R.race, gpxRuns: R.gpxRuns, storedRuns: acAskRuns().length,
+    targetText: (acAsk.target || "").trim(), targetSec: parseDuration((acAsk.target || "").trim()), centralSec: R.centralSec,
+    notes: acAsk.notes, question: acAsk.question,
+    cloud: { open: cloudOn(), signedIn, balance: acBalance(), demo: acDemo },
+  });
 }
-/**
- * The selection in one line of HTML: "12 runs · 240 km, 3 Jul to 14 Oct", plus `runs` and
- * `block` from acAskState.
- */
+/** The stored runs selected, in one line of HTML: "12 runs · 240 km, 3 Jul to 14 Oct". */
 function acAskSummary() {
-  const { runs, block } = acAskState();
+  const runs = acAskRuns();
   const km = runs.reduce((t, r) => t + r.km, 0);
   // Math.min(...list): the spread operator passes every date as a separate argument.
   const span = runs.length ? `, ${acDate(Math.min(...runs.map((r) => r.date)))} to ${acDate(Math.max(...runs.map((r) => r.date)))}` : "";
-  return { runs, block, text: `<b>${runs.length} run${runs.length === 1 ? "" : "s"} · ${acNum(km)} km</b>${span}` };
+  return `<b>${runs.length} stored run${runs.length === 1 ? "" : "s"} · ${acNum(km)} km</b>${span}`;
 }
 /**
- * HTML of the Ask the AI window, three steps:
- *   1. Your data: date range (two date fields and quick ranges) or a list of runs to tick;
- *      the line under it counts the runs and km selected.
- *   2. Axis of analysis: one chip (a small toggle button) per AI_FOCUS entry.
- *   3. Your question: optional, at most AI_QUESTION_MAX characters.
- * Then what is sent and what is not, the "Spend 1 edelweiss" button (disabled with the reason
- * shown under it when something blocks) and Cancel.
+ * HTML of the Ask the AI window for Prep my race, five steps:
+ *   1. Target race: what the race GPX gives (name, km, climbing, sections, aid stations), or a
+ *      link to load it.
+ *   2. Your old runs: how many GPX files are in "Your runs", then the stored runs to use (a date
+ *      range or runs ticked one by one).
+ *   3. Your goal: goal chips, target time, risk chips.
+ *   4. Free information and 5. Your question: optional texts.
+ * Then what is sent and what is not, and either the "Spend 1 edelweiss" and Cancel buttons, or,
+ * after a click on Spend that failed a check, the box of checks with Fix and retry, Send anyway
+ * (only when no check is a hard stop) and Cancel.
+ * Every element a check can point at carries data-field, so "Fix and retry" can scroll to it.
  */
 function acAskHtml() {
-  // First opening: the last 90 days (86400000 ms = one day).
+  const R = acGetRace();
+  // First opening: the last 90 days (86400000 ms = one day), and the plan's own target time.
   if (acAsk.from === null && acAsk.to === null) { acAsk.to = acToday(); acAsk.from = acAsk.to - 90 * 86400000; }
+  if (acAsk.target === null) acAsk.target = R.targetText || "";
   // Runs newest first, for the pick list.
   const sorted = [...acList].sort((a, b) => b.date - a.date);
-  const sum = acAskSummary();
   // One toggle button; `attr` is its data-acct attribute, the class "on" marks the chosen one.
   const chip = (attr, label, on) => `<button type="button" class="acct-chip${on ? " on" : ""}" ${attr}>${label}</button>`;
-  return `<p class="acct-kicker">${AC_SPARK} Ask the AI · 1 ${AC_TOKEN.one}</p>
-    <h3>What should Claude look at?</h3>
-    <h4>1 · Your data</h4>
+  const r = R.race;
+  const race = r
+    ? `<div class="acct-race" data-field="race"><b>${acEsc(r.name)}</b><span>${r.km.toFixed(1)} km · ${acNum(r.gain)} m D+ · ${r.legs} section${r.legs === 1 ? "" : "s"} · ${r.aid} aid station${r.aid === 1 ? "" : "s"}</span></div>`
+    : `<div class="acct-race empty" data-field="race"><span>No race GPX loaded yet.</span><button class="acct-linkbtn" type="button" data-acct="goto:dropRace">Load it in 02 The race</button></div>`;
+  const gpx = R.gpxRuns
+    ? `<p class="acct-sub" data-field="runs"><b>${R.gpxRuns} GPX file${R.gpxRuns === 1 ? "" : "s"}</b> in Your runs: your pace on every gradient.</p>`
+    : `<p class="acct-sub" data-field="runs">No GPX file in Your runs. <button class="acct-linkbtn" type="button" data-acct="goto:dropEffort">Add runs in 01 Your runs</button></p>`;
+  const C = acAsk.checks;
+  const stop = C && C.some((k) => k.level === "stop");
+  const box = C && C.length ? `<div class="acct-checks" role="alert">
+      <h4>Before sending</h4>
+      <ul>${C.map((k) => `<li class="${k.level}"><span>${k.level === "stop" ? "Blocked" : "Warning"}</span>${acEsc(k.text)}</li>`).join("")}</ul>
+      <p class="acct-note">${stop ? "This cannot be sent yet. Nothing is spent." : `Send anyway uses 1 ${AC_TOKEN.one}, even if the AI returns nothing.`} Everything you filled in stays.</p>
+      <div class="acct-actions"><button class="btn primary" type="button" data-acct="fix">Fix and retry</button>${stop ? "" : `<button class="btn ghost" type="button" data-acct="force">${AC_SPARK}Send anyway</button>`}<button class="btn ghost" type="button" data-acct="close">Cancel</button></div>
+    </div>` : `<div class="acct-actions"><button class="btn primary" type="button" data-acct="go">${AC_SPARK}Spend 1 ${AC_TOKEN.one}</button><button class="btn ghost" type="button" data-acct="close">Cancel</button></div>`;
+  return `<p class="acct-kicker">${AC_SPARK} Ask the AI · Prep my race · 1 ${AC_TOKEN.one}</p>
+    <h3>Tailor my race plan</h3>
+    <h4>1 · Target race</h4>
+    ${race}
+    <h4>2 · Your old runs</h4>
+    ${gpx}
+    <p class="acct-sub">Runs stored in your account: your trend over the weeks.</p>
     <div class="acct-chips">${chip('data-acct="mode:dates"', "Date range", acAsk.mode === "dates")}${chip('data-acct="mode:runs"', "Pick runs", acAsk.mode === "runs")}</div>
     ${acAsk.mode === "dates" ? `<div class="acct-range">
         <label>From <input type="date" data-ask="from" value="${acDay(acAsk.from)}"></label>
         <label>To <input type="date" data-ask="to" value="${acDay(acAsk.to)}"></label>
         <div class="acct-chips small">${[[28, "4 weeks"], [91, "3 months"], [365, "12 months"], [0, "Everything"]].map(([d, l]) => chip(`data-acct="range:${d}"`, l, false)).join("")}</div>
-      </div>` : `<div class="acct-pick">${sorted.map((r) => `<label><input type="checkbox" data-ask="run" value="${acEsc(r.id)}"${acAsk.ids.has(r.id) ? " checked" : ""}><span>${acDate(r.date)} · ${acEsc(r.name)}</span><b>${r.km.toFixed(1)} km · ${acNum(r.gain)} m</b></label>`).join("")}</div>`}
-    <p class="acct-ask-count">${sum.text}</p>
-    <h4>2 · Axis of analysis</h4>
-    <div class="acct-chips">${AI_FOCUS.map((f) => chip(`data-acct="focus:${f.code}"`, f.label, acAsk.focus === f.code)).join("")}</div>
-    <h4>3 · Your question <small>(optional)</small></h4>
-    <textarea class="acct-q" data-ask="question" maxlength="${AI_QUESTION_MAX}" rows="2" placeholder="How can I go sub-40 in 10K in a month?">${acEsc(acAsk.question)}</textarea>
-    <p class="acct-note">Sent: the numbers of the selected runs (date, distance, climbing, times, grade-adjusted pace, fade, climbing speed, fastest 1, 5 and 10 km), the heart rates and weight from your profile, the axis and your question. <b>Not sent:</b> run names, GPS tracks, your email, and no heart rate from your runs (the app never keeps it). If the analysis fails, your ${AC_TOKEN.one} comes back.</p>
-    <div class="acct-actions"><button class="btn primary" type="button" data-acct="go"${sum.block ? " disabled" : ""}>${AC_SPARK}Spend 1 ${AC_TOKEN.one}</button><button class="btn ghost" type="button" data-acct="close">Cancel</button></div>
-    <p class="acct-note acct-ask-block">${sum.block}</p>`;
+      </div>` : `<div class="acct-pick">${sorted.map((x) => `<label><input type="checkbox" data-ask="run" value="${acEsc(x.id)}"${acAsk.ids.has(x.id) ? " checked" : ""}><span>${acDate(x.date)} · ${acEsc(x.name)}</span><b>${x.km.toFixed(1)} km · ${acNum(x.gain)} m</b></label>`).join("")}</div>`}
+    <p class="acct-ask-count">${acAskSummary()}</p>
+    <h4>3 · Your goal</h4>
+    <div class="acct-chips">${AI_GOALS.map((g) => chip(`data-acct="goal:${g.code}"`, g.label, acAsk.goal === g.code)).join("")}</div>
+    <div class="acct-range" data-field="target">
+      <label>Target time <input type="text" class="acct-time" data-ask="target" inputmode="numeric" placeholder="h:mm" value="${acEsc(acAsk.target)}"></label>
+      <span class="acct-note acct-inline">${R.centralSec ? `Calculated: ${hm(R.centralSec)}` : "Calculated time: once both files are loaded"}</span>
+    </div>
+    <p class="acct-sub">Risk the plan may take</p>
+    <div class="acct-chips">${AI_RISKS.map((x) => chip(`data-acct="risk:${x.code}"`, x.label, acAsk.risk === x.code)).join("")}</div>
+    <h4>4 · Free information <small>(optional)</small></h4>
+    <textarea class="acct-q" data-ask="notes" data-field="notes" maxlength="${AI_NOTES_MAX}" rows="3" placeholder="e.g. Knee pain on long descents since August. I race with poles. Hot weather expected.">${acEsc(acAsk.notes)}</textarea>
+    <h4>5 · Your question <small>(optional)</small></h4>
+    <textarea class="acct-q" data-ask="question" data-field="question" maxlength="${AI_QUESTION_MAX}" rows="2" placeholder="e.g. Is 7:30 realistic if I hike every climb steeper than 12%?">${acEsc(acAsk.question)}</textarea>
+    <p class="acct-note">Sent: the race sections (distance, climbing, gradients) and aid stations, your pace on each gradient learned from Your runs, the numbers of the stored runs selected, your goal, target time, risk, free information and question, and the heart rates and weight from your profile. <b>Not sent:</b> the GPX files, GPS tracks, run names and your email. The AI only analyses this data: any other request returns nothing.</p>
+    ${box}`;
 }
 /**
- * Refresh the count and the button without redrawing the window (keeps the cursor where it is).
+ * Refresh the count of stored runs without redrawing the window (keeps the cursor where it is).
  * Used while the runner types or ticks: redrawing the whole window would reset the text field.
  */
 function acAskRefresh() {
-  const sum = acAskSummary();
   // querySelector finds the first element matching a CSS selector; null when there is none.
-  const c = acPanel.querySelector(".acct-ask-count"), go = acPanel.querySelector('[data-acct="go"]'), bl = acPanel.querySelector(".acct-ask-block");
-  if (c) c.innerHTML = sum.text;
-  if (go) go.disabled = Boolean(sum.block);
-  if (bl) bl.textContent = sum.block;
+  const c = acPanel.querySelector(".acct-ask-count");
+  if (c) c.innerHTML = acAskSummary();
 }
 /**
  * A field of the Ask the AI window changed (`el` is the input). Its data-ask attribute says which:
- * question (the text), from / to (a date field) or run (a checkbox). Updates acAsk, then the count.
+ * target, notes, question (texts), from / to (a date field) or run (a checkbox). Updates acAsk,
+ * then the count.
  */
 function acAskInput(el) {
   const k = el.dataset.ask;
-  if (k === "question") acAsk.question = el.value;
+  if (k === "question" || k === "notes" || k === "target") acAsk[k] = el.value;
   // Date.parse("2026-10-16") gives midnight UTC of that day in ms; NaN (an empty field) is ignored.
   else if (k === "from" || k === "to") { const v = Date.parse(el.value); if (Number.isFinite(v)) acAsk[k] = v; }
   else if (k === "run") { if (el.checked) acAsk.ids.add(el.value); else acAsk.ids.delete(el.value); }
   acAskRefresh();
+}
+/**
+ * Redraw the Ask the AI window, keeping its scroll position. `field` (optional) is a data-field
+ * name: the window then scrolls to that element and puts the focus in it when it is a field.
+ */
+function acAskShow(field = "") {
+  const box = acPanel.querySelector(".acct-panel-in");
+  const top = box && !acPanel.hidden ? box.scrollTop : 0;
+  acShowPanel(acAskHtml(), "Ask the AI");
+  const nb = acPanel.querySelector(".acct-panel-in");
+  if (nb) nb.scrollTop = top;
+  const el = field ? acPanel.querySelector(`[data-field="${field}"]`) : null;
+  if (!el) return;
+  el.scrollIntoView({ block: "center" });
+  // The element itself when it is a text field, else the first field or button inside it.
+  const f = el.matches("input, textarea") ? el : el.querySelector("input, textarea, button");
+  if (f) f.focus({ preventScroll: true });
 }
 
 // The page elements, set by initAccount: the wrapper, the drop-down menu, the pop-up panel.
@@ -460,17 +515,18 @@ function acResultHtml(r, when) {
 
 /**
  * Start an AI analysis (the "Spend 1 edelweiss" button) and wait for its result.
- * Sends the athlete settings and the window's ask (acAskPayload). The server answers at once
+ * Sends the athlete settings and the window's ask (acAskPayload, with `forced`: the codes of the
+ * warnings the runner chose to send anyway). The server answers at once
  * with a job id and works in the background; this function then "polls": it asks for the job's
  * status every 4 s until it is done or failed, or 6 minutes have passed (90 tries x 4 s).
  * Done: the result opens in the panel. Failed: the server gives the token back, and the ledger
  * is read again to show it.
  */
-async function acStartAi() {
+async function acStartAi(forced = []) {
   acPanel.hidden = true;
   ac.msg = "";
   try {
-    const r = await cloudAnalyse(profileAthlete(), acAskPayload());
+    const r = await cloudAnalyse(profileAthlete(), acAskPayload(forced));
     ac.job = r.job;
     trackEvent("ai-start");
     ac.ledger = await cloudLedger();
@@ -526,15 +582,19 @@ function acProfile(keep = false) {
  *   clear       delete all runs (after a confirm), here and in the account
  *   signout     sign out and forget the account data in memory
  *   delete      delete the online account (after a confirm)
- *   ai          open the Ask the AI window
+ *   ai          open the Ask the AI window (Prep my race)
  *   mode:X      in that window, switch to "dates" or "runs"
  *   range:N     set the range to the last N days (0 = everything)
- *   focus:X     choose the axis of analysis
+ *   goal:X      choose the goal; risk:X the risk (only the chips change)
+ *   goto:ID     close the window and scroll to the page element ID (a drop zone for a GPX)
+ *   go          run the code checks (aichecks.js): all clear starts the analysis, otherwise the
+ *               window shows the checks; fix = hide them and go to the first field to fix;
+ *               force = start anyway with the warnings (never with a hard stop)
  *   bests       open the all-time bests pop-up
  *   profile     open the Account window (profile.js); pf:X are its own buttons
- *   go          start the analysis; last = show the last result; close = hide the pop-up
- * "mode:" and "range:" redraw the window; "focus:" only moves the highlight, so a question being
- * typed is kept either way (it lives in acAsk).
+ *   last        show the last result; close = hide the pop-up
+ * "mode:" and "range:" redraw the window; "goal:" and "risk:" only move the highlight. What is
+ * typed is kept either way: it lives in acAsk, not in the page.
  */
 async function acAction(what) {
   if (what === "export") {
@@ -567,6 +627,7 @@ async function acAction(what) {
     try { await cloudDeleteAccount(); Object.assign(ac, { ledger: null, jobs: [], job: null, msg: "Account deleted." }); trackEvent("account-delete"); } catch (e) { ac.msg = e.message; }
     acRender();
   } else if (what === "ai") {
+    acAsk.checks = null;
     acShowPanel(acAskHtml(), "Ask the AI");
     trackEvent("ai-open");
   } else if (what.startsWith("mode:")) {
@@ -574,19 +635,25 @@ async function acAction(what) {
     // the current date range, so the list starts from the same selection.
     acAsk.mode = what.slice(5);
     if (acAsk.mode === "runs" && !acAsk.ids.size) aiSelect(acList, { from: acAsk.from, to: acAsk.to }).forEach((r) => acAsk.ids.add(r.id));
-    acShowPanel(acAskHtml(), "Ask the AI");
+    acAskShow();
   } else if (what.startsWith("range:")) {
     // what.slice(6) drops "range:"; Number turns "28" into 28. "Everything" (0) starts at the
     // oldest run (or today when there is none).
     const d = Number(what.slice(6));
     acAsk.to = acToday();
     acAsk.from = d ? acAsk.to - d * 86400000 : Math.min(acAsk.to, ...acList.map((r) => r.date));
-    acShowPanel(acAskHtml(), "Ask the AI");
-  } else if (what.startsWith("focus:")) {
-    // Only the chips change: toggle the "on" class on the one whose data-acct matches. [^="focus:"]
-    // in the selector means "starts with focus:".
-    acAsk.focus = what.slice(6);
-    acPanel.querySelectorAll('[data-acct^="focus:"]').forEach((b) => b.classList.toggle("on", b.dataset.acct === what));
+    acAskShow();
+  } else if (what.startsWith("goal:") || what.startsWith("risk:")) {
+    // Only the chips change: toggle the "on" class on the one whose data-acct matches.
+    // [data-acct^="goal:"] in the selector means "starts with goal:".
+    const [k, v] = what.split(":");
+    acAsk[k] = v;
+    acPanel.querySelectorAll(`[data-acct^="${k}:"]`).forEach((b) => b.classList.toggle("on", b.dataset.acct === what));
+  } else if (what.startsWith("goto:")) {
+    // Close the window (its content stays in acAsk) and bring the drop zone into view.
+    acPanel.hidden = true;
+    const el = document.getElementById(what.slice(5));
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
   } else if (what === "profile") {
     acProfile();
     trackEvent("profile-open");
@@ -595,7 +662,26 @@ async function acAction(what) {
   } else if (what === "bests") {
     acShowPanel(acBestsHtml(historySummary(acList)), "All-time bests");
   } else if (what === "go") {
-    acStartAi();
+    // The code checks, at click and before any call: all clear starts the analysis at once.
+    const checks = acAskChecks();
+    if (!checks.length) { acAsk.checks = null; acStartAi(); return; }
+    acAsk.checks = checks;
+    acAskShow();
+    // Bring the box of checks into view (it sits at the bottom of the window).
+    const box = acPanel.querySelector(".acct-checks");
+    if (box) box.scrollIntoView({ block: "nearest" });
+    trackEvent("ai-checks");
+  } else if (what === "fix") {
+    const first = (acAsk.checks || []).find((k) => k.field);
+    acAsk.checks = null;
+    acAskShow(first ? first.field : "");
+  } else if (what === "force") {
+    // Never past a hard stop: the checks are made again, and only warnings can be forced.
+    const checks = acAskChecks();
+    if (checks.some((k) => k.level === "stop")) { acAsk.checks = checks; acAskShow(); return; }
+    acAsk.checks = null;
+    trackEvent("ai-forced");
+    acStartAi(checks.map((k) => k.code));
   } else if (what === "last" && ac.jobs[0]) {
     acShowPanel(acResultHtml(ac.jobs[0].result, ac.jobs[0].created_at));
   } else if (what === "close") {
@@ -626,8 +712,11 @@ async function acSignIn(form) {
  * Event delegation: instead of one listener per menu button (the menu is redrawn often, which
  * would drop them), ONE listener on the wrapper catches every click and looks up the nearest
  * element with a data-acct attribute (e.target.closest). Redrawing the menu needs no re-wiring.
+ * `opts.getRace` (from main.js) tells the Ask the AI window about the race being prepared:
+ * a function returning { race: { name, km, gain, legs, aid } or null, gpxRuns, targetText, centralSec }.
  */
-export async function initAccount() {
+export async function initAccount(opts = {}) {
+  if (opts.getRace) acGetRace = opts.getRace;
   acEl = document.createElement("div");
   acEl.className = "acct";
   // The round button (a person icon in SVG: a circle head and a curved path for the shoulders),
