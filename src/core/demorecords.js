@@ -1,10 +1,16 @@
 // demorecords.js: the made-up run log of "User1", the demo profile the account menu shows while
 // this device has no run of its own. Same shape as runRecord() summaries, so the menu, the stats
 // and the achievements work on it unchanged. Nothing of it is ever stored or sent anywhere.
+//
+// Called by src/ui/account.js when this device has no saved run and nobody is signed in:
+// historySummary (history.js) then runs on these records like on real ones. Each record is
+// marked demo: true.
 
 export const DEMO_USER = "User1";
 
+// The demo runs, one array per run (compact, easy to edit), oldest last:
 // [days ago, name, km, D+ m, moving pace s/km, avg HR, fade %, heart drift %, climbing speed m/h]
+// null = no value (a flat run has no climbing speed).
 const DEMO_RUNS = [
   [2, "Ridge loop", 14.2, 720, 412, 148, 3.1, 4.2, 980],
   [5, "Easy river run", 9.8, 110, 338, 136, 1.2, 2.1, null],
@@ -30,7 +36,14 @@ const DEMO_RUNS = [
   [318, "Winter long run", 22.6, 940, 452, 144, 5.9, 6.6, 840],
 ];
 
-/** The demo log, dated back from `now` (newest first). */
+/**
+ * The demo log, dated back from `now` (newest first).
+ * Each array is destructured into named variables and turned into a record of the same shape as
+ * runRecord's. The values not in the table are derived with simple rules of thumb (they only
+ * need to look plausible): the date is rounded to the hour, minus 2 h; elapsed time is moving
+ * time + 3% (+8% over 30 km, for stops); best efforts are fractions of the average pace, never
+ * faster than a floor (3:25/km for 1 km, 3:44/km over 5 km, 3:58/km over 10 km).
+ */
 export function demoRecords(now = Date.now()) {
   return DEMO_RUNS.map(([ago, name, km, gain, pace, hr, fade, drift, vam]) => {
     const date = Math.round((now - ago * 86400000) / 3600000) * 3600000 - 2 * 3600000;

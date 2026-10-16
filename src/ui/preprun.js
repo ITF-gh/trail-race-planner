@@ -7,6 +7,16 @@
 //   your target time if you give one (the estimate stretched to land on it), otherwise
 //   your reference runs if Plan a race has some loaded (your own pace on every gradient), otherwise
 //   a generic estimate from Tobler's hiking function.
+//
+// Where it sits: main.js puts prepHeroHtml() in the page and calls initPrepRun() once at start-up,
+// passing small functions (getRuns, getSettings, cockpit) so this file can read main.js's state
+// without importing it. The data flow on each file drop is:
+//   GPX text -> parseGpx (core/track.js) -> buildPlan (core/plan.js) or prepRunPlan
+//   (core/preprun.js) -> render(): summary, cockpit (replay.js through main.js), watch panel
+//   (watch.js), download buttons.
+//
+// Main exports: prepHeroHtml (the mode's header and drop zone), initPrepRun (wires everything and
+// returns { rerender, current }).
 
 import { parseGpx } from "../core/track.js";
 import { buildPlan } from "../core/plan.js";
@@ -16,10 +26,16 @@ import { makeDemoRaceGpx, DEMO_LONG_RUN_PROFILE } from "../demo.js";
 import { watchPanelHtml, mountWatch, watchPoints, downloadCourse, pimpBadge } from "./watch.js";
 import { trackEvent } from "./analytics.js";
 
+// Escape text for HTML: each of & < > " (the regex's character set) becomes its entity.
 const prEsc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+// Where the times come from, as written under the summary ("Times come from ...").
 const SOURCE = { target: "your target time", runs: "your reference runs", estimate: "a generic estimate (add a target time to adjust)" };
 
-/** Hero text and file drop for the mode (shown only in Prep my run). */
+/**
+ * Hero text and file drop for the mode (shown only in Prep my run).
+ * `peak` is the logo's HTML, passed in by main.js. Returns an HTML string. The "prep-only" class
+ * lets style.css hide these blocks in the other modes.
+ */
 export function prepHeroHtml(peak) {
   return `<div class="hero-row prep-only">
       <div>
@@ -42,21 +58,40 @@ export function prepHeroHtml(peak) {
 /**
  * Wire the mode. getRuns() returns the reference runs loaded in Plan a race (parsed GPX) or [];
  * getSettings() the planner settings (start time, hiking threshold...); onLoaded() runs after each render.
+ * cockpit(box, plan, key) draws the race-day cockpit (section bar, map, profile) in `box`; it is
+ * main.js's own, so both modes look the same.
+ * The `= {}` after the braces lets initPrepRun() be called with no argument at all.
+ * Returns { rerender, current }: rerender() redraws with fresh settings, current() tells the
+ * print export what is on screen.
+ * Side effects: listens to the file input, the drop zone, the sample button and two page events.
  */
 export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLoaded = () => {}, cockpit = null } = {}) {
+  // The mode's state, kept between renders (a closure: every function below sees the same `st`):
+  //   parsed     the parsed GPX of the run to come ({ name, points, ... }), null before a drop
+  //   name       the name shown (file name, or the GPX's own name)
+  //   targetSec  target time typed by the runner, in seconds (0 = none)
+  //   startTime  start time typed here ("HH:MM"), null = use the planner's setting
+  //   plan       the last plan built, key its localStorage key for the watch messages,
+  //   source     where its times came from ("target", "runs" or "estimate", see SOURCE)
   const st = { parsed: null, name: "", targetSec: 0, startTime: null, plan: null, key: "", source: "" };
   const $p = (s) => document.querySelector(s);
   // The cockpit (section bar, map, profile, run script) is the race-day one from main.js. Only one
   // can play at a time, so it is built when this mode is on screen and emptied when you leave it.
+  // The current mode is stored as data-mode on the <html> element.
   const inMode = () => document.documentElement.dataset.mode === "prep";
   const showCockpit = () => {
     const box = $p("#prepCockpit");
     if (!box || !cockpit || !st.plan) return;
     if (inMode()) cockpit(box, st.plan, st.key); else box.innerHTML = "";
   };
+  // main.js announces a mode switch and a theme switch with these custom events on `document`.
   document.addEventListener("trp-mode", showCockpit);
   document.addEventListener("trp-theme", showCockpit); // redraw so the map takes the new tiles
 
+  /**
+   * Read a GPX (its text `xml`), keep it, and draw the mode. `label` is the name to show.
+   * On a bad file, parseGpx throws an Error and its message is shown under the drop zone.
+   */
   const load = (xml, label) => {
     try {
       const parsed = parseGpx(xml);
@@ -73,12 +108,20 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
     }
   };
 
+  /**
+   * Build the plan for the loaded course, choosing the time source in the order given at the top
+   * of the file. Returns { plan, source }.
+   * With reference runs and no target: the full race planner (buildPlan), with no aid stations.
+   * Otherwise: the light prepRunPlan (Tobler's estimate, stretched to the target if there is one).
+   */
   const planFor = () => {
     const runs = getRuns();
     const settings = getSettings();
+    // a || b || c takes the first value that is not empty (null, undefined or "" count as empty).
     const startTime = st.startTime || settings.startTime || "09:00";
     if (!st.targetSec && runs.length) {
       try {
+        // { ...settings, startTime, aidStations: "" } copies the settings and overrides two fields.
         const plan = buildPlan(st.parsed, runs, { ...settings, startTime, aidStations: "" });
         return { plan, source: "runs" };
       } catch (e) { /* a run too short or without time: fall back to the estimate */ }
@@ -87,13 +130,22 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
     return { plan, source: plan.timeSource };
   };
 
+  /**
+   * Draw the whole mode body (#sPrepBody) for the loaded course: summary with target and start
+   * time, the cockpit, the watch messages and the download buttons; then wire them.
+   * Called after a drop, and again whenever the target or start time changes.
+   */
   const render = () => {
     if (!st.parsed) return;
     const { plan, source } = planFor();
+    // Prep my run shows one scenario only: the central one.
     const sid = "central";
     const finish = plan.scenarios[sid].finishSec;
+    // localStorage key of the watch-message edits: one per run name and length, so edits on
+    // one course never land on another.
     const key = `trp.watch.prep.${st.name}.${plan.course.totalKm.toFixed(1)}`;
     const body = $p("#sPrepBody");
+    // The target time box shows the current estimate as a hint ("3h05" -> "3:05").
     body.innerHTML = `
   <div class="panel prep-sum prep-ready">
     ${pimpBadge("#prep-pimp", "Your run on your watch →")}
@@ -118,11 +170,14 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
     <span class="status" id="prepStat" aria-live="polite"></span>
   </div>
   <p class="note">Import the .fit in Garmin Connect (Courses, Import) or copy it to the watch's GARMIN/NewFiles folder, then follow the course: the watch shows each message as you reach it. The GPX works with other brands too.</p>`;
+    // say(text): show a short status or error message next to the download buttons.
     const say = (t) => { $p("#prepStat").textContent = t; };
     mountWatch($p("#prepWatch"), { plan, sid, key, say });
     st.plan = plan; st.key = key; st.source = source;
     showCockpit();
     $p("#sPrepBody .pimp-link").addEventListener("click", () => trackEvent("nav", "pimp-badge-prep"));
+    // Target time typed as h:mm. parseDuration returns seconds, or null when it cannot read it.
+    // An empty box clears the target (0).
     $p("#prepTarget").addEventListener("change", (ev) => {
       const v = ev.target.value.trim();
       const t = v ? parseDuration(v, false) : 0;
@@ -130,6 +185,8 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
       st.targetSec = t; trackEvent("prep-target", v ? "set" : "clear"); render();
     });
     $p("#prepStart").addEventListener("change", (ev) => { st.startTime = ev.target.value || null; render(); });
+    // Build and download the course file with the (possibly edited) watch messages. suffix ""
+    // keeps the scenario name out of the file name. Errors are shown, not thrown.
     const save = (kind) => {
       try { say(`Saved ${downloadCourse(kind, { plan, sid, track: st.parsed.points, name: st.name, points: watchPoints(plan, sid, key), suffix: "" })}.`); }
       catch (e) { say(`Could not make the course: ${e.message}`); }
@@ -139,12 +196,17 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
     onLoaded();
   };
 
+  // Two ways to give a file: the "Choose GPX" button (file input) or drag-and-drop on the box.
+  // f.text() reads the file as text and returns a Promise; .then() runs once it is read. The
+  // name shown is the file name without ".gpx" (regex: ".gpx" at the end, any case, flag i).
   const file = $p("#filePrep");
   file.addEventListener("change", () => {
     const f = file.files && file.files[0];
     if (f) f.text().then((xml) => load(xml, f.name.replace(/\.gpx$/i, "")));
   });
   const drop = $p("#dropPrep");
+  // preventDefault() on dragover tells the browser this box accepts a drop (otherwise the
+  // browser would open the file itself). The "over" class highlights the box meanwhile.
   drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
   drop.addEventListener("dragleave", () => drop.classList.remove("over"));
   drop.addEventListener("drop", (e) => {
@@ -152,6 +214,8 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
     const f = e.dataTransfer.files && e.dataTransfer.files[0];
     if (f) f.text().then((xml) => load(xml, f.name.replace(/\.gpx$/i, "")));
   });
+  // Sample button: a made-up 30 km loop built in demo.js (starting at 650 m, centred near
+  // latitude 45.05, longitude 5.7), loaded exactly like a dropped file.
   $p("#prepSample").addEventListener("click", () => {
     trackEvent("prep-sample", "long run");
     load(makeDemoRaceGpx(DEMO_LONG_RUN_PROFILE, { name: "Sample long run 30K", startEle: 650, loop: true, center: [45.05, 5.7] }), "Sample long run 30K (made up)");
