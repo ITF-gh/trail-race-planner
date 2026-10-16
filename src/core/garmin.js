@@ -198,20 +198,22 @@ export function spacePoints(plan, sid, points) {
 
 /**
  * The runner's own version of the messages: the planner's points with their edits applied.
- * edits = {names: {id: "new name"}, off: {id: true}, extra: [{id, km, name}]}; an edited name
+ * edits = {names: {id: "new name"}, off: {id: true}, kms: {id: km}, extra: [{id, km, name}]}; an edited name
  * keeps the planner's long text as its note, an added message gets its own name as note.
  *
- * names: new names by point id; off: ids the runner unticked; extra: messages the runner added.
+ * names: new names by point id; off: ids the runner unticked; kms: planner messages the runner
+ * moved to another km (clamped to the course); extra: messages the runner added.
  * `!= null` is true for any value except null and undefined. A name that cleans down to nothing
  * (only emoji, say) is ignored and the planner's name is kept. Added messages are clamped to the
  * course and given the generic icon. Everything is spaced again at the end.
  */
 export function editedPoints(plan, sid, edits = {}) {
-  const names = edits.names || {}, off = edits.off || {};
+  const names = edits.names || {}, off = edits.off || {}, kms = edits.kms || {};
+  const total = plan.course.totalKm;
   const mine = coursePoints(plan, sid)
     .filter((p) => !off[p.id])
-    .map((p) => (names[p.id] != null && pointName(names[p.id]) ? { ...p, name: pointName(names[p.id]), edited: true } : p));
-  const total = plan.course.totalKm;
+    .map((p) => (names[p.id] != null && pointName(names[p.id]) ? { ...p, name: pointName(names[p.id]), edited: true } : p))
+    .map((p) => (Number.isFinite(kms[p.id]) ? { ...p, km: Math.max(0, Math.min(total, kms[p.id])), moved: true } : p));
   const extra = (edits.extra || [])
     .filter((x) => Number.isFinite(x.km) && pointName(x.name || ""))
     .map((x) => ({ id: x.id, km: Math.max(0, Math.min(total, x.km)), type: CP.generic, name: pointName(x.name), text: x.name, added: true }));

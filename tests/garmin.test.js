@@ -62,6 +62,9 @@ test("watch messages: renamed, switched off and added ones reach the export, spa
   assert.ok(text.includes("GO EASY BOSS") && text.includes("Call home ca va") && !text.includes(b.name));
   assert.equal((courseGpx(plan, "central", ultra.points, "R", mine).match(/<wpt /g) || []).length, mine.length);
   assert.deepEqual(editedPoints(plan, "central", { names: { [a.id]: "   " } })[0].name, a.name, "an emptied name falls back to the planner's");
+  const moved = editedPoints(plan, "central", { kms: { [b.id]: 40 } }).find((p) => p.id === b.id);
+  assert.ok(moved.moved && moved.km >= 40 && moved.km < 41, "a planner message moved to km 40 lands there (or just after, for spacing)");
+  assert.equal(editedPoints(plan, "central", { kms: { [b.id]: 999 } }).find((p) => p.id === b.id).km, plan.course.totalKm, "a km past the finish is clamped to it");
 });
 
 test("prep my run: a plan from the GPX alone, stretched to a target time, ready for the watch", () => {
