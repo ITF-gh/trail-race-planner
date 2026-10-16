@@ -543,6 +543,11 @@ export function mountRun(box, run) {
   draw();
 }
 
+/** The run on screen, for the A4 export (ui/print.js): {run, name, target}, or null. */
+export function currentRun() {
+  return rv.run ? { run: rv.run, name: rv.name, target: rv.target } : null;
+}
+
 /** Stop the review animation and free its map. */
 export function stopRun() {
   rv.playing = false;

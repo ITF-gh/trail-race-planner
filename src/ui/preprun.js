@@ -44,7 +44,7 @@ export function prepHeroHtml(peak) {
  * getSettings() the planner settings (start time, hiking threshold...); onLoaded() runs after each render.
  */
 export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLoaded = () => {}, cockpit = null } = {}) {
-  const st = { parsed: null, name: "", targetSec: 0, startTime: null, plan: null, key: "" };
+  const st = { parsed: null, name: "", targetSec: 0, startTime: null, plan: null, key: "", source: "" };
   const $p = (s) => document.querySelector(s);
   // The cockpit (section bar, map, profile, run script) is the race-day one from main.js. Only one
   // can play at a time, so it is built when this mode is on screen and emptied when you leave it.
@@ -120,7 +120,7 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
   <p class="note">Import the .fit in Garmin Connect (Courses, Import) or copy it to the watch's GARMIN/NewFiles folder, then follow the course: the watch shows each message as you reach it. The GPX works with other brands too.</p>`;
     const say = (t) => { $p("#prepStat").textContent = t; };
     mountWatch($p("#prepWatch"), { plan, sid, key, say });
-    st.plan = plan; st.key = key;
+    st.plan = plan; st.key = key; st.source = source;
     showCockpit();
     $p("#sPrepBody .pimp-link").addEventListener("click", () => trackEvent("nav", "pimp-badge-prep"));
     $p("#prepTarget").addEventListener("change", (ev) => {
@@ -156,5 +156,6 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
     trackEvent("prep-sample", "long run");
     load(makeDemoRaceGpx(DEMO_LONG_RUN_PROFILE, { name: "Sample long run 30K", startEle: 650, loop: true, center: [45.05, 5.7] }), "Sample long run 30K (made up)");
   });
-  return { rerender: render };
+  // current(): what is on screen, for the A4 export (ui/print.js); null before a GPX is loaded.
+  return { rerender: render, current: () => (st.plan ? { plan: st.plan, name: st.name, source: st.source } : null) };
 }
