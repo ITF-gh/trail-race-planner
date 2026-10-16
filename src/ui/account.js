@@ -36,7 +36,7 @@
 import { parseGpx } from "../core/track.js";
 import { analyseRun } from "../core/review.js";
 import { historySummary, aiSelect, recordClean, AI_QUESTION_MAX } from "../core/history.js";
-import { aiRaceChecks, AI_GOALS, AI_RISKS, AI_NOTES_MAX } from "../core/aichecks.js";
+import { aiRaceChecks, aiRunChecks, AI_GOALS, AI_RISKS, AI_NOTES_MAX } from "../core/aichecks.js";
 import { runRecord } from "../core/runrecord.js";
 import { demoRecords, DEMO_USER } from "../core/demorecords.js";
 import { mmss, hms, hm, parseDuration } from "../core/format.js";
@@ -143,7 +143,7 @@ const acTok = (n) => `${n} ${n === 1 ? AC_TOKEN.one : AC_TOKEN.many}`;
 // The token logo: a shiny edelweiss. Eight woolly star petals (long and short in turn), a yellow
 // heart of small florets, and a glint. Built once as an SVG string; no gradients, so the many
 // copies on the page need no shared ids.
-const AC_SPARK = (() => {
+export const AC_SPARK = (() => {
   // One petal as an SVG path, pointing straight up from the centre (16, 16) of the 32 x 32 box.
   // M x y moves the pen to the centre; each C draws a cubic Bezier curve (two control points,
   // then the end point): one curve up the left side to the tip at (16, 16 - len), one back down
@@ -288,6 +288,13 @@ function acBestsHtml(S) {
 //   question  the runner's own question, "" when none
 //   checks    the failed checks shown after a click on "Spend", or null when none are shown
 const acAsk = { mode: "dates", from: null, to: null, ids: new Set(), goal: "target", risk: "balanced", target: null, notes: "", question: "", checks: null };
+// The Prep my run window (the AI coach) asks less: free information and a question, both optional.
+const acRunAsk = { notes: "", question: "", checks: null };
+// What the page knows about the run to come, given by main.js (getRun): { name, km, gain, climbs,
+// spots, plan, key } or null before a GPX is loaded.
+let acGetRun = () => null;
+// The stored runs the coach reads: the last 6 weeks (its load and trend), at most 60.
+const acRunRuns = () => aiSelect(acList, { to: acToday(), from: acToday() - 42 * 86400000 }).slice(0, 60);
 // A date in ms as "2026-10-16", the format an <input type="date"> reads and shows.
 const acDay = (ms) => new Date(ms).toISOString().slice(0, 10);
 // Today at midnight UTC, in ms (Date.UTC builds the moment from year, month, day).
@@ -404,6 +411,53 @@ function acAskHtml() {
     <p class="acct-note">Sent: the race sections (distance, climbing, gradients) and aid stations, your pace on each gradient learned from Your runs, the numbers of the stored runs selected, your goal, target time, risk, free information and question, and the heart rates and weight from your profile. <b>Not sent:</b> the GPX files, GPS tracks, run names and your email. The AI only analyses this data: any other request returns nothing.</p>
     ${box}`;
 }
+/** The code checks of a click in the Prep my run window (aiRunChecks), like acAskChecks. */
+function acRunChecks() {
+  const R = acGetRun();
+  const signedIn = Boolean(cloudOn() && cloudUser());
+  return aiRunChecks({
+    route: R ? { km: R.km, gain: R.gain } : null, notes: acRunAsk.notes, question: acRunAsk.question,
+    cloud: acLocal ? { open: true, signedIn: true, balance: 1 } : { open: cloudOn(), signedIn, balance: acBalance(), demo: acDemo },
+  });
+}
+/**
+ * HTML of the Ask the AI coach window (Prep my run). The run is already loaded, so it only shows
+ * what the coach reads (the route, the spots the app found, the stored runs of the last 6 weeks)
+ * and asks two optional texts: free information and a question. Then the same buttons and box
+ * of checks as the Prep my race window, with "run-" actions.
+ */
+function acRunHtml() {
+  const R = acGetRun();
+  const runs = acRunRuns();
+  const C = acRunAsk.checks;
+  const stop = C && C.some((k) => k.level === "stop");
+  const route = R
+    ? `<div class="acct-race" data-field="route"><b>${acEsc(R.name)}</b><span>${R.km.toFixed(1)} km · ${acNum(R.gain)} m D+ · ${R.climbs} climb${R.climbs === 1 ? "" : "s"} · <b>${R.spots} spot${R.spots === 1 ? "" : "s"} for an exercise</b></span></div>`
+    : `<div class="acct-race empty" data-field="route"><span>No run GPX loaded yet.</span><button class="acct-linkbtn" type="button" data-acct="goto:dropPrep">Load it in Prep my run</button></div>`;
+  const box = C && C.length ? `<div class="acct-checks" role="alert">
+      <h4>Before sending</h4>
+      <ul>${C.map((k) => `<li class="${k.level}"><span>${k.level === "stop" ? "Blocked" : "Warning"}</span>${acEsc(k.text)}</li>`).join("")}</ul>
+      <p class="acct-note">${stop ? "This cannot be sent yet. Nothing is spent." : `Send anyway uses 1 ${AC_TOKEN.one}, even if the AI returns nothing.`} Everything you filled in stays.</p>
+      <div class="acct-actions"><button class="btn primary" type="button" data-acct="run-fix">Fix and retry</button>${stop ? "" : `<button class="btn ghost" type="button" data-acct="run-force">${AC_SPARK}Send anyway</button>`}<button class="btn ghost" type="button" data-acct="close">Cancel</button></div>
+    </div>` : acLocal ? `${acLocal.direct ? `<h4>Your OpenAI key</h4>
+    <input type="password" class="acct-key" data-ask="key" autocomplete="off" spellcheck="false" placeholder="sk-..." value="${acEsc(acLocal.apiKey)}">
+    <label class="acct-sub">Model <select class="acct-model" data-ask="model">${AI_PREP_MODELS.map((m) => `<option${m === acLocal.model ? " selected" : ""}>${m}</option>`).join("")}</select></label>
+    <p class="acct-note">Test copy on this computer: no account, no ${AC_TOKEN.one}. The key stays in this tab only (never saved) and goes straight to OpenAI. Send to the AI costs a few cents; Fake answer is free.</p>` : `<p class="acct-note">Local test on this computer: no account, no ${AC_TOKEN.one}. ${acLocal.key ? "Send to the AI calls OpenAI with your key (it costs a few cents)." : "No key in .env.local: only the fake answer works."}</p>`}
+    <div class="acct-actions">${acLocal.key || acLocal.direct ? `<button class="btn primary" type="button" data-acct="run-go">${AC_SPARK}Send to the AI</button>` : ""}<button class="btn ${acLocal.key || acLocal.direct ? "ghost" : "primary"}" type="button" data-acct="run-fake">Fake answer</button><button class="btn ghost" type="button" data-acct="close">Cancel</button></div>`
+    : `<div class="acct-actions"><button class="btn primary" type="button" data-acct="run-go">${AC_SPARK}Spend 1 ${AC_TOKEN.one}</button><button class="btn ghost" type="button" data-acct="close">Cancel</button></div>`;
+  return `<p class="acct-kicker">${AC_SPARK} Ask the AI coach · Prep my run · ${acLocal ? "local test" : `1 ${AC_TOKEN.one}`}</p>
+    <h3>Find the exercises on my run</h3>
+    ${route}
+    <p class="acct-sub">The coach picks among the spots the app found (long flats, strings of climbs, steady climbs, runnable descents...), doses each exercise for you and explains it. The app then checks every dose: warm-up first, no more than 4 exercises, hard work at most a quarter of the run.</p>
+    <p class="acct-sub"><b>${runs.length} stored run${runs.length === 1 ? "" : "s"}</b> of the last 6 weeks: your load and form.</p>
+    <h4>Free information <small>(optional)</small></h4>
+    <textarea class="acct-q" data-ask="rnotes" data-field="notes" maxlength="${AI_NOTES_MAX}" rows="3" placeholder="e.g. Calf a bit tight since Sunday. Race in 5 weeks with long climbs. I have 2 hours.">${acEsc(acRunAsk.notes)}</textarea>
+    <h4>Your question <small>(optional)</small></h4>
+    <textarea class="acct-q" data-ask="rquestion" data-field="question" maxlength="${AI_QUESTION_MAX}" rows="2" placeholder="e.g. Can I work my climbing without wrecking my legs for Saturday?">${acEsc(acRunAsk.question)}</textarea>
+    <p class="acct-note">Sent: the route in sections (distance, climbing, gradients), the spots the app found, your pace when Your runs has GPX files, the numbers of your stored runs of the last 6 weeks, your two texts, and the heart rates and weight from your profile. <b>Not sent:</b> the GPX file, GPS track, run names and your email.</p>
+    ${box}`;
+}
+
 /**
  * Refresh the count of stored runs without redrawing the window (keeps the cursor where it is).
  * Used while the runner types or ticks: redrawing the whole window would reset the text field.
@@ -421,6 +475,8 @@ function acAskRefresh() {
 function acAskInput(el) {
   const k = el.dataset.ask;
   if (k === "question" || k === "notes" || k === "target") acAsk[k] = el.value;
+  else if (k === "rnotes") acRunAsk.notes = el.value;
+  else if (k === "rquestion") acRunAsk.question = el.value;
   // The OpenAI key of the file test copy: kept in memory only, outside acAsk.
   else if (k === "key" && acLocal) acLocal.apiKey = el.value.trim();
   else if (k === "model" && acLocal) acLocal.model = el.value;
@@ -608,11 +664,45 @@ async function acStartLocal(forced) {
   acShowPanel(aiLocalHtml(r), "Local AI test", "acct-local");
 }
 
-/** One AI doc as a menu row: date, race, then the verdict and AI finish (or "empty"). */
+/**
+ * The Prep my run test (the AI coach): the same chain as acStartLocal with the run's plan and
+ * the two texts. Every answer is kept as an AI doc (mode "prep_run"); a usable one plays in Prep
+ * my run at once (preprun.js listens to trp-ai-use). Online, nothing is sent yet.
+ */
+async function acStartRun(forced = []) {
+  if (!acLocal) { acShowPanel(`<p class="acct-kicker">${AC_SPARK} AI coach</p><h3>Not open yet</h3><p>The AI coach opens with the online account. Nothing was sent and nothing was spent.</p>`, "AI coach"); return; }
+  const R = acGetRun();
+  const fake = acLocal.fake;
+  acShowPanel(`<p class="acct-kicker">Local AI test · Prep my run</p><h3>${fake ? "Making the fake answer…" : `Asking ${acEsc(acLocal.model)}…`}</h3><p>${fake ? "" : "This can take a minute. Keep this tab open."}</p>`, "Local AI test");
+  const a = profileAthlete();
+  const r = await aiLocalRun({
+    mode: "prep_run", plan: R && R.plan, raceName: R ? R.name : "My run", fake, direct: acLocal.direct, apiKey: acLocal.apiKey, model: acLocal.model,
+    user: { notes: acRunAsk.notes, question: acRunAsk.question, forced },
+    athlete: { maxHr: a.hrMax, restHr: a.hrRest, weightKg: a.weight },
+    history: acRunRuns(),
+  });
+  if (!r.error && (r.read.output || r.read.tokens.total)) {
+    const m = r.result;
+    const doc = {
+      id: `ai-${Date.now()}`, at: new Date().toISOString(), mode: "prep_run", race: R.key, raceName: R.name,
+      input: r.input, output: r.read.output, tokens: r.read.tokens,
+      result: { status: m.status, reason: m.reason, finishSec: m.finishSec, fixes: m.fixes, exercises: m.exercises, workSec: m.workSec, texts: m.texts, dataset: m.dataset || null },
+    };
+    await aiDocsPut(doc);
+    if (m.status === "ok") document.dispatchEvent(new CustomEvent("trp-ai-use", { detail: doc }));
+  }
+  acShowPanel(aiLocalHtml(r), "Local AI test", "acct-local");
+}
+
+/**
+ * One AI doc as a menu row: date, race or run, then the verdict and AI finish (Prep my race) or
+ * the session and its exercises (Prep my run), or "empty".
+ */
 function acDocRow(d) {
   const ok = d.result && d.result.status === "ok";
-  const v = ok ? `${acEsc(d.result.dataset.target.verdict)} · ${hm(d.result.finishSec)}` : "empty";
-  return `<button type="button" class="acct-row acct-doc" data-acct="doc:${acEsc(d.id)}"><span>✦ ${acDate(Date.parse(d.at))} ${new Date(d.at).toTimeString().slice(0, 5)} · ${acEsc(d.raceName)}</span><b>${v}</b></button>`;
+  const run = d.mode === "prep_run";
+  const v = !ok ? "empty" : run ? `${acEsc(d.result.dataset.session.type)} · ${d.result.exercises.length} ex.` : `${acEsc(d.result.dataset.target.verdict)} · ${hm(d.result.finishSec)}`;
+  return `<button type="button" class="acct-row acct-doc" data-acct="doc:${acEsc(d.id)}"><span>✦ ${acDate(Date.parse(d.at))} ${new Date(d.at).toTimeString().slice(0, 5)} · ${run ? "Run · " : ""}${acEsc(d.raceName)}</span><b>${v}</b></button>`;
 }
 /** HTML of the AI docs block of the menu: the last few docs, newest first ("" when none). */
 function acDocsHtml(docs) {
@@ -629,6 +719,8 @@ async function acDocShow(id) {
 
 /** Open the Ask the AI window (for the "Ask the AI" link of Your race). */
 export function acctOpenAsk() { acAction("ai"); }
+/** Open the Ask the AI coach window (the edelweiss button of Prep my run). */
+export function acctOpenRunAsk() { acAction("ai-run-ask"); }
 
 /**
  * Open (or redraw) the Account window in the pop-up panel. `keep` = true keeps the scroll
@@ -703,6 +795,32 @@ async function acAction(what) {
     acAsk.checks = null;
     acShowPanel(acAskHtml(), "Ask the AI");
     trackEvent("ai-open");
+  } else if (what === "ai-run-ask") {
+    acRunAsk.checks = null;
+    acShowPanel(acRunHtml(), "Ask the AI coach");
+    trackEvent("ai-open", "run");
+  } else if (what === "run-go" || what === "run-fake" || what === "run-force") {
+    // The Prep my run window: the same checks first; Send anyway only past warnings.
+    if (acLocal) acLocal.fake = what === "run-fake";
+    const checks = acRunChecks();
+    const go = !checks.length || (what === "run-force" && !checks.some((k) => k.level === "stop"));
+    if (go) { acRunAsk.checks = null; acStartRun(what === "run-force" ? checks.map((k) => k.code) : []); return; }
+    acRunAsk.checks = checks;
+    acShowPanel(acRunHtml(), "Ask the AI coach");
+    const box = acPanel.querySelector(".acct-checks");
+    if (box) box.scrollIntoView({ block: "nearest" });
+    trackEvent("ai-checks", "run");
+  } else if (what === "run-fix") {
+    const first = (acRunAsk.checks || []).find((k) => k.field);
+    acRunAsk.checks = null;
+    acShowPanel(acRunHtml(), "Ask the AI coach");
+    const el = first ? acPanel.querySelector(`[data-field="${first.field}"]`) : null;
+    if (el) { el.scrollIntoView({ block: "center" }); if (el.matches("textarea")) el.focus({ preventScroll: true }); }
+  } else if (what === "ai-run") {
+    // From a Prep my run result: close the window and go to the run, where the session now plays.
+    acPanel.hidden = true;
+    const sp = document.getElementById("s-prep");
+    if (sp) sp.scrollIntoView({ behavior: "smooth" });
   } else if (what.startsWith("mode:")) {
     // what.slice(5) drops "mode:". Switching to "runs" with nothing ticked yet ticks the runs of
     // the current date range, so the list starts from the same selection.
@@ -767,7 +885,7 @@ async function acAction(what) {
     aiDocsGet(what.slice(8)).then((d) => {
       if (!d) return;
       document.dispatchEvent(new CustomEvent("trp-ai-use", { detail: d }));
-      acAction("ai-race");
+      acAction(d.mode === "prep_run" ? "ai-run" : "ai-race");
     });
   } else if (what.startsWith("doc-del:")) {
     aiDocsDelete(what.slice(8)).then(() => { acPanel.hidden = true; acRender(); });
@@ -809,6 +927,7 @@ async function acSignIn(form) {
  */
 export async function initAccount(opts = {}) {
   if (opts.getRace) acGetRace = opts.getRace;
+  if (opts.getRun) acGetRun = opts.getRun;
   // Local test mode: only answers on this computer, under npm run ai-browser (ailocal.js).
   aiLocalProbe().then((x) => { acLocal = x; });
   acEl = document.createElement("div");

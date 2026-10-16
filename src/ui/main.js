@@ -1145,6 +1145,8 @@ $("#s4ai").addEventListener("click", (ev) => {
 // An AI doc to play (a new answer, or one picked in the account menu's AI docs): Your race
 // plays it, with the AI switch on.
 document.addEventListener("trp-ai-use", (ev) => {
+  // Prep my run docs are played by preprun.js.
+  if (ev.detail && ev.detail.mode === "prep_run") return;
   arUse(ev.detail);
   if (!state.plan) return;
   state.aiOn = true;
@@ -1421,6 +1423,11 @@ initAccount({
     // The whole plan, for the local AI test (ailocal.js builds the AI input from it).
     plan: state.plan,
   }),
+  // The Ask the AI coach window (Prep my run) reads the run to come through this one.
+  getRun: () => {
+    const c = prepCtl && prepCtl.current();
+    return c ? { name: c.name, km: c.plan.course.totalKm, gain: c.plan.course.gain, climbs: c.plan.climbs.length, spots: c.spots, plan: c.plan, key: c.key } : null;
+  },
 });
 initHelp();
 

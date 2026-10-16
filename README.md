@@ -34,6 +34,8 @@ node scripts/ai-local.js --race race.gpx --runs long1.gpx --runs long2.gpx --his
 
 **The AI plan in Your race.** A usable answer is kept for its race (localStorage, `src/ui/airace.js`) and section 04 gets a Calculated / AI switch. With AI on, the cockpit plays the plan rebuilt by code from the answer (`aiPrepMerge`): AI section times and aid stops on the clock, the AI's run / hike / mix as each section's tactic with its note and effort, the AI's intakes as gels, its key moments in the race script, and its headline, verdict and answer above. The course, sections and key zones stay calculated. An answer made from an older plan is shown as out of date until you ask again. Every answer is also kept as an **AI doc** (account menu > AI docs, IndexedDB `trp-ai-docs`, `src/ui/aidocs.js`): open it, play it again in Your race, download it or delete it.
 
+**The AI coach in Prep my run.** Once a run GPX is loaded, a shiny edelweiss button opens a shorter window: free information and an optional question (the route is already there). The code first reads the route and lists the **spots** where an exercise fits (`runSpots` in `src/core/airun.js`): long flats (strides, tempo), strings of climbs (hill repeats, fartlek), steady climbs (uphill threshold), steep climbs (power-hike drill), runnable descents (downhill technique), rolling ground (fartlek) and steep descents (no exercise, a safety cue). The AI coach (its own prompt, one call, `aiRunRequest`) picks among them and doses each exercise; the referee (`aiRunMerge`) then checks every one: a spot that allows it, warm-up (2 km or 15 min) and last km left easy, no overlap, at most 4 exercises and a quarter of the run as hard work, injuries named in the notes, a heavy week in the stored runs. The run's clock is rebuilt with the faster reps, and with the switch on AI the cockpit plays the session: each exercise starts and ends as a moment of the run script, with the coach's how and why in the AI message box. Answers are AI docs too (mode `prep_run`). Same local test as Prep my race (`npm run ai-browser` or the file copy, Fake answer free); the live site sends nothing.
+
 ## Use it
 
 **In the browser.** Open `dist/index.html` (run `npm run build` first). Press "Try the demo" to see a full plan on made-up data (a 78 km mountain ultra with 3,800 m of climbing and seven aid stations, planned from two 30 km mountain long runs), or drop in your own two files.
@@ -78,6 +80,7 @@ src/core/keyzones.js   key zones: where the race is played, and how many minutes
 src/core/script.js     the race in time: key moments with cues, and where you are at any second
 src/core/review.js     Rewind my run: grade-adjusted pace, stops, sections with a verdict, key moments of a run you did
 src/core/history.js    the run log: 12-month totals, bests, achievements and cairns, record checks, AI digest (shared with the server)
+src/core/airun.js      Prep my run AI coach: exercise spots on the route, coach prompt and schema, referee and clock rebuild
 src/core/runrecord.js  one small summary per run
 src/demo.js            made-up GPX files for the demo and the tests
 src/ui/                the browser app (main.js, map.js for the map, replay.js for race day,

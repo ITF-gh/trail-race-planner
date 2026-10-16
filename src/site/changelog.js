@@ -2,6 +2,9 @@
 // technical detail). The first entry is the current version: the footer shows it on every page.
 
 export const CHANGELOG = [
+  { v: "0.41", date: "2026-10-16", items: [
+    "Prep my run gets an AI coach, ready to read: a shiny edelweiss once your GPX is loaded, a short window (free information and an optional question), and an AI switch that plays the session the coach builds on your route (strides on the long flats, hill repeats, a downhill drill...). It opens with the online account; for now the button sends nothing.",
+  ] },
   { v: "0.40", date: "2026-10-16", items: [
     "Ask the AI for Prep my race is ready to read: race, runs, goal, target, free information and a question, with checks before anything is sent. It opens with the online account; for now the button sends nothing.",
     "Your race gets a Calculated / AI switch and an AI message box, ready for the first AI plans.",
