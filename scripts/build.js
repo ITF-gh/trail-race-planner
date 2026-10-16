@@ -62,9 +62,9 @@ cpSync(join(root, "src/ui/photos"), join(root, "dist/photos"), { recursive: true
 // Leaflet (the map library, BSD-2 licence) ships next to the page and is loaded only when a map
 // is shown, so the page stays light and the map code works offline.
 cpSync(join(root, "src/vendor/leaflet"), join(root, "dist/vendor/leaflet"), { recursive: true });
-writeFileSync(join(root, "dist/fragment.html"), `<title>Trail Race Planner</title>\n${fonts}\n${body}`);
+writeFileSync(join(root, "dist/fragment.html"), `<title>Prep my race · Trail race &amp; run planner</title>\n${fonts}\n${body}`);
 writeFileSync(
   join(root, "dist/index.html"),
-  `<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n<title>Trail Race Planner</title>\n${fonts}\n</head>\n<body>\n${body}</body>\n</html>\n`
+  `<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n<title>Prep my race · Trail race &amp; run planner</title>\n${fonts}\n</head>\n<body>\n${body}</body>\n</html>\n`
 );
 console.log(`built dist/index.html: ${order.length} modules, ${Math.round((css.length + js.length) / 1024)} KB of code`);

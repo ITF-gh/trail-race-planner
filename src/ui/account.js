@@ -1,7 +1,7 @@
 // account.js: the account icon at the top right of the hero and its see-through menu.
 //
 // The run log lives in this browser, in IndexedDB (a small database every browser has, much
-// roomier than localStorage). Each run you open in Check my run, or add as one of your runs in
+// roomier than localStorage). Each run you open in Rewind my run, or add as one of your runs in
 // Prep my race, is summarised (src/core/runrecord.js) and stored; sample and demo runs are not.
 // The menu is re-drawn from the stored summaries (src/core/history.js).
 //
@@ -112,7 +112,7 @@ function acMenuHtml(S) {
   const links = `<section class="acct-links">${S.count ? `<button type="button" data-acct="export">Export my data</button><button type="button" data-acct="clear">Delete my runs</button>` : ""}${user ? `<button type="button" data-acct="signout">Sign out</button><button type="button" data-acct="delete">Delete my account</button>` : ""}</section>`;
   if (!S.count) {
     return `${who}
-    <section><p class="acct-empty">Open one of your runs in <b>Check my run</b>, or add it to <b>Your runs</b> in Prep my race: its numbers are kept here${user ? "" : ", on this device only"}, and your stats, records and achievements build up run after run.</p></section>
+    <section><p class="acct-empty">Open one of your runs in <b>Rewind my run</b>, or add it to <b>Your runs</b> in Prep my race: its numbers are kept here${user ? "" : ", on this device only"}, and your stats, records and achievements build up run after run.</p></section>
     ${cloudOn() ? acCairnsHtml(S) : ""}${links}`;
   }
   const B = S.bests, lastId = S.last[0].id;
