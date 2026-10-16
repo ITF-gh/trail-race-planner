@@ -1226,3 +1226,53 @@ html[data-theme="sky"] .brand-desc{color:#fff;opacity:.92;border-color:rgba(255,
 html[data-theme="sky"] .tn-links a.tn-star{color:transparent;filter:drop-shadow(0 0 5px rgba(233,138,0,.3))}
 @keyframes tnShine{0%,55%{background-position:100% 0}100%{background-position:0 0}}
 @media (prefers-reduced-motion:reduce){.tn-links a.tn-star{animation:none;background-position:60% 0}}
+/* Local AI test result (npm run ai-browser only): compact tables, rows that differ highlighted. */
+.acct-tbl-wrap{overflow-x:auto}
+.acct-tbl{border-collapse:collapse;width:100%;font-size:13px;margin:4px 0 8px}
+.acct-tbl th,.acct-tbl td{text-align:left;padding:4px 6px;border-bottom:1px solid var(--acct-sep);vertical-align:top}
+.acct-tbl th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--acct-muted)}
+.acct-tbl tr.mark td{background:rgba(255,196,0,.12)}
+.acct-key{width:100%;box-sizing:border-box;padding:9px 12px;border-radius:10px;border:1px solid var(--acct-sep);background:rgba(255,255,255,.06);color:inherit;font:inherit}
+.rp-leg-info .rp-ai-note{color:var(--muted)} .rp-leg-info .rp-ai-note .ic{background:#b98cff;color:#1a0f2e}
+.rp-leg-info .rp-ai-note span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis}
+/* 04 Your race: the Calculated / AI switch and the AI summary (airace.js). */
+.ar-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin:0 0 14px}
+.ar-switch{display:inline-flex;border:1px solid rgba(255,255,255,.25);border-radius:999px;padding:3px;background:rgba(0,0,0,.25)}
+.ar-switch button{border:0;background:none;color:var(--fg);font:inherit;font-weight:700;font-size:13px;padding:6px 14px;border-radius:999px;cursor:pointer}
+.ar-switch button.on{background:var(--sun);color:#1a1300}
+.ar-switch button[data-ar=ai].on{background:#b98cff;color:#1a0f2e}
+.ar-switch button:disabled{opacity:.4;cursor:not-allowed}
+.ar-note{margin:0;font-size:14px;color:var(--muted)}
+.ar-link{border:0;background:none;padding:0;color:#b98cff;font:inherit;font-weight:700;cursor:pointer;text-decoration:underline}
+.ar-sum{flex:1 1 100%;border:1px solid rgba(185,140,255,.45);border-radius:12px;padding:10px 14px;background:rgba(185,140,255,.07)}
+.ar-sum h3{margin:2px 0 6px;font-size:17px}
+.ar-k{margin:0;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#b98cff;font-weight:700}
+.ar-k small{text-transform:none;letter-spacing:0;color:var(--muted);font-weight:500}
+.ar-answer{margin:0 0 6px;border-left:3px solid #b98cff;padding-left:10px}
+.ar-sum details summary{cursor:pointer;font-size:13px;color:var(--muted)}
+.ar-sum h4{margin:8px 0 4px;font-size:13px}
+.ar-sum ul{margin:0;padding-left:18px;font-size:14px}
+.ar-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0 18px}
+/* The AI message box of Your race (AI plan on): the AI's word for the section or the moment. */
+.rp-ai-box{display:flex;gap:8px;align-items:flex-start;margin:6px 0;padding:8px 10px;border:1px solid rgba(185,140,255,.5);border-radius:10px;background:rgba(185,140,255,.1);font-size:13px;line-height:1.35}
+.rp-ai-box .ic{flex:none;display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:#b98cff;color:#1a0f2e;font-size:11px;font-weight:800}
+.rp-ai-box p{margin:0} .rp-ai-box p+p{margin-top:3px} .rp-ai-box small{color:var(--muted)} .rp-ai-box .muted{color:var(--muted)}
+/* AI plan on (html.ai-on, set by main.js renderReplay): the values the AI changed shine, in the
+   AI's violet, so they read at once as AI-computed. Distance, climbing and gradients stay plain:
+   the course is never the AI's. A gradient painted inside the letters (background-clip:text)
+   slides across them (aiShine); it stands still for people who ask for less motion. */
+.ai-on #s4 .rp-tot:not(:nth-child(2)) b,
+.ai-on #s4 #rpClock,
+.ai-on #s4 .rp-tg tbody tr:nth-child(1) td:not(.now),
+.ai-on #s4 .rp-tg tbody tr:nth-child(5) td:not(.now),
+.ai-on #s4 .rp-leg-info > p:not(.nx):not(.rp-cue-line):not(.rp-ai-note) b{
+  color:transparent;-webkit-text-fill-color:transparent;
+  background-image:linear-gradient(100deg,#b98cff 0%,#b98cff 35%,#fff 50%,#ff9ad5 65%,#b98cff 100%);background-size:250% 100%;
+  -webkit-background-clip:text;background-clip:text;text-shadow:none;filter:drop-shadow(0 0 6px rgba(185,140,255,.45));animation:aiShine 3.5s ease-in-out infinite}
+.ai-on #s4 .rp-tot:not(:nth-child(2)) b small{-webkit-text-fill-color:transparent}
+.ai-on #s4 .rp-tot:not(:nth-child(2)) .k::after{content:" ✦";color:#b98cff}
+@keyframes aiShine{0%{background-position:100% 0}60%,100%{background-position:0 0}}
+@media (prefers-reduced-motion:reduce){.ai-on #s4 .rp-tot b,.ai-on #s4 #rpClock,.ai-on #s4 .rp-tg td,.ai-on #s4 .rp-leg-info b{animation:none}}
+/* Account menu > AI docs: each doc is a row button (date · race, then verdict · AI finish). */
+.acct-doc{width:100%;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer;border-radius:6px}
+.acct-doc:hover{background:rgba(185,140,255,.12)} .acct-doc b{color:#b98cff}

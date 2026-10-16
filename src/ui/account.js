@@ -42,6 +42,9 @@ import { demoRecords, DEMO_USER } from "../core/demorecords.js";
 import { mmss, hms, hm, parseDuration } from "../core/format.js";
 import { trackEvent } from "./analytics.js";
 import { profileHtml, profileInput, profileAction, profileAthlete, profileWho } from "./profile.js";
+import { aiLocalProbe, aiLocalRun, aiLocalHtml } from "./ailocal.js";
+import { AI_PREP_MODELS } from "../core/aiprep.js";
+import { aiDocsAll, aiDocsPut, aiDocsGet, aiDocsDelete } from "./aidocs.js";
 import { cloudOn, cloudUser, cloudFromUrl, cloudSendLink, cloudSignOut, cloudRuns, cloudPutRuns, cloudDeleteRuns, cloudLedger, cloudClaim, cloudAnalyse, cloudJob, cloudJobs, cloudDeleteAccount } from "./cloud.js";
 
 // Database name and its one "object store" (IndexedDB's word for a table) of run summaries.
@@ -168,7 +171,7 @@ const AC_SPARK = (() => {
 //   job     id of the analysis running now, null when none
 //   msg     a message to show in the tokens section ("" = none)
 //   busy    true while a sign-in link is being sent (greys out the button)
-const ac = { ledger: null, jobs: [], job: null, msg: "", busy: false };
+const ac = { ledger: null, jobs: [], job: null, msg: "", busy: false, docs: [] };
 // Token balance = the sum of all ledger lines (+ earned, - spent). Nothing is read yet: 0.
 const acBalance = () => (ac.ledger ? ac.ledger.reduce((s, r) => s + r.delta, 0) : 0);
 // acList: the run summaries the menu and the AI window work on; acDemo: true when they are the
@@ -226,7 +229,7 @@ function acMenuHtml(S, demo = false) {
   if (!S.count) {
     return `${who}
     <section><p class="acct-empty">Open one of your runs in <b>Rewind my run</b>, or add it to <b>Your runs</b> in Prep my race: its numbers are kept here${user ? "" : ", on this device only"}, and your stats, records and achievements build up run after run.</p></section>
-    ${acTokensHtml(S)}${links}`;
+    ${acDocsHtml(ac.docs)}${acTokensHtml(S)}${links}`;
   }
   // Big climbing totals in thousands: 12345 m -> "12.3k".
   const gainK = S.year.gain >= 10000 ? `${(S.year.gain / 1000).toFixed(1)}k` : acNum(S.year.gain);
@@ -245,6 +248,7 @@ function acMenuHtml(S, demo = false) {
     <section><h4>Achievements · ${S.unlocked} / ${S.achievements.length}</h4>
       <div class="acct-medals mini">${medals.map((a) => `<span class="${a.done ? "" : "lock"}" title="${acEsc(a.label)}: ${acEsc(a.hint)}${a.done ? "" : ` (${Math.floor(a.progress * 100)}%)`}${a.cairns ? ` · +${acTok(a.cairns)}` : ""}">${a.icon}</span>`).join("")}</div>
     </section>
+    ${acDocsHtml(ac.docs)}
     ${acTokensHtml(S)}
     ${links}`;
 }
@@ -290,7 +294,10 @@ const acDay = (ms) => new Date(ms).toISOString().slice(0, 10);
 const acToday = () => { const d = new Date(); return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()); };
 // What the page knows about the race being prepared, given by main.js to initAccount (getRace):
 // { race: { name, km, gain, legs, aid } or null, gpxRuns, targetText, centralSec }.
-let acGetRace = () => ({ race: null, gpxRuns: 0, targetText: "", centralSec: null });
+let acGetRace = () => ({ race: null, gpxRuns: 0, targetText: "", centralSec: null, plan: null });
+// The local test mode (ailocal.js): { key, model, fake } when the page comes from npm run
+// ai-browser on this computer, else null. `fake` = the last click asked for the fake answer.
+let acLocal = null;
 /**
  * What is sent to the server as the `ask`: the stored runs (ticked ids or the date range), the
  * goal, target time, risk, free information and question, and `forced`: the codes of the
@@ -314,7 +321,8 @@ function acAskChecks() {
     race: R.race, gpxRuns: R.gpxRuns, storedRuns: acAskRuns().length,
     targetText: (acAsk.target || "").trim(), targetSec: parseDuration((acAsk.target || "").trim()), centralSec: R.centralSec,
     notes: acAsk.notes, question: acAsk.question,
-    cloud: { open: cloudOn(), signedIn, balance: acBalance(), demo: acDemo },
+    // Local test: no account is needed, so the account checks pass.
+    cloud: acLocal ? { open: true, signedIn: true, balance: 1 } : { open: cloudOn(), signedIn, balance: acBalance(), demo: acDemo },
   });
 }
 /** The stored runs selected, in one line of HTML: "12 runs · 240 km, 3 Jul to 14 Oct". */
@@ -361,8 +369,13 @@ function acAskHtml() {
       <ul>${C.map((k) => `<li class="${k.level}"><span>${k.level === "stop" ? "Blocked" : "Warning"}</span>${acEsc(k.text)}</li>`).join("")}</ul>
       <p class="acct-note">${stop ? "This cannot be sent yet. Nothing is spent." : `Send anyway uses 1 ${AC_TOKEN.one}, even if the AI returns nothing.`} Everything you filled in stays.</p>
       <div class="acct-actions"><button class="btn primary" type="button" data-acct="fix">Fix and retry</button>${stop ? "" : `<button class="btn ghost" type="button" data-acct="force">${AC_SPARK}Send anyway</button>`}<button class="btn ghost" type="button" data-acct="close">Cancel</button></div>
-    </div>` : `<div class="acct-actions"><button class="btn primary" type="button" data-acct="go">${AC_SPARK}Spend 1 ${AC_TOKEN.one}</button><button class="btn ghost" type="button" data-acct="close">Cancel</button></div>`;
-  return `<p class="acct-kicker">${AC_SPARK} Ask the AI · Prep my race · 1 ${AC_TOKEN.one}</p>
+    </div>` : acLocal ? `${acLocal.direct ? `<h4>Your OpenAI key</h4>
+    <input type="password" class="acct-key" data-ask="key" autocomplete="off" spellcheck="false" placeholder="sk-..." value="${acEsc(acLocal.apiKey)}">
+    <label class="acct-sub">Model <select class="acct-model" data-ask="model">${AI_PREP_MODELS.map((m) => `<option${m === acLocal.model ? " selected" : ""}>${m}</option>`).join("")}</select></label>
+    <p class="acct-note">Test copy on this computer: no account, no ${AC_TOKEN.one}. The key stays in this tab only (never saved) and goes straight to OpenAI. Send to the AI costs a few cents; Fake answer is free.</p>` : `<p class="acct-note">Local test on this computer: no account, no ${AC_TOKEN.one}. ${acLocal.key ? "Send to the AI calls OpenAI with your key (it costs a few cents)." : "No key in .env.local: only the fake answer works."}</p>`}
+    <div class="acct-actions">${acLocal.key || acLocal.direct ? `<button class="btn primary" type="button" data-acct="go">${AC_SPARK}Send to the AI</button>` : ""}<button class="btn ${acLocal.key || acLocal.direct ? "ghost" : "primary"}" type="button" data-acct="fake">Fake answer</button><button class="btn ghost" type="button" data-acct="close">Cancel</button></div>`
+    : `<div class="acct-actions"><button class="btn primary" type="button" data-acct="go">${AC_SPARK}Spend 1 ${AC_TOKEN.one}</button><button class="btn ghost" type="button" data-acct="close">Cancel</button></div>`;
+  return `<p class="acct-kicker">${AC_SPARK} Ask the AI · Prep my race · ${acLocal ? "local test" : `1 ${AC_TOKEN.one}`}</p>
     <h3>Tailor my race plan</h3>
     <h4>1 · Target race</h4>
     ${race}
@@ -408,6 +421,9 @@ function acAskRefresh() {
 function acAskInput(el) {
   const k = el.dataset.ask;
   if (k === "question" || k === "notes" || k === "target") acAsk[k] = el.value;
+  // The OpenAI key of the file test copy: kept in memory only, outside acAsk.
+  else if (k === "key" && acLocal) acLocal.apiKey = el.value.trim();
+  else if (k === "model" && acLocal) acLocal.model = el.value;
   // Date.parse("2026-10-16") gives midnight UTC of that day in ms; NaN (an empty field) is ignored.
   else if (k === "from" || k === "to") { const v = Date.parse(el.value); if (Number.isFinite(v)) acAsk[k] = v; }
   else if (k === "run") { if (el.checked) acAsk.ids.add(el.value); else acAsk.ids.delete(el.value); }
@@ -442,6 +458,7 @@ async function acRender() {
   // so the menu is never empty. Your first saved run replaces it.
   acDemo = !mine.length && !(cloudOn() && cloudUser());
   acList = acDemo ? demoRecords() : mine;
+  ac.docs = await aiDocsAll();
   acMenu.innerHTML = acMenuHtml(historySummary(acList), acDemo);
 }
 
@@ -523,6 +540,7 @@ function acResultHtml(r, when) {
  * is read again to show it.
  */
 async function acStartAi(forced = []) {
+  if (acLocal) return acStartLocal(forced);
   acPanel.hidden = true;
   ac.msg = "";
   try {
@@ -556,6 +574,61 @@ async function acStartAi(forced = []) {
   if (ac.job) { ac.job = null; ac.msg = "Still running: open this menu again in a minute to see it."; }
   acRender();
 }
+
+/**
+ * The local test (ailocal.js): the same ask, sent to the local server instead of the account.
+ * The panel says it is working, then shows the result: the referee's verdict, the rebuilt finish,
+ * every leg compared, the texts and the tokens.
+ */
+async function acStartLocal(forced) {
+  const R = acGetRace();
+  const fake = acLocal.fake;
+  acShowPanel(`<p class="acct-kicker">Local AI test</p><h3>${fake ? "Making the fake answer…" : `Asking ${acEsc(acLocal.model)}…`}</h3><p>${fake ? "" : "This can take a minute or two. Keep this tab open."}</p>`, "Local AI test");
+  const a = profileAthlete();
+  const r = await aiLocalRun({
+    plan: R.plan, raceName: R.race ? R.race.name : "Race", fake, direct: acLocal.direct, apiKey: acLocal.apiKey, model: acLocal.model,
+    user: { targetSec: parseDuration((acAsk.target || "").trim()), goal: acAsk.goal, risk: acAsk.risk, notes: acAsk.notes, question: acAsk.question, forced },
+    athlete: { maxHr: a.hrMax, restHr: a.hrRest, weightKg: a.weight },
+    history: acAskRuns(),
+  });
+  // Every answer that came back is kept as an AI doc (aidocs.js); a usable one also goes to
+  // Your race (main.js plays it and turns the AI switch on).
+  // (A call that never reached the model, like a wrong key, bills nothing and is not kept.)
+  if (!r.error && (r.read.output || r.read.tokens.total)) {
+    const m = r.result;
+    const doc = {
+      id: `ai-${Date.now()}`, at: new Date().toISOString(), mode: "prep_race", race: R.key, raceName: R.race ? R.race.name : "Race",
+      input: r.input, output: r.read.output, tokens: r.read.tokens,
+      // The referee's summary, without the rebuilt plan (rebuilt from the output when played).
+      result: { status: m.status, reason: m.reason, finishSec: m.finishSec, aiFinishSec: m.aiFinishSec, fixes: m.fixes, legs: m.legs, aid: m.aid, texts: m.texts, dataset: m.dataset || null },
+    };
+    await aiDocsPut(doc);
+    if (m.status === "ok") document.dispatchEvent(new CustomEvent("trp-ai-use", { detail: doc }));
+  }
+  acShowPanel(aiLocalHtml(r), "Local AI test", "acct-local");
+}
+
+/** One AI doc as a menu row: date, race, then the verdict and AI finish (or "empty"). */
+function acDocRow(d) {
+  const ok = d.result && d.result.status === "ok";
+  const v = ok ? `${acEsc(d.result.dataset.target.verdict)} · ${hm(d.result.finishSec)}` : "empty";
+  return `<button type="button" class="acct-row acct-doc" data-acct="doc:${acEsc(d.id)}"><span>✦ ${acDate(Date.parse(d.at))} ${new Date(d.at).toTimeString().slice(0, 5)} · ${acEsc(d.raceName)}</span><b>${v}</b></button>`;
+}
+/** HTML of the AI docs block of the menu: the last few docs, newest first ("" when none). */
+function acDocsHtml(docs) {
+  if (!docs.length) return "";
+  return `<section><h4>AI docs · ${docs.length}</h4>${docs.slice(0, 4).map(acDocRow).join("")}${docs.length > 4 ? `<button type="button" class="acct-linkbtn" data-acct="docs">All ${docs.length} AI docs</button>` : ""}</section>`;
+}
+/** Open one AI doc in the panel: the same view as a fresh answer, with its own buttons. */
+async function acDocShow(id) {
+  const d = await aiDocsGet(id);
+  if (!d) return;
+  const download = URL.createObjectURL(new Blob([JSON.stringify(d, null, 2)], { type: "application/json" }));
+  acShowPanel(aiLocalHtml({ docId: d.id, when: acDate(Date.parse(d.at)), input: d.input, read: { tokens: d.tokens, output: d.output }, result: d.result, stamp: d.at.slice(0, 19).replace(/[:T]/g, "-"), download }), "AI doc", "acct-local");
+}
+
+/** Open the Ask the AI window (for the "Ask the AI" link of Your race). */
+export function acctOpenAsk() { acAction("ai"); }
 
 /**
  * Open (or redraw) the Account window in the pop-up panel. `keep` = true keeps the scroll
@@ -661,7 +734,9 @@ async function acAction(what) {
     if (profileAction(what.slice(3))) acProfile(true);
   } else if (what === "bests") {
     acShowPanel(acBestsHtml(historySummary(acList)), "All-time bests");
-  } else if (what === "go") {
+  } else if (what === "go" || what === "fake") {
+    // Local test only: "fake" asks for the answer made by code instead of the AI.
+    if (acLocal) acLocal.fake = what === "fake";
     // The code checks, at click and before any call: all clear starts the analysis at once.
     const checks = acAskChecks();
     if (!checks.length) { acAsk.checks = null; acStartAi(); return; }
@@ -684,6 +759,23 @@ async function acAction(what) {
     acStartAi(checks.map((k) => k.code));
   } else if (what === "last" && ac.jobs[0]) {
     acShowPanel(acResultHtml(ac.jobs[0].result, ac.jobs[0].created_at));
+  } else if (what.startsWith("doc:")) {
+    acDocShow(what.slice(4));
+  } else if (what === "docs") {
+    acShowPanel(`<p class="acct-kicker">AI docs</p><h3>Every AI answer on this device</h3><section>${ac.docs.map(acDocRow).join("")}</section>`, "AI docs");
+  } else if (what.startsWith("doc-use:")) {
+    aiDocsGet(what.slice(8)).then((d) => {
+      if (!d) return;
+      document.dispatchEvent(new CustomEvent("trp-ai-use", { detail: d }));
+      acAction("ai-race");
+    });
+  } else if (what.startsWith("doc-del:")) {
+    aiDocsDelete(what.slice(8)).then(() => { acPanel.hidden = true; acRender(); });
+  } else if (what === "ai-race") {
+    // From an AI result: close the window and go to Your race, where the AI plan now plays.
+    acPanel.hidden = true;
+    const s4 = document.getElementById("s4");
+    if (s4) s4.scrollIntoView({ behavior: "smooth" });
   } else if (what === "close") {
     acPanel.hidden = true;
   }
@@ -717,6 +809,8 @@ async function acSignIn(form) {
  */
 export async function initAccount(opts = {}) {
   if (opts.getRace) acGetRace = opts.getRace;
+  // Local test mode: only answers on this computer, under npm run ai-browser (ailocal.js).
+  aiLocalProbe().then((x) => { acLocal = x; });
   acEl = document.createElement("div");
   acEl.className = "acct";
   // The round button (a person icon in SVG: a circle head and a curved path for the shoulders),

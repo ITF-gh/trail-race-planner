@@ -4,3 +4,5 @@ dist/
 *.gpx
 *.fit
 !tests/fixtures/*.gpx
+.env.local
+ai-runs/

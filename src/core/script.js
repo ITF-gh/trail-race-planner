@@ -142,7 +142,9 @@ export function raceScript(plan, sid) {
 
   // 4. Each gel of this scenario. g.at is an optional place name ("top of climb 3").
   sc.gels.forEach((g, i) => {
-    add({ kind: "gel", sec: g.sec, km: g.km, title: `Gel ${i + 1} of ${sc.gels.length}`, cue: `${g.at ? `At ${g.at}. ` : ""}Eat it now with a few sips of water, even if you do not feel hungry. Fuel taken now is energy in 30 min.` });
+    // An AI plan names the intake (gel, bar, drink, food) and its carbs.
+    const what = g.item ? `${g.item[0].toUpperCase()}${g.item.slice(1)}${g.carbsG ? ` (${r0(g.carbsG)} g carbs)` : ""}` : "Gel";
+    add({ kind: "gel", sec: g.sec, km: g.km, title: `${what} · ${i + 1} of ${sc.gels.length}`, cue: `${g.at ? `At ${g.at}. ` : ""}Eat it now with a few sips of water, even if you do not feel hungry. Fuel taken now is energy in 30 min.` });
   });
 
   // 5. Each aid station: a stop with a "leave by" time, or a pass-through when stopMin is 0.
@@ -161,6 +163,10 @@ export function raceScript(plan, sid) {
   // Key zones come last so that, at the same spot as a climb, the key-zone cue is the one shown.
   (plan.keyZones || []).forEach((z) => {
     add({ kind: "key", sec: secAtKm(plan, sid, z.fromKm), km: z.fromKm, level: 4, title: `Key zone ${z.n} · ${z.modeLabel} · ${z.title}`, cue: `${z.why} ${z.how}` });
+  });
+  // The AI's key moments (an AI plan only), with the AI's own cue.
+  ((plan.ai && plan.ai.moments) || []).forEach((m) => {
+    add({ kind: "ai", sec: secAtKm(plan, sid, m.km), km: m.km, level: m.level, title: m.title, cue: m.cue || "Key moment chosen by the AI." });
   });
   // 7. The finish.
   add({ kind: "finish", sec: sc.finishSec, km: total, title: "Finish", cue: `Finish at ${at(sc.finishSec)}, ${hm(sc.finishSec)} on course. Picture the arch, the clock, the people. You earned it climb by climb.` });
@@ -313,7 +319,10 @@ export function raceLegs(plan, sid) {
   // 5. Give every section its targets for this scenario. `map` builds a new array: one
   // enriched object per section, k being its 0-based index.
   const zones = plan.keyZones || [];
+  // An AI plan (core/aiprep.js) carries the AI's choices per leg id L1..Ln, in this same order.
+  const A = plan.ai && plan.ai.legs;
   return legs.map((l, k) => {
+    const ai = A ? A[`L${k + 1}`] || null : null;
     // Clock in and out. The last section ends exactly at the finish time.
     const startSec = secAtKm(plan, sid, l.startKm);
     const endSec = k === legs.length - 1 ? sc.finishSec : secAtKm(plan, sid, l.endKm);
@@ -333,6 +342,8 @@ export function raceLegs(plan, sid) {
     // pace: moving pace in s/km, stops left out. keyZone: the first key zone that overlaps.
     return {
       ...l, i: k + 1, km, up, down,
+      // The AI's tactic replaces the coded one; `ai` keeps its mode, effort, note and reason.
+      tactic: ai && ai.tactic ? ai.tactic : l.tactic, ai,
       avg: ((eleAtKm(P, l.endKm) - eleAtKm(P, l.startKm)) / Math.max(1, km * 1000)) * 100,
       startSec, endSec, durSec: endSec - startSec, stopSec,
       pace: km > 0 ? Math.max(0, endSec - startSec - stopSec) / km : null,
