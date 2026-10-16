@@ -1156,6 +1156,25 @@ html[data-theme="sky"] .brand-desc{color:#fff;opacity:.92;border-color:rgba(255,
 .acct-pick span{flex:1;color:var(--acct-muted);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .acct-pick b{font-weight:600;white-space:nowrap}
 .acct-pick input{accent-color:var(--sun);width:16px;height:16px}
+/* Ask the AI, Prep my race: the race card, sub-lines, the target time and the box of checks */
+.acct-race{display:flex;flex-direction:column;gap:2px;border:1px solid var(--acct-line);border-radius:10px;padding:8px 12px}
+.acct-race b{font-weight:600}
+.acct-race span{font-size:14px;color:var(--acct-muted)}
+.acct-race.empty{flex-direction:row;flex-wrap:wrap;align-items:baseline;gap:4px 12px;border-style:dashed}
+.acct-race.empty .acct-linkbtn,.acct-sub .acct-linkbtn{margin-top:0}
+.acct-sub{margin:4px 0 8px;font-size:14px;color:var(--acct-muted)}
+.acct-sub b{color:var(--acct-ink);font-weight:600}
+.acct-time{width:6.5em}
+.acct-range label:has(.acct-time){white-space:nowrap}
+.acct-inline{display:inline-block;margin:0 0 6px}
+.acct-checks{margin-top:14px;border:1.5px solid var(--sun);border-radius:12px;padding:10px 14px}
+.acct-checks h4{margin-top:0}
+.acct-panel-in > .acct-kicker{padding-right:48px}
+.acct-checks ul{margin:0;padding:0;list-style:none}
+.acct-checks li{font-size:14px;padding:6px 0;border-bottom:1px solid var(--acct-sep)}
+.acct-checks li:last-child{border-bottom:0}
+.acct-checks li span{display:inline-block;margin-right:8px;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;background:var(--sun);color:#10203a}
+.acct-checks li.stop span{background:#e5484d;color:#fff}
 .acct-ask-count{margin:10px 0 0!important;font-size:14px}
 .acct-ask-count b{color:var(--acct-ink)}
 .acct-panel-in h4 small{font-size:11px;letter-spacing:.06em;color:var(--acct-muted);text-transform:none}

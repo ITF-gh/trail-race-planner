@@ -182,7 +182,8 @@ export const cloudClaim = () => clAuthed("/functions/v1/claim-cairns", { method:
 /**
  * Spend a token on an AI analysis of the runs `ask` selects; answers { job } at once, the result
  * comes later (cloudJob). `athlete` is { hrMax, hrRest, weight } (null when not set); `ask` is
- * { ids } or { from, to } (ms), plus focus (an AI_FOCUS code) and question (text).
+ * { ids } or { from, to } (ms), plus focus (an AI_FOCUS code) and question (text); the Prep my
+ * race window also sends mode, goal, risk, targetSec, notes and forced (read by the server later).
  */
 export const cloudAnalyse = (athlete, ask) => clAuthed("/functions/v1/ai-analyse", { method: "POST", body: { athlete, ask } });
 /** One analysis job by id: { id, status ("running", "done" or "failed"), result, error, created_at }. */
