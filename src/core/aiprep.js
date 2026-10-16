@@ -443,7 +443,9 @@ export function aiPrepFake(input) {
       strengths: [{ what: "Climbing", proof: "fake", effect: "climbs 5% faster" }],
       weaknesses: [{ what: "Descending", proof: "fake", effect: "descents 5% slower" }],
       why: legs.filter((l) => l.durSec !== calc.get(l.id).durSec).map((l) => ({ ref: `${l.id}.durSec`, text: "(fake) rule of the test answer" })),
-      legNotes: [], momentCues: [], watchTexts: first("climb") ? [{ legId: first("climb").id, text: "FAKE: HIKE STEADY ON THIS CLIMB" }] : [],
+      legNotes: ["climb", "descent"].map(first).filter(Boolean).map((l) => ({ legId: l.id, text: l.kind === "climb" ? "(fake) Hike from the first steep pitch, poles out." : "(fake) Easy on the quads, the race is long." })),
+      momentCues: first("climb") ? [{ legId: first("climb").id, text: "(fake) First real climb: hold back, it is a long day." }] : [],
+      watchTexts: first("climb") ? [{ legId: first("climb").id, text: "FAKE: HIKE STEADY ON THIS CLIMB" }] : [],
       nextSteps: "(fake)",
     },
   };

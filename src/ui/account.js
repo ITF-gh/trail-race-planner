@@ -585,8 +585,13 @@ async function acStartLocal(forced) {
     athlete: { maxHr: a.hrMax, restHr: a.hrRest, weightKg: a.weight },
     history: acAskRuns(),
   });
+  // A usable answer goes to Your race (main.js keeps it and turns the AI switch on).
+  if (r.result && r.result.status === "ok") document.dispatchEvent(new CustomEvent("trp-ai-answer", { detail: { input: r.input, output: r.read.output, tokens: r.read.tokens } }));
   acShowPanel(aiLocalHtml(r), "Local AI test", "acct-local");
 }
+
+/** Open the Ask the AI window (for the "Ask the AI" link of Your race). */
+export function acctOpenAsk() { acAction("ai"); }
 
 /**
  * Open (or redraw) the Account window in the pop-up panel. `keep` = true keeps the scroll
@@ -717,6 +722,11 @@ async function acAction(what) {
     acStartAi(checks.map((k) => k.code));
   } else if (what === "last" && ac.jobs[0]) {
     acShowPanel(acResultHtml(ac.jobs[0].result, ac.jobs[0].created_at));
+  } else if (what === "ai-race") {
+    // From an AI result: close the window and go to Your race, where the AI plan now plays.
+    acPanel.hidden = true;
+    const s4 = document.getElementById("s4");
+    if (s4) s4.scrollIntoView({ behavior: "smooth" });
   } else if (what === "close") {
     acPanel.hidden = true;
   }

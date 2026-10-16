@@ -121,6 +121,7 @@ export function aiLocalHtml(r) {
   const D = m.dataset;
   return `<p class="acct-kicker">Local AI test · ${alEsc(tk.model)}</p>
     <h3>${alEsc(T.headline)}</h3>
+    <div class="acct-actions"><button class="btn primary" type="button" data-acct="ai-race">▶ Play it in Your race</button></div>
     <p>Calculated finish <b>${hms(input.calc.finishSec.central)}</b> · AI finish (summed by code) <b>${hms(m.finishSec)}</b> · AI's own estimate ${hms(m.aiFinishSec)} · verdict <b>${alEsc(D.target.verdict)}</b></p>
     ${T.answer ? `<p class="acct-answer">${alEsc(T.answer)}</p>` : ""}
     <p>${alEsc(T.synthesis)}</p>

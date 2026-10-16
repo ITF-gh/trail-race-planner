@@ -1235,3 +1235,21 @@ html[data-theme="sky"] .tn-links a.tn-star{color:transparent;filter:drop-shadow(
 .acct-key{width:100%;box-sizing:border-box;padding:9px 12px;border-radius:10px;border:1px solid var(--acct-sep);background:rgba(255,255,255,.06);color:inherit;font:inherit}
 .rp-leg-info .rp-ai-note{color:var(--muted)} .rp-leg-info .rp-ai-note .ic{background:#b98cff;color:#1a0f2e}
 .rp-leg-info .rp-ai-note span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis}
+/* 04 Your race: the Calculated / AI switch and the AI summary (airace.js). */
+.ar-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin:0 0 14px}
+.ar-switch{display:inline-flex;border:1px solid rgba(255,255,255,.25);border-radius:999px;padding:3px;background:rgba(0,0,0,.25)}
+.ar-switch button{border:0;background:none;color:var(--fg);font:inherit;font-weight:700;font-size:13px;padding:6px 14px;border-radius:999px;cursor:pointer}
+.ar-switch button.on{background:var(--sun);color:#1a1300}
+.ar-switch button[data-ar=ai].on{background:#b98cff;color:#1a0f2e}
+.ar-switch button:disabled{opacity:.4;cursor:not-allowed}
+.ar-note{margin:0;font-size:14px;color:var(--muted)}
+.ar-link{border:0;background:none;padding:0;color:#b98cff;font:inherit;font-weight:700;cursor:pointer;text-decoration:underline}
+.ar-sum{flex:1 1 100%;border:1px solid rgba(185,140,255,.45);border-radius:12px;padding:10px 14px;background:rgba(185,140,255,.07)}
+.ar-sum h3{margin:2px 0 6px;font-size:17px}
+.ar-k{margin:0;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#b98cff;font-weight:700}
+.ar-k small{text-transform:none;letter-spacing:0;color:var(--muted);font-weight:500}
+.ar-answer{margin:0 0 6px;border-left:3px solid #b98cff;padding-left:10px}
+.ar-sum details summary{cursor:pointer;font-size:13px;color:var(--muted)}
+.ar-sum h4{margin:8px 0 4px;font-size:13px}
+.ar-sum ul{margin:0;padding-left:18px;font-size:14px}
+.ar-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0 18px}

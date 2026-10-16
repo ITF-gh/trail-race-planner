@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { planFromGpx } from "../src/core/plan.js";
-import { raceLegs } from "../src/core/script.js";
+import { raceLegs, secAtKm } from "../src/core/script.js";
 import { demoRecords } from "../src/core/demorecords.js";
 import { makeDemoRaceGpx, makeDemoEffortGpx, DEMO_ULTRA_PROFILE, DEMO_ULTRA_AID, DEMO_LONG_RUN_PROFILE } from "../src/demo.js";
 import { aiPrepInput, aiPrepRequest, aiPrepRead, aiPrepMerge, aiPrepFake, AI_PREP_SCHEMA, AI_PREP_INSTRUCTIONS } from "../src/core/aiprep.js";
@@ -114,4 +114,26 @@ test("merge: null answers, and too few legs, give an empty result", () => {
   assert.equal(m.status, "null");
   assert.equal(m.reason, "invalid_answer");
   assert.equal(m.plan, null);
+});
+
+test("merge: Your race reads the AI plan (tactics, notes, gels, moments, climb clocks)", async () => {
+  const { raceScript } = await import("../src/core/script.js");
+  const out = aiPrepFake(input);
+  const m = aiPrepMerge(plan, input, out);
+  const legs = raceLegs(m.plan, "central");
+  const climb = legs.find((l) => l.kind === "climb");
+  assert.equal(climb.tactic, { run: "Run it", hike: "Power hike it", mix: "Run the easy parts, hike the steep ones" }[out.dataset.legs[climb.i - 1].mode]);
+  assert.match(climb.ai.note, /fake/);
+  // The gels are the AI intakes, on the AI clock.
+  assert.equal(m.plan.scenarios.central.gels.length, out.dataset.fuel.items.length);
+  assert.ok(m.plan.scenarios.central.gels.every((g) => g.item === "gel" && g.sec > 0));
+  // A climb's clock is read again on the AI timeline: its start matches the new clock at its foot.
+  const c = m.plan.climbs[3];
+  assert.equal(c.start.central, secAtKm(m.plan, "central", c.startKm));
+  assert.notEqual(c.dur.central, plan.climbs[3].dur.central);
+  // The AI key moment is in the race script with its cue; the calculated plan has none.
+  const s = raceScript(m.plan, "central");
+  assert.ok(s.some((e) => e.kind === "ai" && /hold back/.test(e.cue)));
+  assert.ok(!raceScript(plan, "central").some((e) => e.kind === "ai"));
+  assert.equal(raceLegs(plan, "central")[0].ai, null);
 });

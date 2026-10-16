@@ -55,7 +55,8 @@ import { initRunMode, pauseRun, currentRun } from "./review.js";
 import { initPrint } from "./print.js";
 import { initHelp } from "./help.js";
 import { siteFooter } from "../site/site.js";
-import { initAccount, acctSaveRun, acctSaveGpx } from "./account.js";
+import { initAccount, acctSaveRun, acctSaveGpx, acctOpenAsk } from "./account.js";
+import { arSave, arState, arBarHtml } from "./airace.js";
 import { startAnalytics, trackEvent, trackOnce, analyticsOn, analyticsName } from "./analytics.js";
 import { makeDemoRaceGpx, makeDemoEffortGpx, DEMO_ULTRA_PROFILE, DEMO_ULTRA_AID, DEMO_LONG_RUN_PROFILE } from "../demo.js";
 
@@ -107,6 +108,7 @@ const state = {
   btab: "c", // briefing list: climbs or descents
   bwin: null, // briefing profile zoom window [fromKm, toKm], null = whole course
   plan: null,
+  aiOn: store.get("trp.ai.on") === true, // Your race shows the AI plan (when there is one)
 };
 
 // PEAK: the small mountain logo, as inline SVG text, reused in the hero, the top bar and prep mode.
@@ -276,6 +278,7 @@ $("#app").innerHTML = `
 <section id="s4" class="plan-only">
   ${head("04", "Run it before you run it", "Your race")}
   <p class="sec-intro">Live the race before you run it. Press play and follow yourself along the course: the clock runs at your predicted pace, and every climb, gel and aid station shows what to do there. Replay it until the plan feels familiar.</p>
+  <div id="s4ai"></div>
   <div id="s4body"></div>
 </section>
 
@@ -1108,15 +1111,45 @@ function renderReplay() {
   const mode = document.documentElement.dataset.mode;
   if (mode && mode !== "plan") return;
   const box = $("#s4body");
-  const plan = state.plan;
-  if (!plan) {
+  const calc = state.plan;
+  if (!calc) {
     stopReplay();
+    $("#s4ai").innerHTML = "";
     box.innerHTML = empty(`<b>Build your plan first</b> (both files, or press Try the demo), then come back to play your race day.`);
     return;
   }
-  const sid = plan.scenarios[state.scenario] ? state.scenario : "central";
-  mountCockpit(box, plan, sid, `${state.race && state.race.name}|${plan.course.totalKm.toFixed(2)}`);
+  const sid = calc.scenarios[state.scenario] ? state.scenario : "central";
+  // The Calculated / AI switch (airace.js): with AI on and an AI plan that fits this plan, the
+  // cockpit plays the AI plan, rebuilt by code from the AI's answer; otherwise the calculated one.
+  const key = raceKey();
+  const ai = arState(calc, key);
+  const on = state.aiOn && ai.state === "ok";
+  const plan = on ? ai.result.plan : calc;
+  $("#s4ai").innerHTML = arBarHtml(ai, on, calc.scenarios[sid].finishSec, on ? plan.scenarios[sid].finishSec : null);
+  document.documentElement.classList.toggle("ai-on", on);
+  mountCockpit(box, plan, sid, key);
 }
+/** The race key ("name|km"): what replay.js and the AI answer are remembered by. */
+const raceKey = () => `${state.race && state.race.name}|${state.plan.course.totalKm.toFixed(2)}`;
+// The switch's buttons and links (event delegation on the bar, drawn again at every render).
+$("#s4ai").addEventListener("click", (ev) => {
+  const b = ev.target.closest("[data-ar]");
+  if (!b) return;
+  const what = b.dataset.ar;
+  if (what === "ask") { acctOpenAsk(); return; }
+  state.aiOn = what === "ai";
+  store.set("trp.ai.on", state.aiOn);
+  trackEvent("ai-switch", what);
+  renderReplay();
+});
+// A new AI answer (the Ask the AI window, account.js): keep it for this race and show it.
+document.addEventListener("trp-ai-answer", (ev) => {
+  if (!state.plan) return;
+  arSave(raceKey(), ev.detail);
+  state.aiOn = true;
+  store.set("trp.ai.on", true);
+  renderReplay();
+});
 /** The race-day cockpit (sections, map, profile, script) for any plan: a race, or a run to come. */
 // box: the element to draw into; plan: a plan from buildPlan; sid: scenario id; key: a text that
 // identifies the race; noun: "Race" or "Run", used in the cockpit's wording.
