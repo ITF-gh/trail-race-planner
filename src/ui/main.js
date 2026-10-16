@@ -1,13 +1,14 @@
 // main.js: the browser app. Reads two GPX files locally (nothing is uploaded),
-// calls the same core modules as the CLI, and draws the result in three sections:
-//   01 Your engine     what your own run says about you (effort GPX only)
-//   02 Race briefing   what the course says, before knowing who runs it (race GPX only)
-//   03 D-day plan      both files plus your settings: clock times, tactics, gels
-//   04 Race day        the plan played back in time on the map and profile, to rehearse it
+// calls the same core modules as the CLI, and draws the result in sections:
+//   01 Engine          what your own runs say about you (effort GPX only)
+//   02 Course          what the course says, before knowing who runs it (race GPX only)
+//   03 Plan            both files plus your settings: clock times, tactics, gels
+//   04 Rehearsal       the plan played back in time on the map and profile, to rehearse it
+//   05 Watch           the plan as watch messages (Pimp my GPX)
 // Three modes share the page, picked by the switch on top and kept in the address (?mode=):
-//   Prep my race (plan, default)  the four sections above, plus a targeted duration to check
-//   Prep my run  (?mode=prep)     a GPX of a run to come, given back with details (section s-prep, ui/preprun.js)
-//   Check my run   (?mode=run)      a run you just did, replayed with its key moments (ui/review.js)
+//   Prep my race  (plan, default)  the sections above, plus a targeted duration to check
+//   Prep my run   (?mode=prep)     a GPX of a run to come, given back with details (section s-prep, ui/preprun.js)
+//   Rewind my run (?mode=run)      a run you just did, replayed with its key moments (ui/review.js)
 // A data-mode attribute on <html> hides what belongs to the other modes (.plan-only,
 // .prep-only, .review-only).
 // Each section renders as soon as the files it needs are loaded. A sticky bar on top jumps
@@ -83,9 +84,9 @@ const PHOTOS = {
 };
 const credit = (key, cls = "") => `<a class="photo-credit${cls ? " " + cls : ""}" href="${PHOTOS[key].url}" target="_blank" rel="noopener">Photo: ${PHOTOS[key].by} / Pexels</a>`;
 const head = (num, kicker, title, key = "s" + Number(num)) => `<header class="sec-head"><div class="sec-num">${num}</div><div class="sec-kicker">${kicker}</div><h2>${title}</h2>${PHOTOS[key] ? credit(key) : ""}</header>`;
-const NAV = [["s1", "01", "Engine"], ["s2", "02", "Briefing"], ["s3", "03", "D-day"], ["s4", "04", "Race day"], ["s-pimp", "05", "Pimp my GPX"], ["s-prep", "◆", "Prep my run"], ["s5", "▶", "Check my run"], ["s6", "▶▶", "Deep dive"]];
+const NAV = [["s1", "01", "Engine"], ["s2", "02", "Course"], ["s3", "03", "Plan"], ["s4", "04", "Rehearsal"], ["s-pimp", "05", "Watch"], ["s-prep", "◆", "Prep my run"], ["s5", "▶", "Recap"], ["s6", "▶▶", "Deep dive"]];
 /** The modes, in switch order: data-mode value, label, and the class that only it shows. */
-const MODES = [["plan", "Prep my race", "plan-only"], ["prep", "Prep my run", "prep-only"], ["run", "Check my run", "review-only"]];
+const MODES = [["plan", "Prep my race", "plan-only"], ["prep", "Prep my run", "prep-only"], ["run", "Rewind my run", "review-only"]];
 const navClass = (id) => (id === "s5" || id === "s6" ? "review-only" : id === "s-prep" ? "prep-only" : "plan-only");
 const MODE_SEG = `<div class="seg mode-seg" role="group" aria-label="Mode">${MODES.map(([m, label]) => `<button type="button" data-mode="${m}">${label}</button>`).join("")}</div>`;
 
@@ -97,7 +98,7 @@ $("#app").innerHTML = `
     ${prepHeroHtml(PEAK)}
     <div class="hero-row review-only">
       <div>
-        <div class="brand">${PEAK}Trail Race Planner · Check my run</div>
+        <div class="brand">${PEAK}Prep my race <span class="brand-desc">Trail race &amp; run planner</span></div>
         <h1 style="margin-top:14px">Relive the run.<br><em>Learn from it.</em></h1>
         <p class="lead">Drop the GPX of a run you just did. It plays back on the map at your real pace, and the planner finds the key moments: where you were strong, where it cost you, where you stopped, when you faded. Your file never leaves this page.</p>
       </div>
@@ -113,7 +114,7 @@ $("#app").innerHTML = `
     </div>
     <div class="hero-row plan-only">
       <div>
-        <div class="brand">${PEAK}Trail Race Planner</div>
+        <div class="brand">${PEAK}Prep my race <span class="brand-desc">Trail race &amp; run planner</span></div>
         <h1 style="margin-top:14px">Know the course.<br><em>Own the day.</em></h1>
         <p class="lead">Drop one or more of your own runs and the race GPX. The planner learns how you move on every gradient, reads every climb of the course, and builds your race-day plan: pace, hikes, gels, checkpoints. Your files never leave this page.</p>
       </div>
@@ -150,19 +151,19 @@ $("#app").innerHTML = `
 </nav>
 
 <section id="s1" class="plan-only">
-  ${head("01", "From your run", "Your engine")}
+  ${head("01", "What your runs say about you", "Engine")}
   <p class="sec-intro">What the planner reads from your own GPX: how fast you move on each gradient, fresh and tired, and how you fade.</p>
   <div id="s1body"></div>
 </section>
 
 <section id="s2" class="plan-only">
-  ${head("02", "From the race GPX", "Race briefing")}
+  ${head("02", "What the mountain asks, climb by climb", "Course")}
   <p class="sec-intro">The course on its own: where the climbs and descents are, how hard each one is, and where the long climbs change character.</p>
   <div id="s2body"></div>
 </section>
 
 <section id="s3" class="plan-only">
-  ${head("03", "Your plan", "D-day")}
+  ${head("03", "Clock times, pace, gels, where to walk", "Plan")}
   <p class="sec-intro">Your engine on this course, with your race-day settings: finish time, clock time at every checkpoint, how to run each climb and descent, when to eat.</p>
   <div class="panel">
     <div class="fields">
@@ -191,13 +192,13 @@ $("#app").innerHTML = `
 </section>
 
 <section id="s4" class="plan-only">
-  ${head("04", "Rehearse it", "Race day")}
+  ${head("04", "Run it before you run it", "Rehearsal")}
   <p class="sec-intro">Live the race before you run it. Press play and follow yourself along the course: the clock runs at your predicted pace, and every climb, gel and aid station shows what to do there. Replay it until the plan feels familiar.</p>
   <div id="s4body"></div>
 </section>
 
 <section id="s-pimp" class="plan-only">
-  ${head("05", "Your plan on your watch", "Pimp my GPX", "none")}
+  ${head("05", "Your plan on your wrist", "Watch", "none")}
   <p class="sec-intro">The race GPX given back with your plan on it: the messages your watch shows along the course (hike here, brake there, the key zones). Check them, edit them, then download the course for your watch.</p>
   <div id="sPimpBody"></div>
 </section>
@@ -209,7 +210,7 @@ $("#app").innerHTML = `
 </section>
 
 <section id="s5" class="review-only">
-  ${head("▶", "After the run", "Check my run", "s5")}
+  ${head("▶", "After the run", "Rewind my run", "s5")}
   <p class="sec-intro">Your run played back at its real pace. The bar, the map and the profile are coloured by how you ran each stretch compared with your own average on the same kind of ground; each key moment stops the replay and says what it means. Add the time or pace you were aiming for, and the review shows how far you were, where the time went and where to change your effort to reach it.</p>
   <div id="s5body"></div>
 </section>
@@ -714,7 +715,7 @@ function renderDday() {
   })() : state.settings.targetTime ? `<div class="panel target-card t-warn" id="d-target"><p>Write the targeted duration as hours:minutes, for example 10:15.</p></div>` : "";
 
   out.innerHTML = `
-  ${jumps([["d-map", "Map"], ["d-key", "★ Key zones"], ["d-card", "Race card"], ["d-climbs", "Climb by climb"], ["d-log", "Plan versus actual"], ["d-export", "Export"], ["s-pimp", "05 Pimp my GPX"], ["rpCockpit", "▶ Rehearse race day", "go"]])}
+  ${jumps([["d-map", "Map"], ["d-key", "★ Key zones"], ["d-card", "Race card"], ["d-climbs", "Climb by climb"], ["d-log", "Plan versus actual"], ["d-export", "Export"], ["s-pimp", "05 Watch"], ["rpCockpit", "▶ Rehearse race day", "go"]])}
   <div class="dday-top has-pimp">
     ${tile(`Estimated duration · ${sc.label.toLowerCase()}`, hm(sc.finishSec), `finish at ${clock(st, sc.finishSec)} · start ${clock(st, 0)}`, "big")}
     <div class="panel" style="display:flex;flex-direction:column;gap:12px;justify-content:center">
@@ -757,7 +758,7 @@ function renderDday() {
   <div class="panel">
     <div class="actions" style="margin-bottom:8px">
       <label class="f" style="flex-direction:row;align-items:center;gap:8px">Log for
-        <select id="logsel" style="width:auto;min-width:200px"><option value="sim" ${logMode === "sim" ? "selected" : ""}>Training simulation</option><option value="race" ${logMode === "race" ? "selected" : ""}>Race day</option></select>
+        <select id="logsel" style="width:auto;min-width:200px"><option value="sim" ${logMode === "sim" ? "selected" : ""}>Training simulation</option><option value="race" ${logMode === "race" ? "selected" : ""}>Race result</option></select>
       </label>
       <span class="note" style="margin:0">Saved in this browser only.</span>
     </div>
@@ -797,7 +798,7 @@ function renderPimp() {
   if (!plan) { box.innerHTML = empty(`<b>Build your plan first</b> (both files, or press Try the demo), then get the race GPX back with your plan on it.`); return; }
   const sid = plan.scenarios[state.scenario] ? state.scenario : "central";
   box.innerHTML = `
-  <p class="note" style="margin-top:0">Timed on your <b>${esc(plan.scenarios[sid].label.toLowerCase())}</b> scenario (change it in 03 D-day).</p>
+  <p class="note" style="margin-top:0">Timed on your <b>${esc(plan.scenarios[sid].label.toLowerCase())}</b> scenario (change it in 03 Plan).</p>
   <div class="sub-h" id="d-watch">Watch messages</div>
   <div id="dWatch">${watchPanelHtml(plan)}</div>
 
@@ -850,7 +851,7 @@ function renderNav() {
   const sum = $("#tnSum");
   if (plan) {
     const sc = plan.scenarios[state.scenario] || plan.scenarios.central;
-    sum.innerHTML = `<span class="tn-fin"><small>Finish · ${esc(sc.label.toLowerCase())}</small><b>${clock(plan.startSec, sc.finishSec)}</b></span><a class="btn primary sm" href="#rpCockpit">▶ Race day</a>`;
+    sum.innerHTML = `<span class="tn-fin"><small>Finish · ${esc(sc.label.toLowerCase())}</small><b>${clock(plan.startSec, sc.finishSec)}</b></span><a class="btn primary sm" href="#rpCockpit">▶ Rehearsal</a>`;
   } else sum.innerHTML = `<button class="btn ghost sm" type="button" id="tnDemo">Try the demo</button>`;
   const d = $("#tnDemo");
   if (d) d.addEventListener("click", () => $("#demo").click());

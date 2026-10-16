@@ -1,7 +1,7 @@
 // account.js: the account icon at the top right of the hero and its see-through menu.
 //
 // The run log lives in this browser, in IndexedDB (a small database every browser has, much
-// roomier than localStorage). Each run you open in Check my run, or add as one of your runs in
+// roomier than localStorage). Each run you open in Rewind my run, or add as one of your runs in
 // Prep my race, is summarised (src/core/runrecord.js) and stored; sample and demo runs are not.
 // The menu is re-drawn from the stored summaries (src/core/history.js).
 //
@@ -13,6 +13,7 @@ import { parseGpx } from "../core/track.js";
 import { analyseRun } from "../core/review.js";
 import { historySummary } from "../core/history.js";
 import { runRecord } from "../core/runrecord.js";
+import { demoRecords, DEMO_USER } from "../core/demorecords.js";
 import { mmss, hms } from "../core/format.js";
 import { trackEvent } from "./analytics.js";
 import { cloudOn, cloudUser, cloudFromUrl, cloudSendLink, cloudSignOut, cloudRuns, cloudPutRuns, cloudDeleteRuns, cloudLedger, cloudClaim, cloudAnalyse, cloudJob, cloudJobs, cloudDeleteAccount } from "./cloud.js";
@@ -105,14 +106,14 @@ function acCairnsHtml(S) {
     </section>`;
 }
 
-function acMenuHtml(S) {
+function acMenuHtml(S, demo = false) {
   const user = cloudOn() && cloudUser();
-  const where = user ? `${acEsc(user.email)} · ${S.count} run${S.count === 1 ? "" : "s"} synced` : `${S.count || "No"} run${S.count === 1 ? "" : "s"} stored on this device`;
-  const who = `<section class="acct-who"><div><b>My account</b><small>${where}</small></div></section>`;
-  const links = `<section class="acct-links">${S.count ? `<button type="button" data-acct="export">Export my data</button><button type="button" data-acct="clear">Delete my runs</button>` : ""}${user ? `<button type="button" data-acct="signout">Sign out</button><button type="button" data-acct="delete">Delete my account</button>` : ""}</section>`;
+  const where = demo ? `Demo profile · ${S.count} sample runs. Open one of your runs to start your own log.` : user ? `${acEsc(user.email)} · ${S.count} run${S.count === 1 ? "" : "s"} synced` : `${S.count || "No"} run${S.count === 1 ? "" : "s"} stored on this device`;
+  const who = `<section class="acct-who"><div><b>${demo ? DEMO_USER : "My account"}</b><small>${where}</small></div></section>`;
+  const links = `<section class="acct-links">${S.count && !demo ? `<button type="button" data-acct="export">Export my data</button><button type="button" data-acct="clear">Delete my runs</button>` : ""}${user ? `<button type="button" data-acct="signout">Sign out</button><button type="button" data-acct="delete">Delete my account</button>` : ""}</section>`;
   if (!S.count) {
     return `${who}
-    <section><p class="acct-empty">Open one of your runs in <b>Check my run</b>, or add it to <b>Your runs</b> in Prep my race: its numbers are kept here${user ? "" : ", on this device only"}, and your stats, records and achievements build up run after run.</p></section>
+    <section><p class="acct-empty">Open one of your runs in <b>Rewind my run</b>, or add it to <b>Your runs</b> in Prep my race: its numbers are kept here${user ? "" : ", on this device only"}, and your stats, records and achievements build up run after run.</p></section>
     ${cloudOn() ? acCairnsHtml(S) : ""}${links}`;
   }
   const B = S.bests, lastId = S.last[0].id;
@@ -145,7 +146,11 @@ let acEl = null, acMenu = null, acPanel = null;
 
 async function acRender() {
   if (!acMenu) return;
-  acMenu.innerHTML = acMenuHtml(historySummary(await acAll()));
+  const mine = await acAll();
+  // No run of your own yet (and not signed in): show the demo profile User1 and its made-up runs,
+  // so the menu is never empty. Your first saved run replaces it.
+  const demo = !mine.length && !(cloudOn() && cloudUser());
+  acMenu.innerHTML = acMenuHtml(historySummary(demo ? demoRecords() : mine), demo);
 }
 
 /** Ask the server for the cairns of the achievements reached, then read the ledger. */

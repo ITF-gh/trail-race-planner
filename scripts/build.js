@@ -67,10 +67,11 @@ cpSync(join(root, "src/ui/photos"), join(root, "dist/photos"), { recursive: true
 // is shown, so the page stays light and the map code works offline.
 cpSync(join(root, "src/vendor/leaflet"), join(root, "dist/vendor/leaflet"), { recursive: true });
 const title = `${SITE.name} · ${SITE.tagline}`;
-writeFileSync(join(root, "dist/fragment.html"), `<title>${title}</title>\n${fonts}\n${body}`);
+const titleHtml = title.replace(/&/g, "&amp;");
+writeFileSync(join(root, "dist/fragment.html"), `<title>${titleHtml}</title>\n${fonts}\n${body}`);
 writeFileSync(
   join(root, "dist/index.html"),
-  `<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n<title>${title}</title>\n${headMeta({ title })}\n${fonts}\n</head>\n<body>\n${body}</body>\n</html>\n`
+  `<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n<title>${titleHtml}</title>\n${headMeta({ title })}\n${fonts}\n</head>\n<body>\n${body}</body>\n</html>\n`
 );
 
 // The static pages (guide, about, privacy, what's new, 404) share the app's stylesheet as a file.

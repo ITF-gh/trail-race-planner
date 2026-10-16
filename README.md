@@ -1,12 +1,12 @@
-# Trail Race Planner
+# Prep my race · trail race & run planner
 
 Give it a race course (GPX) and one of your own recorded runs (GPX). It learns how fast you move on each kind of terrain, then predicts the race and writes a plan: pace by gradient, which climbs to hike, which descents to brake on, gel stops, checkpoints, and a heart-rate guide.
 
 Then it lets you **rehearse race day**: the course on an OpenStreetMap map, and a replay where a runner moves along the map and the profile at your predicted pace, stopping at each climb, gel and aid station with a short cue of what to do there. It also marks the **key zones**, the stretches where the race is played, ranked by the minutes at stake.
 
-The switch at the top picks one of three modes. **Prep my race** (the default) is everything above, plus an optional **targeted duration**: the planner says whether your runs back it up (realistic, ambitious, not backed, or comfortable), against its three scenarios. **Prep my run** (`?mode=prep`) takes the GPX of a run you are about to do and gives it back with its details for your watch. **Check my run** (`?mode=run`): drop the GPX of a run you just did and it plays back on the map at your real pace, with your real stops and the real time of day. It finds the **key moments**, good and bad (your strongest and weakest climb and descent, stops, when the fade starts, heart-rate drift, walking where you could run) and colours every stretch by how you ran it compared with your own average on the same kind of ground. "Try a sample run" shows it on a made-up 28 km trail run.
+The switch at the top picks one of three modes. **Prep my race** (the default) is everything above, plus an optional **targeted duration**: the planner says whether your runs back it up (realistic, ambitious, not backed, or comfortable), against its three scenarios. **Prep my run** (`?mode=prep`) takes the GPX of a run you are about to do and gives it back with its details for your watch. **Rewind my run** (`?mode=run`): drop the GPX of a run you just did and it plays back on the map at your real pace, with your real stops and the real time of day. It finds the **key moments**, good and bad (your strongest and weakest climb and descent, stops, when the fade starts, heart-rate drift, walking where you could run) and colours every stretch by how you ran it compared with your own average on the same kind of ground. "Try a sample run" shows it on a made-up 28 km trail run.
 
-**Your numbers** lists the records of the run: average and best pace (held for one minute), fastest 200 m, 1 km and 5 km, steepest 100 m up and down, highest point, then the pace of every km as bars (click one to replay it) and a full table. On the profile, a thin blue line shows your pace (smoothed over 100 m, higher = faster) behind the elevation: a bright dot follows the runner, the stretch just run glows, and what is done fades.
+**Recap** lists the records of the run: average and best pace (held for one minute), fastest 200 m, 1 km and 5 km, steepest 100 m up and down, highest point, then the pace of every km as bars (click one to replay it) and a full table. On the profile, a thin blue line shows your pace (smoothed over 100 m, higher = faster) behind the elevation: a bright dot follows the runner, the stretch just run glows, and what is done fades.
 
 **Deep dive** goes further, with charts you can play with: about 20 key numbers (VAM, split ratio, grade-adjusted fade, cadence and stride, efficiency factor, aerobic decoupling, heart-rate zones and training load, energy), with your weight and heart rates as settings; best efforts for any distance on a slider; pace by gradient band; a pace histogram; an explorer to cross any two measures (with the best-fit line and correlation); and every climb and descent in a table. Click any point or row to replay that moment.
 
@@ -14,7 +14,7 @@ Give it the **target** you were aiming for (a finish time or an average pace) an
 
 Your files are read on your own machine. Nothing is uploaded.
 
-**My account** (the round icon at the top right) keeps a run log on this device: every run you open in Check my run, or add to Your runs in Prep my race, is summarised (about 1 KB: date, distance, climbing, best 1, 5 and 10 km, climbing speed, fade, heart drift) and stored in the browser's IndexedDB. The menu shows your last 12 months, all-time bests, last runs, achievements and the **cairns** they earn. Sample and demo runs are not stored. Export my data downloads the log as JSON; Delete my runs empties it.
+**My account** (the round icon at the top right) keeps a run log on this device: every run you open in Rewind my run, or add to Your runs in Prep my race, is summarised (about 1 KB: date, distance, climbing, best 1, 5 and 10 km, climbing speed, fade, heart drift) and stored in the browser's IndexedDB. The menu shows your last 12 months, all-time bests, last runs, achievements and the **cairns** they earn. Sample and demo runs are not stored. While this device has no run of its own, the menu shows the demo profile **User1** with 22 made-up runs (`src/core/demorecords.js`), never stored or sent; your first saved run replaces it. Export my data downloads the log as JSON; Delete my runs empties it.
 
 **Online account (optional).** Signing in with an email link keeps the run log and the cairns in your account (Supabase, EU). The server recomputes the achievements from your runs and pays each one once; 1 cairn buys 1 AI analysis of your whole log: Claude reads one line per run (no names, no GPS points) and returns new KPIs, strengths, what to work on and the next weeks. A cairn is refunded if the analysis fails. Setup: [supabase/SETUP.md](supabase/SETUP.md). Not open yet: writes are closed in the app (`CLOUD.open` in `src/ui/cloud.js`) and in the database (`writes_open()`), so nothing is sent or stored.
 
@@ -60,12 +60,12 @@ src/core/format.js     time and pace formatting
 src/core/markdown.js   plan as Markdown
 src/core/keyzones.js   key zones: where the race is played, and how many minutes are at stake
 src/core/script.js     the race in time: key moments with cues, and where you are at any second
-src/core/review.js     Check my run: grade-adjusted pace, stops, sections with a verdict, key moments of a run you did
+src/core/review.js     Rewind my run: grade-adjusted pace, stops, sections with a verdict, key moments of a run you did
 src/core/history.js    the run log: 12-month totals, bests, achievements and cairns, record checks, AI digest (shared with the server)
 src/core/runrecord.js  one small summary per run
 src/demo.js            made-up GPX files for the demo and the tests
 src/ui/                the browser app (main.js, map.js for the map, replay.js for race day,
-                       review.js for the Check my run mode, print.js for the Export A4 pages (print or save as PDF), account.js for the account menu and its IndexedDB store, cloud.js for the online account, analytics.js for anonymous visit and event counts)
+                       review.js for the Rewind my run mode, print.js for the Export A4 pages (print or save as PDF), account.js for the account menu and its IndexedDB store, cloud.js for the online account, analytics.js for anonymous visit and event counts)
 src/vendor/leaflet/    Leaflet 1.9.4, the map library (BSD-2 licence), copied to dist/vendor/
 cli.js                 the command-line tool
 scripts/build.js       bundles the app into dist/index.html, no dependencies
@@ -118,7 +118,7 @@ The hero and section banners use free photos from [Pexels](https://www.pexels.co
 No face is recognisable in any of them: people are seen from behind, far away or as silhouettes.
 "Prep my race" keeps a nature and adventure look: Artem Meletov (hero, a summit above the clouds),
 Hobi Photography (01), Elina Volkova (02), Jack Davis (03) and Lorenzo Castellino (04).
-"Prep my run" and "Check my run" switch to sport shots: Cara Denison (hero, a runner at sunset) and Alin Serban (Check my run).
+"Prep my run" and "Rewind my run" switch to sport shots: Cara Denison (hero, a runner at sunset) and Alin Serban (Rewind my run).
 They live in `src/ui/photos/` as WebP files, and the build copies them to `dist/photos/`. Swap a file to
 change a photo. The run-mode hero is set in CSS with `html[data-mode="run"]{--photo-hero:...}`, so the
 mode switch changes it with no script. On wide screens a banner photo fills the right 64% of the banner at

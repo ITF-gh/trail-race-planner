@@ -23,7 +23,7 @@ const SOURCE = { target: "your target time", runs: "your reference runs", estima
 export function prepHeroHtml(peak) {
   return `<div class="hero-row prep-only">
       <div>
-        <div class="brand">${peak}Trail Race Planner · Prep my run</div>
+        <div class="brand">${peak}Prep my race <span class="brand-desc">Trail race &amp; run planner</span></div>
         <h1 style="margin-top:14px">Prep it up,<br><em>get it done.</em></h1>
         <p class="lead">Step out knowing what is coming, and wanting it. Drop the GPX of your next run: the planner reads every climb and descent, writes the messages your watch will show along the way (hike here, brake there, the key moments), lets you check and edit them, and gives the course back ready for your watch. Your file never leaves this page.</p>
       </div>

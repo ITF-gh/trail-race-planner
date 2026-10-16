@@ -1115,3 +1115,8 @@ html[data-theme="sky"] .acct-panel-in h4,html[data-theme="sky"] .acct-kicker{col
 .p4-new{break-before:page}
 .p4-foot{margin-top:5mm;padding-top:1.2mm;border-top:.3mm solid #c9d0db;font-size:7pt;color:#6b7383}
 .p4 svg text{font-family:var(--f-body)}
+
+/* rebrand mockup */
+.brand{letter-spacing:.22em;font-size:17px}
+.brand-desc{font-family:var(--f-body,inherit);font-style:normal;font-weight:500;letter-spacing:.06em;text-transform:none;font-size:13px;opacity:.75;margin-left:4px;padding-left:12px;border-left:1px solid currentColor}
+html[data-theme="sky"] .brand-desc{color:#fff;opacity:.92;border-color:rgba(255,255,255,.6)}
