@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { planFromGpx } from "../src/core/plan.js";
-import { raceLegs, secAtKm } from "../src/core/script.js";
+import { raceLegs, secAtKm, racePaceLine } from "../src/core/script.js";
 import { demoRecords } from "../src/core/demorecords.js";
 import { makeDemoRaceGpx, makeDemoEffortGpx, DEMO_ULTRA_PROFILE, DEMO_ULTRA_AID, DEMO_LONG_RUN_PROFILE } from "../src/demo.js";
 import { aiPrepInput, aiPrepRequest, aiPrepRead, aiPrepMerge, aiPrepFake, AI_PREP_SCHEMA, AI_PREP_INSTRUCTIONS } from "../src/core/aiprep.js";
@@ -93,6 +93,13 @@ test("merge: AI leg times move the finish by exactly their sum, the app's functi
   const legs = raceLegs(m.plan, "central"), calc = raceLegs(plan, "central");
   assert.ok(Math.abs(legs[1].durSec - calc[1].durSec - 600) < 30);
   assert.ok(m.plan.scenarios.best.finishSec < m.finishSec && m.plan.scenarios.cautious.finishSec > m.finishSec);
+  // The pace line of the AI replay: one moving speed per profile point, slower on the slower leg.
+  const pl = racePaceLine(m.plan, "central"), plc = racePaceLine(plan, "central");
+  assert.equal(pl.length, m.plan.course.profile.length);
+  assert.ok(pl.every((p) => p.v > 0), "aid stops (longer here) never drop the line");
+  const mid = (legs[1].startKm + legs[1].endKm) / 2;
+  const at = (line) => line.reduce((a, p) => (Math.abs(p.km - mid) < Math.abs(a.km - mid) ? p : a));
+  assert.ok(at(pl).v < at(plc).v, "10 min slower on leg 2: the line drops there");
 });
 
 test("merge: the referee drops unknown ids, replaces impossible times, keeps missing legs", () => {

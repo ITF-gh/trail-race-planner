@@ -823,7 +823,8 @@ html[data-theme="sky"] .rp-legend .sw.k-flat,html[data-theme="sky"] .rp-legend .
 html[data-theme="sky"] .topnav .btn.ghost{color:var(--fg);border-color:var(--line);background:#fff}
 .tn-theme{border-color:var(--sun) !important}
 /* Check my run: pace line on the profile and "Your numbers" */
-.rv-cockpit,.rv-stats{--rv-pace:#6fd0ff}
+.rp-cockpit,.rv-stats{--rv-pace:#6fd0ff}
+svg .rp-pace{pointer-events:none}
 svg .rv-pl{fill:none;stroke:var(--rv-pace);stroke-width:1.3;stroke-linejoin:round;stroke-linecap:round}
 svg .rv-pl.ahead,svg .rv-pl.past{opacity:.35} svg .rv-pl.trail{stroke-width:1.8;opacity:.9;filter:drop-shadow(0 0 2px var(--rv-pace))}
 svg .rv-pl-t{fill:var(--rv-pace);opacity:.75;font-size:10px}
@@ -851,7 +852,7 @@ svg .rv-pl-v{fill:var(--rv-pace);font-size:11px;font-weight:700;paint-order:stro
 .rv-km-avg{stroke:var(--fg);stroke-dasharray:4 4;opacity:.5}
 .rv-km-t tr.best th{color:#6fe08f} .rv-km-t tr.worst th{color:#ff8394}
 @media (max-width:640px){ .rv-st-grid{grid-template-columns:repeat(2,minmax(0,1fr))} .rv-st b{font-size:20px} .rv-km-t th:nth-child(4),.rv-km-t td:nth-child(4){display:none} }
-html[data-theme="sky"] .rv-cockpit,html[data-theme="sky"] .rv-stats{--rv-pace:#1f86d6}
+html[data-theme="sky"] .rp-cockpit,html[data-theme="sky"] .rv-stats{--rv-pace:#1f86d6}
 html[data-theme="sky"] svg .rv-pl-v{stroke:rgba(255,255,255,.9)}
 html[data-theme="sky"] .rv-st b{color:var(--glow);text-shadow:0 0 12px rgba(255,170,40,.45)}
 /* the section bar keeps its verdict colours in Sky mode */

@@ -6,7 +6,7 @@ import { analyseEffort, hikeThreshold } from "../src/core/effort.js";
 import { predictScenario, SCENARIOS } from "../src/core/model.js";
 import { buildPlan, judgeTarget, splitClimb, climbScore, climbLevel, climbTactic, parseAidStations } from "../src/core/plan.js";
 import { planToMarkdown } from "../src/core/markdown.js";
-import { raceScript, raceStateAt, secAtKm, raceLegs, raceTotals, legAtKm } from "../src/core/script.js";
+import { raceScript, raceStateAt, secAtKm, raceLegs, raceTotals, legAtKm, racePaceLine } from "../src/core/script.js";
 import { keyZones, toblerClock, spreadAt } from "../src/core/keyzones.js";
 import { mmss, hm, clock, parseDuration, parseClock } from "../src/core/format.js";
 import { makeDemoRaceGpx, makeDemoEffortGpx, DEMO_RACE_PROFILE, DEMO_ULTRA_PROFILE, DEMO_ULTRA_AID, DEMO_LONG_RUN_PROFILE } from "../src/demo.js";
@@ -365,6 +365,15 @@ test("race legs: the whole course in numbered sections, end to end, with the bri
   assert.ok(t.movingPaceSec < t.paceSec, "aid stops left out of the moving pace");
   assert.ok(t.hrAvg >= t.hrMin && t.hrAvg <= t.hrMax);
   assert.equal(raceTotals({ ...plan, hrGuide: null }, "central").hrAvg, null);
+
+  // Pace line: one speed per profile point, every one moving (aid stops taken out), and the
+  // moving time it implies matches the moving pace of the totals within a few percent.
+  const pl = racePaceLine(plan, "central");
+  assert.equal(pl.length, plan.course.profile.length);
+  assert.ok(pl.every((p) => p.v > 0.3 && p.v < 8), "no stop drops the line, no spike");
+  const P = plan.course.profile;
+  const mvSec = P.slice(1).reduce((s, p, i) => s + ((p[0] - P[i][0]) * 1000) / pl[i].v, 0);
+  assert.ok(Math.abs(mvSec / (t.movingPaceSec * t.km) - 1) < 0.05, `moving time ${mvSec} vs ${t.movingPaceSec * t.km}`);
 });
 
 /* ---------- My run: review of a recorded run ---------- */

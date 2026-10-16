@@ -11,6 +11,7 @@
 //                           climb (or climb section) and descent of the briefing, with the
 //                           runnable stretches between them, each with its own targets
 //   raceTotals(plan, sid)   the targets for the whole race: finish, pace, gels, heart rate
+//   racePaceLine(plan, sid) the planned speed every 100 m, for the pace line on the profile
 // Both work in Node (tests) and in the browser (the replay plays them back).
 //
 // Where it sits in the data flow: plan.js builds the plan (buildPlan), then the UI
@@ -365,6 +366,34 @@ export function legAtKm(legs, km) {
   let i = 0;
   while (i < legs.length - 1 && km >= legs[i].endKm) i++;
   return i;
+}
+
+/**
+ * The planned speed along the course, for the pace line drawn over the replay's profile (the
+ * same line as in Rewind my run, but from the plan instead of a recorded run). One value per
+ * profile point (every 100 m): the speed over the 100 m step that starts there, with the time
+ * standing at an aid station taken out (so a stop does not drop the line to zero), then a
+ * 3-point moving average so the line does not jitter from one step to the next.
+ * Returns [{km, v (m/s), pace (s/km)}], like runPaceLine in core/review.js.
+ */
+export function racePaceLine(plan, sid) {
+  const P = plan.course.profile;
+  const tl = plan.scenarios[sid].timeline;
+  const raw = P.map(([km], i) => {
+    // The last point has no step after it: it takes the speed of the step before.
+    const j = Math.min(i, P.length - 2);
+    const m = (P[j + 1][0] - P[j][0]) * 1000;
+    // Moving time over the step: the clock difference minus any aid stop that starts in it.
+    const stops = plan.aidStations.filter((a) => a.arrive[sid] >= tl[j] && a.arrive[sid] < tl[j + 1]).reduce((t, a) => t + a.stopMin * 60, 0);
+    const mv = tl[j + 1] - tl[j] - stops;
+    return { km, v: m > 0 && mv > 0 ? m / mv : 0 };
+  });
+  // 3-point moving average over the neighbours that have a speed.
+  return raw.map((p, k) => {
+    const nb = raw.slice(Math.max(0, k - 1), k + 2).filter((q) => q.v > 0);
+    const v = nb.length ? nb.reduce((t, q) => t + q.v, 0) / nb.length : 0;
+    return { km: p.km, v, pace: v > 0 ? 1000 / v : null };
+  });
 }
 
 /**

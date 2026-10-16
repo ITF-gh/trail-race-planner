@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { parseGpx } from "../src/core/track.js";
 import { prepRunPlan } from "../src/core/preprun.js";
-import { raceScript } from "../src/core/script.js";
+import { raceScript, racePaceLine } from "../src/core/script.js";
 import { aiPrepRead } from "../src/core/aiprep.js";
 import { makeDemoRaceGpx, DEMO_LONG_RUN_PROFILE } from "../src/demo.js";
 import { runSpots, runLoad, aiRunInput, aiRunRequest, aiRunMerge, aiRunFake, AI_RUN_SCHEMA, AI_RUN_INSTRUCTIONS } from "../src/core/airun.js";
@@ -65,6 +65,11 @@ test("merge: the fake answer plays, with the exercises as moments and a faster c
   for (const e of m.exercises) assert.ok(s.some((x) => x.kind === "ai" && x.title.startsWith(e.label)), `${e.label} in the run script`);
   assert.ok(s.some((x) => x.kind === "ai" && x.title.startsWith("Careful")), "a safety cue on the steep descent");
   assert.equal(m.plan.scenarios.central.timeline.length, plan.scenarios.central.timeline.length);
+  // The pace line of the AI session: no gap, and faster than the easy run inside the first exercise.
+  const pl = racePaceLine(m.plan, "central"), easy = racePaceLine(plan, "central");
+  assert.ok(pl.every((p) => p.v > 0));
+  const e = m.exercises[0], k = pl.findIndex((p) => p.km > (e.startKm + e.endKm) / 2);
+  assert.ok(pl[k].v > easy[k].v, "the reps show on the line");
 });
 
 test("referee: wrong spot, wrong kind, warm-up, overlap, ranges", () => {
