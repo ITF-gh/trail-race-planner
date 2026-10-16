@@ -524,8 +524,8 @@ async function acAction(what) {
   } else if (what === "clear") {
     const user = cloudOn() && cloudUser();
     // window.confirm shows the browser's OK / Cancel box and returns true on OK. The last part
-    // (signed in only) is meant to say that the tokens already earned are kept.
-    if (!window.confirm(`Delete all the runs stored ${user ? "on this device and in your account" : "on this device"}? Your stats, records and achievements start again from zero.${user ? " ${AC_TOKEN.many[0].toUpperCase() + AC_TOKEN.many.slice(1)} you already have stay yours." : ""}`)) return;
+    // (signed in only) says that the tokens already earned are kept.
+    if (!window.confirm(`Delete all the runs stored ${user ? "on this device and in your account" : "on this device"}? Your stats, records and achievements start again from zero.${user ? ` ${AC_TOKEN.many[0].toUpperCase() + AC_TOKEN.many.slice(1)} you already have stay yours.` : ""}`)) return;
     if (user) { try { await cloudDeleteRuns(); } catch (e) { ac.msg = "Could not reach your account: runs deleted on this device only."; } }
     acCache = [];
     await acTx("readwrite", (s) => s.clear());

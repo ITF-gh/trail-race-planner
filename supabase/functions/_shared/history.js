@@ -199,11 +199,12 @@ export const AI_QUESTION_MAX = 300;
 export function aiAsk(raw = {}) {
   const r = raw && typeof raw === "object" ? raw : {};
   const day = (v) => (typeof v === "number" && Number.isFinite(v) && v > 0 && v < 4102444800000 ? v : null);
+  // A list (even an empty one) means "these runs only": an empty pick selects nothing, never everything.
   const ids = Array.isArray(r.ids) ? [...new Set(r.ids.filter((x) => typeof x === "string" && /^\d{1,13}-\d{1,6}$/.test(x)))].slice(0, 300) : null;
   const focus = AI_FOCUS.some((f) => f.code === r.focus) ? r.focus : "overall";
   // eslint-disable-next-line no-control-regex
   const question = typeof r.question === "string" ? r.question.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, AI_QUESTION_MAX) : "";
-  return { from: ids && ids.length ? null : day(r.from), to: ids && ids.length ? null : day(r.to), ids: ids && ids.length ? ids : null, focus, question };
+  return { from: ids ? null : day(r.from), to: ids ? null : day(r.to), ids, focus, question };
 }
 
 /** The runs an ask covers: the chosen ones, or those inside the date range (both ends included). */
