@@ -107,3 +107,14 @@ test("online writes are closed until the account opens", async () => {
   assert.match(sql, /function public\.writes_open\(\)[^;]*select false/);
   for (const t of ["runs", "cairn_ledger", "ai_jobs"]) assert.match(sql, new RegExp(`before insert or update on public\\.${t} for each row execute function public\\.refuse_closed_writes`));
 });
+
+test("demo profile User1: plausible made-up runs that fill every part of the menu", async () => {
+  const { demoRecords, DEMO_USER } = await import("../src/core/demorecords.js");
+  const { historySummary } = await import("../src/core/history.js");
+  const now = Date.UTC(2026, 9, 16);
+  const R = demoRecords(now);
+  assert.equal(DEMO_USER, "User1");
+  assert.deepEqual(R.map((r) => checkRecord(r, now)).filter(Boolean), []);
+  const S = historySummary(R, now);
+  assert.ok(S.count >= 20 && S.unlocked >= 5 && S.cairns > 0 && S.bests.best10k && S.bests.vam);
+});
