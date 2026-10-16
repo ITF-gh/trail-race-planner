@@ -1120,3 +1120,47 @@ html[data-theme="sky"] .acct-panel-in h4,html[data-theme="sky"] .acct-kicker{col
 .brand{letter-spacing:.22em;font-size:17px}
 .brand-desc{font-family:var(--f-body,inherit);font-style:normal;font-weight:500;letter-spacing:.06em;text-transform:none;font-size:13px;opacity:.75;margin-left:4px;padding-left:12px;border-left:1px solid currentColor}
 html[data-theme="sky"] .brand-desc{color:#fff;opacity:.92;border-color:rgba(255,255,255,.6)}
+/* Account menu v2: compact, no scrollbar; AI window */
+.acct-menu{scrollbar-width:none;padding:2px 16px 12px}
+.acct-menu::-webkit-scrollbar{display:none}
+.acct-menu section{padding:9px 0}
+.acct-menu h4{margin-bottom:6px}
+.acct-who b{font-size:20px}
+.acct-kpis b{font-size:22px}
+.acct-row{font-size:13.5px;padding:2px 0}
+.acct-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.acct-medals.mini{gap:6px}
+.acct-medals.mini span{font-size:17px;line-height:1;padding:5px 7px;border-radius:10px}
+.acct-cairns b{font-size:26px}
+.acct-cairns .btn svg,.acct-actions .btn svg{width:16px;height:16px;margin-right:6px;vertical-align:-2px}
+.acct-cairns .acct-note,.acct-menu .acct-note{margin-top:4px}
+.acct-links{gap:6px}
+.acct-links button{font-size:13px;padding:5px 10px}
+.acct-bests .acct-row{font-size:16px;padding:8px 0;border-bottom:1px solid var(--acct-sep)}
+.acct-bests .acct-row small{font-weight:400;color:var(--acct-muted);margin-left:6px}
+.acct-kicker svg{width:16px;height:16px;vertical-align:-2px}
+.acct-chips{display:flex;flex-wrap:wrap;gap:8px}
+.acct-chips.small{gap:6px;margin-top:8px}
+.acct-chip{background:transparent;color:var(--acct-ink);border:1px solid var(--acct-line);border-radius:999px;padding:6px 12px;font:inherit;font-size:14px;cursor:pointer}
+.acct-chips.small .acct-chip{font-size:13px;padding:4px 10px}
+.acct-chip:hover{border-color:var(--sun)}
+.acct-chip.on{background:var(--sun);border-color:var(--sun);color:#10203a;font-weight:600}
+.acct-chip:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.acct-range{margin-top:10px}
+.acct-range label{display:inline-flex;align-items:center;gap:8px;margin:0 14px 6px 0;font-size:14px;color:var(--acct-muted)}
+.acct-range input,.acct-q{border:1px solid var(--acct-line);background:rgba(255,255,255,.08);color:var(--acct-ink);font:inherit;font-size:14px;border-radius:10px;padding:6px 10px;color-scheme:dark}
+.acct-q{display:block;width:100%;box-sizing:border-box;resize:vertical;min-height:52px}
+.acct-q::placeholder{color:var(--acct-muted)}
+.acct-pick{margin-top:10px;max-height:220px;overflow:auto;border:1px solid var(--acct-sep);border-radius:10px;padding:4px 10px}
+.acct-pick label{display:flex;align-items:center;gap:10px;font-size:14px;padding:5px 0;border-bottom:1px solid var(--acct-sep);cursor:pointer}
+.acct-pick label:last-child{border-bottom:0}
+.acct-pick span{flex:1;color:var(--acct-muted);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.acct-pick b{font-weight:600;white-space:nowrap}
+.acct-pick input{accent-color:var(--sun);width:16px;height:16px}
+.acct-ask-count{margin:10px 0 0!important;font-size:14px}
+.acct-ask-count b{color:var(--acct-ink)}
+.acct-panel-in h4 small{font-size:11px;letter-spacing:.06em;color:var(--acct-muted);text-transform:none}
+.acct-answer{font-size:17px;color:var(--acct-ink)!important;border-left:3px solid var(--sun);padding-left:12px}
+.acct-actions .btn[disabled]{opacity:.55;cursor:not-allowed}
+.acct-ask-block:empty{display:none}
+.acct-kicker{display:flex;align-items:center;gap:6px}

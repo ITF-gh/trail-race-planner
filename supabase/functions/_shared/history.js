@@ -178,3 +178,37 @@ export function aiDigest(records, athlete = {}, max = 300) {
     table: [head, ...rows].join("\n"),
   };
 }
+
+/** The axes of analysis the runner can pick for an AI analysis (the server accepts only these). */
+export const AI_FOCUS = [
+  { code: "overall", label: "Overall progress", brief: "the overall picture: trends, form and what changed" },
+  { code: "endurance", label: "Endurance", brief: "endurance and durability: fade, heart drift, long runs" },
+  { code: "climbing", label: "Climbing", brief: "climbing: climbing speed, gradients, hiking against running uphill" },
+  { code: "speed", label: "Speed", brief: "speed: fastest 1, 5 and 10 km and pace on flat ground" },
+  { code: "heart", label: "Heart rate", brief: "heart rate and aerobic fitness: efficiency, drift, intensity" },
+  { code: "race", label: "Race prep", brief: "preparing the next race: what the log says about readiness" },
+  { code: "load", label: "Load & recovery", brief: "training load and recovery: volume, rhythm, rest, injury risk" },
+];
+export const AI_QUESTION_MAX = 300;
+
+/**
+ * Clean what the runner asked for (shared by the app and the server, which never trusts the app):
+ * { from, to } = a date range in ms, or ids = a list of chosen runs; focus = an AI_FOCUS code;
+ * question = their own words, one line, at most AI_QUESTION_MAX characters.
+ */
+export function aiAsk(raw = {}) {
+  const r = raw && typeof raw === "object" ? raw : {};
+  const day = (v) => (typeof v === "number" && Number.isFinite(v) && v > 0 && v < 4102444800000 ? v : null);
+  const ids = Array.isArray(r.ids) ? [...new Set(r.ids.filter((x) => typeof x === "string" && /^\d{1,13}-\d{1,6}$/.test(x)))].slice(0, 300) : null;
+  const focus = AI_FOCUS.some((f) => f.code === r.focus) ? r.focus : "overall";
+  // eslint-disable-next-line no-control-regex
+  const question = typeof r.question === "string" ? r.question.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, AI_QUESTION_MAX) : "";
+  return { from: ids && ids.length ? null : day(r.from), to: ids && ids.length ? null : day(r.to), ids: ids && ids.length ? ids : null, focus, question };
+}
+
+/** The runs an ask covers: the chosen ones, or those inside the date range (both ends included). */
+export function aiSelect(records, ask) {
+  const a = aiAsk(ask);
+  if (a.ids) { const want = new Set(a.ids); return records.filter((r) => want.has(r.id)); }
+  return records.filter((r) => (a.from === null || r.date >= a.from) && (a.to === null || r.date < a.to + 86400000));
+}
