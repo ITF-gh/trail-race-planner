@@ -105,8 +105,8 @@ export async function cloudLedger() {
 }
 /** Ask the server to pay out the cairns of the achievements reached. */
 export const cloudClaim = () => clAuthed("/functions/v1/claim-cairns", { method: "POST", body: {} });
-/** Spend a cairn on an AI analysis; answers { job } at once, the result comes later (cloudJob). */
-export const cloudAnalyse = (athlete) => clAuthed("/functions/v1/ai-analyse", { method: "POST", body: { athlete } });
+/** Spend a token on an AI analysis of the runs `ask` selects; answers { job } at once, the result comes later (cloudJob). */
+export const cloudAnalyse = (athlete, ask) => clAuthed("/functions/v1/ai-analyse", { method: "POST", body: { athlete, ask } });
 export async function cloudJob(id) {
   const rows = await clAuthed(`/rest/v1/ai_jobs?id=eq.${encodeURIComponent(id)}&select=id,status,result,error,created_at`);
   return rows && rows[0];

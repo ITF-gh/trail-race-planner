@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { claimCairns, aiStart, aiRun, aiRequest, AI_SCHEMA } from "../supabase/functions/_shared/cairns.js";
-import { checkRecord, aiDigest } from "../src/core/history.js";
+import { checkRecord, aiDigest, aiAsk, aiSelect } from "../src/core/history.js";
 
 const DAY = 86400000;
 const NOW = Date.UTC(2026, 9, 15);
@@ -82,8 +82,10 @@ test("an AI analysis spends one cairn, saves the answer, and refunds on failure"
   assert.equal(await aiRun({ db: db2, callClaude: refused, userId: "u", job: s2.job, digest: s2.digest }), null);
   assert.equal(balance(db2), 1);
   assert.equal(db2.jobs.get("job4").status, "failed");
-  // Too few runs.
-  assert.equal((await aiStart({ db: fakeDb([run(1)], [{ delta: 1, reason: "ach:first" }]), userId: "u", now: NOW, newId: () => "j" })).status, 400);
+  // A selection with no run in it: refused before anything is spent.
+  const db3 = fakeDb(runs, [{ delta: 1, reason: "ach:first" }]);
+  assert.equal((await aiStart({ db: db3, userId: "u", ask: { from: NOW + DAY, to: NOW + 2 * DAY }, now: NOW, newId: () => "j" })).status, 400);
+  assert.equal(balance(db3), 1);
 });
 
 test("the AI request is built from the digest and asks for the app's JSON shape", () => {
@@ -117,4 +119,23 @@ test("demo profile User1: plausible made-up runs that fill every part of the men
   assert.deepEqual(R.map((r) => checkRecord(r, now)).filter(Boolean), []);
   const S = historySummary(R, now);
   assert.ok(S.count >= 20 && S.unlocked >= 5 && S.cairns > 0 && S.bests.best10k && S.bests.vam);
+});
+
+test("the runner chooses the runs (dates or a list), the axis and the question", async () => {
+  const runs = [run(1), run(2), run(3), run(40)];
+  const recent = aiSelect(runs, { from: NOW - 10 * DAY, to: NOW });
+  assert.equal(recent.length, 3, "date range");
+  assert.deepEqual(aiSelect(runs, { ids: [runs[3].id, "bad id"] }).map((r) => r.id), [runs[3].id], "chosen runs win over dates");
+  const a = aiAsk({ focus: "speed", question: "How can I go\nsub-40 in 10K   in a month?" + "x".repeat(400), ids: [1, {}] });
+  assert.equal(a.focus, "speed");
+  assert.ok(a.question.startsWith("How can I go sub-40 in 10K in a month?") && a.question.length === 300);
+  assert.equal(a.ids, null);
+  assert.equal(aiAsk({ focus: "hack" }).focus, "overall", "unknown axis falls back");
+  const db = fakeDb(runs, [{ delta: 1, reason: "ach:first" }]);
+  const s = await aiStart({ db, userId: "u", ask: { from: NOW - 10 * DAY, to: NOW, focus: "speed", question: "How can I go sub-40 in 10K in a month?" }, now: NOW, newId: () => "j1" });
+  assert.equal(s.status, 202);
+  assert.equal(s.digest.runs, 3, "only the selected runs are sent");
+  const msg = aiRequest(s.digest, s.ask).messages[0].content;
+  assert.ok(msg.includes("speed: fastest 1, 5 and 10 km") && msg.includes("<question>How can I go sub-40 in 10K in a month?</question>"));
+  assert.ok(AI_SCHEMA.required.includes("answer"));
 });

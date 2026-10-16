@@ -1,4 +1,4 @@
-// POST /functions/v1/ai-analyse  body { athlete: { hrMax, hrRest, weight } }
+// POST /functions/v1/ai-analyse  body { athlete: { hrMax, hrRest, weight }, ask: { from, to, ids, focus, question } }
 // Spends one cairn and starts an AI analysis of the runs stored in the account. Answers at once
 // with { job } (HTTP 202); the analysis runs in the background and the app polls the ai_jobs row.
 // The Anthropic API key is a secret of this function (ANTHROPIC_API_KEY): it never reaches the browser.
@@ -18,11 +18,11 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => ({}));
   const db = makeDb(sb);
   try {
-    const start = await aiStart({ db, userId: user, athlete: body.athlete, newId: () => crypto.randomUUID() });
+    const start = await aiStart({ db, userId: user, athlete: body.athlete, ask: body.ask, newId: () => crypto.randomUUID() });
     if (start.status !== 202) return json(req, start.status, { error: start.error });
     // Keep working after the answer is sent (Supabase's background tasks).
     // deno-lint-ignore no-explicit-any
-    (globalThis as any).EdgeRuntime.waitUntil(aiRun({ db, callClaude, userId: user, job: start.job, digest: start.digest }));
+    (globalThis as any).EdgeRuntime.waitUntil(aiRun({ db, callClaude, userId: user, job: start.job, digest: start.digest, ask: start.ask }));
     return json(req, 202, { job: start.job, runs: start.digest!.runs });
   } catch (e) {
     console.error(e);
