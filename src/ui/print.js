@@ -345,7 +345,7 @@ function p4PlanSheet({ plan, sid, raceName, effort, settings }) {
     const bandRows = e.bands.map((b) => `<tr><td>${p4Esc(b.label)}</td><td class="r"><b>${mmss(b.fresh)}</b></td><td class="r">${mmss(b.tired)}</td><td class="r">+${((b.tired / b.fresh - 1) * 100).toFixed(0)}%</td><td>${p4Esc(b.source)}${b.hr ? ` · HR ${Math.round(b.hr)}` : ""}</td></tr>`);
     const runRows = e.runs.map((r, i) => `<tr><td>${p4Esc(effort.runs[i].name)}</td><td>${p4Esc(r.date)}</td><td class="r">${r.distKm.toFixed(1)} km</td><td class="r">${hm(r.durationSec)}</td><td class="r">${Math.round(r.weight * 100)}%</td></tr>`);
     html += `<section class="p4-part">
-      ${p4H("Engine", "what your runs say about you")}
+      ${p4H("Your engine", "what your runs say about you")}
       <div class="p4-kpis p4-kpis-s">${[
         p4Kpi("Flat pace", `${mmss(e.flatPace)}<small> /km</small>`, e.flatHr ? `at HR ${Math.round(e.flatHr)}` : ""),
         e.flatCad ? p4Kpi("Cadence", `${Math.round(e.flatCad)}<small> spm</small>`, "on the flat") : "",
