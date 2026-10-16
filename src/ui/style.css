@@ -1257,3 +1257,19 @@ html[data-theme="sky"] .tn-links a.tn-star{color:transparent;filter:drop-shadow(
 .rp-ai-box{display:flex;gap:8px;align-items:flex-start;margin:6px 0;padding:8px 10px;border:1px solid rgba(185,140,255,.5);border-radius:10px;background:rgba(185,140,255,.1);font-size:13px;line-height:1.35}
 .rp-ai-box .ic{flex:none;display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:#b98cff;color:#1a0f2e;font-size:11px;font-weight:800}
 .rp-ai-box p{margin:0} .rp-ai-box p+p{margin-top:3px} .rp-ai-box small{color:var(--muted)} .rp-ai-box .muted{color:var(--muted)}
+/* AI plan on (html.ai-on, set by main.js renderReplay): the values the AI changed shine, in the
+   AI's violet, so they read at once as AI-computed. Distance, climbing and gradients stay plain:
+   the course is never the AI's. A gradient painted inside the letters (background-clip:text)
+   slides across them (aiShine); it stands still for people who ask for less motion. */
+.ai-on #s4 .rp-tot:not(:nth-child(2)) b,
+.ai-on #s4 #rpClock,
+.ai-on #s4 .rp-tg tbody tr:nth-child(1) td:not(.now),
+.ai-on #s4 .rp-tg tbody tr:nth-child(5) td:not(.now),
+.ai-on #s4 .rp-leg-info > p:not(.nx):not(.rp-cue-line):not(.rp-ai-note) b{
+  color:transparent;-webkit-text-fill-color:transparent;
+  background-image:linear-gradient(100deg,#b98cff 0%,#b98cff 35%,#fff 50%,#ff9ad5 65%,#b98cff 100%);background-size:250% 100%;
+  -webkit-background-clip:text;background-clip:text;text-shadow:none;filter:drop-shadow(0 0 6px rgba(185,140,255,.45));animation:aiShine 3.5s ease-in-out infinite}
+.ai-on #s4 .rp-tot:not(:nth-child(2)) b small{-webkit-text-fill-color:transparent}
+.ai-on #s4 .rp-tot:not(:nth-child(2)) .k::after{content:" ✦";color:#b98cff}
+@keyframes aiShine{0%{background-position:100% 0}60%,100%{background-position:0 0}}
+@media (prefers-reduced-motion:reduce){.ai-on #s4 .rp-tot b,.ai-on #s4 #rpClock,.ai-on #s4 .rp-tg td,.ai-on #s4 .rp-leg-info b{animation:none}}
