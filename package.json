@@ -1,6 +1,6 @@
 {
   "name": "trail-race-planner",
-  "version": "0.1.0",
+  "version": "2.0.0",
   "description": "Turn a race GPX and one of your own effort files into a gradient-by-gradient race plan.",
   "type": "module",
   "private": true,
