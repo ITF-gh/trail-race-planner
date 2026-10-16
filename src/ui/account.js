@@ -77,7 +77,19 @@ const acNum = (x) => Math.round(x).toLocaleString("en-US");
 // only (the database and the server still call it a "cairn" internally, which nobody sees).
 const AC_TOKEN = { one: "edelweiss", many: "edelweiss" }; // the same word in the singular and the plural
 const acTok = (n) => `${n} ${n === 1 ? AC_TOKEN.one : AC_TOKEN.many}`;
-const AC_SPARK = `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M14 3c.9 6.2 3.8 9.1 10 10-6.2.9-9.1 3.8-10 10-.9-6.2-3.8-9.1-10-10 6.2-.9 9.1-3.8 10-10z" fill="#ffc928"/><path d="M25 18.5c.4 2.7 1.6 3.9 4.3 4.3-2.7.4-3.9 1.6-4.3 4.3-.4-2.7-1.6-3.9-4.3-4.3 2.7-.4 3.9-1.6 4.3-4.3z" fill="#fff1b8"/></svg>`;
+// The token logo: a shiny edelweiss. Eight woolly star petals (long and short in turn), a yellow
+// heart of small florets, and a glint. Built once as an SVG string; no gradients, so the many
+// copies on the page need no shared ids.
+const AC_SPARK = (() => {
+  const petal = (len, w) => `M16 16C${16 - w} ${16 - len * 0.45} ${16 - w * 0.6} ${16 - len * 0.85} 16 ${16 - len}C${16 + w * 0.6} ${16 - len * 0.85} ${16 + w} ${16 - len * 0.45} 16 16Z`;
+  const ring = [0, 45, 90, 135, 180, 225, 270, 315].map((deg, i) => {
+    const d = petal(i % 2 ? 10 : 13.5, i % 2 ? 2.6 : 3.2);
+    return `<path d="${d}" transform="rotate(${deg + 22.5} 16 16)" fill="#f4f7fb" stroke="#b9c6d8" stroke-width=".6"/><path d="${d}" transform="rotate(${deg + 22.5} 16 16) translate(16 16) scale(.45) translate(-16 -16)" fill="#ffffff"/>`;
+  }).join("");
+  const heart = [[16, 16, 2.1], [13.6, 15, 1.4], [18.4, 15, 1.4], [14.4, 18, 1.4], [17.6, 18, 1.4], [16, 13.3, 1.3]].map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="#ffc928" stroke="#d99a00" stroke-width=".4"/>`).join("");
+  const glint = `<path d="M26.5 2.5c.3 2 1.2 2.9 3.2 3.2-2 .3-2.9 1.2-3.2 3.2-.3-2-1.2-2.9-3.2-3.2 2-.3 2.9-1.2 3.2-3.2z" fill="#fff1b8"/>`;
+  return `<svg viewBox="0 0 32 32" aria-hidden="true">${ring}${heart}${glint}</svg>`;
+})();
 
 // What the account side knows (filled by acSync): the token ledger, the analysis running, a message.
 const ac = { ledger: null, jobs: [], job: null, msg: "", busy: false };
