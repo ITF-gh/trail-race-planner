@@ -1196,3 +1196,14 @@ html[data-theme="sky"] .brand-desc{color:#fff;opacity:.92;border-color:rgba(255,
   .pf-goals{font-size:13px}
   .pf-goals th,.pf-goals td{padding:4px 3px}
 }
+
+/* "Race" in the top bar: the heart of Prep my race, so it shines a little. The text is filled with a
+   moving gradient (background-clip:text), a soft glow sits behind it, and a light sweep runs every few
+   seconds. Turned off for people who ask their system for less motion. */
+.tn-links a.tn-star{color:transparent;background-image:linear-gradient(100deg,var(--sun) 0%,var(--sun) 38%,#fff6d0 50%,var(--sun) 62%,var(--accent) 100%);background-size:250% 100%;-webkit-background-clip:text;background-clip:text;filter:drop-shadow(0 0 6px rgba(255,201,40,.35));isolation:isolate;animation:tnShine 4.5s ease-in-out infinite}
+.tn-links a.tn-star b{color:var(--accent);-webkit-text-fill-color:var(--accent)}
+.tn-links a.tn-star:not(.ready){opacity:.8}
+.tn-links a.tn-star.on::before{content:"";position:absolute;inset:0;border-radius:inherit;background:rgba(255,201,40,.12);z-index:-1}
+html[data-theme="sky"] .tn-links a.tn-star{color:transparent;filter:drop-shadow(0 0 5px rgba(233,138,0,.3))}
+@keyframes tnShine{0%,55%{background-position:100% 0}100%{background-position:0 0}}
+@media (prefers-reduced-motion:reduce){.tn-links a.tn-star{animation:none;background-position:60% 0}}

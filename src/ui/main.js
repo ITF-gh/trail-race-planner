@@ -3,7 +3,7 @@
 //   01 Your engine     what your own runs say about you (effort GPX only)
 //   02 Your route      what the course says, before knowing who runs it (race GPX only)
 //   03 Your plan       both files plus your settings: clock times, tactics, gels
-//   04 Rehearsal       the plan played back in time on the map and profile, to rehearse it
+//   04 Your race       the plan played back in time on the map and profile, to rehearse it
 //   05 Your coach      the plan as watch messages (Pimp my GPX)
 // Three modes share the page, picked by the switch on top and kept in the address (?mode=):
 //   Prep my race  (plan, default)  the sections above, plus a targeted duration to check
@@ -159,7 +159,7 @@ const credit = (key, cls = "") => `<a class="photo-credit${cls ? " " + cls : ""}
  */
 const head = (num, kicker, title, key = "s" + Number(num)) => `<header class="sec-head"><div class="sec-num">${num}</div><div class="sec-kicker">${kicker}</div><h2>${title}</h2>${PHOTOS[key] ? credit(key) : ""}</header>`;
 // NAV: the links of the sticky top bar, each [section id, number shown, title].
-const NAV = [["s1", "01", "Engine"], ["s2", "02", "Route"], ["s3", "03", "Plan"], ["s4", "04", "Rehearsal"], ["s-pimp", "05", "Coach"], ["s-prep", "◆", "Prep my run"], ["s5", "▶", "Recap"], ["s6", "▶▶", "Deep dive"]];
+const NAV = [["s1", "01", "Engine"], ["s2", "02", "Route"], ["s3", "03", "Plan"], ["s4", "04", "Race"], ["s-pimp", "05", "Coach"], ["s-prep", "◆", "Prep my run"], ["s5", "▶", "Recap"], ["s6", "▶▶", "Deep dive"]];
 /** The modes, in switch order: data-mode value, label, and the class that only it shows. */
 const MODES = [["plan", "Prep my race", "plan-only"], ["prep", "Prep my run", "prep-only"], ["run", "Rewind my run", "review-only"]];
 /** Which mode class a nav link gets, so it only shows in its own mode (see MODES). */
@@ -224,7 +224,7 @@ $("#app").innerHTML = `
 <nav class="topnav" id="topnav" aria-label="Sections">
   <div class="topnav-in">
     <a class="tn-brand" href="#top" aria-label="Back to the top menu" title="Back to the top menu">${PEAK}</a>
-    <div class="tn-links">${NAV.map(([id, n, t]) => `<a href="#${id}" data-sec="${id}" class="${navClass(id)}"><b>${n}</b>${t}</a>`).join("")}</div>
+    <div class="tn-links">${NAV.map(([id, n, t]) => `<a href="#${id}" data-sec="${id}" class="${navClass(id)}${id === "s4" ? " tn-star" : ""}"><b>${n}</b>${t}</a>`).join("")}</div>
     <button class="btn ghost sm tn-print" type="button" id="printBtn" title="Export this mode as A4 pages: print them, or choose Save as PDF"><span aria-hidden="true">⎙</span> <span class="tn-pl">Export </span>A4</button>
     <button class="btn ghost sm tn-theme" type="button" id="themeBtn" aria-pressed="false"></button>
     <div class="tn-sum plan-only" id="tnSum"></div>
@@ -274,7 +274,7 @@ $("#app").innerHTML = `
 </section>
 
 <section id="s4" class="plan-only">
-  ${head("04", "Run it before you run it", "Rehearsal")}
+  ${head("04", "Run it before you run it", "Your race")}
   <p class="sec-intro">Live the race before you run it. Press play and follow yourself along the course: the clock runs at your predicted pace, and every climb, gel and aid station shows what to do there. Replay it until the plan feels familiar.</p>
   <div id="s4body"></div>
 </section>
@@ -986,7 +986,7 @@ function renderDday() {
 
   // Write the whole section in one go.
   out.innerHTML = `
-  ${jumps([["d-map", "Map"], ["d-key", "★ Key zones"], ["d-card", "Race card"], ["d-climbs", "Climb by climb"], ["d-log", "Plan versus actual"], ["d-export", "Export"], ["s-pimp", "05 Coach"], ["rpCockpit", "▶ Rehearse race day", "go"]])}
+  ${jumps([["d-map", "Map"], ["d-key", "★ Key zones"], ["d-card", "Race card"], ["d-climbs", "Climb by climb"], ["d-log", "Plan versus actual"], ["d-export", "Export"], ["s-pimp", "05 Coach"], ["rpCockpit", "▶ Your race", "go"]])}
   <div class="dday-top has-pimp">
     ${tile(`Estimated duration · ${sc.label.toLowerCase()}`, hm(sc.finishSec), `finish at ${clock(st, sc.finishSec)} · start ${clock(st, 0)}`, "big")}
     <div class="panel" style="display:flex;flex-direction:column;gap:12px;justify-content:center">
@@ -1099,7 +1099,7 @@ function renderPimp() {
 
 /* ---------- 04 race day replay ---------- */
 /**
- * Section 04 Rehearsal: the plan played back in time (ui/replay.js), in #s4body. Only drawn in
+ * Section 04 Your race: the plan played back in time (ui/replay.js), in #s4body. Only drawn in
  * Prep my race mode. The key (race name | km) lets replay.js remember things per race.
  */
 function renderReplay() {
@@ -1136,7 +1136,7 @@ function mountCockpit(box, plan, sid, key, noun = "Race") {
 // band across the middle of the viewport, without listening to every scroll event.
 /**
  * Update the top bar: mark as "ready" the links of sections that have something to show, and
- * show either the predicted finish time with a Rehearsal button, or a Try the demo button.
+ * show either a Your race button (once there is a plan) or a Try the demo button.
  * Sections s5, s6 and s-prep belong to other modules: they count as ready when an element those
  * modules draw (#rvCockpit, #inKpi, .prep-ready) exists. Also refreshes the A4 export button.
  */
@@ -1146,7 +1146,7 @@ function renderNav() {
   document.querySelectorAll(".tn-links a").forEach((a) => a.classList.toggle("ready", ready[a.dataset.sec]));
   const sum = $("#tnSum");
   if (plan) {
-    sum.innerHTML = `<a class="btn primary sm" href="#rpCockpit">▶ Rehearsal</a>`;
+    sum.innerHTML = `<a class="btn primary sm" href="#rpCockpit">▶ Your race</a>`;
   } else sum.innerHTML = `<button class="btn ghost sm" type="button" id="tnDemo">Try the demo</button>`;
   const d = $("#tnDemo");
   if (d) d.addEventListener("click", () => $("#demo").click());
