@@ -77,7 +77,7 @@ function eleOn(P, km) {
 // Length and climb of a section, written out under its title.
 const legData = (l) => `${(l.endKm - l.startKm).toFixed(1)} km · +${Math.round(l.up)} / −${Math.round(l.down)} m`;
 // The symbol shown for each kind of moment or section (the "kind" field from core/script.js).
-const ICON = { start: "▶", climb: "▲", top: "⛰", descent: "▼", gel: "G", aid: "⛺", phase: "◐", key: "★", finish: "🏁" };
+const ICON = { start: "▶", climb: "▲", top: "⛰", descent: "▼", gel: "G", aid: "⛺", phase: "◐", key: "★", ai: "✦", finish: "🏁" };
 
 // Survives re-renders (a scenario switch, a settings change), so the replay keeps its place.
 // It lives at module level (outside any function), so there is one for the whole page.
@@ -329,6 +329,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
           </span></div>
         <div class="rp-leg-info">
           <p class="k-${l.kind}"><span class="ic">${ICON[l.kind] || "➜"}</span><b title="${escR(l.tactic)}">${escR(l.tactic)}</b><span class="d">${legData(l)}</span></p>
+          ${l.ai && (l.ai.note || l.ai.why || l.ai.effort) ? `<p class="rp-ai-note" title="${escR([l.ai.note, l.ai.why].filter(Boolean).join(" · "))}"><span class="ic">${ICON.ai}</span>${l.ai.effort ? `<b>Effort ${l.ai.effort}/5</b>` : ""}<span>${escR(l.ai.note || l.ai.why)}</span></p>` : ""}
           <p class="nx ${n ? `k-${n.kind}` : ""}"><span class="lab">Next</span>${n ? `<span class="ic">${ICON[n.kind] || "➜"}</span><b>${n.i}. ${escR(n.title)}</b><span class="d">${legData(n)}</span>` : `<span class="ic">${ICON.finish}</span><b>Finish</b>`}</p>
         </div>
         <table class="rp-tg">

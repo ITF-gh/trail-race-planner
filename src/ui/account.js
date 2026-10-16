@@ -366,8 +366,10 @@ function acAskHtml() {
       <ul>${C.map((k) => `<li class="${k.level}"><span>${k.level === "stop" ? "Blocked" : "Warning"}</span>${acEsc(k.text)}</li>`).join("")}</ul>
       <p class="acct-note">${stop ? "This cannot be sent yet. Nothing is spent." : `Send anyway uses 1 ${AC_TOKEN.one}, even if the AI returns nothing.`} Everything you filled in stays.</p>
       <div class="acct-actions"><button class="btn primary" type="button" data-acct="fix">Fix and retry</button>${stop ? "" : `<button class="btn ghost" type="button" data-acct="force">${AC_SPARK}Send anyway</button>`}<button class="btn ghost" type="button" data-acct="close">Cancel</button></div>
-    </div>` : acLocal ? `<p class="acct-note">Local test on this computer: no account, no ${AC_TOKEN.one}. ${acLocal.key ? "Send to the AI calls OpenAI with your key (it costs a few cents)." : "No key in .env.local: only the fake answer works."}</p>
-    <div class="acct-actions">${acLocal.key ? `<button class="btn primary" type="button" data-acct="go">${AC_SPARK}Send to the AI</button>` : ""}<button class="btn ${acLocal.key ? "ghost" : "primary"}" type="button" data-acct="fake">Fake answer</button><button class="btn ghost" type="button" data-acct="close">Cancel</button></div>`
+    </div>` : acLocal ? `${acLocal.direct ? `<h4>Your OpenAI key</h4>
+    <input type="password" class="acct-key" data-ask="key" autocomplete="off" spellcheck="false" placeholder="sk-..." value="${acEsc(acLocal.apiKey)}">
+    <p class="acct-note">Test copy on this computer: no account, no ${AC_TOKEN.one}. The key stays in this tab only (never saved) and goes straight to OpenAI. Send to the AI costs a few cents; Fake answer is free.</p>` : `<p class="acct-note">Local test on this computer: no account, no ${AC_TOKEN.one}. ${acLocal.key ? "Send to the AI calls OpenAI with your key (it costs a few cents)." : "No key in .env.local: only the fake answer works."}</p>`}
+    <div class="acct-actions">${acLocal.key || acLocal.direct ? `<button class="btn primary" type="button" data-acct="go">${AC_SPARK}Send to the AI</button>` : ""}<button class="btn ${acLocal.key || acLocal.direct ? "ghost" : "primary"}" type="button" data-acct="fake">Fake answer</button><button class="btn ghost" type="button" data-acct="close">Cancel</button></div>`
     : `<div class="acct-actions"><button class="btn primary" type="button" data-acct="go">${AC_SPARK}Spend 1 ${AC_TOKEN.one}</button><button class="btn ghost" type="button" data-acct="close">Cancel</button></div>`;
   return `<p class="acct-kicker">${AC_SPARK} Ask the AI · Prep my race · ${acLocal ? "local test" : `1 ${AC_TOKEN.one}`}</p>
     <h3>Tailor my race plan</h3>
@@ -415,6 +417,8 @@ function acAskRefresh() {
 function acAskInput(el) {
   const k = el.dataset.ask;
   if (k === "question" || k === "notes" || k === "target") acAsk[k] = el.value;
+  // The OpenAI key of the file test copy: kept in memory only, outside acAsk.
+  else if (k === "key" && acLocal) acLocal.apiKey = el.value.trim();
   // Date.parse("2026-10-16") gives midnight UTC of that day in ms; NaN (an empty field) is ignored.
   else if (k === "from" || k === "to") { const v = Date.parse(el.value); if (Number.isFinite(v)) acAsk[k] = v; }
   else if (k === "run") { if (el.checked) acAsk.ids.add(el.value); else acAsk.ids.delete(el.value); }
@@ -576,7 +580,7 @@ async function acStartLocal(forced) {
   acShowPanel(`<p class="acct-kicker">Local AI test</p><h3>${fake ? "Making the fake answer…" : `Asking ${acEsc(acLocal.model)}…`}</h3><p>${fake ? "" : "This can take a minute or two. Keep this tab open."}</p>`, "Local AI test");
   const a = profileAthlete();
   const r = await aiLocalRun({
-    plan: R.plan, raceName: R.race ? R.race.name : "Race", fake,
+    plan: R.plan, raceName: R.race ? R.race.name : "Race", fake, direct: acLocal.direct, apiKey: acLocal.apiKey,
     user: { targetSec: parseDuration((acAsk.target || "").trim()), goal: acAsk.goal, risk: acAsk.risk, notes: acAsk.notes, question: acAsk.question, forced },
     athlete: { maxHr: a.hrMax, restHr: a.hrRest, weightKg: a.weight },
     history: acAskRuns(),

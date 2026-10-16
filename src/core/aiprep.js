@@ -338,10 +338,11 @@ export function aiPrepMerge(plan, input, output) {
     scenarios: { best: scen(plan.scenarios.best, bestF), central: scen(plan.scenarios.central, 1), cautious: scen(plan.scenarios.cautious, cautF) },
   };
   out.aidStations = plan.aidStations.map((s, k) => ({ ...s, stopMin: stops[k] }));
-  out.aidStations.forEach((s) => { s.arrive = Object.fromEntries(["best", "central", "cautious"].map((id) => [id, secAtKm(out, id, s.km)])); });
-  // 5. Compare, leg by leg, and attach the AI's reasons.
+  out.aidStations.forEach((s) => { s.arrive = Object.fromEntries(AIP_SIDS.map((id) => [id, secAtKm(out, id, s.km)])); });
   const T = output.texts || {};
   const why = new Map((T.why || []).map((w) => [String(w.ref).split(".")[0], w.text]));
+  aipRace(out, plan, input, D, T, ai, why, fixes);
+  // 5. Compare, leg by leg, and attach the AI's reasons.
   const legs = input.race.legs.map((l) => {
     const c = calc.get(l.id).durSec, x = ai.get(l.id) || { durSec: c, mode: null, effort: null };
     const pct = c > 0 ? (x.durSec / c - 1) * 100 : 0;
@@ -353,6 +354,66 @@ export function aiPrepMerge(plan, input, output) {
   const aiFinishSec = D.target && Number.isFinite(D.target.finishSec) ? D.target.finishSec : null;
   if (aiFinishSec && Math.abs(aiFinishSec / finishSec - 1) > 0.02) fixes.push(`The AI's own finish (${aipHms(aiFinishSec)}) differs from the sum of its legs and stops (${aipHms(finishSec)}): the sum is used.`);
   return { status: "ok", reason: null, plan: out, legs, aid, fixes, finishSec, aiFinishSec, texts, dataset: D };
+}
+
+// The three scenarios, in the order every per-scenario object uses.
+const AIP_SIDS = ["best", "central", "cautious"];
+// The tactic line shown for a section, from the AI's run / hike / mix.
+const AIP_MODE = { run: "Run it", hike: "Power hike it", mix: "Run the easy parts, hike the steep ones" };
+// The title of a key moment, from its kind.
+const AIP_MOMENT = { push: "Push here", hold: "Hold back", eat: "Eat here", caution: "Careful", decision: "Decision point" };
+
+/**
+ * Everything Your race reads that hangs on the clock or on the AI's choices, rebuilt on the AI
+ * plan `out` (changed in place). Called by aiPrepMerge once the timelines and the aid stops exist.
+ *   climbs, sections, descents   their start and duration per scenario, read again on the AI clock
+ *   checkpoints                  the same km, the AI clock
+ *   gels                         from dataset.fuel.items (leg + where in it); the calculated gels
+ *                                stay when the AI gave none
+ *   out.ai.legs                  per leg id: mode, effort, tactic line, the AI note and its reason;
+ *                                raceLegs (script.js) attaches them to each section
+ *   out.ai.moments               the AI key moments with their cue; raceScript adds them
+ */
+function aipRace(out, plan, input, D, T, ai, why, fixes) {
+  const per = (f) => Object.fromEntries(AIP_SIDS.map((id) => [id, f(id)]));
+  const timing = (x) => ({ start: per((id) => secAtKm(out, id, x.startKm)), dur: per((id) => secAtKm(out, id, x.endKm) - secAtKm(out, id, x.startKm)) });
+  out.climbs = plan.climbs.map((c) => ({ ...c, ...timing(c), sections: c.sections.map((x) => ({ ...x, ...timing(x) })) }));
+  out.descents = plan.descents.map((d) => ({ ...d, ...timing(d) }));
+  const geo = new Map(input.race.legs.map((l) => [l.id, l]));
+  const name = (l) => (l.kind === "flat" ? "Runnable stretch" : `${l.kind === "climb" ? "Climb" : "Descent"} ${l.n}`);
+  // Where in a leg an intake or a moment sits, in km.
+  const kmIn = (l, at) => {
+    if (at === "start") return l.startKm;
+    if (at === "middle") return (l.startKm + l.endKm) / 2;
+    if (at === "aid") { const s = input.race.aid.find((a) => a.km >= l.startKm && a.km <= l.endKm); if (s) return s.km; }
+    return l.endKm;
+  };
+  const items = ((D.fuel && D.fuel.items) || []).filter((f) => {
+    if (geo.has(f.legId)) return true;
+    fixes.push(`Fuel at ${f.legId}: no such leg, dropped.`);
+    return false;
+  }).map((f) => ({ km: kmIn(geo.get(f.legId), f.at), f })).sort((a, b) => a.km - b.km);
+  if (!items.length) fixes.push("No fuel intakes from the AI: the calculated gels are kept.");
+  for (const id of AIP_SIDS) {
+    const sc = out.scenarios[id];
+    sc.checkpoints = plan.scenarios[id].checkpoints.map((c) => ({ ...c, sec: secAtKm(out, id, c.km) }));
+    if (items.length) {
+      sc.gels = items.map(({ km, f }) => {
+        const stop = f.at === "aid" ? input.race.aid.find((a) => a.km === km) : null;
+        return { km, sec: secAtKm(out, id, km), moved: false, at: stop ? stop.name : null, where: f.at, item: f.item, carbsG: f.carbsG };
+      });
+    }
+  }
+  const note = new Map((T.legNotes || []).map((n) => [n.legId, n.text]));
+  const cue = new Map((T.momentCues || []).map((n) => [n.legId, n.text]));
+  out.ai.legs = Object.fromEntries(input.race.legs.map((l) => {
+    const x = ai.get(l.id);
+    return [l.id, { mode: x ? x.mode : null, effort: x ? x.effort : null, tactic: x && AIP_MODE[x.mode] ? AIP_MODE[x.mode] : null, note: note.get(l.id) || "", why: why.get(l.id) || "" }];
+  }));
+  out.ai.moments = (D.keyMoments || []).filter((m) => geo.has(m.legId)).map((m) => {
+    const l = geo.get(m.legId);
+    return { km: l.startKm, legId: m.legId, kind: m.kind, level: aipClamp(Math.round(m.level) || 2, 1, 4), title: `${AIP_MOMENT[m.kind] || "Key moment"} · ${name(l)}`, cue: cue.get(m.legId) || note.get(m.legId) || "" };
+  });
 }
 
 /**

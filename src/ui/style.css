@@ -1232,3 +1232,6 @@ html[data-theme="sky"] .tn-links a.tn-star{color:transparent;filter:drop-shadow(
 .acct-tbl th,.acct-tbl td{text-align:left;padding:4px 6px;border-bottom:1px solid var(--acct-sep);vertical-align:top}
 .acct-tbl th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--acct-muted)}
 .acct-tbl tr.mark td{background:rgba(255,196,0,.12)}
+.acct-key{width:100%;box-sizing:border-box;padding:9px 12px;border-radius:10px;border:1px solid var(--acct-sep);background:rgba(255,255,255,.06);color:inherit;font:inherit}
+.rp-leg-info .rp-ai-note{color:var(--muted)} .rp-leg-info .rp-ai-note .ic{background:#b98cff;color:#1a0f2e}
+.rp-leg-info .rp-ai-note span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis}

@@ -1367,7 +1367,8 @@ document.addEventListener("trp-profile", () => { if (state.race) compute(); });
 compute();
 prepCtl = initPrepRun({ getRuns: () => (state.effort ? state.effort.runs.map((r) => r.parsed) : []), getSettings: () => state.settings, onLoaded: () => renderNav(), cockpit: (box, plan, key) => mountCockpit(box, plan, "central", key, "Run") });
 setMode(new URLSearchParams(window.location.search).get("mode"), false);
-startAnalytics();
+// Not in a copy opened as a file (the AI test copy): no outside script on a page holding a key.
+if (location.protocol !== "file:") startAnalytics();
 // The Ask the AI window (account.js) reads the race being prepared through this function: the
 // race GPX (name, km, climbing, sections once the plan exists, aid stations typed), how many GPX
 // files are in Your runs, the target time typed and the calculated central finish time.
