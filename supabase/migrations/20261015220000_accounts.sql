@@ -20,6 +20,7 @@
 --   rec         the summary as JSON (jsonb = JSON stored in a binary, searchable form)
 --   primary key (user_id, id): one row per run per user
 --   runs_small  refuses a summary larger than 4096 bytes, so the table cannot be filled with junk
+--   runs_no_heart refuses a summary with heart data (heart rate is never kept from a run)
 --   (rec ->> 'id' reads the "id" field of the JSON as text)
 create table if not exists public.runs (
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
@@ -28,7 +29,10 @@ create table if not exists public.runs (
   updated_at timestamptz not null default now(),
   primary key (user_id, id),
   constraint runs_id_matches check (rec ->> 'id' = id),
-  constraint runs_small check (octet_length(rec::text) <= 4096)
+  constraint runs_small check (octet_length(rec::text) <= 4096),
+  -- No heart data in a run summary, ever (owner's rule): `rec ? 'key'` is true when the JSON has
+  -- that key, so a summary carrying an average heart rate or a heart drift is refused.
+  constraint runs_no_heart check (not (rec ? 'hrAvg') and not (rec ? 'decouplingPct'))
 );
 -- Turn RLS on, then allow each of the four operations only on the user's own rows.
 -- `using` filters the rows a user can see or touch; `with check` validates the rows they write.

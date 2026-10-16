@@ -191,7 +191,7 @@ $("#app").innerHTML = `
     <div class="drops review-only">
       <div class="drop" id="dropRun">
         <h3><span class="tag">▶</span>Your run</h3>
-        <p>The GPX your watch recorded (export it from Garmin Connect, Strava, Suunto, Coros...). Heart rate and cadence are a bonus.</p>
+        <p>The GPX your watch recorded (export it from Garmin Connect, Strava, Suunto, Coros...). Cadence is a bonus; heart rate in the file is ignored.</p>
         <div class="actions"><label class="btn ghost" for="fileRun">Choose GPX</label><input type="file" id="fileRun" accept=".gpx,application/gpx+xml,text/xml"></div>
         <div class="status" id="stRun" aria-live="polite"></div>
       </div>
@@ -207,7 +207,7 @@ $("#app").innerHTML = `
     <div class="drops plan-only">
       <div class="drop" id="dropEffort">
         <h3><span class="tag">01</span>Your runs</h3>
-        <p>One or more recorded runs of 1.5 h or more at a steady effort, with some climbs. Recent runs count more. Heart rate and cadence are a bonus.</p>
+        <p>One or more recorded runs of 1.5 h or more at a steady effort, with some climbs. Recent runs count more. Cadence is a bonus; heart rate in the file is ignored.</p>
         <div class="actions"><label class="btn ghost" for="fileEffort">Add GPX</label><input type="file" id="fileEffort" multiple accept=".gpx,application/gpx+xml,text/xml"><button class="btn ghost" id="clearRuns" type="button" hidden>Clear</button></div>
         <div class="status" id="stEffort" aria-live="polite"></div>
       </div>
@@ -255,7 +255,6 @@ $("#app").innerHTML = `
       <label class="f">Terrain on race day
         <select id="terrain">${Object.entries(TERRAIN).map(([k, v]) => `<option value="${k}">${esc(v.label)}</option>`).join("")}</select>
       </label>
-      <label class="f">Max heart rate (optional)<input type="number" id="maxHr" min="120" max="230" placeholder="for example 190"></label>
       <label class="f">Gel every (minutes)<input type="number" id="gelEveryMin" min="20" max="90"></label>
       <label class="f" style="grid-column:1 / -1">Aid stations<textarea id="aidStations" rows="3" placeholder="One per line: km, name, minutes stopped&#10;8.5 Refuge du Lac 2&#10;16 Ferme des Crêtes 3"></textarea><span class="hint">Stops are added to every clock time after the station. A gel due within ${PLAN_DEFAULTS.gelToAidMin} minutes of a station is taken there.</span></label>
     </div>
@@ -300,7 +299,7 @@ $("#app").innerHTML = `
 
 <section id="s6" class="review-only">
   ${head("▶▶", "Go deeper", "Deep dive", "s6")}
-  <p class="sec-intro">Everything your watch recorded, turned into numbers and charts you can play with: change a distance, a band width or your heart rates and they redraw; click a point or a row and the replay above jumps there.</p>
+  <p class="sec-intro">Everything your watch recorded, turned into numbers and charts you can play with: change a distance or a band width and they redraw; click a point or a row and the replay above jumps there.</p>
   <div id="s6body"></div>
 </section>
 
@@ -311,11 +310,11 @@ ${siteFooter({ analytics: analyticsOn ? analyticsName : "" })}
 // FIELDS: the ids of the settings inputs. Each one, when changed, re-reads the form and
 // recomputes the plan (see the forEach just after writeSettings()).
 /* ---------- settings form ---------- */
-const FIELDS = ["startTime", "targetTime", "terrain", "maxHr", "gelEveryMin", "aidStations", "checkpointKm", "hikeGrade", "enduranceExp", "halfLifeDays", "descentBoost"];
+const FIELDS = ["startTime", "targetTime", "terrain", "gelEveryMin", "aidStations", "checkpointKm", "hikeGrade", "enduranceExp", "halfLifeDays", "descentBoost"];
 /**
  * Fill the settings form from state.settings (used once at start-up, with saved values).
  * `??` (nullish coalescing) gives the right side only when the left is null or undefined, so a
- * missing max heart rate shows an empty box while a real 0 would stay 0.
+ * missing hiking threshold shows an empty box while a real 0 would stay 0.
  * descentBoost is kept as a fraction (0.05) but shown as a percentage (5).
  * Aid stations can be saved as a list of objects or as the raw text; both are shown as text,
  * one "km name minutes" per line.
@@ -325,7 +324,6 @@ function writeSettings() {
   $("#startTime").value = s.startTime;
   $("#targetTime").value = s.targetTime || "";
   $("#terrain").value = s.terrain;
-  $("#maxHr").value = s.maxHr ?? "";
   $("#gelEveryMin").value = s.gelEveryMin;
   $("#checkpointKm").value = s.checkpointKm;
   $("#hikeGrade").value = s.hikeGrade ?? "";
@@ -348,7 +346,6 @@ function readSettings() {
     startTime: $("#startTime").value || "09:00",
     targetTime: $("#targetTime").value.trim(),
     terrain: $("#terrain").value,
-    maxHr: n("maxHr"),
     gelEveryMin: n("gelEveryMin") || 45,
     checkpointKm: n("checkpointKm") || 10,
     hikeGrade: n("hikeGrade"),
@@ -521,7 +518,7 @@ function compute() {
   $("#planErr").innerHTML = "";
   if (state.race && state.effort) {
     try {
-      state.plan = buildPlan(state.race.parsed, state.effort.runs.map((r) => r.parsed), state.settings);
+      state.plan = buildPlan(state.race.parsed, state.effort.runs.map((r) => r.parsed), { ...state.settings, ...profileHeart() });
       // The regex /\(made up\)$/ matches "(made up)" at the end of the name: the demo's label.
       // Once per visit: did this visitor get a plan, from the demo or from their own files?
       trackOnce("plan-built", /\(made up\)$/.test(state.race.name) ? "demo" : "own");
@@ -704,7 +701,7 @@ function renderEngine() {
   const tiles = [
     tile("Duration", hm(sumDur), many ? `${e.runs.length} runs together` : ""),
     tile("Distance", `${sumKm.toFixed(1)}<small>km</small>`, many ? `weighted, half-life ${state.settings.halfLifeDays} days` : ""),
-    tile("Flat pace", `${mmss(e.flatPace)}<small>/km</small>`, e.flatHr ? `at HR ${Math.round(e.flatHr)}` : "no heart rate"),
+    tile("Flat pace", `${mmss(e.flatPace)}<small>/km</small>`, "on the flat"),
     tile("Cadence", e.flatCad ? `${Math.round(e.flatCad)}<small>spm</small>` : "–", e.cadenceWasPerFoot ? "doubled from per-foot" : "on the flat"),
     tile("Best climb rate", steep ? `${Math.round(steep.vam)}<small>m/h</small>` : "–", steep ? steep.label : "not enough climbing"),
   ].join("");
@@ -944,7 +941,7 @@ function renderDday() {
   // GEL_WHERE: how to describe where a gel was moved to, by the `where` code plan.js gives it.
   const GEL_WHERE = { top: "top of climb", bottom: "foot of descent", section: "end of a climb section", "before descent": "before the descent", "on the climb": "on the climb, walking" };
   const gelList = sc.gels.map((g) => `<li><span>km ${g.km.toFixed(1)}${g.at ? ` · ${esc(g.at)}` : g.where ? ` · ${GEL_WHERE[g.where]}` : ""}</span><b>${clock(st, g.sec)}</b></li>`).join("") || `<li><span>No gel needed for this length</span><b></b></li>`;
-  const hrList = plan.hrGuide ? plan.hrGuide.map((h) => `<li><span>km ${h.fromKm.toFixed(0)} to ${h.toKm.toFixed(0)}</span><b>${esc(h.text)}</b></li>`).join("") : `<li><span>No heart rate in your run</span><b></b></li>`;
+  const hrList = plan.hrGuide ? plan.hrGuide.map((h) => `<li><span>km ${h.fromKm.toFixed(0)} to ${h.toKm.toFixed(0)}</span><b>${esc(h.text)}</b></li>`).join("") : `<li><span>Add your max heart rate in your profile (account icon) for a heart-rate guide</span><b></b></li>`;
   // The climbs (and climb sections) to hike: those whose tactic starts with "Hike".
   // The regex /^Hike/ matches "Hike" at the start of the text; /steep part/ anywhere in it.
   const hikes = plan.climbs.flatMap((c) => [c, ...c.sections]).filter((c) => /^Hike/.test(c.tactic));
@@ -1361,6 +1358,8 @@ function updatePrintBtn() {
 }
 $("#printBtn").addEventListener("click", () => { trackEvent("export", `a4-${document.documentElement.dataset.mode || "plan"}`); printA4(); });
 document.addEventListener("trp-mode", updatePrintBtn);
+// The profile's heart rates changed (account window): redraw the plan, its heart-rate guide uses them.
+document.addEventListener("trp-profile", () => { if (state.race) compute(); });
 
 // Start-up, in order: draw the empty sections, start Prep my run (it can reuse your reference
 // runs and settings, and draws its own cockpit through mountCockpit), apply the mode from the

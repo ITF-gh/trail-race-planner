@@ -32,7 +32,8 @@ export const PLAN_DEFAULTS = {
   ...MODEL_DEFAULTS,
   // Start time of day, "HH:MM".
   startTime: "09:00",
-  maxHr: null, // optional; caps the heart-rate guide at 92% of this value
+  maxHr: null, // from the runner's profile (never from a file); sets the heart-rate guide
+  restHr: null, // from the profile too; with it, the guide uses the heart-rate reserve
   hikeGrade: null, // null = learn from the effort file, else a number in %
   // Minutes between gels.
   gelEveryMin: 45,
@@ -308,7 +309,7 @@ export function briefCourse(course, userParams = {}) {
  *                  profile [[km, ele]] every 100 m, route [[lat, lon]] or null}
  *   effort        the effort profile (see effort.js), without the raw samples
  *   bandUse       km and seconds spent in each gradient band (central, moving time)
- *   hrGuide       three heart-rate phases, or null without heart rate
+ *   hrGuide       three heart-rate phases, or null without a max heart rate in the profile
  *   keyZones      see keyzones.js
  *   aidStations   [{km, name, stopMin, arrive: {best, central, cautious} (s)}]
  *   scenarios     {best, central, cautious}: {id, label, finishSec, factor,
@@ -430,19 +431,25 @@ export function buildPlan(raceParsed, effortParsed, userParams = {}) {
     scenarios[s.id] = { id: s.id, label: s.label, finishSec: pr.finishSec, factor: pr.factor, durationFactor: pr.durationFactor, gels, checkpoints, timeline };
   }
 
-  // 7. Heart-rate guide anchored on the average HR of the effort file.
-  // Three phases with the same 35% / 69% boundaries as the climb fatigue factor:
-  // 5 bpm under your average early, up to your average mid-race, up to 4 above
-  // late. With a max HR set, nothing goes above 92% of it (`ceiling`).
+  // 7. Heart-rate guide, from the runner's PROFILE only (heart rate is never read from a GPX
+  // file). Three phases with the same 35% / 69% boundaries as the climb fatigue factor, each a
+  // ceiling that rises as the race goes on. With a resting heart rate too, the ceilings are taken
+  // on the heart-rate reserve (Karvonen: rest + share x (max - rest)), which fits each runner
+  // better; with the max alone, they are a share of the max.
+  //   phase   reserve share   share of max
+  //   early   65%             75%
+  //   middle  72%             80%
+  //   late    80%             86%   ("if legs allow")
   let hrGuide = null;
-  if (effort.avgHr) {
-    const ceiling = params.maxHr ? Math.round(params.maxHr * 0.92) : Infinity;
-    const avg = Math.round(effort.avgHr);
+  if (params.maxHr) {
+    const max = params.maxHr, rest = params.restHr;
+    const at = (hrr, pmax) => Math.round(rest ? rest + hrr * (max - rest) : pmax * max);
+    const [e, m, l] = [at(0.65, 0.75), at(0.72, 0.8), at(0.8, 0.86)];
     hrGuide = [
-      // bpm: the value to expect in that phase (the middle of the band), for the race-day forecast
-      { fromKm: 0, toKm: total * 0.35, text: `${Math.min(avg - 5, ceiling)} or lower`, bpm: Math.min(avg - 5, ceiling) },
-      { fromKm: total * 0.35, toKm: total * 0.69, text: `${Math.min(avg - 5, ceiling)} to ${Math.min(avg, ceiling)}`, bpm: Math.min(Math.round(avg - 2.5), ceiling) },
-      { fromKm: total * 0.69, toKm: total, text: `up to ${Math.min(avg + 4, ceiling)} if legs allow`, bpm: Math.min(avg + 2, ceiling) },
+      // bpm: the value to expect in that phase (just under the ceiling), for the race-day forecast
+      { fromKm: 0, toKm: total * 0.35, text: `${e} or lower`, bpm: e - 3 },
+      { fromKm: total * 0.35, toKm: total * 0.69, text: `${e} to ${m}`, bpm: Math.round((e + m) / 2) },
+      { fromKm: total * 0.69, toKm: total, text: `up to ${l} if legs allow`, bpm: Math.round((m + l) / 2) },
     ];
   }
 

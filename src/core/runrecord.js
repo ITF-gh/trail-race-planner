@@ -14,8 +14,8 @@ import { HISTORY_VERSION } from "./history.js";
  * Inputs: the run, and an optional name (else the GPX name, else "Run"; cut to 80 characters,
  * the limit checkRecord accepts). Returns the record described in history.js. Best efforts come
  * from runStats (1 km, 5 km) and bestEffort (10 km, only on runs of 10 km or more); the climbing
- * speed is the "vam" key number of runKpis. Number.isFinite turns a NaN or missing fade or drift
- * into null.
+ * speed is the "vam" key number of runKpis. Number.isFinite turns a NaN or missing fade into
+ * null. No heart rate: it is never read from a file (see track.js).
  */
 export function runRecord(run, name = "") {
   const st = runStats(run);
@@ -33,9 +33,7 @@ export function runRecord(run, name = "") {
     movingSec: run.movingSec,
     elapsedSec: run.elapsedSec,
     gapPace: run.gapPace || null,
-    hrAvg: run.hasHr ? run.hrAvg : null,
     fadePct: Number.isFinite(run.halves.fadePct) ? run.halves.fadePct : null,
-    decouplingPct: Number.isFinite(run.halves.decouplingPct) ? run.halves.decouplingPct : null,
     vam: vam ? vam.value : null,
     best1k: st.fastest1k ? st.fastest1k.sec : null,
     best5k: st.fastest5k ? st.fastest5k.sec : null,

@@ -13,12 +13,15 @@
 //   HISTORY_VERSION     the summary format version
 //   ACHIEVEMENTS        the list of achievements (data, see below)
 //   historySummary      everything the account menu shows
+//   recordClean         a summary without heart data (older summaries had some)
 //   checkRecord         is a summary believable? (also run by the server)
 //   aiDigest            the compact table an AI analysis receives
 //
 // A summary ("record") is {id, v, date (ms since 1970), name, km, gain (m), movingSec,
-// elapsedSec, gapPace (s/km), hrAvg (bpm), fadePct, decouplingPct (%), vam (m/h), best1k,
-// best5k, best10k (seconds)}. Optional fields are null when the run had no data for them.
+// elapsedSec, gapPace (s/km), fadePct, vam (m/h), best1k, best5k, best10k (seconds)}. Optional
+// fields are null when the run had no data for them. No heart rate: it is never read from a
+// file (owner's rule); older summaries that still carry hrAvg or decouplingPct are cleaned by
+// recordClean before they are kept or sent.
 
 export const HISTORY_VERSION = 1; // bump when a summary field changes meaning, to know which runs to recompute
 
@@ -60,8 +63,8 @@ export const ACHIEVEMENTS = [
     } },
   { code: "negative", icon: "🔥", label: "Negative split", hint: "Stronger second half on a run of 20 km or more", cairns: 0,
     progress: (L) => (L.some((r) => r.km >= 20 && r.fadePct !== null && r.fadePct < 0) ? 1 : hiMax(L.filter((r) => r.fadePct !== null && r.fadePct < 0), (r) => r.km) / 20) },
-  { code: "iron", icon: "🫀", label: "Iron engine", hint: "Heart drift under 3% on a run of 3 h or more", cairns: 1,
-    progress: (L) => hiMax(L.filter((r) => r.decouplingPct !== null && r.decouplingPct < 3), (r) => r.movingSec) / 10800 },
+  { code: "iron", icon: "🦵", label: "Iron legs", hint: "Second half within 3% of the first on a run of 3 h or more", cairns: 1,
+    progress: (L) => hiMax(L.filter((r) => r.fadePct !== null && r.fadePct !== undefined && r.fadePct < 3), (r) => r.movingSec) / 10800 },
   { code: "thousand", icon: "🏅", label: "1,000 km club", hint: "1,000 km in your log", cairns: 1,
     progress: (L) => L.reduce((s, r) => s + r.km, 0) / 1000 },
 ];
@@ -125,6 +128,18 @@ export function historySummary(records, now = Date.now()) {
 }
 
 /**
+ * A copy of a summary without any heart data (hrAvg, decouplingPct): summaries saved before the
+ * owner's "no heart rate from files" rule (2026-10-16) still carry them. Used by the account
+ * menu when it reads the device log, and by the server before it stores a run. The rest
+ * operator (...rest) collects every other field into `rest`.
+ */
+export function recordClean(r) {
+  if (!r || typeof r !== "object") return r;
+  const { hrAvg, decouplingPct, ...rest } = r;
+  return rest;
+}
+
+/**
  * Is this summary believable? The server only counts runs that pass, so a hand-made summary
  * cannot unlock an achievement with impossible numbers. Limits sit just beyond world records
  * (1 km in 2:11, 5 km in 12:35, 10 km in 26:11) and human climbing speeds. Returns null when
@@ -146,8 +161,7 @@ export function checkRecord(r, now = Date.now()) {
   if (typeof r.name !== "string" || r.name.length > 80) return "bad name";
   const bad = num("date", Date.UTC(2000, 0, 1), now + HI_DAY) || num("km", 1, 400) || num("gain", 0, 25000)
     || num("movingSec", 60, 7 * 86400) || num("elapsedSec", 60, 8 * 86400)
-    || num("gapPace", 120, 3600, true) || num("hrAvg", 30, 230, true) || num("fadePct", -100, 100, true)
-    || num("decouplingPct", -100, 100, true) || num("vam", 0, 2500, true)
+    || num("gapPace", 120, 3600, true) || num("fadePct", -100, 100, true) || num("vam", 0, 2500, true)
     || num("best1k", 130, 3600, true) || num("best5k", 750, 18000, true) || num("best10k", 1570, 36000, true);
   if (bad) return bad;
   if (r.movingSec / r.km < 150) return "faster than 2:30 /km on average";
@@ -168,9 +182,9 @@ export function aiDigest(records, athlete = {}, max = 300) {
   // pick(k, lo, hi): an athlete setting, only when it is a plausible number.
   const list = records.filter((r) => !checkRecord(r)).sort((a, b) => b.date - a.date).slice(0, max);
   const f = (v, d = 0) => (v === null || v === undefined || !Number.isFinite(v) ? "" : v.toFixed(d));
-  const head = "date,km,gain_m,moving_min,elapsed_min,gap_pace_s_per_km,hr_avg,fade_pct,decoupling_pct,vam_m_per_h,best_1k_s,best_5k_s,best_10k_s";
+  const head = "date,km,gain_m,moving_min,elapsed_min,gap_pace_s_per_km,fade_pct,vam_m_per_h,best_1k_s,best_5k_s,best_10k_s";
   const rows = list.map((r) => [new Date(r.date).toISOString().slice(0, 10), f(r.km, 1), f(r.gain), f(r.movingSec / 60), f(r.elapsedSec / 60),
-    f(r.gapPace), f(r.hrAvg), f(r.fadePct, 1), f(r.decouplingPct, 1), f(r.vam), f(r.best1k), f(r.best5k), f(r.best10k)].join(","));
+    f(r.gapPace), f(r.fadePct, 1), f(r.vam), f(r.best1k), f(r.best5k), f(r.best10k)].join(","));
   const pick = (k, lo, hi) => (typeof athlete[k] === "number" && athlete[k] >= lo && athlete[k] <= hi ? athlete[k] : null);
   return {
     athlete: { hrMax: pick("hrMax", 120, 230), hrRest: pick("hrRest", 30, 100), weight: pick("weight", 30, 200) },
@@ -182,10 +196,9 @@ export function aiDigest(records, athlete = {}, max = 300) {
 /** The axes of analysis the runner can pick for an AI analysis (the server accepts only these). */
 export const AI_FOCUS = [
   { code: "overall", label: "Overall progress", brief: "the overall picture: trends, form and what changed" },
-  { code: "endurance", label: "Endurance", brief: "endurance and durability: fade, heart drift, long runs" },
+  { code: "endurance", label: "Endurance", brief: "endurance and durability: fade, long runs, weekly volume" },
   { code: "climbing", label: "Climbing", brief: "climbing: climbing speed, gradients, hiking against running uphill" },
   { code: "speed", label: "Speed", brief: "speed: fastest 1, 5 and 10 km and pace on flat ground" },
-  { code: "heart", label: "Heart rate", brief: "heart rate and aerobic fitness: efficiency, drift, intensity" },
   { code: "race", label: "Race prep", brief: "preparing the next race: what the log says about readiness" },
   { code: "load", label: "Load & recovery", brief: "training load and recovery: volume, rhythm, rest, injury risk" },
 ];

@@ -27,6 +27,8 @@
 // Every request carries two headers: apikey (the public project key) and Authorization:
 // "Bearer <token>" (the user's access token, or the public key when signed out).
 
+import { recordClean } from "../core/history.js";
+
 export const CLOUD = {
   url: "", // e.g. "https://abcdefghijkl.supabase.co" (Project settings > API)
   anonKey: "", // the "anon public" key: safe to publish, Row Level Security does the protecting
@@ -159,7 +161,7 @@ export async function cloudPutRuns(recs) {
   const user = cloudUser();
   await clAuthed("/rest/v1/runs?on_conflict=user_id,id", {
     method: "POST",
-    body: recs.map((rec) => ({ user_id: user.id, id: rec.id, rec, updated_at: new Date().toISOString() })),
+    body: recs.map(recordClean).map((rec) => ({ user_id: user.id, id: rec.id, rec, updated_at: new Date().toISOString() })),
     headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
   });
 }

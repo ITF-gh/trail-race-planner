@@ -4,7 +4,7 @@
 // "smart recording"), so points are unevenly spaced in distance. Terrain
 // maths (gradient, climbs) is much simpler when every sample is exactly the
 // same distance apart, so we re-sample onto a fixed distance grid (10 m by
-// default) and interpolate every channel (elevation, time, heart rate...).
+// default) and interpolate every channel (elevation, time, cadence...).
 //
 // Where it sits in the data flow: this is the very first step. plan.js calls
 // parseGpx() on the race file and on your effort file(s), then resample() on
@@ -12,7 +12,7 @@
 // use smooth() from here to clean up noisy elevation.
 //
 // Main exports:
-//   parseGpx(xml)        GPX text  -> {name, points: [{lat, lon, ele, time, hr, cad}]}
+//   parseGpx(xml)        GPX text  -> {name, points: [{lat, lon, ele, time, hr (always null), cad}]}
 //   haversine(a, b)      distance in metres between two GPS points
 //   resample(parsed, 10) points    -> parallel arrays, one entry every 10 m
 //   smooth(arr, w)       centred moving average (noise filter)
@@ -30,7 +30,7 @@
  * Input: the whole GPX file as text.
  * Returns {name, points}: `name` is the first <name> tag of the file (or ""),
  * `points` is an array of {lat, lon (degrees), ele (m), time (ms since 1970
- * or null), hr (bpm or null), cad (steps per minute or null)}.
+ * or null), hr (always null: heart rate is never read from a file), cad (steps per minute or null)}.
  * Throws an Error with a readable message when the text is not a usable GPX.
  */
 export function parseGpx(xml) {
@@ -65,10 +65,13 @@ export function parseGpx(xml) {
     // them into milliseconds since 1 January 1970, which are easy to subtract.
     const timeStr = (/<time>([^<]+)<\/time>/.exec(body) || [])[1];
     const time = timeStr ? Date.parse(timeStr) : null;
-    // Heart rate and cadence live in vendor extensions: <ns3:hr>, <gpxtpx:hr>, <hr>...
+    // Cadence lives in vendor extensions: <ns3:cad>, <gpxtpx:cad>, <cad>...
     // (?:[\w-]+:)? is an optional namespace prefix such as "gpxtpx:", so one
     // regex accepts every vendor's spelling of the same tag.
-    const hr = num(/<(?:[\w-]+:)?hr>([^<]+)<\/(?:[\w-]+:)?hr>/.exec(body));
+    // Heart rate is NEVER read from a file (owner's rule, 2026-10-16): it is health data, and the
+    // only heart data the app uses is what the runner types in their profile. `hr` stays null, so
+    // every heart-rate chart and number downstream simply sees "no heart rate".
+    const hr = null;
     const cad = num(/<(?:[\w-]+:)?cad>([^<]+)<\/(?:[\w-]+:)?cad>/.exec(body));
     points.push({ lat, lon, ele, time: Number.isFinite(time) ? time : null, hr, cad });
   }
@@ -111,7 +114,7 @@ export function haversine(a, b) {
 /**
  * Re-sample a parsed track onto a regular distance grid.
  * Returns parallel arrays, one entry per `step` metres:
- *   ele (m), lat and lon (degrees, for the map), time (ms or null), hr (bpm or null), cad (spm or null).
+ *   ele (m), lat and lon (degrees, for the map), time (ms or null), hr (always null: heart rate is never read from a file), cad (spm or null).
  *
  * Input: `parsed` from parseGpx(), and `step` in metres (10 everywhere in the app).
  * The returned object also carries `step`, `n` (number of samples) and

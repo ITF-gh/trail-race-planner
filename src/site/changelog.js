@@ -2,6 +2,10 @@
 // technical detail). The first entry is the current version: the footer shows it on every page.
 
 export const CHANGELOG = [
+  { v: "0.38", date: "2026-10-16", items: [
+    "Heart rate is no longer read from your GPX files: the only heart data used is the max and resting heart rate you type in your profile.",
+    "New Account window (account icon, then Account): name, country flag, a few words and badges, your goals and bests from 5K to 100K, heart rates and weight, and lines of your own data.",
+  ] },
   { v: "0.36", date: "2026-10-16", items: [
     "User guide with a screenshot and tips for every mode and section, and an FAQ.",
     "A \"?\" next to each section title: what it shows, in three lines, with a link to the guide.",

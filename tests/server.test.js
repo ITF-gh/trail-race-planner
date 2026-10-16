@@ -4,12 +4,14 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { claimCairns, aiStart, aiRun, aiRequest, AI_SCHEMA } from "../supabase/functions/_shared/cairns.js";
-import { checkRecord, aiDigest, aiAsk, aiSelect } from "../src/core/history.js";
+import { checkRecord, aiDigest, aiAsk, aiSelect, recordClean, AI_FOCUS } from "../src/core/history.js";
+import { profileClean, profileBests, flagEmoji } from "../src/core/profile.js";
+import { demoRecords } from "../src/core/demorecords.js";
 
 const DAY = 86400000;
 const NOW = Date.UTC(2026, 9, 15);
 const run = (i, over = {}) => ({ id: `${1790000000 + i}-${2000 + i}`, v: 1, date: NOW - i * DAY, name: `Run ${i}`, km: 20 + i, gain: 900,
-  movingSec: 3 * 3600, elapsedSec: 3.2 * 3600, gapPace: 330, hrAvg: 150, fadePct: 4, decouplingPct: 6, vam: 700, best1k: 260, best5k: 1500, best10k: 3200, ...over });
+  movingSec: 3 * 3600, elapsedSec: 3.2 * 3600, gapPace: 330, fadePct: 4, vam: 700, best1k: 260, best5k: 1500, best10k: 3200, ...over });
 
 function fakeDb(runs, ledger = []) {
   const jobs = new Map();
@@ -143,4 +145,39 @@ test("the runner chooses the runs (dates or a list), the axis and the question",
   const msg = aiRequest(s.digest, s.ask).messages[0].content;
   assert.ok(msg.includes("speed: fastest 1, 5 and 10 km") && msg.includes("<question>How can I go sub-40 in 10K in a month?</question>"));
   assert.ok(AI_SCHEMA.required.includes("answer"));
+});
+
+test("no heart data from runs: summaries, demo runs, the AI table and the database", () => {
+  // An older summary with heart data is cleaned; nothing else changes.
+  const old = { ...run(1), hrAvg: 150, decouplingPct: 6 };
+  const clean = recordClean(old);
+  assert.ok(!("hrAvg" in clean) && !("decouplingPct" in clean));
+  assert.equal(clean.km, old.km);
+  assert.ok(demoRecords().every((r) => !("hrAvg" in r) && !("decouplingPct" in r)));
+  const d = aiDigest([run(1)], { hrMax: 188 });
+  assert.ok(!/hr_avg|decoupling/.test(d.table), "the AI table has no heart columns");
+  assert.equal(d.athlete.hrMax, 188, "the profile's heart rate is still sent");
+  assert.ok(!AI_FOCUS.some((f) => f.code === "heart"), "no heart-rate axis");
+  // The database refuses a summary with heart data.
+  assert.ok(/runs_no_heart check \(not \(rec \? 'hrAvg'\)/.test(readFileSync(new URL("../supabase/migrations/20261015220000_accounts.sql", import.meta.url), "utf8")));
+});
+
+test("profile: cleaned, limited, and bests found in the run log", () => {
+  const p = profileClean({ name: "  Ann\nTrail  ", flag: "FR", about: "Line 1\nLine 2", tags: ["ultra", "ultra", "nope", "sky", "trail", "road", "night", "snow"],
+    goals: { "5k": { goal: 1200, best: 30 }, "50k": { goal: 6 * 3600 } }, extra: [{ label: "VO2max", value: "54" }, { label: "", value: "" }] });
+  assert.equal(p.name, "Ann Trail");
+  assert.equal(p.about, "Line 1\nLine 2");
+  assert.equal(p.flag, "FR");
+  assert.equal(flagEmoji("FR"), "\u{1F1EB}\u{1F1F7}");
+  assert.equal(profileClean({ flag: "XX" }).flag, "");
+  assert.deepEqual(p.tags, ["ultra", "sky", "trail", "road", "night"], "known badges, no duplicates, 5 at most");
+  assert.deepEqual(p.goals["5k"], { goal: 1200, best: null }, "a best under a minute is dropped");
+  assert.deepEqual(p.goals["100k"], { goal: null, best: null });
+  assert.equal(p.extra.length, 1);
+  // Bests: 5K from the fastest 5 km inside a run; 50K from a whole run of 46.5 to 55 km.
+  const runs = [run(1, { best5k: 1300 }), run(2, { best5k: 1250 }), run(3, { km: 52, elapsedSec: 7 * 3600 }), run(4, { km: 60, elapsedSec: 6 * 3600 })];
+  const b = profileBests(runs);
+  assert.equal(b["5k"].sec, 1250);
+  assert.equal(b["50k"].sec, 7 * 3600, "a 60 km run does not count as a 50K");
+  assert.equal(b["100k"], null);
 });

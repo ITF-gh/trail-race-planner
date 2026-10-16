@@ -187,7 +187,8 @@ function privacyBody(counter) {
     <h2>On your device only</h2>
     <ul>
       <li><b>GPX files</b> you drop are read by the page, in your browser. They are never sent anywhere.</li>
-      <li><b>Settings</b> (start time, aid stations, theme, targets, heart rates) are kept in your browser's local storage so they are there next time.</li>
+      <li><b>Settings and profile</b> (start time, aid stations, theme, targets, your name, flag, goals, max and resting heart rate, weight) are kept in your browser's local storage so they are there next time.</li>
+      <li><b>Heart rate from your files is never read.</b> A GPX file may record your heart rate; the app ignores it. The only heart data it uses is the max and resting heart rate you type in your profile.</li>
       <li><b>Run log</b> (account menu): a short summary of each of your own runs (date, distance, climb, time, bests, about 1 KB each) is kept in your browser's database (IndexedDB). You can export it or delete it from the menu.</li>
     </ul>
     <p>To erase everything, use Delete in the account menu, or clear this site's data in your browser settings.</p>
@@ -209,7 +210,7 @@ function privacyBody(counter) {
     <p>An optional online account is being prepared. It is <b>switched off</b>: today nothing is sent. When it opens, this page will be updated before anything is collected, and:</p>
     <ul>
       <li>data would be stored in the EU (Supabase, Frankfurt), with your email address for sign-in links and the summaries of the runs you choose to sync;</li>
-      <li>heart rate is health data under the GDPR (article 9): it would only be synced with your explicit consent, which you can withdraw;</li>
+      <li>no heart rate from your runs is ever kept; the max and resting heart rate of your profile are health data under the GDPR (article 9) and would only be synced with your explicit consent, which you can withdraw;</li>
       <li>an AI analysis, when you ask for one, would send that run's summary to the AI provider (Anthropic) to write the analysis;</li>
       <li>you could export your data and delete your account at any time, from the account menu.</li>
     </ul>

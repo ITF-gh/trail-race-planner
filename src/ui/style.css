@@ -1164,6 +1164,39 @@ html[data-theme="sky"] .brand-desc{color:#fff;opacity:.92;border-color:rgba(255,
 .acct-ask-block:empty{display:none}
 .acct-kicker{display:flex;align-items:center;gap:6px}
 
+/* ---------- Account window (profile.js): presentation, goals and bests, heart, own data ---------- */
+.acct-who .acct-prof{padding:6px 14px;font-size:14px;flex:none}
+.acct-profile .pf-card{display:flex;align-items:center;gap:16px;margin:10px 0 4px}
+.pf-avatar{flex:none;display:grid;place-items:center;width:64px;height:64px;border-radius:50%;border:2px solid var(--sun);font-size:34px;line-height:1;font-family:var(--f-display);font-weight:800;color:var(--acct-ink);background:rgba(255,255,255,.06)}
+.acct-profile .pf-card h3{margin:0 0 6px}
+.pf-tags{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 6px!important}
+.pf-tags span{border:1px solid var(--acct-line);border-radius:999px;padding:2px 10px;font-size:13px;color:var(--acct-ink)}
+.pf-about{white-space:pre-line;color:var(--acct-ink)!important}
+.pf-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}
+.pf-grid.three{grid-template-columns:repeat(3,1fr)}
+.pf-grid label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--acct-muted)}
+.pf-grid label.wide{grid-column:1 / -1}
+.acct-profile input,.acct-profile select,.acct-profile textarea{width:100%;min-width:0;box-sizing:border-box;padding:7px 10px;border-radius:10px;border:1px solid var(--acct-line);background:rgba(255,255,255,.06);color:var(--acct-ink);font:inherit;font-size:15px}
+.acct-profile select option{color:#10203a}
+.acct-profile input:focus,.acct-profile select:focus,.acct-profile textarea:focus{outline:2px solid var(--focus);outline-offset:1px}
+.pf-u{display:flex;align-items:center;gap:6px;color:var(--acct-muted)}
+.pf-goals{width:100%;border-collapse:collapse;font-size:14px}
+.pf-goals th,.pf-goals td{padding:5px 6px;text-align:left;vertical-align:top;border-bottom:1px solid var(--acct-line)}
+.pf-goals thead th{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--acct-muted);font-weight:600}
+.pf-goals tbody th{font-family:var(--f-display);font-weight:800;font-style:italic;font-size:18px;padding-top:9px;color:var(--acct-ink)}
+.pf-goals td small{display:block;margin-top:3px;font-size:11px;color:var(--acct-muted)}
+.pf-goals .pf-gap{padding-top:11px;white-space:nowrap;color:var(--acct-ink)}
+.pf-ok{color:var(--sun);font-weight:700}
+.pf-extras{display:flex;flex-direction:column;gap:8px}
+.pf-extra{display:grid;grid-template-columns:1fr 1.4fr 36px;gap:8px;align-items:center}
+.pf-extra .pf-del{position:static;width:32px;height:32px;font-size:18px}
+@media (max-width:560px){
+  .pf-grid,.pf-grid.three{grid-template-columns:1fr}
+  .pf-avatar{width:52px;height:52px;font-size:28px}
+  .pf-goals{font-size:13px}
+  .pf-goals th,.pf-goals td{padding:4px 3px}
+}
+
 /* "Race" in the top bar: the heart of Prep my race, so it shines a little. The text is filled with a
    moving gradient (background-clip:text), a soft glow sits behind it, and a light sweep runs every few
    seconds. Turned off for people who ask their system for less motion. */

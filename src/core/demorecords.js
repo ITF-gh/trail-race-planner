@@ -9,31 +9,32 @@
 export const DEMO_USER = "User1";
 
 // The demo runs, one array per run (compact, easy to edit), oldest last:
-// [days ago, name, km, D+ m, moving pace s/km, avg HR, fade %, heart drift %, climbing speed m/h]
+// [days ago, name, km, D+ m, moving pace s/km, fade %, climbing speed m/h]
+// No heart rate: the app never keeps heart data from runs.
 // null = no value (a flat run has no climbing speed).
 const DEMO_RUNS = [
-  [2, "Ridge loop", 14.2, 720, 412, 148, 3.1, 4.2, 980],
-  [5, "Easy river run", 9.8, 110, 338, 136, 1.2, 2.1, null],
-  [9, "Long run, the three summits", 31.5, 1840, 468, 145, 6.8, 7.5, 910],
-  [13, "Hill repeats", 11.4, 650, 395, 156, 2.4, 3.3, 1120],
-  [17, "Forest tempo", 12.1, 240, 318, 158, 1.9, 3.8, null],
-  [24, "Trail marathon (race)", 43.4, 2210, 455, 152, 9.4, 8.9, 940],
-  [33, "Recovery jog", 7.2, 90, 352, 131, -1.5, 1.5, null],
-  [38, "Ridge loop", 14.2, 720, 421, 150, 3.6, 4.8, 950],
-  [45, "Long run, lakes", 26.3, 1150, 441, 143, 5.2, 6.1, 890],
-  [52, "Vertical K practice", 6.4, 980, 640, 162, 4.1, 5.0, 1240],
-  [60, "Easy river run", 10.3, 120, 345, 137, 1.4, 2.4, null],
-  [71, "Night trail", 15.8, 610, 430, 146, 3.9, 4.4, 900],
-  [84, "Mountain day", 24.7, 1960, 520, 141, 7.7, 6.9, 870],
-  [98, "Forest tempo", 12.0, 230, 325, 157, 2.2, 4.0, null],
-  [115, "Ultra 55K (race)", 55.2, 3120, 512, 147, 12.6, 10.8, 860],
-  [131, "Long run, the three summits", 31.4, 1830, 482, 146, 7.4, 8.1, 880],
-  [150, "Hill repeats", 11.2, 640, 404, 155, 2.7, 3.6, 1080],
-  [176, "Spring half (race)", 21.3, 480, 301, 164, 4.6, 5.9, 920],
-  [205, "Ridge loop", 14.3, 725, 436, 151, 4.2, 5.2, 910],
-  [240, "Snow run", 9.1, 310, 402, 142, 2.9, 3.1, 820],
-  [282, "Easy river run", 10.1, 115, 351, 139, 1.6, 2.8, null],
-  [318, "Winter long run", 22.6, 940, 452, 144, 5.9, 6.6, 840],
+  [2, "Ridge loop", 14.2, 720, 412, 3.1, 980],
+  [5, "Easy river run", 9.8, 110, 338, 1.2, null],
+  [9, "Long run, the three summits", 31.5, 1840, 468, 6.8, 910],
+  [13, "Hill repeats", 11.4, 650, 395, 2.4, 1120],
+  [17, "Forest tempo", 12.1, 240, 318, 1.9, null],
+  [24, "Trail marathon (race)", 43.4, 2210, 455, 9.4, 940],
+  [33, "Recovery jog", 7.2, 90, 352, -1.5, null],
+  [38, "Ridge loop", 14.2, 720, 421, 3.6, 950],
+  [45, "Long run, lakes", 26.3, 1150, 441, 5.2, 890],
+  [52, "Vertical K practice", 6.4, 980, 640, 4.1, 1240],
+  [60, "Easy river run", 10.3, 120, 345, 1.4, null],
+  [71, "Night trail", 15.8, 610, 430, 3.9, 900],
+  [84, "Mountain day", 24.7, 1960, 520, 7.7, 870],
+  [98, "Forest tempo", 12.0, 230, 325, 2.2, null],
+  [115, "Ultra 55K (race)", 55.2, 3120, 512, 12.6, 860],
+  [131, "Long run, the three summits", 31.4, 1830, 482, 7.4, 880],
+  [150, "Hill repeats", 11.2, 640, 404, 2.7, 1080],
+  [176, "Spring half (race)", 21.3, 480, 301, 4.6, 920],
+  [205, "Ridge loop", 14.3, 725, 436, 4.2, 910],
+  [240, "Snow run", 9.1, 310, 402, 2.9, 820],
+  [282, "Easy river run", 10.1, 115, 351, 1.6, null],
+  [318, "Winter long run", 22.6, 940, 452, 5.9, 840],
 ];
 
 /**
@@ -45,7 +46,7 @@ const DEMO_RUNS = [
  * faster than a floor (3:25/km for 1 km, 3:44/km over 5 km, 3:58/km over 10 km).
  */
 export function demoRecords(now = Date.now()) {
-  return DEMO_RUNS.map(([ago, name, km, gain, pace, hr, fade, drift, vam]) => {
+  return DEMO_RUNS.map(([ago, name, km, gain, pace, fade, vam]) => {
     const date = Math.round((now - ago * 86400000) / 3600000) * 3600000 - 2 * 3600000;
     const movingSec = Math.round(km * pace);
     const flat = pace - Math.round((gain / km) * 0.9); // grade-adjusted pace: climbing time taken out
@@ -60,9 +61,7 @@ export function demoRecords(now = Date.now()) {
       movingSec,
       elapsedSec: Math.round(movingSec * (km > 30 ? 1.08 : 1.03)),
       gapPace: Math.max(260, flat),
-      hrAvg: hr,
       fadePct: fade,
-      decouplingPct: drift,
       vam,
       best1k: Math.max(205, Math.round(pace * 0.68)),
       best5k: km >= 5 ? Math.max(1120, Math.round(pace * 0.8 * 5)) : null,
