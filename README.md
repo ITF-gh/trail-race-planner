@@ -30,6 +30,8 @@ node scripts/ai-local.js --race race.gpx --runs long1.gpx --runs long2.gpx --his
 
 `--history` takes the file from the account menu's Export. Options: `--goal finish|target|best`, `--max-hr`, `--rest-hr`, `--weight`, `--model` (default `gpt-5.4-mini`, or `OPENAI_MODEL`), `--effort low|medium|high`, `--force` to send despite warnings. Each run writes `ai-runs/<date-time>/`: `prompt.txt`, `request.json`, `response.json`, `output.json`, `result.json` and a readable `report.md` (tokens, finish, leg by leg calculated vs AI, aid stops, fuel, referee fixes).
 
+**Or in your browser.** `npm run ai-browser`, then open http://localhost:5174: the app as usual, and in the account menu, Ask the AI sends the window's inputs to OpenAI through a small local server (`scripts/ai-serve.js`, which holds the key from `.env.local`; the page never sees it). No account and no edelweiss are needed there. The result opens in the window (finish, every leg compared, aid stops, texts, referee fixes, tokens), and each test is saved in `ai-runs/<date-time>-browser/`. "Fake answer" runs the whole chain for free, without a key.
+
 ## Use it
 
 **In the browser.** Open `dist/index.html` (run `npm run build` first). Press "Try the demo" to see a full plan on made-up data (a 78 km mountain ultra with 3,800 m of climbing and seven aid stations, planned from two 30 km mountain long runs), or drop in your own two files.
@@ -77,7 +79,7 @@ src/core/history.js    the run log: 12-month totals, bests, achievements and cai
 src/core/runrecord.js  one small summary per run
 src/demo.js            made-up GPX files for the demo and the tests
 src/ui/                the browser app (main.js, map.js for the map, replay.js for race day,
-                       review.js for the Rewind my run mode, print.js for the Export A4 pages (print or save as PDF), account.js for the account menu and its IndexedDB store, cloud.js for the online account, analytics.js for anonymous visit and event counts)
+                       review.js for the Rewind my run mode, print.js for the Export A4 pages (print or save as PDF), account.js for the account menu and its IndexedDB store, ailocal.js for the local AI test of npm run ai-browser, cloud.js for the online account, analytics.js for anonymous visit and event counts)
 src/vendor/leaflet/    Leaflet 1.9.4, the map library (BSD-2 licence), copied to dist/vendor/
 cli.js                 the command-line tool
 scripts/build.js       bundles the app into dist/index.html, no dependencies

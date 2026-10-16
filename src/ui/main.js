@@ -1381,6 +1381,8 @@ initAccount({
     gpxRuns: state.effort ? state.effort.runs.length : 0,
     targetText: state.settings.targetTime || "",
     centralSec: state.plan ? state.plan.scenarios.central.finishSec : null,
+    // The whole plan, for the local AI test (ailocal.js builds the AI input from it).
+    plan: state.plan,
   }),
 });
 initHelp();

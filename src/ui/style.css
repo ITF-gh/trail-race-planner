@@ -1226,3 +1226,9 @@ html[data-theme="sky"] .brand-desc{color:#fff;opacity:.92;border-color:rgba(255,
 html[data-theme="sky"] .tn-links a.tn-star{color:transparent;filter:drop-shadow(0 0 5px rgba(233,138,0,.3))}
 @keyframes tnShine{0%,55%{background-position:100% 0}100%{background-position:0 0}}
 @media (prefers-reduced-motion:reduce){.tn-links a.tn-star{animation:none;background-position:60% 0}}
+/* Local AI test result (npm run ai-browser only): compact tables, rows that differ highlighted. */
+.acct-tbl-wrap{overflow-x:auto}
+.acct-tbl{border-collapse:collapse;width:100%;font-size:13px;margin:4px 0 8px}
+.acct-tbl th,.acct-tbl td{text-align:left;padding:4px 6px;border-bottom:1px solid var(--acct-sep);vertical-align:top}
+.acct-tbl th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--acct-muted)}
+.acct-tbl tr.mark td{background:rgba(255,196,0,.12)}

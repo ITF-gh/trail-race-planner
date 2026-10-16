@@ -9,6 +9,7 @@
     "plan": "node cli.js",
     "build": "node scripts/build.js",
     "dev": "node scripts/serve.js",
-    "ai-local": "node scripts/ai-local.js"
+    "ai-local": "node scripts/ai-local.js",
+    "ai-browser": "node scripts/ai-serve.js"
   }
 }

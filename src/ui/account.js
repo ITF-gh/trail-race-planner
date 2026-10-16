@@ -42,6 +42,7 @@ import { demoRecords, DEMO_USER } from "../core/demorecords.js";
 import { mmss, hms, hm, parseDuration } from "../core/format.js";
 import { trackEvent } from "./analytics.js";
 import { profileHtml, profileInput, profileAction, profileAthlete, profileWho } from "./profile.js";
+import { aiLocalProbe, aiLocalRun, aiLocalHtml } from "./ailocal.js";
 import { cloudOn, cloudUser, cloudFromUrl, cloudSendLink, cloudSignOut, cloudRuns, cloudPutRuns, cloudDeleteRuns, cloudLedger, cloudClaim, cloudAnalyse, cloudJob, cloudJobs, cloudDeleteAccount } from "./cloud.js";
 
 // Database name and its one "object store" (IndexedDB's word for a table) of run summaries.
@@ -290,7 +291,10 @@ const acDay = (ms) => new Date(ms).toISOString().slice(0, 10);
 const acToday = () => { const d = new Date(); return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()); };
 // What the page knows about the race being prepared, given by main.js to initAccount (getRace):
 // { race: { name, km, gain, legs, aid } or null, gpxRuns, targetText, centralSec }.
-let acGetRace = () => ({ race: null, gpxRuns: 0, targetText: "", centralSec: null });
+let acGetRace = () => ({ race: null, gpxRuns: 0, targetText: "", centralSec: null, plan: null });
+// The local test mode (ailocal.js): { key, model, fake } when the page comes from npm run
+// ai-browser on this computer, else null. `fake` = the last click asked for the fake answer.
+let acLocal = null;
 /**
  * What is sent to the server as the `ask`: the stored runs (ticked ids or the date range), the
  * goal, target time, risk, free information and question, and `forced`: the codes of the
@@ -314,7 +318,8 @@ function acAskChecks() {
     race: R.race, gpxRuns: R.gpxRuns, storedRuns: acAskRuns().length,
     targetText: (acAsk.target || "").trim(), targetSec: parseDuration((acAsk.target || "").trim()), centralSec: R.centralSec,
     notes: acAsk.notes, question: acAsk.question,
-    cloud: { open: cloudOn(), signedIn, balance: acBalance(), demo: acDemo },
+    // Local test: no account is needed, so the account checks pass.
+    cloud: acLocal ? { open: true, signedIn: true, balance: 1 } : { open: cloudOn(), signedIn, balance: acBalance(), demo: acDemo },
   });
 }
 /** The stored runs selected, in one line of HTML: "12 runs · 240 km, 3 Jul to 14 Oct". */
@@ -361,8 +366,10 @@ function acAskHtml() {
       <ul>${C.map((k) => `<li class="${k.level}"><span>${k.level === "stop" ? "Blocked" : "Warning"}</span>${acEsc(k.text)}</li>`).join("")}</ul>
       <p class="acct-note">${stop ? "This cannot be sent yet. Nothing is spent." : `Send anyway uses 1 ${AC_TOKEN.one}, even if the AI returns nothing.`} Everything you filled in stays.</p>
       <div class="acct-actions"><button class="btn primary" type="button" data-acct="fix">Fix and retry</button>${stop ? "" : `<button class="btn ghost" type="button" data-acct="force">${AC_SPARK}Send anyway</button>`}<button class="btn ghost" type="button" data-acct="close">Cancel</button></div>
-    </div>` : `<div class="acct-actions"><button class="btn primary" type="button" data-acct="go">${AC_SPARK}Spend 1 ${AC_TOKEN.one}</button><button class="btn ghost" type="button" data-acct="close">Cancel</button></div>`;
-  return `<p class="acct-kicker">${AC_SPARK} Ask the AI · Prep my race · 1 ${AC_TOKEN.one}</p>
+    </div>` : acLocal ? `<p class="acct-note">Local test on this computer: no account, no ${AC_TOKEN.one}. ${acLocal.key ? "Send to the AI calls OpenAI with your key (it costs a few cents)." : "No key in .env.local: only the fake answer works."}</p>
+    <div class="acct-actions">${acLocal.key ? `<button class="btn primary" type="button" data-acct="go">${AC_SPARK}Send to the AI</button>` : ""}<button class="btn ${acLocal.key ? "ghost" : "primary"}" type="button" data-acct="fake">Fake answer</button><button class="btn ghost" type="button" data-acct="close">Cancel</button></div>`
+    : `<div class="acct-actions"><button class="btn primary" type="button" data-acct="go">${AC_SPARK}Spend 1 ${AC_TOKEN.one}</button><button class="btn ghost" type="button" data-acct="close">Cancel</button></div>`;
+  return `<p class="acct-kicker">${AC_SPARK} Ask the AI · Prep my race · ${acLocal ? "local test" : `1 ${AC_TOKEN.one}`}</p>
     <h3>Tailor my race plan</h3>
     <h4>1 · Target race</h4>
     ${race}
@@ -523,6 +530,7 @@ function acResultHtml(r, when) {
  * is read again to show it.
  */
 async function acStartAi(forced = []) {
+  if (acLocal) return acStartLocal(forced);
   acPanel.hidden = true;
   ac.msg = "";
   try {
@@ -555,6 +563,25 @@ async function acStartAi(forced = []) {
   }
   if (ac.job) { ac.job = null; ac.msg = "Still running: open this menu again in a minute to see it."; }
   acRender();
+}
+
+/**
+ * The local test (ailocal.js): the same ask, sent to the local server instead of the account.
+ * The panel says it is working, then shows the result: the referee's verdict, the rebuilt finish,
+ * every leg compared, the texts and the tokens.
+ */
+async function acStartLocal(forced) {
+  const R = acGetRace();
+  const fake = acLocal.fake;
+  acShowPanel(`<p class="acct-kicker">Local AI test</p><h3>${fake ? "Making the fake answer…" : `Asking ${acEsc(acLocal.model)}…`}</h3><p>${fake ? "" : "This can take a minute or two. Keep this tab open."}</p>`, "Local AI test");
+  const a = profileAthlete();
+  const r = await aiLocalRun({
+    plan: R.plan, raceName: R.race ? R.race.name : "Race", fake,
+    user: { targetSec: parseDuration((acAsk.target || "").trim()), goal: acAsk.goal, risk: acAsk.risk, notes: acAsk.notes, question: acAsk.question, forced },
+    athlete: { maxHr: a.hrMax, restHr: a.hrRest, weightKg: a.weight },
+    history: acAskRuns(),
+  });
+  acShowPanel(aiLocalHtml(r), "Local AI test", "acct-local");
 }
 
 /**
@@ -661,7 +688,9 @@ async function acAction(what) {
     if (profileAction(what.slice(3))) acProfile(true);
   } else if (what === "bests") {
     acShowPanel(acBestsHtml(historySummary(acList)), "All-time bests");
-  } else if (what === "go") {
+  } else if (what === "go" || what === "fake") {
+    // Local test only: "fake" asks for the answer made by code instead of the AI.
+    if (acLocal) acLocal.fake = what === "fake";
     // The code checks, at click and before any call: all clear starts the analysis at once.
     const checks = acAskChecks();
     if (!checks.length) { acAsk.checks = null; acStartAi(); return; }
@@ -717,6 +746,8 @@ async function acSignIn(form) {
  */
 export async function initAccount(opts = {}) {
   if (opts.getRace) acGetRace = opts.getRace;
+  // Local test mode: only answers on this computer, under npm run ai-browser (ailocal.js).
+  aiLocalProbe().then((x) => { acLocal = x; });
   acEl = document.createElement("div");
   acEl.className = "acct";
   // The round button (a person icon in SVG: a circle head and a curved path for the shoulders),
