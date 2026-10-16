@@ -2,6 +2,9 @@
 // technical detail). The first entry is the current version: the footer shows it on every page.
 
 export const CHANGELOG = [
+  { v: "0.41", date: "2026-10-16", items: [
+    "Every replay now shows the pace line on its profile, like Rewind my run: Your race (calculated or AI) and Prep my run. Faster is higher, the section you are on is lit, and the dot gives the pace at the runner.",
+  ] },
   { v: "0.40", date: "2026-10-16", items: [
     "Ask the AI for Prep my race is ready to read: race, runs, goal, target, free information and a question, with checks before anything is sent. It opens with the online account; for now the button sends nothing.",
     "Your race gets a Calculated / AI switch and an AI message box, ready for the first AI plans.",

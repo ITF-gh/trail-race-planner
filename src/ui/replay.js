@@ -25,7 +25,7 @@
 // Main exports: mountReplay (build and wire the whole cockpit), stopReplay (stop and clean up),
 // fitPanel and alignBar (two layout helpers also used by other screens).
 
-import { raceScript, raceStateAt, secAtKm, raceLegs, raceTotals, legAtKm, gainLoss } from "../core/script.js";
+import { raceScript, raceStateAt, secAtKm, raceLegs, raceTotals, legAtKm, gainLoss, racePaceLine } from "../core/script.js";
 import { courseMap } from "./map.js";
 import { mmss, hm, hms, clock } from "../core/format.js";
 import { trackEvent, trackOnce } from "./analytics.js";
@@ -125,6 +125,75 @@ export function alignBar(bar, svg, x0, x1) {
   if (typeof ResizeObserver === "function") new ResizeObserver(fit).observe(svg);
 }
 
+// Each pace line gets its own clip ids (rpPc1Past...), so two profiles on the page never share one.
+let rpPaceN = 0;
+
+/**
+ * The pace line on a replay's profile, the same one Rewind my run draws: speed (higher = faster)
+ * along the course, scaled between the slow 5% and the fast 5% so one steep wall does not squash
+ * the rest, drawn thin and faint, with only the WHOLE current section lit, a dot at the runner and
+ * the live pace written next to it. Used by every replay built on mountReplay: Your race (with
+ * the calculated plan or the AI one) and Prep my run.
+ *
+ * How it works: the same SVG path is drawn three times, each copy inside a clipPath (a stencil:
+ * only what lies inside its rectangle shows). One rectangle covers the course before the current
+ * section, one the section itself (the lit copy), one the rest. Moving the runner only moves and
+ * resizes those three rectangles, which is far cheaper than redrawing the line every frame.
+ *
+ * Inputs: svg, the profile <svg>; cur, its cursor group (the line goes just under it); prof, the
+ * geometry from profileView (x, top, base, l, r, W, H); pl, the speeds [{km, v}] (racePaceLine).
+ * Returns { draw(km, leg, sec, stopText) } to call on each frame, or null with too little data.
+ */
+function mountPaceLine(svg, cur, prof, pl) {
+  const vs = pl.map((p) => p.v).filter((v) => v > 0).sort((a, b) => a - b);
+  if (vs.length < 5) return null;
+  const { x, l, r, W, H, top, base } = prof;
+  // Percentiles with a little margin, then speed to y: clamped, fast at the top.
+  const vlo = vs[Math.floor(vs.length * 0.05)] * 0.95, vhi = vs[Math.floor(vs.length * 0.95)] * 1.03;
+  const yHi = top + 4, yLo = base - 10;
+  const paceY = (v) => yLo - ((Math.max(vlo, Math.min(vhi, v)) - vlo) / Math.max(1e-6, vhi - vlo)) * (yLo - yHi);
+  const d = pl.filter((p) => p.v > 0).map((p, i) => `${i ? "L" : "M"}${x(p.km).toFixed(1)},${paceY(p.v).toFixed(1)}`).join("");
+  const id = `rpPc${++rpPaceN}`;
+  const clip = (k) => `<clipPath id="${id}${k}"><rect x="${l}" y="0" width="0" height="${H}"/></clipPath>`;
+  // insertAdjacentHTML on an SVG element parses the text as SVG (its parent sets the namespace),
+  // so these become real SVG elements. "beforebegin" puts them just before the cursor: on top of
+  // the profile, under the cursor.
+  cur.insertAdjacentHTML("beforebegin", `<defs>${clip("Past")}${clip("Trail")}${clip("Ahead")}</defs><g class="rv-pace rp-pace">`
+    + `<path class="rv-pl ahead" clip-path="url(#${id}Ahead)" d="${d}"/><path class="rv-pl past" clip-path="url(#${id}Past)" d="${d}"/><path class="rv-pl trail" clip-path="url(#${id}Trail)" d="${d}"/>`
+    + `<text class="rv-pl-t" x="${W - r - 2}" y="${(yHi + 3).toFixed(1)}" text-anchor="end">${mmss(1000 / vhi)}/km</text><text class="rv-pl-t" x="${W - r - 2}" y="${(yLo + 3).toFixed(1)}" text-anchor="end">${mmss(1000 / vlo)}/km</text>`
+    + `<circle class="rv-pl-dot" r="4.5" cx="${x(0)}" cy="${paceY(pl[0].v || vlo).toFixed(1)}"/><text class="rv-pl-v" x="${x(0)}" y="0"></text></g>`);
+  // The group just added: the parent of the path clipped by this line's own clip.
+  const g = svg.querySelector(`[clip-path="url(#${id}Ahead)"]`).parentNode;
+  const rect = (k) => svg.querySelector(`#${id}${k} rect`);
+  const R = { past: rect("Past"), trail: rect("Trail"), ahead: rect("Ahead") };
+  const dot = g.querySelector(".rv-pl-dot");
+  const txt = g.querySelector(".rv-pl-v");
+  // Speed at km k, interpolated between the 100 m points (a short walk from the start: 1000
+  // points at most, cheap enough once per frame).
+  const vAt = (k) => { let i = 1; while (i < pl.length - 1 && pl[i].km < k) i++; const a = pl[i - 1], b = pl[i]; const f = Math.max(0, Math.min(1, (k - a.km) / (b.km - a.km || 1))); return a.v + f * (b.v - a.v); };
+  return {
+    draw(km, leg, sec, stopText) {
+      const ax = x(leg.startKm), bx = x(leg.endKm), cx = x(km);
+      R.past.setAttribute("width", Math.max(0, ax - l).toFixed(1));
+      R.trail.setAttribute("x", ax.toFixed(1));
+      R.trail.setAttribute("width", Math.max(0, bx - ax).toFixed(1));
+      R.ahead.setAttribute("x", bx.toFixed(1));
+      R.ahead.setAttribute("width", Math.max(0, W - r - bx).toFixed(1));
+      const v = vAt(km);
+      const cy = paceY(v);
+      dot.setAttribute("cx", cx.toFixed(1));
+      dot.setAttribute("cy", cy.toFixed(1));
+      g.classList.toggle("on", sec > 0);
+      txt.textContent = sec > 0 ? stopText || (v > 0 ? `${mmss(1000 / v)}/km` : "") : "";
+      // Near the right edge the text goes on the left of the dot, so it stays inside the plot.
+      const right = cx > W - 120;
+      txt.setAttribute("x", (cx + (right ? -9 : 9)).toFixed(1));
+      txt.setAttribute("y", (cy - 6).toFixed(1));
+      txt.setAttribute("text-anchor", right ? "end" : "start");
+    },
+  };
+}
+
 /**
  * Build the replay cockpit inside `box` and wire every control (see the block two comments up
  * for `prof`, `mapPaint`, `mapMarks` and `noun`). Other inputs:
@@ -185,7 +254,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     </div>
     <div class="rp-legfoot">
       <div class="rp-legnow" id="rpLegNow" aria-live="polite"></div>
-      <div class="rp-legend" aria-label="Legend"><span><i class="sw l1"></i>Easy</span><span><i class="sw l2"></i>Moderate</span><span><i class="sw l3"></i>Hard</span><span><i class="sw l4"></i>Crux</span><span><i class="sw fl"></i>Runnable</span><span><i class="sw ds"></i>Descent</span><span><i class="sw ds4"></i>Brake</span><span><i class="sw kz"></i>Key zone</span><span><i class="sw ad"></i>Aid</span></div>
+      <div class="rp-legend" aria-label="Legend"><span><i class="sw l1"></i>Easy</span><span><i class="sw l2"></i>Moderate</span><span><i class="sw l3"></i>Hard</span><span><i class="sw l4"></i>Crux</span><span><i class="sw fl"></i>Runnable</span><span><i class="sw ds"></i>Descent</span><span><i class="sw ds4"></i>Brake</span><span><i class="sw kz"></i>Key zone</span><span><i class="sw ad"></i>Aid</span><span><i class="sw rv-pl-sw"></i>Pace</span></div>
     </div>
   </div>
     ${hasMap ? `<div class="rp-map" id="rpMap"></div>` : ""}
@@ -257,6 +326,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     // The hover pop-up says it all: no native tooltips on top of it.
     svgEl.querySelectorAll("title").forEach((t) => t.remove());
   }
+  const pace = svgEl && els.cur ? mountPaceLine(svgEl, els.cur, prof, racePaceLine(plan, sid)) : null;
   /**
    * Light up section number `li` (index in `legs`) everywhere: band and glow on the profile,
    * scroll of the profile on a phone, glow on the map, and on/past/next classes on the bar.
@@ -418,6 +488,8 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
       // In the script list below: mark the current moment and grey the past ones.
       els.list.querySelectorAll("li").forEach((li) => { li.classList.toggle("on", Number(li.dataset.i) === ci); li.classList.toggle("past", Number(li.dataset.i) < ci); });
     }
+    // The pace line: the whole current section lit, the dot and the live pace at the runner.
+    if (pace) pace.draw(s.km, l, s.sec, s.aid ? "stopped" : "");
     // Profile cursor: slide the group sideways to the km, then put its dot at the elevation.
     if (els.cur) {
       els.cur.style.display = "";
