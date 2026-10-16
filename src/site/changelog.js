@@ -2,6 +2,11 @@
 // technical detail). The first entry is the current version: the footer shows it on every page.
 
 export const CHANGELOG = [
+  { v: "0.40", date: "2026-10-16", items: [
+    "Ask the AI for Prep my race is ready to read: race, runs, goal, target, free information and a question, with checks before anything is sent. It opens with the online account; for now the button sends nothing.",
+    "Your race gets a Calculated / AI switch and an AI message box, ready for the first AI plans.",
+    "Account menu: an AI docs section will keep every AI answer on this device.",
+  ] },
   { v: "0.38", date: "2026-10-16", items: [
     "Heart rate is no longer read from your GPX files: the only heart data used is the max and resting heart rate you type in your profile.",
     "New Account window (account icon, then Account): name, country flag, a few words and badges, your goals and bests from 5K to 100K, heart rates and weight, and lines of your own data.",
