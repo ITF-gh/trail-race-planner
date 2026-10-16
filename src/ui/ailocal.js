@@ -126,6 +126,7 @@ export function aiLocalHtml(r) {
     ${T.answer ? `<p class="acct-answer">${alEsc(T.answer)}</p>` : ""}
     <p>${alEsc(T.synthesis)}</p>
     <div class="acct-ai-cols"><div><h4>Strengths</h4>${pts(T.strengths)}</div><div><h4>Weaknesses</h4>${pts(T.weaknesses)}</div></div>
+    ${m.legs.every((l) => Math.abs(l.pct) < 0.5) ? `<p class="acct-note">The AI kept the calculated time on every section: this answer adds no tailoring to the times.</p>` : ""}
     <h4>Legs (moving time; highlighted = more than 3% apart)</h4>${legs}
     ${aid}
     <h4>Fuel: ${alEsc(D.fuel.carbsPerHour)} g carbs per hour</h4>
