@@ -1253,3 +1253,7 @@ html[data-theme="sky"] .tn-links a.tn-star{color:transparent;filter:drop-shadow(
 .ar-sum h4{margin:8px 0 4px;font-size:13px}
 .ar-sum ul{margin:0;padding-left:18px;font-size:14px}
 .ar-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0 18px}
+/* The AI message box of Your race (AI plan on): the AI's word for the section or the moment. */
+.rp-ai-box{display:flex;gap:8px;align-items:flex-start;margin:6px 0;padding:8px 10px;border:1px solid rgba(185,140,255,.5);border-radius:10px;background:rgba(185,140,255,.1);font-size:13px;line-height:1.35}
+.rp-ai-box .ic{flex:none;display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:#b98cff;color:#1a0f2e;font-size:11px;font-weight:800}
+.rp-ai-box p{margin:0} .rp-ai-box p+p{margin-top:3px} .rp-ai-box small{color:var(--muted)} .rp-ai-box .muted{color:var(--muted)}
