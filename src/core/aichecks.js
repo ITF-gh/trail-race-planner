@@ -62,3 +62,22 @@ export function aiRaceChecks(x) {
   if (AIC_OFF_TOPIC.test(x.question || "")) add("question_off_topic", "warn", "The AI only analyses your race and runs. This question will probably return nothing.", "question");
   return out;
 }
+
+/**
+ * The checks for one Prep my run request (the AI coach). `x`: route { km, gain } of the loaded
+ * GPX or null, notes, question, cloud { open, signedIn, balance, demo }. Same rules and levels as
+ * aiRaceChecks: the account checks are hard stops, the rest are warnings.
+ */
+export function aiRunChecks(x) {
+  const out = [];
+  const add = (code, level, text, field = "") => out.push({ code, level, text, field });
+  const c = x.cloud || {};
+  if (!c.open) add("no_account", "stop", c.demo ? "Demo profile: the AI opens with the online account." : "The AI opens with the online account, soon.");
+  else if (!c.signedIn) add("no_signin", "stop", "Sign in first (in the menu).");
+  else if (!(c.balance >= 1)) add("no_edelweiss", "stop", "No edelweiss left: earn one with an achievement or an event.");
+  if (!x.route || !(x.route.km > 0)) add("empty_dataset", "warn", "No run GPX loaded: there is nothing to read. The AI will return nothing and the edelweiss will be spent.", "route");
+  else if (x.route.km < 3) add("short_route", "warn", "This run is under 3 km: after the warm-up there is little room for an exercise.", "route");
+  if (AIC_OFF_TOPIC.test(x.notes || "")) add("notes_off_topic", "warn", "Your free information looks like a request, not facts about you or the run. The AI only plans your session and may return nothing.", "notes");
+  if (AIC_OFF_TOPIC.test(x.question || "")) add("question_off_topic", "warn", "The AI coach only plans this run. This question will probably return nothing.", "question");
+  return out;
+}

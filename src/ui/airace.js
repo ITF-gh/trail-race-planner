@@ -10,51 +10,63 @@
 // since (another GPX, other runs, other settings), the AI side is "stale" and stays off until the
 // runner asks again: the AI's leg times were judged against the old calculation.
 //
-// Main exports: arSave (keep a new answer), arState (is there an AI plan for this plan, and
-// which), arBarHtml (the switch and the AI summary above the cockpit).
+// Prep my run works the same way with its AI coach (core/airun.js): its own answer is kept under
+// "trp.ai.prep_run", checked again by aiRunMerge, and its switch sits above the run's cockpit.
+//
+// Main exports: arUse (make an AI doc the one played), arState (is there an AI plan for this
+// plan, and which), arBarHtml (the switch and the AI summary above the cockpit).
 
 import { aiPrepMerge } from "../core/aiprep.js";
+import { aiRunMerge } from "../core/airun.js";
 import { hm } from "../core/format.js";
 import { raceLegs } from "../core/script.js";
 
-const AR_KEY = "trp.ai.race";
+// Per mode: where its answer is kept and which referee rebuilds it.
+const AR_MODES = { prep_race: { key: "trp.ai.race", merge: aiPrepMerge }, prep_run: { key: "trp.ai.prep_run", merge: aiRunMerge } };
 // Escape text for HTML: AI texts are never read as HTML.
 const arEsc = (s) => String(s === null || s === undefined ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-// The last merge, so redraws (scenario change, theme) do not rebuild it: same plan, same answer.
-let arCache = { plan: null, at: null, result: null };
+// The last merge per mode, so redraws (scenario change, theme) do not rebuild it.
+const arCache = { prep_race: { plan: null, at: null, result: null }, prep_run: { plan: null, at: null, result: null } };
+const arMode = (m) => (m === "prep_run" ? "prep_run" : "prep_race");
 
-/** Make an AI doc (aidocs.js) the one Your race plays: { id, race, raceName, at, input, output, tokens }. */
+/**
+ * Make an AI doc (aidocs.js) the one its mode plays (doc.mode: "prep_race", the default, plays in
+ * Your race; "prep_run" in Prep my run): { id, mode, race, raceName, at, input, output, tokens }.
+ */
 export function arUse(doc) {
-  const rec = { id: doc.id, race: doc.race, raceName: doc.raceName, at: doc.at, input: doc.input, output: doc.output, tokens: doc.tokens };
-  try { localStorage.setItem(AR_KEY, JSON.stringify(rec)); } catch (e) { /* full or blocked: kept for this visit only */ }
-  arMem = rec;
+  const mode = arMode(doc.mode);
+  const rec = { id: doc.id, mode, race: doc.race, raceName: doc.raceName, at: doc.at, input: doc.input, output: doc.output, tokens: doc.tokens };
+  try { localStorage.setItem(AR_MODES[mode].key, JSON.stringify(rec)); } catch (e) { /* full or blocked: kept for this visit only */ }
+  arMem[mode] = rec;
 }
-let arMem = null; // the answer of this visit, when localStorage is blocked
-function arLoad() {
-  if (arMem) return arMem;
-  try { arMem = JSON.parse(localStorage.getItem(AR_KEY) || "null"); } catch (e) { arMem = null; }
-  return arMem;
+const arMem = { prep_race: null, prep_run: null }; // the answers of this visit, when localStorage is blocked
+function arLoad(mode) {
+  if (arMem[mode]) return arMem[mode];
+  try { arMem[mode] = JSON.parse(localStorage.getItem(AR_MODES[mode].key) || "null"); } catch (e) { arMem[mode] = null; }
+  return arMem[mode];
 }
 
 /**
- * The AI side for the calculated `plan` of race `race`.
+ * The AI side for the calculated `plan` of race (or run) `race`, in `mode` ("prep_race" by default).
  * Returns { state, rec, result }:
  *   state   "none" (no answer for this race), "stale" (an answer made from an older plan),
  *           "empty" (the AI or the referee returned nothing usable), "ok"
  *   result  aiPrepMerge's result when ok: result.plan is the AI plan to play
  */
-export function arState(plan, race) {
-  const rec = arLoad();
-  if (!plan || !rec) return { state: "none", rec: null, result: null };
-  if (rec.race !== race) return { state: "other", rec, result: null };
+export function arState(plan, race, mode = "prep_race") {
+  mode = arMode(mode);
+  const rec = arLoad(mode);
+  if (!plan || !rec) return { state: "none", mode, rec: null, result: null };
+  if (rec.race !== race) return { state: "other", mode, rec, result: null };
   const legs = rec.input && rec.input.race && rec.input.race.legs;
   const calc = rec.input && rec.input.calc && rec.input.calc.finishSec;
   // Same plan: same number of sections and the same calculated finish (within a minute).
   const same = legs && calc && Math.abs(calc.central - plan.scenarios.central.finishSec) < 60 && legs.length === raceLegs(plan, "central").length;
-  if (!same) return { state: "stale", rec, result: null };
-  if (arCache.plan !== plan || arCache.at !== rec.at) arCache = { plan, at: rec.at, result: aiPrepMerge(plan, rec.input, rec.output) };
-  const result = arCache.result;
-  return { state: result.status === "ok" ? "ok" : "empty", rec, result };
+  if (!same) return { state: "stale", mode, rec, result: null };
+  const C = arCache[mode];
+  if (C.plan !== plan || C.at !== rec.at) Object.assign(C, { plan, at: rec.at, result: AR_MODES[mode].merge(plan, rec.input, rec.output) });
+  const result = C.result;
+  return { state: result.status === "ok" ? "ok" : "empty", mode, rec, result };
 }
 
 /**
@@ -65,6 +77,7 @@ export function arState(plan, race) {
  */
 export function arBarHtml(s, on, calcSec, aiSec) {
   const can = s.state === "ok";
+  if (s.mode === "prep_run") return arRunBarHtml(s, on && can, calcSec, aiSec);
   const note = {
     other: `The AI doc in use is for another race (${arEsc(s.rec && s.rec.raceName)}). Pick one for this race in the account menu > AI docs, or <button class="ar-link" type="button" data-ar="ask">✦ Ask the AI</button>`,
     none: `No AI plan for this race yet. <button class="ar-link" type="button" data-ar="ask">✦ Ask the AI</button>`,
@@ -91,6 +104,49 @@ export function arBarHtml(s, on, calcSec, aiSec) {
         <div class="ar-cols"><div><h4>Strengths</h4><ul>${pts(T.strengths)}</ul></div><div><h4>Weaknesses</h4><ul>${pts(T.weaknesses)}</ul></div></div>
         ${T.nextSteps ? `<h4>Next steps</h4><p>${arEsc(T.nextSteps)}</p>` : ""}
         ${s.result.fixes.length ? `<h4>Corrected by the app</h4><ul>${s.result.fixes.map((f) => `<li>${arEsc(f)}</li>`).join("")}</ul>` : ""}
+      </details>
+    </div></div>`;
+}
+
+// The switch alone (both modes); `on` = the AI side is shown, `can` = there is one to show.
+const arSwitch = (on, can) => `<div class="ar-switch" role="group" aria-label="Plan shown">
+    <button type="button" data-ar="calc" class="${on ? "" : "on"}" aria-pressed="${!on}">Calculated</button>
+    <button type="button" data-ar="ai" class="${on ? "on" : ""}" aria-pressed="${on}"${can ? "" : " disabled"}>✦ AI</button>
+  </div>`;
+
+/**
+ * The bar above the Prep my run cockpit: the switch, then, with the AI coach on, its session:
+ * headline, the exercises (dose, km, clock), its answer, and the why in a fold.
+ */
+function arRunBarHtml(s, on, calcSec, aiSec) {
+  const can = s.state === "ok";
+  const ask = (t) => `<button class="ar-link" type="button" data-ar="ask">✦ ${t}</button>`;
+  const note = {
+    other: `The coach's last session is for another run (${arEsc(s.rec && s.rec.raceName)}). ${ask("Ask the AI coach")}`,
+    none: `No AI session for this run yet. ${ask("Ask the AI coach")}`,
+    stale: `This run changed since the coach's answer (target or start time). ${ask("Ask again")}`,
+    empty: `The last answer was empty (${arEsc(s.result && s.result.reason)}): nothing to show. ${ask("Ask again")}`,
+    ok: "A session from the AI coach is ready: switch to AI to play it.",
+  }[s.state];
+  if (!on) return `<div class="ar-bar">${arSwitch(false, can)}<p class="ar-note">${note}</p></div>`;
+  const R = s.result, T = R.texts || {}, D = R.dataset || {};
+  const ex = R.exercises.length
+    ? `<ol class="ar-ex">${R.exercises.map((e) => `<li><b>${arEsc(e.title)}</b> <span class="ar-dose">${arEsc(e.dose)}</span> <small>km ${e.startKm}–${e.endKm} · ${hm(e.atSec)} · effort ${e.effort}/5</small></li>`).join("")}</ol>`
+    : `<p class="ar-note">No exercise: an easy run.</p>`;
+  return `<div class="ar-bar on">${arSwitch(true, true)}
+    <div class="ar-sum">
+      <p class="ar-k">✦ AI coach · ${arEsc(D.session && D.session.type)} · ${R.exercises.length} exercise${R.exercises.length === 1 ? "" : "s"} · ${hm(aiSec)} <small>(easy pace ${hm(calcSec)}, hard work ${Math.round(R.workSec / 60)} min)</small></p>
+      <h3>${arEsc(T.headline)}</h3>
+      ${ex}
+      ${T.answer ? `<p class="ar-answer">${arEsc(T.answer)}</p>` : ""}
+      <details><summary>Why this session, warm-up and spots left out</summary>
+        <p>${arEsc(T.synthesis)}</p>
+        ${T.warmup ? `<p><b>Warm-up:</b> ${arEsc(T.warmup)}<br><b>Cool-down:</b> ${arEsc(T.cooldown)}</p>` : ""}
+        ${R.exercises.map((e) => (e.why ? `<p><b>${arEsc(e.title)}:</b> ${arEsc(e.why)}</p>` : "")).join("")}
+        ${(T.skipped || []).length ? `<h4>Spots left out</h4><ul>${T.skipped.slice(0, 5).map((x) => `<li>${arEsc(x.spotId)}: ${arEsc(x.why)}</li>`).join("")}</ul>` : ""}
+        ${T.loadNote ? `<h4>Load</h4><p>${arEsc(T.loadNote)}</p>` : ""}
+        ${T.nextSteps ? `<h4>Next steps</h4><p>${arEsc(T.nextSteps)}</p>` : ""}
+        ${R.fixes.length ? `<h4>Corrected by the app</h4><ul>${R.fixes.map((f) => `<li>${arEsc(f)}</li>`).join("")}</ul>` : ""}
       </details>
     </div></div>`;
 }
