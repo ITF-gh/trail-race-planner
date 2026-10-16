@@ -73,7 +73,7 @@ export const GUIDE = [
         tip: "Print the race card and keep it in your pack: checkpoint times, with blank boxes to write your real times." },
       { id: "account", sec: "", num: "◎", name: "Account menu", shot: "account",
         what: "The round icon at the top right of the header: a log of the runs you loaded on this device, with stats, bests, achievements and cairns.",
-        how: ["Your own runs are added automatically (never the demo or sample).", "Export the log as a file, or delete it, from the same menu.", "The online account is not open yet: everything stays in this browser."],
+        how: ["Your own runs are added automatically (never the demo or sample). Until the first one, it shows a demo profile with made-up runs.", "Export the log as a file, or delete it, from the same menu.", "The online account is not open yet: everything stays in this browser."],
         tip: "Cairns are earned with achievements and records. Later, one cairn will buy one AI analysis of a run." },
     ],
   },

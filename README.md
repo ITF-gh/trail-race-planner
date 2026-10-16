@@ -86,6 +86,15 @@ npm run build    build dist/index.html (one self-contained file)
 npm run dev      build, then serve it on http://localhost:5173
 ```
 
+## Site pages
+
+Next to the app, the build writes `guide.html` (user guide with screenshots and FAQ), `about.html` (with "How it works" from `docs/HOW_IT_WORKS.md`), `privacy.html`, `changelog.html` and `404.html` (`scripts/site-pages.js`). Their text lives in `src/site/`: `guide.js` (also used by the "?" bubbles of the app, `src/ui/help.js`), `changelog.js` (the first entry is the version shown in the footer) and `site.js` (name, contact, footer). External links are inert until `SITE.linksLive` is set to `true`.
+
+```
+node scripts/guide-shots.mjs    retake the guide screenshots from dist/ (needs Playwright), after npm run build
+node scripts/site-images.mjs    remake the PNG icons and the share-preview image og.jpg
+```
+
 ## Privacy
 
 GPX files show where you live and train. `.gitignore` excludes `*.gpx` so they do not end up in a repository by accident. The tests use made-up routes.

@@ -2,12 +2,13 @@
 // technical detail). The first entry is the current version: the footer shows it on every page.
 
 export const CHANGELOG = [
-  { v: "0.35", date: "2026-10-16", items: [
+  { v: "0.36", date: "2026-10-16", items: [
     "User guide with a screenshot and tips for every mode and section, and an FAQ.",
     "A \"?\" next to each section title: what it shows, in three lines, with a link to the guide.",
     "About, Privacy and What's new pages, a site footer with contact, credits and the version.",
     "Tab icon and a preview card when the link is shared; a proper page for broken links.",
   ] },
+  { v: "0.35", date: "2026-10-16", items: ["New name: Prep my race. Modes Prep my race, Prep my run and Rewind my run; one-word sections Engine, Course, Plan, Rehearsal, Watch, Recap, Deep dive.", "Account menu shows a demo profile until your own runs are logged."] },
   { v: "0.34", date: "2026-10-16", items: ["Export A4: print each mode as clean A4 pages, or save them as a PDF."] },
   { v: "0.33", date: "2026-10-15", items: ["Online account prepared (sign-in by email link, cairns checked on the server, one AI analysis per cairn). Not open yet: nothing is sent."] },
   { v: "0.32", date: "2026-10-15", items: ["Account menu: a log of your runs on this device, with stats, bests, achievements and cairns. Export or delete it any time."] },
