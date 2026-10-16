@@ -7,12 +7,24 @@
 // Because the core modules are pure functions (text in, numbers out), the CLI
 // and the browser app share every line of calculation. Only the thin layer that
 // reads files and prints results differs.
+//
+// The first line (#!/usr/bin/env node, a "shebang") lets Unix systems run the file
+// directly as ./cli.js, using whichever `node` is on the PATH.
+//
+// Data flow: command-line options -> read the GPX files as text -> planFromGpx
+// (src/core/plan.js: parse, learn your paces, predict, build the plan) -> print it,
+// either as Markdown (planToMarkdown, src/core/markdown.js) or as JSON.
 
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { planFromGpx } from "./src/core/plan.js";
 import { planToMarkdown } from "./src/core/markdown.js";
 
+// 1. Read the command-line options with Node's built-in parser.
+//    `type: "string"` options take a value (--start 09:00); `type: "boolean"` ones are flags (--json).
+//    `multiple: true` lets an option repeat (--effort a.gpx --effort b.gpx) and gives an array.
+//    Numbers arrive as text, so they are converted with Number() below.
+//    `const { values } = ...` is destructuring: keep only the `values` field of the result.
 const { values } = parseArgs({
   options: {
     race: { type: "string" },
@@ -31,6 +43,10 @@ const { values } = parseArgs({
   },
 });
 
+// 2. Without a race file and at least one effort file there is nothing to compute: print the help.
+//    `values.effort?.length` is optional chaining: it gives undefined (instead of crashing)
+//    when no --effort was passed. The exit code is 0 when help was asked for, 1 (an error)
+//    when required options are missing.
 if (values.help || !values.race || !values.effort?.length) {
   console.log(`Usage: node cli.js --race course.gpx --effort run.gpx [--effort older-run.gpx ...] [options]
 
@@ -48,6 +64,11 @@ Options:
   process.exit(values.help ? 0 : 1);
 }
 
+// 3. Read the files and build the plan. The race file is read as one text; every effort file
+//    becomes one text in an array (several reference runs are weighted by age, see half-life).
+//    Aid stations are joined into one block of lines, the same format as the app's settings box.
+//    Optional numbers (max heart rate, hiking threshold) become null when not given, which
+//    tells the core to use its own value.
 const plan = planFromGpx(readFileSync(values.race, "utf8"), values.effort.map((f) => readFileSync(f, "utf8")), {
   aidStations: (values.aid || []).join("\n"),
   halfLifeDays: Number(values["half-life"]),
@@ -59,6 +80,11 @@ const plan = planFromGpx(readFileSync(values.race, "utf8"), values.effort.map((f
   descentBoost: Number(values["descent-boost"]),
 });
 
+// 4. Print the result.
+//    For --json, the bulky per-point arrays (profile, route, timeline) are dropped: JSON.stringify
+//    calls the "replacer" function for every key, and returning undefined leaves that key out.
+//    Stringify, parse, stringify again: the first pass removes the keys, the last one prints
+//    the slim copy indented by 2 spaces.
 if (values.json) {
   const slim = JSON.parse(JSON.stringify(plan, (k, v) => (["profile", "route", "timeline"].includes(k) ? undefined : v)));
   console.log(JSON.stringify(slim, null, 2));
