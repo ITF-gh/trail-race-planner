@@ -292,7 +292,7 @@ function p4PlanSheet({ plan, sid, raceName, effort, settings }) {
   ];
   // The three scenarios side by side, the chosen one highlighted.
   const scen = SCENARIOS.map((s) => `<span class="${s.id === sid ? "on" : ""}">${s.label} <b>${hm(plan.scenarios[s.id].finishSec)}</b> <small>finish ${clock(st, plan.scenarios[s.id].finishSec)}</small></span>`).join("");
-  // The targeted duration typed in 03 Plan, judged against the scenarios (judgeTarget, core/plan.js).
+  // The targeted duration typed in 02 Route, judged against the scenarios (judgeTarget, core/plan.js).
   const tgt = judgeTarget(plan, parseDuration(settings.targetTime));
   const VERDICT = { "out-of-reach": "Not backed by your runs", ambitious: "Ambitious", realistic: "Realistic", comfortable: "Comfortable" };
   const tgtHtml = tgt ? `<div class="p4-scen p4-tgt">Targeted duration <b>${hm(tgt.targetSec)}</b> · ${VERDICT[tgt.verdict]} · needs ${mmss(tgt.paceSec)}/km, stops included</div>` : "";
