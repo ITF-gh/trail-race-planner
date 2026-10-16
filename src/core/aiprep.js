@@ -228,19 +228,32 @@ export const AI_PREP_SCHEMA = aipObj({
   })),
 });
 
+/** The default model (cheapest that follows a strict JSON schema), and the ones the test window offers. */
+export const AI_PREP_MODEL = "gpt-4o-mini";
+export const AI_PREP_MODELS = ["gpt-4o-mini", "gpt-5.4-mini"];
+/**
+ * A "reasoning" model (gpt-5 family, o-series) thinks before it answers: it takes a reasoning
+ * effort, and its thinking is billed as output tokens. Others (gpt-4o-mini) answer at once and
+ * refuse the reasoning parameter, so it is only sent to reasoning models.
+ */
+const aipReasons = (model) => /^(o\d|gpt-5)/.test(model);
+
 /**
  * The body of the one OpenAI Responses API call (POST https://api.openai.com/v1/responses).
- * opts: { model, effort (reasoning effort: "low", "medium" or "high"), maxOutput (output token
- * ceiling, default 32,000) }. `store: false` asks OpenAI not to keep the answer for later reuse.
+ * opts: { model (default AI_PREP_MODEL), effort (reasoning models only: "low", "medium" or
+ * "high"), maxOutput (output token ceiling: 32,000 for a reasoning model, else 16,000, the most
+ * gpt-4o-mini can write) }. `store: false` asks OpenAI not to keep the answer for later reuse.
  */
 export function aiPrepRequest(input, opts = {}) {
+  const model = opts.model || AI_PREP_MODEL;
+  const thinks = aipReasons(model);
   return {
-    model: opts.model || "gpt-5.4-mini",
-    reasoning: { effort: opts.effort || "medium" },
+    model,
+    ...(thinks ? { reasoning: { effort: opts.effort || "medium" } } : {}),
     instructions: AI_PREP_INSTRUCTIONS,
     input: aiPrepData(input),
     text: { format: { type: "json_schema", name: `prep_race_v${AI_PREP_VERSION}`, schema: AI_PREP_SCHEMA, strict: true } },
-    max_output_tokens: opts.maxOutput || 32000,
+    max_output_tokens: opts.maxOutput || (thinks ? 32000 : 16000),
     store: false,
   };
 }

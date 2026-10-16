@@ -43,6 +43,7 @@ import { mmss, hms, hm, parseDuration } from "../core/format.js";
 import { trackEvent } from "./analytics.js";
 import { profileHtml, profileInput, profileAction, profileAthlete, profileWho } from "./profile.js";
 import { aiLocalProbe, aiLocalRun, aiLocalHtml } from "./ailocal.js";
+import { AI_PREP_MODELS } from "../core/aiprep.js";
 import { aiDocsAll, aiDocsPut, aiDocsGet, aiDocsDelete } from "./aidocs.js";
 import { cloudOn, cloudUser, cloudFromUrl, cloudSendLink, cloudSignOut, cloudRuns, cloudPutRuns, cloudDeleteRuns, cloudLedger, cloudClaim, cloudAnalyse, cloudJob, cloudJobs, cloudDeleteAccount } from "./cloud.js";
 
@@ -370,6 +371,7 @@ function acAskHtml() {
       <div class="acct-actions"><button class="btn primary" type="button" data-acct="fix">Fix and retry</button>${stop ? "" : `<button class="btn ghost" type="button" data-acct="force">${AC_SPARK}Send anyway</button>`}<button class="btn ghost" type="button" data-acct="close">Cancel</button></div>
     </div>` : acLocal ? `${acLocal.direct ? `<h4>Your OpenAI key</h4>
     <input type="password" class="acct-key" data-ask="key" autocomplete="off" spellcheck="false" placeholder="sk-..." value="${acEsc(acLocal.apiKey)}">
+    <label class="acct-sub">Model <select class="acct-model" data-ask="model">${AI_PREP_MODELS.map((m) => `<option${m === acLocal.model ? " selected" : ""}>${m}</option>`).join("")}</select></label>
     <p class="acct-note">Test copy on this computer: no account, no ${AC_TOKEN.one}. The key stays in this tab only (never saved) and goes straight to OpenAI. Send to the AI costs a few cents; Fake answer is free.</p>` : `<p class="acct-note">Local test on this computer: no account, no ${AC_TOKEN.one}. ${acLocal.key ? "Send to the AI calls OpenAI with your key (it costs a few cents)." : "No key in .env.local: only the fake answer works."}</p>`}
     <div class="acct-actions">${acLocal.key || acLocal.direct ? `<button class="btn primary" type="button" data-acct="go">${AC_SPARK}Send to the AI</button>` : ""}<button class="btn ${acLocal.key || acLocal.direct ? "ghost" : "primary"}" type="button" data-acct="fake">Fake answer</button><button class="btn ghost" type="button" data-acct="close">Cancel</button></div>`
     : `<div class="acct-actions"><button class="btn primary" type="button" data-acct="go">${AC_SPARK}Spend 1 ${AC_TOKEN.one}</button><button class="btn ghost" type="button" data-acct="close">Cancel</button></div>`;
@@ -421,6 +423,7 @@ function acAskInput(el) {
   if (k === "question" || k === "notes" || k === "target") acAsk[k] = el.value;
   // The OpenAI key of the file test copy: kept in memory only, outside acAsk.
   else if (k === "key" && acLocal) acLocal.apiKey = el.value.trim();
+  else if (k === "model" && acLocal) acLocal.model = el.value;
   // Date.parse("2026-10-16") gives midnight UTC of that day in ms; NaN (an empty field) is ignored.
   else if (k === "from" || k === "to") { const v = Date.parse(el.value); if (Number.isFinite(v)) acAsk[k] = v; }
   else if (k === "run") { if (el.checked) acAsk.ids.add(el.value); else acAsk.ids.delete(el.value); }
@@ -583,14 +586,15 @@ async function acStartLocal(forced) {
   acShowPanel(`<p class="acct-kicker">Local AI test</p><h3>${fake ? "Making the fake answer…" : `Asking ${acEsc(acLocal.model)}…`}</h3><p>${fake ? "" : "This can take a minute or two. Keep this tab open."}</p>`, "Local AI test");
   const a = profileAthlete();
   const r = await aiLocalRun({
-    plan: R.plan, raceName: R.race ? R.race.name : "Race", fake, direct: acLocal.direct, apiKey: acLocal.apiKey,
+    plan: R.plan, raceName: R.race ? R.race.name : "Race", fake, direct: acLocal.direct, apiKey: acLocal.apiKey, model: acLocal.model,
     user: { targetSec: parseDuration((acAsk.target || "").trim()), goal: acAsk.goal, risk: acAsk.risk, notes: acAsk.notes, question: acAsk.question, forced },
     athlete: { maxHr: a.hrMax, restHr: a.hrRest, weightKg: a.weight },
     history: acAskRuns(),
   });
   // Every answer that came back is kept as an AI doc (aidocs.js); a usable one also goes to
   // Your race (main.js plays it and turns the AI switch on).
-  if (!r.error) {
+  // (A call that never reached the model, like a wrong key, bills nothing and is not kept.)
+  if (!r.error && (r.read.output || r.read.tokens.total)) {
     const m = r.result;
     const doc = {
       id: `ai-${Date.now()}`, at: new Date().toISOString(), mode: "prep_race", race: R.key, raceName: R.race ? R.race.name : "Race",

@@ -53,7 +53,7 @@ async function localAi(req, res, path) {
   // Same page only: a browser always sends Origin on a POST, and it names the site that sent it.
   const origin = req.headers.origin;
   if (req.method === "POST" && origin !== `http://localhost:${PORT}` && origin !== `http://127.0.0.1:${PORT}`) return send(res, 403, { error: { message: "Not from this page." } });
-  if (req.method === "GET" && path === "/local-ai") return send(res, 200, { local: true, key: Boolean(KEY), model: MODEL || "gpt-5.4-mini" });
+  if (req.method === "GET" && path === "/local-ai") return send(res, 200, { local: true, key: Boolean(KEY), model: MODEL || "gpt-4o-mini" });
   if (req.method !== "POST") return send(res, 405, { error: { message: "POST only." } });
   let b;
   try { b = await body(req); } catch (e) { return send(res, 400, { error: { message: "Bad request body." } }); }
@@ -97,6 +97,6 @@ createServer((req, res) => {
   res.setHeader("content-type", types[hit.slice(hit.lastIndexOf("."))] ?? "application/octet-stream");
   res.end(readFileSync(hit));
 }).listen(PORT, "127.0.0.1", () => {
-  console.log(`http://localhost:${PORT}  (local AI test: ${KEY ? `key found, model ${MODEL || "gpt-5.4-mini"}` : "no key in .env.local, only the fake answer works"})`);
+  console.log(`http://localhost:${PORT}  (local AI test: ${KEY ? `key found, model ${MODEL || "chosen in the window (default gpt-4o-mini)"}` : "no key in .env.local, only the fake answer works"})`);
   console.log("Open the account icon (top right) > Ask the AI. Stop with Ctrl+C.");
 });

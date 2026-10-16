@@ -17,7 +17,7 @@
 // storage, gone when the tab closes) and goes straight to OpenAI, whose API accepts calls from
 // a browser. The test is then offered as a download instead of being saved in ai-runs/.
 
-import { aiPrepInput, aiPrepRequest, aiPrepRead, aiPrepMerge, aiPrepFake } from "../core/aiprep.js";
+import { aiPrepInput, aiPrepRequest, aiPrepRead, aiPrepMerge, aiPrepFake, AI_PREP_MODEL } from "../core/aiprep.js";
 import { hms } from "../core/format.js";
 
 // Escape text for HTML (& < > " become entities): AI texts are never read as HTML.
@@ -30,7 +30,7 @@ const alEsc = (s) => String(s === null || s === undefined ? "" : s).replace(/[&<
 export async function aiLocalProbe() {
   if (typeof location === "undefined") return null;
   // Opened as a file: the direct way, the key is typed in the window.
-  if (location.protocol === "file:") return { key: false, model: "gpt-5.4-mini", direct: true, apiKey: "" };
+  if (location.protocol === "file:") return { key: false, model: AI_PREP_MODEL, direct: true, apiKey: "" };
   if (!/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) return null;
   try {
     const r = await fetch("/local-ai", { cache: "no-store" });

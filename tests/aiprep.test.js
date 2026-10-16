@@ -44,6 +44,11 @@ test("request: fixed instructions, data with tagged notes and question, strict s
   assert.match(r.input, /<question>Is 10:00 realistic\?<\/question>/);
   assert.equal(r.text.format.strict, true);
   assert.equal(r.store, false);
+  // gpt-4o-mini (the default) takes no reasoning setting; a gpt-5 model does.
+  assert.equal(aiPrepRequest(input).model, "gpt-4o-mini");
+  assert.equal(aiPrepRequest(input).reasoning, undefined);
+  assert.equal(aiPrepRequest(input).max_output_tokens, 16000);
+  assert.equal(aiPrepRequest(input, { model: "gpt-5.4-mini" }).reasoning.effort, "medium");
   // Strict mode: every object lists all its fields as required and forbids others.
   const walk = (s) => {
     if (s.anyOf) return s.anyOf.forEach(walk);

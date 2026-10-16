@@ -5,7 +5,7 @@
 //        [--history my-trail-runs.json] [--aid "16.5 Le Moulin 3" ...] [--start 06:00]
 //        [--target 7:30] [--goal target|finish|best] [--risk prudent|balanced|bold]
 //        [--notes "..."] [--question "..."] [--max-hr 188] [--rest-hr 48] [--weight 66]
-//        [--demo] [--dry] [--fake] [--force] [--model gpt-5.4-mini] [--effort medium]
+//        [--demo] [--dry] [--fake] [--force] [--model gpt-4o-mini] [--effort medium]
 //
 // What it does, in the same order as the app will:
 //   1. build the calculated plan from the GPX files (the same core as the app and cli.js)
