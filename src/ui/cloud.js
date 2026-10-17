@@ -6,9 +6,15 @@
 //   Functions /functions/v1/...  server code for what the browser must not do itself: paying out
 //                                AI tokens, spending one on an AI analysis, deleting the account
 //
-// The whole online part stays OFF while CLOUD.url is empty or CLOUD.open is false: the app then
-// works exactly as before, with the run log on this device only, and sends nothing (no sign-in,
-// no run, no token). The database has its own lock too (writes_open() in the migration).
+// Three states, set in CLOUD below:
+//   off        (url empty, or connect and open both false): the app works exactly as before, with
+//              the run log on this device only, and sends nothing (no sign-in, no run, no token).
+//   read-only  (connect: true, open: false): sign-in works for accounts that already exist (no new
+//              account is made) and the account's data can be read, but NOTHING is written: every
+//              write call below throws CL_READONLY before sending anything.
+//   open       (open: true): sign-in, sync, tokens and AI, all writing.
+// The database has its own lock too (writes_open() in the migration), so even a hand-made
+// request writes nothing while it is closed.
 //
 // The AI tokens are called "edelweiss" on screen; the database tables and the server functions
 // still say "cairn" (cairn_ledger, claim-cairns), which only the code sees.
@@ -32,14 +38,22 @@ import { recordClean } from "../core/history.js";
 export const CLOUD = {
   url: "", // e.g. "https://abcdefghijkl.supabase.co" (Project settings > API)
   anonKey: "", // the "anon public" key: safe to publish, Row Level Security does the protecting
+  connect: false, // true = read-only: sign in and read, never write (supabase/SETUP.md, step 6)
   open: false, // writes not open yet: set to true only when the account opens (supabase/SETUP.md)
 };
+
+/** The message every write call throws while the account is read-only (account.js shows it). */
+export const CL_READONLY = "The online account is read-only for now: nothing is saved to it yet.";
 
 // localStorage key of the saved session.
 const CL_SESSION = "trp.session";
 
-/** True when the online account is configured and open: every other call needs this. */
-export const cloudOn = () => Boolean(CLOUD.url && CLOUD.anonKey && CLOUD.open);
+/** True when the online account is configured and connected (read-only or open): every other call needs this. */
+export const cloudOn = () => Boolean(CLOUD.url && CLOUD.anonKey && (CLOUD.connect || CLOUD.open));
+/** True only when writes are open too: sync up, tokens, AI, deletes. */
+export const cloudWritable = () => cloudOn() && CLOUD.open === true;
+// The guard at the top of every write call: throws before any request leaves the browser.
+const clWriteGuard = () => { if (!cloudWritable()) throw new Error(CL_READONLY); };
 
 /**
  * Read and write the saved session in localStorage, as JSON text. Session shape:
@@ -83,12 +97,13 @@ export async function cloudFromUrl() {
 
 /**
  * Ask Supabase to email a one-time sign-in link that brings the user back to this page.
- * create_user: true makes the account on first sign-in. encodeURIComponent escapes the return
+ * create_user: true (open only) makes the account on first sign-in. encodeURIComponent escapes the return
  * address so its ":" and "/" survive inside the query string.
  */
 export async function cloudSendLink(email) {
   const back = location.origin + location.pathname;
-  await clFetch(`/auth/v1/otp?redirect_to=${encodeURIComponent(back)}`, { method: "POST", body: { email, create_user: true } });
+  // Read-only: create_user false, so a link goes only to an account that already exists.
+  await clFetch(`/auth/v1/otp?redirect_to=${encodeURIComponent(back)}`, { method: "POST", body: { email, create_user: cloudWritable() } });
 }
 
 /**
@@ -157,6 +172,7 @@ export async function cloudRuns() {
  * on such a conflict and to send nothing back.
  */
 export async function cloudPutRuns(recs) {
+  clWriteGuard();
   if (!recs.length) return;
   const user = cloudUser();
   await clAuthed("/rest/v1/runs?on_conflict=user_id,id", {
@@ -167,6 +183,7 @@ export async function cloudPutRuns(recs) {
 }
 /** Delete every run of the signed-in user from the account. */
 export async function cloudDeleteRuns() {
+  clWriteGuard();
   await clAuthed(`/rest/v1/runs?user_id=eq.${cloudUser().id}`, { method: "DELETE" });
 }
 /**
@@ -178,14 +195,14 @@ export async function cloudLedger() {
   return (await clAuthed("/rest/v1/cairn_ledger?select=delta,reason,created_at&order=created_at.desc")) || [];
 }
 /** Ask the server to pay out the tokens of the achievements reached. */
-export const cloudClaim = () => clAuthed("/functions/v1/claim-cairns", { method: "POST", body: {} });
+export const cloudClaim = async () => { clWriteGuard(); return clAuthed("/functions/v1/claim-cairns", { method: "POST", body: {} }); };
 /**
  * Spend a token on an AI analysis of the runs `ask` selects; answers { job } at once, the result
  * comes later (cloudJob). `athlete` is { hrMax, hrRest, weight } (null when not set); `ask` is
  * { ids } or { from, to } (ms), plus focus (an AI_FOCUS code) and question (text); the Prep my
  * race window also sends mode, goal, risk, targetSec, notes and forced (read by the server later).
  */
-export const cloudAnalyse = (athlete, ask) => clAuthed("/functions/v1/ai-analyse", { method: "POST", body: { athlete, ask } });
+export const cloudAnalyse = async (athlete, ask) => { clWriteGuard(); return clAuthed("/functions/v1/ai-analyse", { method: "POST", body: { athlete, ask } }); };
 /** One analysis job by id: { id, status ("running", "done" or "failed"), result, error, created_at }. */
 export async function cloudJob(id) {
   const rows = await clAuthed(`/rest/v1/ai_jobs?id=eq.${encodeURIComponent(id)}&select=id,status,result,error,created_at`);
@@ -197,6 +214,7 @@ export async function cloudJobs() {
 }
 /** Delete the account on the server (a server function), then forget the session here. */
 export async function cloudDeleteAccount() {
+  clWriteGuard();
   await clAuthed("/functions/v1/delete-account", { method: "POST", body: {} });
   clSession = null;
   clWrite(null);

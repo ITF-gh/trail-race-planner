@@ -45,7 +45,7 @@ import { profileHtml, profileInput, profileAction, profileAthlete, profileWho } 
 import { aiLocalProbe, aiLocalRun, aiLocalHtml } from "./ailocal.js";
 import { AI_PREP_MODELS } from "../core/aiprep.js";
 import { aiDocsAll, aiDocsPut, aiDocsGet, aiDocsDelete } from "./aidocs.js";
-import { cloudOn, cloudUser, cloudFromUrl, cloudSendLink, cloudSignOut, cloudRuns, cloudPutRuns, cloudDeleteRuns, cloudLedger, cloudClaim, cloudAnalyse, cloudJob, cloudJobs, cloudDeleteAccount } from "./cloud.js";
+import { cloudOn, cloudWritable, CL_READONLY, cloudUser, cloudFromUrl, cloudSendLink, cloudSignOut, cloudRuns, cloudPutRuns, cloudDeleteRuns, cloudLedger, cloudClaim, cloudAnalyse, cloudJob, cloudJobs, cloudDeleteAccount } from "./cloud.js";
 
 // Database name and its one "object store" (IndexedDB's word for a table) of run summaries.
 const AC_DB = "trp-history", AC_STORE = "runs";
@@ -120,7 +120,8 @@ export async function acctSaveRun(run, name) {
   // The event label is the number of runs stored (a count, nothing personal).
   if (isNew) trackEvent("history-save", String(acCache.length));
   acRender();
-  if (cloudOn() && cloudUser()) {
+  // Sent to the account only once writes are open (read-only: the run stays on this device).
+  if (cloudWritable() && cloudUser()) {
     try { await cloudPutRuns([rec]); await acClaim(); } catch (e) { /* offline: the next sync sends it */ }
     acRender();
   }
@@ -218,14 +219,14 @@ function acTokensHtml(S) {
 function acMenuHtml(S, demo = false) {
   const user = cloudOn() && cloudUser();
   // The line under the name: demo profile, signed-in email, or runs on this device only.
-  const where = demo ? `Demo profile · ${S.count} sample runs` : user ? `${acEsc(user.email)} · ${S.count} run${S.count === 1 ? "" : "s"} synced` : `${S.count || "No"} run${S.count === 1 ? "" : "s"} on this device`;
+  const where = demo ? `Demo profile · ${S.count} sample runs` : user ? `${acEsc(user.email)} · ${S.count} run${S.count === 1 ? "" : "s"}${cloudWritable() ? " synced" : " · account read-only"}` : `${S.count || "No"} run${S.count === 1 ? "" : "s"} on this device`;
   // The name and flag typed in the Account window, else User1 (demo) or "My account". The
   // "Account" button opens that window (profile.js).
   const me = profileWho();
   const who = `<section class="acct-who"><div><b>${me.flag ? `${me.flag} ` : ""}${acEsc(me.name || (demo ? DEMO_USER : "My account"))}</b><small>${where}</small></div><button class="btn ghost acct-prof" type="button" data-acct="profile">Account</button></section>`;
   // The links at the bottom: bests (when there are runs), export and delete (own runs only),
   // sign out and delete account (signed in only).
-  const links = `<section class="acct-links">${S.count ? `<button type="button" data-acct="bests">All-time bests</button>` : ""}${S.count && !demo ? `<button type="button" data-acct="export">Export</button><button type="button" data-acct="clear">Delete runs</button>` : ""}${user ? `<button type="button" data-acct="signout">Sign out</button><button type="button" data-acct="delete">Delete account</button>` : ""}</section>`;
+  const links = `<section class="acct-links">${S.count ? `<button type="button" data-acct="bests">All-time bests</button>` : ""}${S.count && !demo ? `<button type="button" data-acct="export">Export</button><button type="button" data-acct="clear">Delete runs</button>` : ""}${user ? `<button type="button" data-acct="signout">Sign out</button>${cloudWritable() ? `<button type="button" data-acct="delete">Delete account</button>` : ""}` : ""}</section>`;
   if (!S.count) {
     return `${who}
     <section><p class="acct-empty">Open one of your runs in <b>Rewind my run</b>, or add it to <b>Your runs</b> in Prep my race: its numbers are kept here${user ? "" : ", on this device only"}, and your stats, records and achievements build up run after run.</p></section>
@@ -329,7 +330,7 @@ function acAskChecks() {
     targetText: (acAsk.target || "").trim(), targetSec: parseDuration((acAsk.target || "").trim()), centralSec: R.centralSec,
     notes: acAsk.notes, question: acAsk.question,
     // Local test: no account is needed, so the account checks pass.
-    cloud: acLocal ? { open: true, signedIn: true, balance: 1 } : { open: cloudOn(), signedIn, balance: acBalance(), demo: acDemo },
+    cloud: acLocal ? { open: true, signedIn: true, balance: 1 } : { open: cloudWritable(), signedIn, balance: acBalance(), demo: acDemo },
   });
 }
 /** The stored runs selected, in one line of HTML: "12 runs · 240 km, 3 Jul to 14 Oct". */
@@ -417,7 +418,7 @@ function acRunChecks() {
   const signedIn = Boolean(cloudOn() && cloudUser());
   return aiRunChecks({
     route: R ? { km: R.km, gain: R.gain } : null, notes: acRunAsk.notes, question: acRunAsk.question,
-    cloud: acLocal ? { open: true, signedIn: true, balance: 1 } : { open: cloudOn(), signedIn, balance: acBalance(), demo: acDemo },
+    cloud: acLocal ? { open: true, signedIn: true, balance: 1 } : { open: cloudWritable(), signedIn, balance: acBalance(), demo: acDemo },
   });
 }
 /**
@@ -524,7 +525,8 @@ async function acRender() {
  * a failed claim is ignored and the ledger is read anyway.
  */
 async function acClaim() {
-  await cloudClaim().catch(() => null);
+  // Read-only account: no claim (it would write the ledger), the ledger is only read.
+  if (cloudWritable()) await cloudClaim().catch(() => null);
   ac.ledger = await cloudLedger();
 }
 
@@ -540,7 +542,8 @@ async function acSync() {
     // 1. Upload: local runs whose id the account does not have.
     const [local, remote] = [await acAll(), await cloudRuns()];
     const have = new Set(remote.map((r) => r.id));
-    await cloudPutRuns(local.filter((r) => !have.has(r.id)));
+    // Read-only account: nothing is sent up, the account's runs are only read.
+    if (cloudWritable()) await cloudPutRuns(local.filter((r) => !have.has(r.id)));
     // 2. Download: account runs this device does not have, stored in the cache and the database.
     const mine = new Set(local.map((r) => r.id));
     const fresh = remote.filter((r) => r && r.id && !mine.has(r.id));
@@ -785,7 +788,7 @@ async function acAction(what) {
     // window.confirm shows the browser's OK / Cancel box and returns true on OK. The last part
     // (signed in only) says that the tokens already earned are kept.
     if (!window.confirm(`Delete all the runs stored ${user ? "on this device and in your account" : "on this device"}? Your stats, records and achievements start again from zero.${user ? ` ${AC_TOKEN.many[0].toUpperCase() + AC_TOKEN.many.slice(1)} you already have stay yours.` : ""}`)) return;
-    if (user) { try { await cloudDeleteRuns(); } catch (e) { ac.msg = "Could not reach your account: runs deleted on this device only."; } }
+    if (user) { try { await cloudDeleteRuns(); } catch (e) { ac.msg = e.message === CL_READONLY ? "Runs deleted on this device only: the online account is read-only for now." : "Could not reach your account: runs deleted on this device only."; } }
     acCache = [];
     await acTx("readwrite", (s) => s.clear());
     trackEvent("history-clear");

@@ -1,13 +1,18 @@
 # Online accounts and the AI analysis: setup
 
-The online part (sign-in, run log in the account, cairns, AI analysis) is OFF until
-`CLOUD.url` and `CLOUD.anonKey` are filled in `src/ui/cloud.js` AND `CLOUD.open` is `true`.
-Until then the app works exactly as before, with the run log on the device only, and sends
-nothing to the server.
+The online part (sign-in, run log in the account, edelweiss, AI analysis) has three states,
+set in `CLOUD` in `src/ui/cloud.js`:
+
+| State | `CLOUD` | What works |
+|---|---|---|
+| Off | `url` empty, or `connect` and `open` both `false` | Nothing is sent: the run log stays on the device |
+| Read-only (now) | `url` + `anonKey` filled, `connect: true`, `open: false` | Sign-in for accounts that already exist (no new account is made), reading the account's runs and edelweiss. Every write call stops in the browser before sending anything |
+| Open (later) | `open: true` | Sign-ups, sync up, edelweiss claims, AI, account deletion |
 
 **Writes are closed** on two levels until the account opens (see "Opening the account"):
 
-- the app: `CLOUD.open: false` means no sign-in, no sync, no cairn, no AI call;
+- the app: `CLOUD.open: false` means no write call leaves the browser (no sync up, no cairn,
+  no AI call, no delete), even when `connect: true` lets you sign in and read;
 - the database: a trigger refuses every insert or update on `runs`, `cairn_ledger` and
   `ai_jobs` while `writes_open()` returns false. It also stops the server functions, so even a
   hand-made request stores nothing.
@@ -43,7 +48,8 @@ Authentication > URL Configuration:
 - Redirect URLs: add `https://itf-gh.github.io/trail-race-planner/` and `http://localhost:5173/`
 
 Authentication > Sign In / Providers: while the account is closed, turn OFF "Allow new users
-to sign up", so not even an email address is stored. Email (magic link) stays enabled. The free plan sends a few emails per
+to sign up", so not even an email address is stored. To test sign-in in read-only mode, add
+your own account by hand: Authentication > Users > Add user > your email. Email (magic link) stays enabled. The free plan sends a few emails per
 hour; for real use, plug in an SMTP service (Authentication > Emails > SMTP).
 
 ## 4. The Claude API key
@@ -54,7 +60,10 @@ hour; for real use, plug in an SMTP service (Authentication > Emails > SMTP).
 
 One analysis costs roughly $0.10 to $0.20 (a few thousand tokens in, a few thousand out).
 
-## 5. Deploy the three functions
+## 5. Deploy the three functions (not needed while read-only)
+
+Skip this step for the read-only state: the functions only write. Note: `ai-analyse` still calls
+Claude, while the app's AI now uses OpenAI (gpt-4o-mini); it is updated before the AI is switched on.
 
 With the Supabase CLI (https://supabase.com/docs/guides/cli), from the repository folder:
 
@@ -66,18 +75,20 @@ supabase functions deploy ai-analyse
 supabase functions deploy delete-account
 ```
 
-## 6. Fill in the app (still closed)
+## 6. Fill in the app (read-only)
 
 Project settings > API: copy the Project URL and the `anon` public key into `CLOUD` in
 `src/ui/cloud.js` (the anon key is meant to be public: Row Level Security protects the data).
-Leave `open: false`. Push to `main`; nothing changes for runners.
+Set `connect: true` and leave `open: false`. Push to `main`: the account menu shows the
+sign-in form, and a signed-in account is marked "account read-only". Never put the database
+password or the `service_role` key in the app.
 
 ## Opening the account (later, all three together)
 
 1. SQL editor:
    `create or replace function public.writes_open() returns boolean language sql stable as $$ select true $$;`
 2. Authentication > Sign In / Providers: turn ON "Allow new users to sign up".
-3. `CLOUD.open: true` in `src/ui/cloud.js`, push to `main`.
+3. `CLOUD.open: true` in `src/ui/cloud.js`, push to `main` (deploy the functions of step 5 first).
 
 To close again: the same three steps with `false` / OFF.
 
