@@ -38,6 +38,9 @@
 import { parseGpx } from "../core/track.js";
 import { analyseRun, runStateAt, runLegAt, runSecAtKm, runTarget, parseTarget, runStats, runPaceLine } from "../core/review.js";
 import { courseMap } from "./map.js";
+import { slidable } from "./slide.js";
+import { refsRead } from "../core/refs.js";
+import { profileRefs } from "./profile.js";
 import { fitPanel, alignBar } from "./replay.js";
 import { mmss, hm, hms, clock } from "../core/format.js";
 import { trackEvent, trackOnce } from "./analytics.js";
@@ -271,6 +274,17 @@ function rvStatsHtml(run, st) {
 //   onKey    the keyboard listener, kept so it can be removed later
 // Two more fields are added later: last (time stamp of the previous frame, in ms) and seekTo
 // (a function the deep dive calls to move the replay).
+// Your references (My references card, ui/refs.js) as context, never as a plan: the run's
+// grade-adjusted pace (the pace it would have been on the flat) next to your easy pace.
+// Rewind my run tells what happened; it is not compared with a plan (owner's rule).
+const rvRefsLine = (gap) => {
+  const x = refsRead(profileRefs().refs);
+  if (!x || !(gap > 0)) return "";
+  const d = Math.round((gap / x.easyPace - 1) * 100);
+  return ` · grade-adjusted ${mmss(gap)}/km, ${d === 0 ? "your easy pace" : `your easy pace ${d > 0 ? "+" : "−"}${Math.abs(d)}%`} (${d > 0 ? "slower" : d < 0 ? "faster" : "spot on"})`;
+};
+// The references changed: refresh the line of the run on screen.
+document.addEventListener("trp-refs", () => document.querySelectorAll(".rv-refs").forEach((e) => { e.textContent = rvRefsLine(Number(e.dataset.gap)); }));
 const rv = { run: null, name: "", target: rvLoadTarget(), sec: 0, playing: false, speed: 180, pauseAt: false, follow: false, raf: 0, map: null, onKey: null };
 
 /**
@@ -439,7 +453,7 @@ export function mountRun(box, run) {
   // left and width in % of the run, so its width is its share of the course; its data-i is the
   // section's index in legs (from 0). In the key moments list, data-i is the moment's index.
   box.innerHTML = `
-  <p class="rv-meta">${rvEsc(rv.name || run.name || "Your run")} · ${date} · start ${clock(st, 0)}</p>
+  <p class="rv-meta">${rvEsc(rv.name || run.name || "Your run")} · ${date} · start ${clock(st, 0)}<span class="rv-refs" data-gap="${run.gapPace}">${rvRefsLine(run.gapPace)}</span></p>
   <div class="rp-cockpit rv-cockpit" id="rvCockpit">
   <div class="rp-totals" aria-label="Your run">
     ${tile("Duration", hm(run.elapsedSec), tgt ? `target ${hm(tgt.targetSec)} · <span class="${tgt.gapSec > 0 ? "rv-b" : "rv-g"}">${rvSigned(tgt.gapSec)}</span>` : `${hm(run.movingSec)} moving · ${dur(run.stopSec)} stopped`)}
@@ -726,6 +740,7 @@ export function mountRun(box, run) {
     rv.playing = true;
     rv.last = 0;
     els.cue.classList.remove("pulse");
+    if (rv.map) rv.map.focus(null); // the whole route at full strength again
     if (rv.map && rv.follow) rv.map.follow(true);
     rv.raf = requestAnimationFrame(frame);
     draw();
@@ -753,14 +768,33 @@ export function mountRun(box, run) {
   $v("#rvSpeed").addEventListener("change", (e) => { rv.speed = Number(e.target.value); trackEvent("review-speed", e.target.value); });
   $v("#rvPause").addEventListener("change", (e) => { rv.pauseAt = e.target.checked; });
   $v("#rvFollow").addEventListener("change", (e) => { rv.follow = e.target.checked; if (rv.map) rv.map.follow(rv.follow); });
-  // A click on a section block jumps to its start and zooms the map onto it.
+  // A click on a section block jumps to its start and lights the section on the map, the rest
+  // dimmed until Play, at your zoom (the map only slides if the section is out of view).
+  const lightLeg = (l) => { if (rv.map) rv.map.focus(l.startKm, l.endKm, { zoom: false }); };
   els.legBtns.forEach((b) => b.addEventListener("click", () => {
     const l = legs[Number(b.dataset.i)];
     trackEvent("review-section", l.tone);
     pause();
     seek(l.startSec + 1);
-    if (rv.map) rv.map.show(l.startKm, l.endKm);
+    lightLeg(l);
   }));
+  // Sliding a finger along the section bar, the progress bar or the profile moves the runner with
+  // it (slide.js); the replay pauses meanwhile and plays on when the finger lets go, if it was
+  // playing. toSec(f) turns the position along the bar (0 to 1) into a second of the run: the
+  // section bar and the profile are in km, the progress bar under the clock in time.
+  let wasPlaying = false, slidLeg = -1;
+  const slideOpts = (toSec, light = false) => ({
+    onStart: () => { wasPlaying = rv.playing; slidLeg = -1; if (rv.playing) pause(); trackEvent("review-slide"); },
+    onSlide: (f) => {
+      seek(toSec(f));
+      const i = runLegAt(legs, runStateAt(run, rv.sec).km);
+      if (light && i !== slidLeg) { slidLeg = i; lightLeg(legs[i]); }
+    },
+    onEnd: () => { if (wasPlaying) play(); },
+  });
+  slidable($v("#rvLegs"), slideOpts((f) => runSecAtKm(run, f * TOT), true));
+  slidable(els.bar.parentElement, slideOpts((f) => f * run.elapsedSec));
+  if (svgEl) slidable(svgEl, slideOpts((f) => runSecAtKm(run, prof.km(f * 1000))));
   // A click on a key moment in the list jumps there and scrolls the cockpit into view.
   els.list.querySelectorAll("li button").forEach((b) => b.addEventListener("click", () => {
     const e = moments[Number(b.parentElement.dataset.i)];

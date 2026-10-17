@@ -33,21 +33,24 @@ import { trackEvent } from "./analytics.js";
 import { acctOpenRunAsk, acctAiBadge } from "./account.js";
 import { arUse, arState, arBarHtml } from "./airace.js";
 import { runSpots } from "../core/airun.js";
+import { refsCardHtml, levelPickerHtml, refsCalibNow } from "./refs.js";
+import { profileRefs } from "./profile.js";
 
 // Escape text for HTML: each of & < > " (the regex's character set) becomes its entity.
 const prEsc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 // Where the times come from, as written under the summary ("Times come from ...").
-const SOURCE = { target: "your target time", runs: "your reference runs", estimate: "a generic estimate (add a target time to adjust)" };
+// "refs" and "runs+refs" add the words of the calibration (core/refs.js refsCalib `from`).
+const SOURCE = { target: "your target time", runs: "your reference runs", refs: "", "runs+refs": "", estimate: "a generic estimate (add a target time or your references to adjust)" };
 
 /**
  * Hero text and file drop for the mode (shown only in Prep my run).
- * `peak` is the logo's HTML, passed in by main.js. Returns an HTML string. The "prep-only" class
+ * `brand` is the logo, name and tagline HTML, passed in by main.js. Returns an HTML string. The "prep-only" class
  * lets style.css hide these blocks in the other modes.
  */
-export function prepHeroHtml(peak) {
+export function prepHeroHtml(brand) {
   return `<div class="hero-row prep-only">
       <div>
-        <div class="brand">${peak}Prep my race <span class="brand-desc">Prep &amp; go</span></div>
+        <div class="brand">${brand}</div>
         <h1 style="margin-top:14px">Prep it up,<br><em>get it done.</em></h1>
         <p class="lead">Drop the GPX of your next run and see it before you go: every climb, every descent, the time it takes. Your watch gets the messages that matter, so you head out knowing what is coming, and wanting it. Your file never leaves this page.</p>
       </div>
@@ -60,6 +63,7 @@ export function prepHeroHtml(peak) {
         <div class="actions"><label class="btn ghost" for="filePrep">Choose GPX</label><input type="file" id="filePrep" accept=".gpx,application/gpx+xml,text/xml"></div>
         <div class="status" id="stPrep" aria-live="polite"></div>
       </div>
+      ${refsCardHtml("prep")}
     </div>`;
 }
 
@@ -125,6 +129,8 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
   // main.js announces a mode switch and a theme switch with these custom events on `document`.
   document.addEventListener("trp-mode", showCockpit);
   document.addEventListener("trp-theme", showCockpit); // redraw so the map takes the new tiles
+  // Your references or the level changed (ui/refs.js): plan the run again.
+  document.addEventListener("trp-refs", () => { if (st.parsed) render(); });
 
   /**
    * Read a GPX (its text `xml`), keep it, and draw the mode. `label` is the name to show.
@@ -157,15 +163,18 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
     const settings = getSettings();
     // a || b || c takes the first value that is not empty (null, undefined or "" count as empty).
     const startTime = st.startTime || settings.startTime || "09:00";
+    // Your references at the level picked (Easy / Steady / Race), or null without references.
+    const calib = refsCalibNow(profileRefs().level);
     if (!st.targetSec && runs.length) {
       try {
         // { ...settings, startTime, aidStations: "" } copies the settings and overrides two fields.
-        const plan = buildPlan(st.parsed, runs, { ...settings, startTime, aidStations: "" });
-        return { plan, source: "runs" };
+        // With references, they set the level and the runs keep the shape (plan.js, params.calib).
+        const plan = buildPlan(st.parsed, runs, { ...settings, startTime, aidStations: "", calib });
+        return { plan, source: calib ? "runs+refs" : "runs", calib };
       } catch (e) { /* a run too short or without time: fall back to the estimate */ }
     }
-    const plan = prepRunPlan(st.parsed, { targetSec: st.targetSec, startTime, hikeGrade: settings.hikeGrade });
-    return { plan, source: plan.timeSource };
+    const plan = prepRunPlan(st.parsed, { targetSec: st.targetSec, startTime, hikeGrade: settings.hikeGrade, calib });
+    return { plan, source: plan.timeSource, calib };
   };
 
   /**
@@ -175,7 +184,9 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
    */
   const render = () => {
     if (!st.parsed) return;
-    const { plan, source } = planFor();
+    const { plan, source, calib } = planFor();
+    // Where the times come from, in words.
+    const from = source === "refs" ? calib.from : source === "runs+refs" ? `${calib.from} and the shape of your reference runs` : SOURCE[source];
     // Prep my run shows one scenario only: the central one.
     const sid = "central";
     const finish = plan.scenarios[sid].finishSec;
@@ -188,10 +199,11 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
   <div class="panel prep-sum prep-ready">
     <div class="side-stack">${pimpBadge("#prep-pimp", "Your run on your watch →")}${acctAiBadge("run")}</div>
     <div class="prep-facts"><b>${prEsc(st.name)}</b><span>${plan.course.totalKm.toFixed(1)} km</span><span>+${Math.round(plan.course.gain)} m</span><span>-${Math.round(plan.course.loss)} m</span><span>${plan.climbs.filter((c) => !c.bump).length} climbs</span><span>${(plan.keyZones || []).length} key zones</span><span>about <b>${hm(finish)}</b></span></div>
-    <p class="note">Times come from ${SOURCE[source]}.</p>
+    <p class="note">Times come from ${prEsc(from)}.</p>
     <div class="prep-opts">
       <label class="f">Target time (h:mm)<input type="text" id="prepTarget" inputmode="numeric" placeholder="${hm(finish).replace("h", ":")}" value="${st.targetSec ? hm(st.targetSec).replace("h", ":") : ""}"></label>
       <label class="f">Start time<input type="time" id="prepStart" value="${prEsc(st.startTime || getSettings().startTime || "09:00")}"></label>
+      ${calib && !st.targetSec ? levelPickerHtml(calib.level) : ""}
     </div>
   </div>
 

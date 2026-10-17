@@ -1269,20 +1269,20 @@ html[data-theme="sky"] .tn-links a.tn-star{color:transparent;filter:drop-shadow(
    AI's violet, so they read at once as AI-computed. Distance, climbing and gradients stay plain:
    the course is never the AI's. A gradient painted inside the letters (background-clip:text)
    slides across them (aiShine); it stands still for people who ask for less motion. */
-.ai-on #s4 .rp-tot:not(:nth-child(2)) b,
+.ai-on #s4 .rp-tot:not(.geo) b,
 .ai-on #s4 #rpClock,
 .ai-on #s4 .rp-tg tbody tr:nth-child(1) td:not(.now),
 .ai-on #s4 .rp-tg tbody tr:nth-child(5) td:not(.now),
 .ai-on #s4 .rp-leg-info > p:not(.nx):not(.rp-cue-line):not(.rp-ai-note) b,
-.ai-run-on #s-prep .rp-tot:not(:nth-child(2)) b,
+.ai-run-on #s-prep .rp-tot:not(.geo) b,
 .ai-run-on #s-prep #rpClock,
 .ai-run-on #s-prep .rp-leg-info > p:not(.nx):not(.rp-cue-line):not(.rp-ai-note) b,
 .ar-ex .ar-dose{
   color:transparent;-webkit-text-fill-color:transparent;
   background-image:linear-gradient(100deg,#b98cff 0%,#b98cff 35%,#fff 50%,#ff9ad5 65%,#b98cff 100%);background-size:250% 100%;
   -webkit-background-clip:text;background-clip:text;text-shadow:none;filter:drop-shadow(0 0 6px rgba(185,140,255,.45));animation:aiShine 3.5s ease-in-out infinite}
-.ai-on #s4 .rp-tot:not(:nth-child(2)) b small,.ai-run-on #s-prep .rp-tot:not(:nth-child(2)) b small{-webkit-text-fill-color:transparent}
-.ai-on #s4 .rp-tot:not(:nth-child(2)) .k::after,.ai-run-on #s-prep .rp-tot:not(:nth-child(2)) .k::after{content:" ✦";color:#b98cff}
+.ai-on #s4 .rp-tot:not(.geo) b small,.ai-run-on #s-prep .rp-tot:not(.geo) b small{-webkit-text-fill-color:transparent}
+.ai-on #s4 .rp-tot:not(.geo) .k::after,.ai-run-on #s-prep .rp-tot:not(.geo) .k::after{content:" ✦";color:#b98cff}
 @keyframes aiShine{0%{background-position:100% 0}60%,100%{background-position:0 0}}
 @media (prefers-reduced-motion:reduce){.ai-on #s4 .rp-tot b,.ai-on #s4 #rpClock,.ai-on #s4 .rp-tg td,.ai-on #s4 .rp-leg-info b,.ai-run-on #s-prep .rp-tot b,.ai-run-on #s-prep #rpClock,.ai-run-on #s-prep .rp-leg-info b,.ar-ex .ar-dose,.ai-badge,.ai-badge svg{animation:none}}
 /* Prep my run: the AI coach's exercises in the bar above the cockpit. */
@@ -1570,3 +1570,43 @@ html[data-theme="sky"] .rs-chip{background:rgba(31,111,209,.05)}
   .rp-cockpit .rp-notifs li{flex:0 1 auto;min-width:0;max-width:60%}
   .rp-cockpit .rp-notifs li:nth-child(n+3):not(.o0){display:flex}
 }
+/* Slidable bars (slide.js): a sideways finger move is ours, an up-and-down one still scrolls the
+   page (touch-action: pan-y). The thin progress bar under the clock gets 8 px of invisible touch
+   area above and below: padding, with the background kept to the content box. */
+.slidable{touch-action:pan-y}
+.sliding,.sliding *{cursor:grabbing!important;user-select:none;-webkit-user-select:none}
+.rp-prog.slidable{box-sizing:content-box;cursor:pointer;padding:8px 0;margin:-8px 0;background-clip:content-box;overflow:visible}
+.rp-prog.slidable i{border-radius:4px}
+/* Prep my run: the finish time under Duration shows on every screen (the other small lines of the
+   tiles hide on short screens and phones). */
+.rp-cockpit .rp-tot>small.keep{display:block;opacity:1}
+.rp-hud .fit-off{display:none!important}
+.rp-notifs.rp-wait{opacity:0;transition:opacity .15s}
+/* My references card (ui/refs.js): three small boxes side by side. A refused value turns red. */
+.refs-boxes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-items:end}
+.refs-boxes .f{font-size:12px;gap:3px;min-width:0;white-space:nowrap}
+.refs-boxes input{width:100%;min-width:0}
+.refs-boxes input.bad{border-color:#ff5a5a;box-shadow:0 0 0 2px rgba(255,90,90,.25)}
+.refs-sum{font-size:13px} .refs-sum b{color:var(--sun)}
+/* Level picker of Prep my run (ui/refs.js levelPickerHtml): a track of three stops and a thumb
+   that slides to the one picked with a bounce (cubic-bezier above 1 overshoots, then settles).
+   --i (0, 1, 2) is the stop; data-lvl colours the thumb and picks its icon's animation. */
+.lvl{display:flex;flex-direction:column;gap:4px;font-size:13px}
+.lvl-k{color:var(--muted)}
+.lvl-track{position:relative;display:grid;grid-template-columns:repeat(3,1fr);width:300px;max-width:100%;height:42px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.16)}
+.lvl-track button{position:relative;z-index:1;background:none;border:0;color:var(--muted);font:inherit;font-weight:700;cursor:pointer;border-radius:999px}
+.lvl-track button[aria-checked="true"]{color:transparent}
+.lvl-track button:focus-visible{outline:2px solid var(--sun);outline-offset:2px}
+.lvl-knob{position:absolute;z-index:2;top:3px;bottom:3px;left:calc(var(--i) * 33.333% + 3px);width:calc(33.333% - 6px);border-radius:999px;display:flex;align-items:center;justify-content:center;gap:6px;font-weight:800;color:#06101f;pointer-events:none;transition:left .45s cubic-bezier(.34,1.7,.5,1),background .3s,box-shadow .3s}
+.lvl-ic{display:inline-block;font-size:17px;line-height:1}
+.lvl[data-lvl="easy"] .lvl-knob{background:linear-gradient(135deg,#7dffa8,#2fbf63);box-shadow:0 0 14px rgba(47,191,99,.55)}
+.lvl[data-lvl="steady"] .lvl-knob{background:linear-gradient(135deg,#ffd36b,#ff9a1f);box-shadow:0 0 14px rgba(255,154,31,.55)}
+.lvl[data-lvl="race"] .lvl-knob{background:linear-gradient(135deg,#ff8a5c,#ff2e4d);box-shadow:0 0 18px rgba(255,46,77,.7);animation:lvlGlow 1s ease-in-out infinite alternate}
+.lvl[data-lvl="easy"] .lvl-ic{animation:lvlSway 2.4s ease-in-out infinite;transform-origin:50% 90%}
+.lvl[data-lvl="steady"] .lvl-ic{animation:lvlBeat 1s ease-in-out infinite}
+.lvl[data-lvl="race"] .lvl-ic{animation:lvlFlick .45s ease-in-out infinite alternate;transform-origin:50% 100%}
+@keyframes lvlSway{0%,100%{transform:rotate(-14deg)}50%{transform:rotate(14deg) translateY(-1px)}}
+@keyframes lvlBeat{0%,40%,100%{transform:scale(1)}15%{transform:scale(1.28)}28%{transform:scale(1.12)}}
+@keyframes lvlFlick{0%{transform:scale(1,1) rotate(-4deg)}100%{transform:scale(1.12,1.22) rotate(5deg)}}
+@keyframes lvlGlow{to{box-shadow:0 0 26px rgba(255,80,40,.9)}}
+@media (prefers-reduced-motion:reduce){.lvl-knob{transition:none;animation:none!important}.lvl-ic{animation:none!important}}

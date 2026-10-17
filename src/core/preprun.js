@@ -5,7 +5,8 @@
 // lighter plan with the same shape (what raceLegs, keyZones and garmin.js need):
 //   terrain  the same course reading as a race: climbs (long ones in sections), descents
 //   tactic   each climb and descent gets its tactic; hiking from `hikeGrade` (15% by default)
-//   time     Tobler's hiking function (keyzones.js toblerClock), stretched to your target time
+//   time     your references when you give some (refs.js, through the engine's model.js), else
+//            Tobler's hiking function (keyzones.js toblerClock); stretched to your target time
 //            when you give one, so the messages show when you get there
 // With reference runs loaded, the UI uses the full buildPlan instead: your own pace beats Tobler.
 //
@@ -25,6 +26,8 @@ import { analyseCourse } from "./terrain.js";
 import { briefCourse, coarseIndices, climbTactic, PLAN_DEFAULTS } from "./plan.js";
 import { keyZones, toblerClock, clockFromTimeline } from "./keyzones.js";
 import { parseClock } from "./format.js";
+import { predictScenario } from "./model.js";
+import { refsEffort, calibParams } from "./refs.js";
 
 // The tactic shown for a descent, by its level (1 Let it run, 2 Control, 4 Brake; see DESCENT_LABELS
 // in plan.js). Level 3 is not used for descents.
@@ -32,10 +35,11 @@ const PREP_DESCENT_TACTIC = { 1: "Let it run, recover", 2: "Quick steps, stay li
 
 /**
  * Plan of an upcoming run from its parsed GPX. opts: {targetSec (finish time wanted, optional),
- * startTime ("09:00"), hikeGrade (% from which you hike, default 15)}. One scenario, "central".
+ * startTime ("09:00"), hikeGrade (% from which you hike, default 15), calib (your references at
+ * a level, refs.js refsCalib, optional)}. One scenario, "central".
  *
  * Returns a plan object: {kind: "run", params, startSec (time of day in seconds), timeSource
- * ("target" or "estimate"), estimateSec (Tobler's finish time before stretching), course,
+ * ("target", "refs" or "estimate"), estimateSec (the finish time before stretching), course,
  * climbs, descents, aidStations: [], hrGuide: null, keyZones, scenarios: {central}}.
  */
 export function prepRunPlan(parsed, opts = {}) {
@@ -55,8 +59,14 @@ export function prepRunPlan(parsed, opts = {}) {
   // tob(km) = seconds to reach km at Tobler's speed. raw = that time at each profile point.
   // k = the stretch factor: target / Tobler's finish (1 without a target). `|| 1` avoids a
   // division by zero on an empty profile.
+  // With your references (opts.calib, refs.js) and no target, the engine times every 10 m from
+  // your level and the generic gradient multiples instead of Tobler's walking formula.
   const tob = toblerClock(profile);
-  const raw = profile.map(([km]) => tob(km));
+  let raw = profile.map(([km]) => tob(km));
+  if (opts.calib && !(opts.targetSec > 0)) {
+    const pred = predictScenario(course, refsEffort(opts.calib), { mult: 1 }, calibParams({ ...PLAN_DEFAULTS, calib: opts.calib }));
+    raw = coarse.map((i) => pred.cum[i]);
+  }
   const est = raw[raw.length - 1] || 1;
   const k = opts.targetSec > 0 ? opts.targetSec / est : 1;
   const timeline = raw.map((t) => Math.round(t * k));
@@ -85,7 +95,7 @@ export function prepRunPlan(parsed, opts = {}) {
     kind: "run",
     params: { ...PLAN_DEFAULTS, hikeGrade },
     startSec: parseClock(opts.startTime || PLAN_DEFAULTS.startTime),
-    timeSource: opts.targetSec > 0 ? "target" : "estimate",
+    timeSource: opts.targetSec > 0 ? "target" : opts.calib ? "refs" : "estimate",
     estimateSec: Math.round(est),
     course: { totalKm: course.totalKm, gain: course.gain, loss: course.loss, climbCount: climbs.filter((c) => !c.bump).length, descentCount: descents.length, profile, route },
     climbs,

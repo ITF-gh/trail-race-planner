@@ -19,6 +19,7 @@
 import { parseGpx, resample } from "./track.js";
 import { analyseCourse, BANDS, bandIndex, steepest100 } from "./terrain.js";
 import { analyseEffort } from "./effort.js";
+import { calibrateEffort, calibParams } from "./refs.js";
 import { predictAll, SCENARIOS, MODEL_DEFAULTS } from "./model.js";
 import { parseClock } from "./format.js";
 import { keyZones, clockFromTimeline } from "./keyzones.js";
@@ -356,9 +357,10 @@ export function buildPlan(raceParsed, effortParsed, userParams = {}) {
   // 1. Analyse the race, your run(s), and predict the three scenarios.
   const raceRs = resample(raceParsed, 10);
   const course = analyseCourse(raceRs);
-  const effort = analyseEffort(effortParsed, { halfLifeDays: params.halfLifeDays });
+  // params.calib (refs.js refsCalib): your references set the level, your runs keep the shape.
+  const effort = calibrateEffort(analyseEffort(effortParsed, { halfLifeDays: params.halfLifeDays }), params.calib);
   const effortCourse = analyseCourse(effort.resampled);
-  const preds = predictAll(course, effort, params);
+  const preds = predictAll(course, effort, calibParams(params));
   const rawCentral = preds.central.cum; // moving time only, for the time-per-gradient table
 
   // 2. Aid stations: the stop is added to every clock time after the station.

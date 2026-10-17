@@ -27,6 +27,7 @@
 
 import { raceScript, raceStateAt, secAtKm, raceLegs, raceTotals, legAtKm, gainLoss, racePaceLine } from "../core/script.js";
 import { courseMap } from "./map.js";
+import { slidable } from "./slide.js";
 import { mmss, hm, hms, clock } from "../core/format.js";
 import { trackEvent, trackOnce } from "./analytics.js";
 
@@ -91,8 +92,10 @@ const ICON = { start: "▶", climb: "▲", top: "⛰", descent: "▼", gel: "G",
 //   follow   "Follow the runner" ticked: the map keeps the runner in view
 //   raf      id of the pending requestAnimationFrame, to cancel it
 //   map      the map controller from map.js, or null
+//   hideKinds  moment types hidden in the script list
+//   sliding  a finger (or mouse) is sliding one of the bars (slide.js): moments wait until it lets go
 // Set later: last (timestamp of the previous frame, ms) and onKey (the keyboard listener).
-const rp = { key: "", sec: 0, playing: false, speed: 360, pauseAt: false, follow: false, raf: 0, map: null, hideKinds: new Set() };
+const rp = { key: "", sec: 0, playing: false, speed: 360, pauseAt: false, follow: false, raf: 0, map: null, hideKinds: new Set(), sliding: false };
 
 /**
  * Mount the replay in `box`. `prof` draws the profile: {html, x(km), y(ele)} in SVG units of a
@@ -227,7 +230,8 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
   // The numbered sections: [{i, kind, level, title, label, tactic, startKm, endKm, startSec,
   // endSec, km, up, down, avg, pace, durSec, keyZone}, ...].
   const legs = raceLegs(plan, sid);
-  // Totals for the four tiles at the top (duration, stops, gain, paces, finish).
+  // Totals for the four tiles at the top: duration (with the stops, or the finish time in Prep my
+  // run, noun "Run"), distance, paces and elevation.
   const tot = raceTotals(plan, sid);
   const TOT_KM = plan.course.totalKm;
   // A km as a percentage of the course: used to place sections and aid stations on the bar.
@@ -235,7 +239,9 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
   // CSS classes of a section: its kind, plus its difficulty level (l1..l4) unless it is flat.
   const legCls = (l) => `k-${l.kind}${l.kind === "flat" ? "" : ` l${l.level}`}`;
   // One of the four target tiles: a key, a big value and an optional small line under it.
-  const totTile = (k, v, sub, cls = "") => `<div class="rp-tot ${cls}"><span class="k">${k}</span><b>${v}</b>${sub ? `<small>${sub}</small>` : ""}</div>`;
+  // cls "geo" marks the course's own figures (distance, elevation), which the AI never changes. A
+  // sub line given as its own <small class="keep"> stays visible where the cockpit hides the others.
+  const totTile = (k, v, sub, cls = "") => `<div class="rp-tot ${cls}"><span class="k">${k}</span><b>${v}</b>${sub ? (sub.startsWith("<small") ? sub : `<small>${sub}</small>`) : ""}</div>`;
 
   // The kinds of moment in this script, in a fixed order, for the filter buttons of the list.
   const kinds = Object.keys(KIND_NAME).filter((k) => script.some((e) => e.kind === k));
@@ -252,10 +258,10 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
   box.innerHTML = `
   <div class="rp-cockpit${hasMap ? "" : " nomap"}" id="rpCockpit">
   <div class="rp-totals" aria-label="${noun} targets">
-    ${totTile("Duration", hm(tot.durationSec), `${Math.round(tot.stopSec / 60)} min of stops`)}
-    ${totTile("Distance", `${TOT_KM.toFixed(1)}<small>km</small>`, `${Math.round(tot.gain)} m D+ · ${legs.length} sections`)}
+    ${totTile("Duration", hm(tot.durationSec), noun === "Run" ? `<small class="keep">finish ${clock(st, tot.finishSec)}</small>` : `${Math.round(tot.stopSec / 60)} min of stops`)}
+    ${totTile("Distance", `${TOT_KM.toFixed(1)}<small>km</small>`, `${legs.length} sections`, "geo")}
     ${totTile("Average pace", `${mmss(tot.paceSec)}<small>/km</small>`, `moving ${mmss(tot.movingPaceSec)}/km`)}
-    ${totTile(`Finish · ${escR(sc.label.toLowerCase())}`, clock(st, tot.finishSec), `start ${clock(st, 0)}`)}
+    ${totTile("Elevation", `+${Math.round(tot.gain)}<small>m</small>`, `−${Math.round(tot.loss)} m · ${Math.round(tot.gain / TOT_KM)} m D+ per km`, "geo")}
   </div>
   <div class="rp-legbar">
     <div class="rp-legs" id="rpLegs" role="group" aria-label="${noun} sections">${legs.map((l) => `<button type="button" class="lg ${legCls(l)}${l.keyZone ? " kz" : ""}" data-i="${l.i - 1}" style="left:${pct(l.startKm)};width:${pct(l.endKm - l.startKm)}" title="${l.i}. ${escR(l.title)} · ${escR(l.label)} · km ${l.startKm.toFixed(1)} → ${l.endKm.toFixed(1)}" aria-label="Section ${l.i}: ${escR(l.title)}"></button>`).join("")}
@@ -301,7 +307,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
   const $r = (s) => box.querySelector(s);
   const els = { leg: $r("#rpLeg"), legNow: $r("#rpLegNow"), legPos: $r("#rpLegPos"), legBtns: [...box.querySelectorAll("#rpLegs .lg")], clock: $r("#rpClock"), bar: $r("#rpBar"), km: $r("#rpKm"), up: $r("#rpUp"), now: $r("#rpNow"), next: $r("#rpNext"), cue: $r("#rpCue"), ai: box.querySelector("#rpAi"), play: $r("#rpPlay"), seek: $r("#rpSeek"), cur: $r("#rpProf .pcur"), list: $r("#rpScript") };
   // A window resize changes the room in the panel: fit the "coming next" list again.
-  if (typeof ResizeObserver === "function") new ResizeObserver(() => fitPanel(els.next)).observe($r(".rp-hud"));
+  if (typeof ResizeObserver === "function") new ResizeObserver(() => { fitPanel(els.next); fitHud(); }).observe($r(".rp-hud"));
   alignBar($r(".rp-legbar"), $r("#rpProf svg"), prof.x(0), prof.x(plan.course.totalKm));
   if (hasMap) {
     rp.map = courseMap($r("#rpMap"), { route: plan.course.route, totalKm: plan.course.totalKm, paint: mapPaint, marks: mapMarks });
@@ -390,6 +396,20 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
   let lastCue = -1;
   let lastNowHtml = "";
   let lastNextHtml = "";
+  // The panel never scrolls: when the section card, the aid-station line and the moments do not all
+  // fit (a short laptop, a stop at an aid station), the older moments go first, then the rows of
+  // the section table from the bottom up, until it fits. The class "fit-off" hides them.
+  let lastFit = "";
+  const fitHud = () => {
+    const hud = els.leg.closest(".rp-hud");
+    if (!hud) return;
+    const extra = [...[...els.cue.children].slice(1).reverse(), ...[...els.leg.querySelectorAll(".rp-tg tbody tr")].reverse()];
+    extra.forEach((x) => x.classList.remove("fit-off"));
+    for (const x of extra) {
+      if (hud.scrollHeight <= hud.clientHeight + 1) break;
+      x.classList.add("fit-off");
+    }
+  };
   const draw = () => {
     // s: where the runner is at this second (km, ele, grade, pace, frac of the race done,
     // aid station if stopped at one, key zone, next gel / aid / climb / key zone...).
@@ -504,7 +524,8 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
       const lines = m ? [`<b>${escR(m.title)}</b> ${escR(m.cue)}`] : [a.note ? escR(a.note) : "", a.why ? `<small>Why: ${escR(a.why)}</small>` : ""].filter(Boolean);
       els.ai.innerHTML = lines.length ? `<span class="ic">${ICON.ai}</span><div>${lines.map((x) => `<p>${x}</p>`).join("")}</div>` : `<span class="ic">${ICON.ai}</span><div><p class="muted">No AI message on this section.</p></div>`;
     }
-    if (ci !== lastCue) {
+    // While a finger slides a bar the moments wait: they show when it lets go, not all on the way.
+    if (ci !== lastCue && !rp.sliding) {
       // The moments as notifications under the section box, like text messages: the latest on
       // top, the older ones pushed down and fading. At least the last 3, and every moment that
       // falls at the same time as the latest one (two moments at the same km are both seen).
@@ -530,6 +551,9 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
       els.cur.querySelector("circle").setAttribute("cy", prof.y(s.ele).toFixed(1));
     }
     if (rp.map) rp.map.setRunner(s.km);
+    // Something in the panel changed: make it fit again (see fitHud).
+    const sig = `${lastLeg}|${lastCue}|${lastNowHtml}`;
+    if (sig !== lastFit) { lastFit = sig; fitHud(); }
   };
 
   /**
@@ -605,26 +629,47 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
   const closeTip = () => { tip.hidden = true; tipLeg = -1; };
   // "pointerdown" covers mouse, touch and pen. contains() tells whether the click was inside the bar.
   document.addEventListener("pointerdown", (ev) => { if (!tip.hidden && !legsBox.contains(ev.target)) closeTip(); });
+  // Open the pop-up of section i under its block, lit on the map with the rest dimmed.
+  const showLeg = (i) => {
+    const l = legs[i], b = els.legBtns[i];
+    tipLeg = i;
+    tip.innerHTML = `<b>${l.i}. ${escR(l.title)}</b><span><i>Length</i>${l.km.toFixed(2)} km</span><span><i>D+</i>${Math.round(l.up)} m</span><span><i>D−</i>${Math.round(l.down)} m</span>`;
+    tip.hidden = false;
+    // Centre the pop-up under the section, but keep it inside the bar's width.
+    const lb = legsBox.getBoundingClientRect(), bb = b.getBoundingClientRect();
+    tip.style.left = `${Math.max(0, Math.min(lb.width - tip.offsetWidth, bb.left - lb.left + bb.width / 2 - tip.offsetWidth / 2))}px`;
+    tip.style.top = `${lb.height + 8}px`;
+    // Light that section on the map and dim the rest until Play, at your zoom (no zoom in or
+    // out: the map only slides if the section is out of view).
+    if (rp.map) rp.map.focus(l.startKm, l.endKm, { zoom: false });
+  };
   els.legBtns.forEach((b) => b.addEventListener("click", () => {
     // dataset.i reads the data-i attribute written in the HTML (a string, hence Number()).
     const i = Number(b.dataset.i);
     if (i === tipLeg) { closeTip(); return; }
     trackEvent("replay-section", legs[i].kind);
-    const l = legs[i];
-    tipLeg = i;
-    tip.innerHTML = `<b>${l.i}. ${escR(l.title)}</b><span><i>Length</i>${l.km.toFixed(2)} km</span><span><i>D+</i>${Math.round(l.up)} m</span><span><i>D−</i>${Math.round(l.down)} m</span>`;
-    tip.hidden = false;
-    // Centre the pop-up under the clicked section, but keep it inside the bar's width.
-    const lb = legsBox.getBoundingClientRect(), bb = b.getBoundingClientRect();
-    tip.style.left = `${Math.max(0, Math.min(lb.width - tip.offsetWidth, bb.left - lb.left + bb.width / 2 - tip.offsetWidth / 2))}px`;
-    tip.style.top = `${lb.height + 8}px`;
     pause();
-    seek(l.startSec + 1);
-    // Show that section and the next one on the map; following stops until Play or Recenter.
-    // legs[l.i] is the NEXT section: l.i counts from 1 while the array index counts from 0.
-    // The rest of the route is dimmed until Play.
-    if (rp.map) { const n = legs[l.i] || l; rp.map.focus(l.startKm, n.endKm); }
+    seek(legs[i].startSec + 1);
+    showLeg(i);
   }));
+  // Sliding a finger along the bars moves the runner with it (slide.js). The replay pauses while
+  // the finger is down and plays on when it lets go, if it was playing; the moments fade out
+  // meanwhile (class rp-wait) and come back for the place where it lets go. toKm(f) turns the
+  // position along the bar into a km; on the section bar, the section under the finger also gets
+  // its pop-up.
+  let wasPlaying = false;
+  const slideOpts = (toKm, onBar = false) => ({
+    onStart: () => { wasPlaying = rp.playing; rp.sliding = true; els.cue.classList.add("rp-wait"); if (rp.playing) pause(); trackEvent("replay-slide"); },
+    onSlide: (f) => {
+      const km = toKm(f);
+      seek(secAtKm(plan, sid, km));
+      const i = legAtKm(legs, km);
+      if (onBar && i !== tipLeg) showLeg(i);
+    },
+    onEnd: () => { rp.sliding = false; els.cue.classList.remove("rp-wait"); if (wasPlaying) play(); else draw(); },
+  });
+  slidable(legsBox, slideOpts((f) => f * TOT_KM, true));
+  slidable(els.bar.parentElement, slideOpts((f) => f * TOT_KM));
   // The script list: filter buttons by kind, one icon chip per moment, and the cards of the open
   // moments below (several can be open). A card's "Go there" moves the replay to that moment.
   const cards = $r("#rsCards");
@@ -671,13 +716,13 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     trackEvent("replay-moment-go", m.kind);
     pause();
     seek(m.sec + 1);
-    // The map zooms on the section of that moment, the rest of the route dimmed (until Play).
+    // The section of that moment lights up on the map, the rest dimmed (until Play), at your zoom.
     const l = legs.find((y) => m.km >= y.startKm && m.km < y.endKm) || legs[legs.length - 1];
-    if (rp.map && l) rp.map.focus(l.startKm, l.endKm);
+    if (rp.map && l) rp.map.focus(l.startKm, l.endKm, { zoom: false });
     $r(".rp-cockpit").scrollIntoView({ behavior: "smooth", block: "start" });
   });
   drawList();
-  // Click or drag on the profile to move the runner there.
+  // Tap or slide on the profile to move the runner there.
   const svg = $r("#rpProf svg");
   if (svg) {
     // Screen x of the pointer -> x in the profile's 1000-wide viewBox -> km (prof.km does the
@@ -687,9 +732,10 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
       const vx = ((ev.clientX - b.left) / b.width) * 1000;
       return prof.km(vx);
     };
-    // A drag is left to the browser, so the profile scrolls freely.
-    // Only a tap counts: the pointer must be released less than 8 px from where it went down
-    // (Math.hypot gives the straight-line distance).
+    // A tap jumps there: the pointer must be released less than 8 px from where it went down
+    // (Math.hypot gives the straight-line distance). A slide sideways moves the runner along
+    // with the finger (slidable, as on the bars); an up-and-down move still scrolls the page.
+    slidable(svg, slideOpts((f) => prof.km(f * 1000)));
     let down = null;
     svg.addEventListener("pointerdown", (ev) => { down = { x: ev.clientX, y: ev.clientY }; });
     svg.addEventListener("pointercancel", () => { down = null; });
