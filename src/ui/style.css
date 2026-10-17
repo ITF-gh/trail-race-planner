@@ -1495,5 +1495,5 @@ svg .pcur,svg .psel{pointer-events:none}
 .rp-cockpit .rp-top{justify-content:space-between}
 /* Descent risk as running shoes: 3 green Let it run, 2 orange Control, 1 red Brake. */
 .chip.st.dsc{gap:2px}
-.chip.st.dsc svg,.p4-shoes svg,.note .chip.st.dsc svg{width:17px;height:10px;fill:currentColor;display:inline-block;vertical-align:-1px}
+.chip.st.dsc svg,.p4-shoes svg,.note .chip.st.dsc svg{width:22px;height:10px;fill:currentColor;display:inline-block;vertical-align:-1px}
 .chip.st.dsc.d3{color:var(--e-bar)} .chip.st.dsc.d2{color:var(--h-bar)} .chip.st.dsc.d1{color:var(--c-bar)}

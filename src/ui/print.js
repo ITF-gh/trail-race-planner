@@ -255,7 +255,7 @@ function p4Script(plan, sid, st, title) {
 }
 
 // A running shoe (descent risk: 3 shoes Let it run, 2 Control, 1 Brake), filled with currentColor.
-const P4_SHOE = `<svg viewBox="0 0 24 14" aria-hidden="true"><path d="M1.5 10.2C1.5 8.4 2.4 6.6 4.4 6.4L8.2 6l2.1-3.1c.7-1 2-1.1 2.8-.2l2.2 2.6c2 1.3 4.6 1.6 6.6 2.4 1 .4 1.4 1.6.9 2.6l-.4.8H2.4c-.5 0-.9-.4-.9-.9z"/><path d="M1.6 12.3h20.6" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg>`;
+const P4_SHOE = `<svg viewBox="0 0 32 14" aria-hidden="true"><path d="M2.7 9.2C2.3 6.8 2.8 4 4 1.9c.2-.4.7-.5 1-.2l1.1 1.1c1.6 1.6 4 2.1 6 1.1l4.3-2.6c.6-.4 1.4-.3 1.8.3l1 1.5c2.3 2.8 6 4 9.6 4.8 1.6.4 2.6 1.5 2.4 2.5L4.2 10.2c-.8 0-1.4-.4-1.5-1z"/><path d="M2.8 10.9l28.4-1.4c.2 1.2-.6 2.3-2 2.5l-24.1 1.2c-1.2.1-2.2-.9-2.3-2.3z" fill-opacity=".55"/><path d="M5.6 13.6l.6-.8.6.8.6-.8.6.8.6-.8.6.8.6-.8.6.8.6-.8.6.8.6-.9.6.9.6-.9.6.9.6-.9.6.9.6-.9.6.9.6-.9.6.9.6-.9.6.9.6-.9.6.9.6-.9.6.9.6-1 .6.9" stroke="currentColor" stroke-width=".7" fill="none" stroke-linejoin="round"/><path d="M6.4 8.6c4.8-.3 9.4-1.7 13.6-3.9l.9.7C16.6 7.7 11.6 9.4 6.6 9.6z" fill="#fff" fill-opacity=".6"/><path d="M9.6 7.2c3-.3 5.9-1.2 8.5-2.5l.7.5c-2.8 1.5-6 2.5-9.1 2.7z" fill="#fff" fill-opacity=".35"/><path d="M4.2 2.2l1.6 1.6" stroke="#fff" stroke-opacity=".5" stroke-width=".8" stroke-linecap="round"/><path d="M12.8 4.1l1.3 1M14.6 3l1.3 1M16.4 2.1l1.2 1" stroke="#fff" stroke-opacity=".7" stroke-width=".8" stroke-linecap="round"/></svg>`;
 /**
  * Every climb (with its sections) and descent: the numbers, when you get there, the tactic.
  * `row(x, sec, isClimb)` writes one line: x is a climb, a climb section (sec = true, indented by
