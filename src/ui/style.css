@@ -1579,3 +1579,12 @@ html[data-theme="sky"] .rs-chip{background:rgba(31,111,209,.05)}
   .rp-cockpit .rp-notifs li{flex:0 1 auto;min-width:0;max-width:60%}
   .rp-cockpit .rp-notifs li:nth-child(n+3):not(.o0){display:flex}
 }
+
+/* ---------- Links to the profile from the page (data-open-profile, opened by account.js) ---------- */
+/* .to-profile: a link-looking button; .to-profile-line: the line that holds one (under Your runs,
+   at the top of Rewind my run's review). A run that beats an all-time best gets a gold edge. */
+.to-profile{white-space:nowrap;padding:0;border:0;background:none;color:var(--sun);font:inherit;font-weight:600;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.to-profile-line{margin-top:6px;font-size:14px;color:var(--muted)}
+#s5body > .to-profile-line{margin:0 0 12px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2)}
+#s5body > .to-profile-line.best{border-color:var(--sun);color:var(--fg)}
+#s5body > .to-profile-line .to-profile{margin-left:6px}

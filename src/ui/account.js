@@ -107,12 +107,18 @@ async function acAll() {
  * (runRecord; a run that cannot be summarised is skipped), 2. replace any copy with the same id
  * in the cache and the database, 3. redraw the menu, 4. when signed in, send it to the account
  * and claim any token it earned (offline: it goes with the next sync).
+ * Returns what the page can tell the runner: { isNew, count (runs stored), bests (the names of
+ * the all-time bests this run beats, [] when none or on the very first run) }, or null when the
+ * run could not be summarised.
  */
 export async function acctSaveRun(run, name) {
   let rec;
-  try { rec = runRecord(run, name); } catch (e) { return; }
+  try { rec = runRecord(run, name); } catch (e) { return null; }
   const list = await acAll();
   const isNew = !list.some((r) => r.id === rec.id);
+  // The bests before and after: a best whose run is now this one, and was not before, is new.
+  const before = historySummary(list).bests, after = historySummary(list.filter((r) => r.id !== rec.id).concat(rec)).bests;
+  const bests = list.length ? AC_BEST_NAMES.filter(([k]) => after[k] && after[k].run.id === rec.id && !(before[k] && before[k].run.id === rec.id)).map(([, label]) => label) : [];
   // put() adds the record, or replaces the one with the same id.
   acCache = list.filter((r) => r.id !== rec.id).concat(rec);
   await acTx("readwrite", (s) => s.put(rec));
@@ -123,6 +129,23 @@ export async function acctSaveRun(run, name) {
     try { await cloudPutRuns([rec]); await acClaim(); } catch (e) { /* offline: the next sync sends it */ }
     acRender();
   }
+  return { isNew, count: acCache.length, bests };
+}
+// The all-time bests a new run can beat, with the short name the page shows ("new 5 km best").
+const AC_BEST_NAMES = [["best1k", "1 km"], ["best5k", "5 km"], ["best10k", "10 km"], ["vam", "climbing speed"], ["longest", "longest run"]];
+
+/**
+ * Open the Account window from anywhere in the page (closing the menu), scrolled to one of its
+ * parts when `part` names one: "bests" or "heart" (their data-pf-sec in profile.js). Any element
+ * with data-open-profile="part" does this on click (one listener in initAccount).
+ */
+export function acctOpenProfile(part = "") {
+  if (!acPanel) return;
+  acMenu.classList.remove("open");
+  acProfile();
+  const el = part ? acPanel.querySelector(`[data-pf-sec="${part}"]`) : null;
+  if (el) el.scrollIntoView({ block: "start" });
+  trackEvent("profile-open", part || "link");
 }
 /** Same, from a GPX file (used for the runs added in Prep my race). Files that are not runs are skipped. */
 export function acctSaveGpx(xml, name) {
@@ -869,9 +892,7 @@ async function acAction(what) {
     acMedalShow(what.slice(6));
   } else if (what === "bests") {
     // The bests live in the Account window: open it on them.
-    acProfile();
-    const el = acPanel.querySelector('[data-pf-sec="bests"]');
-    if (el) el.scrollIntoView({ block: "center" });
+    acctOpenProfile("bests");
   } else if (what === "go" || what === "fake") {
     // Local test only: "fake" asks for the answer made by code instead of the AI.
     if (acLocal) acLocal.fake = what === "fake";
@@ -996,10 +1017,13 @@ export async function initAccount(opts = {}) {
   // The redraw waits a moment (setTimeout 0): a Tab press fires "change" before the focus moves
   // to the next field, and redrawing at once would lose where the focus is going.
   acPanel.addEventListener("change", (e) => { if (e.target.dataset && e.target.dataset.pf && profileInput(e.target, true)) setTimeout(() => acProfile(true), 0); });
-  // The edelweiss stickers of the modes (acctAiBadge) open their Ask the AI window.
+  // The edelweiss stickers of the modes (acctAiBadge) open their Ask the AI window, and the
+  // profile links of the page (data-open-profile) the Account window.
   document.addEventListener("click", (e) => {
     const b = e.target.closest && e.target.closest("[data-ai-ask]");
     if (b) acAction(b.dataset.aiAsk === "run" ? "ai-run-ask" : "ai");
+    const pl = e.target.closest && e.target.closest("[data-open-profile]");
+    if (pl) { e.preventDefault(); acctOpenProfile(pl.dataset.openProfile); }
   });
   // Any click outside the account element closes the menu.
   document.addEventListener("click", (e) => { if (!acEl.contains(e.target)) set(false); });

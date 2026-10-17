@@ -116,7 +116,7 @@ export function profileHtml(records, demo, fallbackName) {
     <table class="pf-goals"><thead><tr><th></th><th>Goal</th><th>Best</th><th>To go</th></tr></thead><tbody>${PROFILE_DISTANCES.map(goalRow).join("")}</tbody></table>
     <p class="acct-note">Type a best to replace the one found in your runs. 5K and 10K read as mm:ss, longer ones as h:mm (or h:mm:ss everywhere).</p>
     ${moreBests}
-    <h4>Heart and body</h4>
+    <h4 data-pf-sec="heart">Heart and body</h4>
     <div class="pf-grid three">
       <label>Max heart rate<span class="pf-u"><input type="number" data-pf="hrMax" min="120" max="230" step="1" placeholder="190" value="${a.hrMax || ""}"> bpm</span></label>
       <label>Resting heart rate<span class="pf-u"><input type="number" data-pf="hrRest" min="30" max="100" step="1" placeholder="55" value="${a.hrRest || ""}"> bpm</span></label>
