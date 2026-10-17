@@ -20,6 +20,7 @@ import { aiPrepMerge } from "../core/aiprep.js";
 import { aiRunMerge } from "../core/airun.js";
 import { hm } from "../core/format.js";
 import { raceLegs } from "../core/script.js";
+import { AC_SPARK } from "./account.js";
 
 // Per mode: where its answer is kept and which referee rebuilds it.
 const AR_MODES = { prep_race: { key: "trp.ai.race", merge: aiPrepMerge }, prep_run: { key: "trp.ai.prep_run", merge: aiRunMerge } };
@@ -75,14 +76,18 @@ export function arState(plan, race, mode = "prep_race") {
  * strengths and weaknesses. `on`: the AI side is shown. `calcSec`: the calculated finish of the
  * scenario shown, `aiSec` the AI one.
  */
+// The ask button of the bar: the same edelweiss button as everywhere else in the app (account.js
+// acctAiBadge draws the others). data-ar="ask" is read by the bar's own click listener.
+const arAsk = (label, sub) => `<button class="ai-badge ar-ask" type="button" data-ar="ask">${AC_SPARK}<span><b>${label}</b><small>${sub}</small></span></button>`;
+
 export function arBarHtml(s, on, calcSec, aiSec) {
   const can = s.state === "ok";
   if (s.mode === "prep_run") return arRunBarHtml(s, on && can, calcSec, aiSec);
   const note = {
-    other: `The AI doc in use is for another race (${arEsc(s.rec && s.rec.raceName)}). Pick one for this race in the account menu > AI docs, or <button class="ar-link" type="button" data-ar="ask">✦ Ask the AI</button>`,
-    none: `No AI plan for this race yet. <button class="ar-link" type="button" data-ar="ask">✦ Ask the AI</button>`,
-    stale: `Your plan changed since the AI answer (other files or settings). <button class="ar-link" type="button" data-ar="ask">✦ Ask again</button>`,
-    empty: `The last AI answer was empty (${arEsc(s.result && s.result.reason)}): nothing to show. <button class="ar-link" type="button" data-ar="ask">✦ Ask again</button>`,
+    other: `The AI doc in use is for another race (${arEsc(s.rec && s.rec.raceName)}). Pick one for this race in the account menu > AI docs, or ${arAsk("Ask the AI", "race plan")}`,
+    none: `No AI plan for this race yet. ${arAsk("Ask the AI", "race plan")}`,
+    stale: `Your plan changed since the AI answer (other files or settings). ${arAsk("Ask again", "race plan")}`,
+    empty: `The last AI answer was empty (${arEsc(s.result && s.result.reason)}): nothing to show. ${arAsk("Ask again", "race plan")}`,
     ok: on ? "" : `An AI plan is ready: switch to AI to play it.`,
   }[s.state];
   const sw = `<div class="ar-switch" role="group" aria-label="Plan shown">
@@ -120,7 +125,7 @@ const arSwitch = (on, can) => `<div class="ar-switch" role="group" aria-label="P
  */
 function arRunBarHtml(s, on, calcSec, aiSec) {
   const can = s.state === "ok";
-  const ask = (t) => `<button class="ar-link" type="button" data-ar="ask">✦ ${t}</button>`;
+  const ask = (t) => arAsk(t, "coach · exercises");
   const note = {
     other: `The coach's last session is for another run (${arEsc(s.rec && s.rec.raceName)}). ${ask("Ask the AI coach")}`,
     none: `No AI session for this run yet. ${ask("Ask the AI coach")}`,

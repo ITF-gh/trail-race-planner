@@ -209,6 +209,8 @@ function mountPaceLine(svg, cur, prof, pl) {
  * All the small functions below are closures: they are created inside mountReplay and keep
  * access to its local variables (plan, legs, els...) for as long as the page uses them.
  */
+// A running shoe icon (descent risk: 3 shoes Let it run, 2 Control, 1 Brake), filled with currentColor.
+const RP_SHOE = `<svg viewBox="0 0 32 14" aria-hidden="true"><path d="M2.7 9.2C2.3 6.8 2.8 4 4 1.9c.2-.4.7-.5 1-.2l1.1 1.1c1.6 1.6 4 2.1 6 1.1l4.3-2.6c.6-.4 1.4-.3 1.8.3l1 1.5c2.3 2.8 6 4 9.6 4.8 1.6.4 2.6 1.5 2.4 2.5L4.2 10.2c-.8 0-1.4-.4-1.5-1z"/><path d="M2.8 10.9l28.4-1.4c.2 1.2-.6 2.3-2 2.5l-24.1 1.2c-1.2.1-2.2-.9-2.3-2.3z" fill-opacity=".55"/><path d="M5.6 13.6l.6-.8.6.8.6-.8.6.8.6-.8.6.8.6-.8.6.8.6-.8.6.8.6-.9.6.9.6-.9.6.9.6-.9.6.9.6-.9.6.9.6-.9.6.9.6-.9.6.9.6-.9.6.9.6-.9.6.9.6-1 .6.9" stroke="currentColor" stroke-width=".7" fill="none" stroke-linejoin="round"/><path d="M6.4 8.6c4.8-.3 9.4-1.7 13.6-3.9l.9.7C16.6 7.7 11.6 9.4 6.6 9.6z" fill="#fff" fill-opacity=".6"/><path d="M9.6 7.2c3-.3 5.9-1.2 8.5-2.5l.7.5c-2.8 1.5-6 2.5-9.1 2.7z" fill="#fff" fill-opacity=".35"/><path d="M4.2 2.2l1.6 1.6" stroke="#fff" stroke-opacity=".5" stroke-width=".8" stroke-linecap="round"/><path d="M12.8 4.1l1.3 1M14.6 3l1.3 1M16.4 2.1l1.2 1" stroke="#fff" stroke-opacity=".7" stroke-width=".8" stroke-linecap="round"/></svg>`;
 export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, noun = "Race" }) {
   // 1. Data. Stop any replay already running, and restart from 0 on a different course.
   stopReplay();
@@ -254,14 +256,14 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     </div>
     <div class="rp-legfoot">
       <div class="rp-legnow" id="rpLegNow" aria-live="polite"></div>
-      <div class="rp-legend" aria-label="Legend"><span><i class="sw l1"></i>Easy</span><span><i class="sw l2"></i>Moderate</span><span><i class="sw l3"></i>Hard</span><span><i class="sw l4"></i>Crux</span><span><i class="sw fl"></i>Runnable</span><span><i class="sw ds"></i>Descent</span><span><i class="sw ds4"></i>Brake</span><span><i class="sw kz"></i>Key zone</span><span><i class="sw ad"></i>Aid</span><span><i class="sw rv-pl-sw"></i>Pace</span></div>
+      <div class="rp-legend" aria-label="Legend"><span><i class="sw fl"></i>Runnable</span><span><i class="sw ds"></i>Descent</span><span><i class="sw ds4"></i>Brake</span><span><i class="sw kz"></i>Key zone</span><span><i class="sw ad"></i>Aid</span><span><i class="sw rv-pl-sw"></i>Pace</span></div>
     </div>
   </div>
     ${hasMap ? `<div class="rp-map" id="rpMap"></div>` : ""}
     <div class="panel rp-hud">
       <div class="rp-top">
         <div class="rp-clock"><span class="k">Duration</span><b id="rpClock"></b></div>
-        <div class="rp-run"><span id="rpElapsed"></span><span id="rpKm"></span></div>
+        <div class="rp-run"><span id="rpUp"></span><span id="rpKm"></span></div>
       </div>
       <div class="rp-prog" aria-hidden="true"><i id="rpBar"></i></div>
       <div class="rp-leg" id="rpLeg"></div>
@@ -287,7 +289,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
   // 3. Find the elements once and keep them in `els`, so each frame does not search the page.
   // $r(selector) is a short name for "the first element in this box matching the CSS selector".
   const $r = (s) => box.querySelector(s);
-  const els = { leg: $r("#rpLeg"), legNow: $r("#rpLegNow"), legPos: $r("#rpLegPos"), legBtns: [...box.querySelectorAll("#rpLegs .lg")], clock: $r("#rpClock"), el: $r("#rpElapsed"), bar: $r("#rpBar"), km: $r("#rpKm"), now: $r("#rpNow"), next: $r("#rpNext"), cue: $r("#rpCue"), ai: box.querySelector("#rpAi"), play: $r("#rpPlay"), seek: $r("#rpSeek"), cur: $r("#rpProf .pcur"), list: $r("#rpScript") };
+  const els = { leg: $r("#rpLeg"), legNow: $r("#rpLegNow"), legPos: $r("#rpLegPos"), legBtns: [...box.querySelectorAll("#rpLegs .lg")], clock: $r("#rpClock"), bar: $r("#rpBar"), km: $r("#rpKm"), up: $r("#rpUp"), now: $r("#rpNow"), next: $r("#rpNext"), cue: $r("#rpCue"), ai: box.querySelector("#rpAi"), play: $r("#rpPlay"), seek: $r("#rpSeek"), cur: $r("#rpProf .pcur"), list: $r("#rpScript") };
   // A window resize changes the room in the panel: fit the "coming next" list again.
   if (typeof ResizeObserver === "function") new ResizeObserver(() => fitPanel(els.next)).observe($r(".rp-hud"));
   alignBar($r(".rp-legbar"), $r("#rpProf svg"), prof.x(0), prof.x(plan.course.totalKm));
@@ -359,7 +361,14 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
   // Average gradient with its sign, e.g. "+7.4%" or "-3.0%".
   const gradeTxt = (l) => `${l.avg > 0 ? "+" : ""}${l.avg.toFixed(1)}%`;
   // A runnable stretch says so in its title already: no chip repeating it.
-  const legChip = (l) => (l.kind === "flat" ? "" : `<span class="chip l${l.level}">${escR(l.label)}</span>`);
+  // Every section shows its rating as 1 to 4 stars (the word stays in the tooltip): climbs by
+  // difficulty, a runnable stretch 1 star; descents show running shoes by risk instead.
+  const legChip = (l) => {
+    // Descents: running shoes instead of stars (3 Let it run, 2 Control, 1 Brake).
+    if (l.kind === "descent") { const k = l.level >= 4 ? 1 : l.level >= 2 ? 2 : 3; return `<span class="chip st dsc d${k}" title="${escR(l.label)}">${RP_SHOE.repeat(k)}</span>`; }
+    const n = l.kind === "flat" ? 1 : Math.max(1, Math.min(4, l.level || 1));
+    return `<span class="chip st l${n}" title="${escR(l.label)}">${"★".repeat(n)}<i>${"★".repeat(4 - n)}</i></span>`;
+  };
   // The scrolling box around the profile (used by drawLeg above: it runs only later, after this
   // line has set the value).
   const profScroll = $r("#rpProf .prof-scroll");
@@ -377,9 +386,12 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     const s = raceStateAt(plan, sid, rp.sec);
     // Time since the start is the number that matters on course; the time of day is secondary.
     els.clock.textContent = hms(s.sec);
-    els.el.textContent = `clock ${clock(st, s.sec)} · ${Math.round(s.frac * 100)}%`;
+    // Under the clock, what matters most first: the climbing done, then the distance, then the
+    // time of day. gainLoss adds up every rise of the profile from the start to the runner.
+    els.up.innerHTML = `<b>+${Math.round(gainLoss(P, 0, s.km).up)}</b> / ${Math.round(tot.gain)} m D+`;
+    // Share of the race done first, then km done / total, on one line (design review 2).
+    els.km.innerHTML = `<b class="pct">${Math.round(s.frac * 100)}%</b> · <b>${s.km.toFixed(1)}</b> / ${plan.course.totalKm.toFixed(1)} km`;
     els.bar.style.width = `${(s.frac * 100).toFixed(2)}%`;
-    els.km.textContent = `km ${s.km.toFixed(1)} / ${plan.course.totalKm.toFixed(1)}`;
     els.seek.value = Math.round(s.sec);
     // The section you are on: lit up everywhere when it changes, its countdown on every frame.
     const li = legAtKm(legs, s.km);
@@ -396,6 +408,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
       // The section card: number, title, chips, tactic, what comes next, and the target table.
       els.leg.innerHTML = `
         <div class="rp-leg-h"><span class="rp-leg-n"><small>Section</small><b>${l.i}</b><small>/ ${legs.length}</small></span>
+          <span class="rp-leg-pct" aria-live="off"><b id="rpLegPct"></b><small>done</small></span>
           <span class="rp-leg-t"><b>${escR(l.title)}</b>${legChip(l)}<span class="rp-leg-len">${(l.endKm - l.startKm).toFixed(1)} km</span>${l.keyZone ? ` <span class="chip keyc">★ Key zone ${l.keyZone.n}</span>` : ""}
           </span></div>
         <div class="rp-leg-info">
@@ -418,6 +431,8 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
       els.leg.querySelector(".rp-leg-info").prepend(els.cue);
       // The five Now cells, found once per section: { Pace: td, Grade: td, Ele: td, Pct: td, Time: td }.
       els.tn = Object.fromEntries(["Pace", "Grade", "Ele", "Pct", "Time"].map((k) => [k, els.leg.querySelector(`#tn${k}`)]));
+      // Where you are, always on top of the box: % of this section done and % of the whole course.
+      els.legPct = els.leg.querySelector("#rpLegPct");
       lastNextHtml = ""; // the card changed height: fit the list below it again
     }
     // Every frame: what is left in this section, in km and seconds (never below 0).
@@ -438,6 +453,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     // inside draw() only.)
     const pct = l.km > 0 ? Math.round((Math.min(l.km, Math.max(0, s.km - l.startKm)) / l.km) * 100) : 100;
     els.tn.Pct.innerHTML = `${pct}% <small>${leftKm.toFixed(1)} km left</small>`;
+    els.legPct.textContent = `${pct}%`;
     els.tn.Time.innerHTML = `${inMin} min <small>${leftSec >= 3600 ? hm(leftSec) : `${Math.round(leftSec / 60)} min`} left</small>`;
     // The play button's label: Pause while playing, Replay at the finish, Resume part way, Play at 0.
     // (a ? b : c ? d : e is a chain of "if a then b, else if c then d, else e".)
@@ -530,6 +546,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     rp.playing = true;
     rp.last = 0;
     els.cue.classList.remove("pulse");
+    if (rp.map) rp.map.focus(null); // the whole route again
     if (rp.map && rp.follow) rp.map.follow(true);
     rp.raf = requestAnimationFrame(frame);
     draw();
@@ -588,14 +605,19 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     seek(l.startSec + 1);
     // Show that section and the next one on the map; following stops until Play or Recenter.
     // legs[l.i] is the NEXT section: l.i counts from 1 while the array index counts from 0.
-    if (rp.map) { const n = legs[l.i] || l; rp.map.show(l.startKm, n.endKm); }
+    // The rest of the route is dimmed until Play.
+    if (rp.map) { const n = legs[l.i] || l; rp.map.focus(l.startKm, n.endKm); }
   }));
   // A click on a moment in the script list: go there and scroll the cockpit back into view.
   els.list.querySelectorAll("li button").forEach((b) => b.addEventListener("click", () => {
     // Which kind of moment was opened: a key zone, a climb, an aid station, a gel...
     trackEvent("replay-moment", script[Number(b.parentElement.dataset.i)].kind);
     pause();
-    seek(script[Number(b.parentElement.dataset.i)].sec + 1);
+    const m = script[Number(b.parentElement.dataset.i)];
+    seek(m.sec + 1);
+    // The map zooms on the section of that moment, the rest of the route dimmed (until Play).
+    const l = legs.find((x) => m.km >= x.startKm && m.km < x.endKm) || legs[legs.length - 1];
+    if (rp.map && l) rp.map.focus(l.startKm, l.endKm);
     $r(".rp-cockpit").scrollIntoView({ behavior: "smooth", block: "start" });
   }));
   // Click or drag on the profile to move the runner there.

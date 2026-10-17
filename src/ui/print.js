@@ -27,9 +27,9 @@
 // into one scope and refuses two top-level names that clash.
 
 import { mmss, hm, clock, parseDuration } from "../core/format.js";
-import { LEVELS, DESCENT_LABELS, judgeTarget } from "../core/plan.js";
+import { LEVELS, STARS, DESCENT_LABELS, judgeTarget } from "../core/plan.js";
 import { SCENARIOS } from "../core/model.js";
-import { raceLegs, raceTotals, secAtKm } from "../core/script.js";
+import { raceLegs, raceTotals, secAtKm, raceScript } from "../core/script.js";
 import { runStats, runTarget, runSecAtKm } from "../core/review.js";
 import { runKpis, climbTable } from "../core/insights.js";
 
@@ -206,7 +206,7 @@ function p4PlanSegs(plan) {
 }
 // The legend under the profile: the four difficulty colours, the dashed descent and the key-zone
 // shading.
-const P4_LEGEND = `<div class="p4-legend">${[1, 2, 3, 4].map((l) => `<span><i style="background:${P4_LEVEL[l]}"></i>${LEVELS[l]}</span>`).join("")}<span><i class="dash"></i>Descent to brake on</span><span><i style="background:#ffe9a3"></i>★ Key zone</span></div>`;
+const P4_LEGEND = `<div class="p4-legend">${[1, 2, 3, 4].map((l) => `<span><i style="background:${P4_LEVEL[l]}"></i><b style="color:${P4_LEVEL[l]}">${STARS[l]}</b> ${LEVELS[l]}</span>`).join("")}<span><i class="dash"></i>Descent to brake on</span><span><i style="background:#ffe9a3"></i>★ Key zone</span></div>`;
 
 /**
  * The key zones as cards: number, mode (Attack, Prepare or Manage) in its colour, title, km, why
@@ -219,7 +219,7 @@ function p4Zones(zones, when) {
     <div class="p4-zn">★${z.n}</div>
     <div><div class="p4-zt">${p4Chip(z.modeLabel, P4_ZONE[z.mode] || "#d9a400")}<b>${p4Esc(z.title)}</b><span>km ${p4Km(z.fromKm, z.toKm)}${when ? ` · ${when(z.fromKm)}` : ""}</span></div>
     <p>${p4Esc(z.why)}</p><p class="p4-how">${p4Esc(z.how)}</p></div>
-    <div class="p4-zs"><b>${z.stakeMin}</b><small>min in play</small></div>
+    <div class="p4-zs"><small>up to</small><b>${z.stakeMin}</b><small>min to gain</small></div>
   </div>`).join("")}</div>`;
 }
 
@@ -244,6 +244,19 @@ function p4LegTable(plan, sid, st) {
 }
 
 /**
+ * The race (or run) script: every moment of the replay in order (climbs, tops, gels, aid stations,
+ * key zones...), with its km, clock time and what to do there. raceScript (core/script.js) is the
+ * same list as the one under Your race on screen.
+ */
+function p4Script(plan, sid, st, title) {
+  const script = raceScript(plan, sid);
+  const rows = script.map((e) => `<tr><td class="r">${e.km.toFixed(1)}</td><td class="r">${clock(st, e.sec)}</td><td><b>${p4Esc(e.title)}</b></td><td>${p4Esc(e.cue)}</td></tr>`);
+  return `${p4H(title, `${script.length} moments, in order`)}${p4Table(["#Km", "#Clock", "Moment", "What to do"], rows, "p4-script")}`;
+}
+
+// A running shoe (descent risk: 3 shoes Let it run, 2 Control, 1 Brake), filled with currentColor.
+const P4_SHOE = `<svg viewBox="0 0 32 14" aria-hidden="true"><path d="M2.7 9.2C2.3 6.8 2.8 4 4 1.9c.2-.4.7-.5 1-.2l1.1 1.1c1.6 1.6 4 2.1 6 1.1l4.3-2.6c.6-.4 1.4-.3 1.8.3l1 1.5c2.3 2.8 6 4 9.6 4.8 1.6.4 2.6 1.5 2.4 2.5L4.2 10.2c-.8 0-1.4-.4-1.5-1z"/><path d="M2.8 10.9l28.4-1.4c.2 1.2-.6 2.3-2 2.5l-24.1 1.2c-1.2.1-2.2-.9-2.3-2.3z" fill-opacity=".55"/><path d="M5.6 13.6l.6-.8.6.8.6-.8.6.8.6-.8.6.8.6-.8.6.8.6-.8.6.8.6-.9.6.9.6-.9.6.9.6-.9.6.9.6-.9.6.9.6-.9.6.9.6-.9.6.9.6-.9.6.9.6-.9.6.9.6-1 .6.9" stroke="currentColor" stroke-width=".7" fill="none" stroke-linejoin="round"/><path d="M6.4 8.6c4.8-.3 9.4-1.7 13.6-3.9l.9.7C16.6 7.7 11.6 9.4 6.6 9.6z" fill="#fff" fill-opacity=".6"/><path d="M9.6 7.2c3-.3 5.9-1.2 8.5-2.5l.7.5c-2.8 1.5-6 2.5-9.1 2.7z" fill="#fff" fill-opacity=".35"/><path d="M4.2 2.2l1.6 1.6" stroke="#fff" stroke-opacity=".5" stroke-width=".8" stroke-linecap="round"/><path d="M12.8 4.1l1.3 1M14.6 3l1.3 1M16.4 2.1l1.2 1" stroke="#fff" stroke-opacity=".7" stroke-width=".8" stroke-linecap="round"/></svg>`;
+/**
  * Every climb (with its sections) and descent: the numbers, when you get there, the tactic.
  * `row(x, sec, isClimb)` writes one line: x is a climb, a climb section (sec = true, indented by
  * its CSS class) or a descent. x.start and x.dur hold one value per scenario, read with [sid].
@@ -251,11 +264,11 @@ function p4LegTable(plan, sid, st) {
  * headers with "Gain" renamed "Loss".
  */
 function p4ClimbTable(plan, sid, st) {
-  const row = (x, sec, isClimb) => `<tr class="${sec ? "p4-sec" : ""}"><td class="p4-n"><i style="background:${isClimb ? P4_LEVEL[x.level] : x.level === 4 ? P4_LEVEL[4] : "#5b6577"}"></i>${x.n}</td><td>${p4Km(x.startKm, x.endKm)}</td><td class="r">${p4Len(x.lenM)}</td><td class="r">${isClimb ? `+${Math.round(x.gain)}` : `−${Math.round(x.loss)}`} m</td><td class="r">${Math.abs(x.avg).toFixed(1)}%</td><td class="r">${Math.abs(Math.round(x.steep))}%</td><td>${isClimb ? LEVELS[x.level] : DESCENT_LABELS[x.level]}</td><td class="r">${x.start ? clock(st, x.start[sid]) : "–"}</td><td class="r">${x.dur ? p4Dur(x.dur[sid]) : "–"}</td><td>${p4Esc(x.tactic || "")}</td></tr>`;
-  const head = ["#", "Km", "#Length", "#Gain", "#Average", "#Steepest 100 m", "Difficulty", "#Arrive", "#Time on it", "Tactic"];
+  const row = (x, sec, isClimb) => `<tr class="${sec ? "p4-sec" : ""}"><td class="p4-n"><i style="background:${isClimb ? P4_LEVEL[x.level] : x.level === 4 ? P4_LEVEL[4] : "#5b6577"}"></i>${x.n}</td><td>${x.startKm.toFixed(1)}</td><td class="r"><b>${Math.abs(x.avg).toFixed(1)}%</b></td><td class="r">${p4Len(x.lenM)}</td><td class="r">${isClimb ? `+${Math.round(x.gain)}` : `−${Math.round(x.loss)}`} m</td><td class="r">${Math.abs(Math.round(x.steep))}%</td><td>${isClimb ? `<b style="color:${P4_LEVEL[x.level]}">${STARS[x.level]}</b>` : `<b class="p4-shoes" style="color:${x.level >= 4 ? P4_LEVEL[4] : x.level >= 2 ? P4_LEVEL[3] : P4_LEVEL[1]}">${P4_SHOE.repeat(x.level >= 4 ? 1 : x.level >= 2 ? 2 : 3)}</b> ${DESCENT_LABELS[x.level]}`}</td><td class="r">${x.start ? clock(st, x.start[sid]) : "–"}</td><td class="r">${x.dur ? p4Dur(x.dur[sid]) : "–"}</td><td>${p4Esc(x.tactic || "")}</td></tr>`;
+  const head = ["#", "Km", "#Average", "#Length", "#Gain", "#Steepest 100 m", "Difficulty", "#Arrive", "#Time on it", "Tactic"];
   const climbs = plan.climbs.flatMap((c) => [row(c, false, true), ...c.sections.map((x) => row(x, true, true))]);
   const descents = plan.descents.map((d) => row(d, false, false));
-  return `${p4H("Climbs", `${plan.climbs.length} · split ones section by section`)}${climbs.length ? p4Table(head, climbs, "p4-cl") : p4Note("No climbs over 10 m.")}
+  return `${p4H("Climbs", `${plan.climbs.filter((c) => !c.bump).length} · bumps and split sections included`)}${climbs.length ? p4Table(head, climbs, "p4-cl") : p4Note("No climbs over 10 m.")}
     ${p4H("Descents", `${plan.descents.length}`)}${descents.length ? p4Table(head.map((h) => (h === "#Gain" ? "#Loss" : h)), descents, "p4-cl") : p4Note("No descents over 10 m.")}
     ${p4Note("Difficulty = gain × steepness × fatigue (later in the race counts more). Descents: Brake = a 100 m stretch of 20% or more, or 12% on average; Control = 6% on average, or a 15% stretch; Let it run = everything else.")}`;
 }
@@ -308,9 +321,11 @@ function p4PlanSheet({ plan, sid, raceName, effort, settings }) {
   const brief = { climbs: plan.climbs, descents: plan.descents };
 
   // Parts 1 to 4 as one HTML string (see the list above).
-  let html = `<section class="p4-part">
+  let html = `<section class="p4-part" data-part="head">
     ${p4Top("Prep my race", raceName, `Race plan · ${p4Esc(sc.label.toLowerCase())} scenario · start ${clock(st, 0)}`, kpis)}
     <div class="p4-scen">${scen}</div>${tgtHtml}
+  </section>
+  <section class="p4-part" data-part="card">
     ${p4H("Profile")}
     ${p4Profile(plan.course.profile, { segs, zones: plan.keyZones, aids: aidMarks, gels: sc.gels })}
     ${P4_LEGEND}
@@ -319,7 +334,7 @@ function p4PlanSheet({ plan, sid, raceName, effort, settings }) {
       <div>${p4H("Checkpoints", "fill in your times")}${p4Table(["Checkpoint", "#Clock", "#Elapsed", "Actual", "Gap"], ckRows, "p4-ck")}</div>
     </div>
   </section>
-  <section class="p4-part">
+  <section class="p4-part" data-part="zones">
     ${p4H("★ Key zones", "where you can make a difference")}
     ${p4Zones(plan.keyZones, (km) => `you get there at ${clock(st, secAtKm(plan, sid, km))}`)}
     <div class="p4-grid2 p4-mt">
@@ -329,12 +344,15 @@ function p4PlanSheet({ plan, sid, raceName, effort, settings }) {
       <div>${p4H("Heart rate")}${plan.hrGuide ? p4Table(["Km", "Guide"], plan.hrGuide.map((h) => `<tr><td>${h.fromKm.toFixed(0)} → ${h.toKm.toFixed(0)}</td><td>${p4Esc(h.text)}</td></tr>`)) : p4Note("No heart rate in your runs.")}${p4Note("Before each key zone: on pace with heart rate in the guide, commit to it. Above it, hold and eat, and save it for the next one.")}</div>
     </div>
   </section>
-  <section class="p4-part p4-new">
+  <section class="p4-part p4-new" data-part="legs">
     ${p4H("The race section by section", `${raceName ? p4Esc(raceName) + " · " : ""}${sc.label.toLowerCase()} scenario`)}
     ${p4LegTable(plan, sid, st)}
     ${p4Note("Arrive = clock time at the start of the section. Time includes the aid-station stops in it; pace leaves them out. ★ key zone, ▲ aid station.")}
   </section>
-  <section class="p4-part p4-new">
+  <section class="p4-part p4-new" data-part="script">
+    ${p4Script(plan, sid, st, "The race script")}
+  </section>
+  <section class="p4-part p4-new" data-part="climbs">
     ${p4ClimbTable(plan, sid, st)}
   </section>`;
 
@@ -344,7 +362,7 @@ function p4PlanSheet({ plan, sid, raceName, effort, settings }) {
     const e = effort.info;
     const bandRows = e.bands.map((b) => `<tr><td>${p4Esc(b.label)}</td><td class="r"><b>${mmss(b.fresh)}</b></td><td class="r">${mmss(b.tired)}</td><td class="r">+${((b.tired / b.fresh - 1) * 100).toFixed(0)}%</td><td>${p4Esc(b.source)}${b.hr ? ` · HR ${Math.round(b.hr)}` : ""}</td></tr>`);
     const runRows = e.runs.map((r, i) => `<tr><td>${p4Esc(effort.runs[i].name)}</td><td>${p4Esc(r.date)}</td><td class="r">${r.distKm.toFixed(1)} km</td><td class="r">${hm(r.durationSec)}</td><td class="r">${Math.round(r.weight * 100)}%</td></tr>`);
-    html += `<section class="p4-part">
+    html += `<section class="p4-part p4-new" data-part="engine">
       ${p4H("Your engine", "what your runs say about you")}
       <div class="p4-kpis p4-kpis-s">${[
         p4Kpi("Flat pace", `${mmss(e.flatPace)}<small> /km</small>`, e.flatHr ? `at HR ${Math.round(e.flatHr)}` : ""),
@@ -381,11 +399,13 @@ function p4PrepSheet({ plan, name, source }) {
     p4Kpi("Pace", `${mmss(sc.finishSec / km)}<small> /km</small>`),
     p4Kpi("Elevation", `+${Math.round(plan.course.gain)}<small> m</small>`, `−${Math.round(plan.course.loss)} m`),
     p4Kpi("Finish", clock(st, sc.finishSec), `start ${clock(st, 0)}`),
-    p4Kpi("Climbs", String(plan.climbs.length), `${plan.descents.length} descents`),
+    p4Kpi("Climbs", String(plan.climbs.filter((c) => !c.bump).length), `${plan.descents.length} descents`),
     p4Kpi("Key zones", String((plan.keyZones || []).length)),
   ];
-  return `<section class="p4-part">
+  return `<section class="p4-part" data-part="head">
     ${p4Top("Prep my run", name, `Run briefing · times from ${P4_SOURCE[source] || "an estimate"}`, kpis)}
+  </section>
+  <section class="p4-part" data-part="card">
     ${p4H("Profile")}
     ${p4Profile(plan.course.profile, { segs, zones: plan.keyZones })}
     ${P4_LEGEND}
@@ -394,12 +414,13 @@ function p4PrepSheet({ plan, name, source }) {
       <div>${p4H("★ Key zones")}${p4Zones(plan.keyZones, (k) => `at ${clock(st, secAtKm(plan, sid, k))}`)}</div>
     </div>
   </section>
-  <section class="p4-part p4-new">
+  <section class="p4-part p4-new" data-part="legs">
     ${p4H("Your run section by section")}
     ${p4LegTable(plan, sid, st)}
     ${p4Note("Arrive = clock time at the start of the section. ★ key zone.")}
   </section>
-  <section class="p4-part p4-new">${p4ClimbTable(plan, sid, st)}</section>`;
+  <section class="p4-part p4-new" data-part="script">${p4Script(plan, sid, st, "The run script")}</section>
+  <section class="p4-part p4-new" data-part="climbs">${p4ClimbTable(plan, sid, st)}</section>`;
 }
 
 /* ---------- Rewind my run ---------- */
@@ -467,7 +488,7 @@ function p4RunSheet({ run, name, target, athlete = {} }) {
     const tgtTxt = t.target.kind === "pace" ? `${mmss(t.target.value)}/km (${hm(t.targetSec)})` : `${hm(t.targetSec)} (${mmss(t.targetPace)}/km)`;
     // The pace (for a climb, the climbing speed) the target asked for on a section.
     const line = (l) => (l.kind === "climb" && l.tgtVam ? `${Math.round(l.tgtVam)} m/h climbing instead of ${Math.round(l.vam)}` : l.tgtPace ? `${mmss(l.tgtPace)}/km instead of ${mmss(l.pace)}` : "");
-    tgtHtml = `<section class="p4-part">
+    tgtHtml = `<section class="p4-part" data-part="target">
       ${p4H("Against your target", tgtTxt)}
       <div class="p4-verdict" style="border-left-color:${P4_TONE[tone]}"><b>${head}</b> · ${t.gapSec > 0 ? `${p4Dur(t.gapSec)} over` : `${p4Dur(-t.gapSec)} inside`} your target${t.status !== "reached" || t.realisticSec < t.targetSec - 120 ? ` · aim for about <b>${hm(t.realisticSec)}</b> next time on this kind of course` : ""}</div>
       <div class="p4-kpis p4-kpis-s">${[
@@ -518,8 +539,10 @@ function p4RunSheet({ run, name, target, athlete = {} }) {
   const ctRows = ct.map((c) => `<tr><td class="p4-n"><i style="background:${P4_TONE[c.tone] || P4_TONE.info}"></i>${c.i}</td><td>${c.kind === "climb" ? "▲" : "▼"} ${p4Esc(c.title)}</td><td>${p4Km(c.startKm, c.endKm)}</td><td class="r">${c.kind === "climb" ? `+${Math.round(c.up)}` : `−${Math.round(c.down)}`} m</td><td class="r">${c.avg > 0 ? "+" : ""}${c.avg.toFixed(1)}%</td><td class="r">${hm(c.movSec)}</td><td class="r">${c.vam ? `${Math.round(c.vam)} m/h` : c.rate ? `${Math.round(c.rate)} m/h` : "–"}</td>${run.hasHr ? `<td class="r">${c.hr ? Math.round(c.hr) : "–"}</td>` : ""}${run.hasCad ? `<td class="r">${c.hikeShare !== null && c.hikeShare !== undefined ? `${Math.round(c.hikeShare * 100)}%` : "–"}</td>` : ""}<td>${p4Esc(c.verdict || "")}</td></tr>`);
 
   // The sheet, part by part.
-  return `<section class="p4-part">
+  return `<section class="p4-part" data-part="head">
     ${p4Top("Rewind my run", name, `Run review${when ? ` · ${p4Esc(when)}` : ""} · start ${clock(st, 0)}`, kpis)}
+  </section>
+  <section class="p4-part" data-part="card">
     ${p4H("Profile", "coloured by how you ran each section against your own average on the same ground")}
     ${p4Profile(run.profile, { segs, stops })}
     <div class="p4-legend"><span><i style="background:${P4_TONE.good}"></i>Stronger than your average</span><span><i style="background:${P4_TONE.info}"></i>Your average</span><span><i style="background:${P4_TONE.bad}"></i>Weaker</span><span><i style="background:#14181f;width:3px"></i>Stop of a minute or more</span></div>
@@ -527,22 +550,26 @@ function p4RunSheet({ run, name, target, athlete = {} }) {
       <div class="p4-box">${p4H("Course", "start ● finish ●")}${p4Route(run.route, run.profile, { segs }) || p4Note("No GPS points to draw the course.")}</div>
       <div>${p4H("Recap")}<div class="p4-kpis p4-kpis-s p4-kpis-2">${rec.join("")}</div></div>
     </div>
+  </section>
+  <section class="p4-part" data-part="moments">
     ${p4H("Key moments", "good, bad and worth knowing, in the order they happened")}
     ${p4Table(["", "#Km", "#Clock", "What happened"], moments, "p4-mom")}
   </section>
   ${tgtHtml}
-  <section class="p4-part p4-new">
+  <section class="p4-part p4-new" data-part="legs">
     ${p4H("Every section", "moving time; pace and grade-adjusted pace in min/km")}
     ${p4Table(legHead, legRows, "p4-legs")}
     ${p4Note("Grade-adjusted pace = the flat pace that would have cost the same energy (Minetti). Against your average = this section compared with your own average on the same kind of ground.")}
   </section>
-  <section class="p4-part">
+  <section class="p4-part" data-part="splits">
     ${p4H("Km splits", "green: fastest, red: slowest")}
     ${splits}
   </section>
-  <section class="p4-part p4-new">
+  <section class="p4-part p4-new" data-part="deep">
     ${p4H("Deep dive", hrMax ? `heart rate max ${hrMax} bpm${athlete.hrMax ? "" : " (estimated)"}` : "")}
     <div class="p4-kgroups">${kpiHtml}</div>
+  </section>
+  <section class="p4-part" data-part="dclimbs">
     ${ct.length ? `${p4H("Climbs and descents")}${p4Table(["#", "Section", "Km", "#Vertical", "#Gradient", "#Time", "#Speed", ...(run.hasHr ? ["#HR"] : []), ...(run.hasCad ? ["#Hiked"] : []), "Verdict"], ctRows, "p4-cl")}${p4Note("Speed: vertical metres per hour (VAM) on climbs, vertical metres per hour down on descents.")}` : ""}
   </section>`;
 }
@@ -559,6 +586,36 @@ const P4_EMPTY = {
  * nothing is loaded yet). With no data it returns a short sheet that says what to load first;
  * otherwise it picks the sheet builder of the mode and adds the footer.
  */
+/**
+ * One A4 export per section of the page (design review 2). Each entry: the mode whose data it
+ * prints, the section title, and its parts [id, label, ticked by default]. A part is a
+ * <section data-part="id"> of the sheet; the reader can untick parts so they are not printed.
+ * The sheet's "head" part (title and key figures) always prints. There is no export for Your
+ * engine (its pace table can be added to Your plan's) nor for Your coach (it belongs on the watch).
+ */
+export const P4_EXPORTS = {
+  plan: { mode: "plan", label: "Your plan", title: "race plan", parts: [["card", "Race card: profile, course, checkpoints", true], ["zones", "Key zones, aid stations, gels, hikes, heart rate", true], ["climbs", "Every climb and descent", true], ["engine", "Your engine: pace by gradient", false]] },
+  race: { mode: "plan", label: "Your race", title: "race script", parts: [["legs", "The race section by section", true], ["script", "The race script, moment by moment", true], ["card", "Profile, course, checkpoints", false]] },
+  prep: { mode: "prep", label: "Prep my run", title: "run briefing", parts: [["card", "Profile, course, key zones", true], ["legs", "Section by section", true], ["script", "The run script", false], ["climbs", "Every climb and descent", true]] },
+  run: { mode: "run", label: "Rewind my run", title: "run review", parts: [["card", "Profile, course, recap", true], ["moments", "Key moments", true], ["target", "Against your target", true], ["legs", "Every section", true], ["splits", "Km splits", true]] },
+  deep: { mode: "run", label: "Deep dive", title: "deep dive", parts: [["deep", "All the numbers", true], ["dclimbs", "Climbs and descents", true]] },
+};
+
+/**
+ * Keep only the chosen parts of a built sheet (plus its "head" and footer). `keep` is a list of
+ * part ids. The first part left after the head loses its page break, so the sheet does not open
+ * with a page holding only the title. Works on the HTML text through a <template> element, which
+ * parses it without showing or running anything.
+ */
+export function p4Filter(html, keep) {
+  const tpl = document.createElement("template");
+  tpl.innerHTML = html;
+  tpl.content.querySelectorAll("section[data-part]").forEach((sec) => { if (sec.dataset.part !== "head" && !keep.includes(sec.dataset.part)) sec.remove(); });
+  const first = tpl.content.querySelector("section[data-part]:not([data-part='head'])");
+  if (first) first.classList.remove("p4-new");
+  return tpl.innerHTML;
+}
+
 export function printSheet(mode, data) {
   if (!data) return `<div class="p4"><section class="p4-part">${p4Top({ plan: "Prep my race", prep: "Prep my run", run: "Rewind my run" }[mode] || "", "Nothing to export yet", P4_EMPTY[mode] || "", [])}</section></div>`;
   const body = mode === "run" ? p4RunSheet(data) : mode === "prep" ? p4PrepSheet(data) : p4PlanSheet(data);
@@ -569,10 +626,10 @@ export function printSheet(mode, data) {
  * "Lakes 50 · race plan". Characters that are not allowed in file names (\ / : * ? " < > |) become
  * spaces: the regex matches one or more of them in a row. Returns null when there is no data.
  */
-export function printTitle(mode, data) {
+export function printTitle(mode, data, what = null) {
   if (!data) return null;
   const name = mode === "run" ? data.name : mode === "prep" ? data.name : data.raceName;
-  return `${String(name || "Prep my race").replace(/[\\/:*?"<>|]+/g, " ").trim()} · ${{ plan: "race plan", prep: "run briefing", run: "run review" }[mode]}`;
+  return `${String(name || "Prep my race").replace(/[\\/:*?"<>|]+/g, " ").trim()} · ${what || { plan: "race plan", prep: "run briefing", run: "run review" }[mode]}`;
 }
 
 /**
@@ -591,21 +648,30 @@ export function initPrint({ collect }) {
   doc.setAttribute("aria-hidden", "true");
   document.body.appendChild(doc);
   let savedTitle = null;
+  // job: the export asked for by a section's button ({key, keep}), or null for the browser's own
+  // Print menu, which prints the whole sheet of the mode on screen.
+  let job = null;
   const build = () => {
-    const mode = document.documentElement.dataset.mode || "plan";
+    const ex = job ? P4_EXPORTS[job.key] : null;
+    const mode = ex ? ex.mode : document.documentElement.dataset.mode || "plan";
     let data = null;
     try { data = collect(mode); } catch (e) { data = null; }
-    try { doc.innerHTML = printSheet(mode, data); } catch (e) { doc.innerHTML = `<div class="p4"><p>Could not build the A4 export: ${p4Esc(e.message)}</p></div>`; }
-    const t = printTitle(mode, data);
+    try {
+      const html = printSheet(mode, data);
+      doc.innerHTML = ex && data ? p4Filter(html, job.keep) : html;
+    } catch (e) { doc.innerHTML = `<div class="p4"><p>Could not build the A4 export: ${p4Esc(e.message)}</p></div>`; }
+    const t = printTitle(mode, data, ex ? ex.title : null);
     if (t && savedTitle === null) { savedTitle = document.title; document.title = t; }
   };
   const done = () => {
     if (savedTitle !== null) { document.title = savedTitle; savedTitle = null; }
     doc.innerHTML = "";
+    job = null;
   };
   window.addEventListener("beforeprint", build);
   window.addEventListener("afterprint", done);
   // The function handed back: build now and open the print dialog. "beforeprint" then fires and builds
   // once more; the savedTitle check keeps the original title safe.
-  return () => { build(); window.print(); };
+  // `key` names an entry of P4_EXPORTS and `keep` its ticked parts; with no key, the whole sheet.
+  return (key = null, keep = null) => { job = key ? { key, keep: keep || P4_EXPORTS[key].parts.filter((x) => x[2]).map((x) => x[0]) } : null; build(); window.print(); };
 }

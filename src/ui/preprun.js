@@ -47,9 +47,9 @@ const SOURCE = { target: "your target time", runs: "your reference runs", estima
 export function prepHeroHtml(peak) {
   return `<div class="hero-row prep-only">
       <div>
-        <div class="brand">${peak}Prep my race <span class="brand-desc">Trail race &amp; run planner</span></div>
+        <div class="brand">${peak}Prep my race <span class="brand-desc">Prep &amp; go</span></div>
         <h1 style="margin-top:14px">Prep it up,<br><em>get it done.</em></h1>
-        <p class="lead">Step out knowing what is coming, and wanting it. Drop the GPX of your next run: the planner reads every climb and descent, writes the messages your watch will show along the way (hike here, brake there, the key moments), lets you check and edit them, and gives the course back ready for your watch. Your file never leaves this page.</p>
+        <p class="lead">Drop the GPX of your next run and see it before you go: every climb, every descent, the time it takes. Your watch gets the messages that matter, so you head out knowing what is coming, and wanting it. Your file never leaves this page.</p>
       </div>
       <button class="btn primary" type="button" id="prepSample">Try a sample run</button>
     </div>
@@ -187,7 +187,7 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
     body.innerHTML = `
   <div class="panel prep-sum prep-ready">
     <div class="side-stack">${pimpBadge("#prep-pimp", "Your run on your watch →")}${acctAiBadge("run")}</div>
-    <div class="prep-facts"><b>${prEsc(st.name)}</b><span>${plan.course.totalKm.toFixed(1)} km</span><span>+${Math.round(plan.course.gain)} m</span><span>-${Math.round(plan.course.loss)} m</span><span>${plan.climbs.length} climbs</span><span>${(plan.keyZones || []).length} key zones</span><span>about <b>${hm(finish)}</b></span></div>
+    <div class="prep-facts"><b>${prEsc(st.name)}</b><span>${plan.course.totalKm.toFixed(1)} km</span><span>+${Math.round(plan.course.gain)} m</span><span>-${Math.round(plan.course.loss)} m</span><span>${plan.climbs.filter((c) => !c.bump).length} climbs</span><span>${(plan.keyZones || []).length} key zones</span><span>about <b>${hm(finish)}</b></span></div>
     <p class="note">Times come from ${SOURCE[source]}.</p>
     <div class="prep-opts">
       <label class="f">Target time (h:mm)<input type="text" id="prepTarget" inputmode="numeric" placeholder="${hm(finish).replace("h", ":")}" value="${st.targetSec ? hm(st.targetSec).replace("h", ":") : ""}"></label>

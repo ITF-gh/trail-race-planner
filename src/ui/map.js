@@ -105,7 +105,8 @@ const TILES = {
  *   paint   [{fromKm, toKm, cls, title}] coloured stretches (climbs by level, braking descents)
  *   marks   [{km, kind: "aid"|"km"|"gel", label}] markers along the course
  * Returns a controller: setRunner(km) moves the runner dot, highlight(cur) makes the section you
- * are on ({fromKm, toKm}, or null) glow, show(fromKm, toKm) zooms on a stretch, follow(on), fit(), destroy().
+ * are on ({fromKm, toKm}, or null) glow, show(fromKm, toKm) zooms on a stretch, focus(fromKm, toKm)
+ * zooms on it and dims the rest of the route (focus(null) undoes it), follow(on), fit(), destroy().
  * Leaflet loads in the background, so the controller works before the map is ready.
  *
  * Side effects: empties `el`, adds the "map" class, shows "Loading map…" until an engine is ready.
@@ -117,7 +118,7 @@ export function courseMap(el, opts) {
   //   following  whether the map should follow the runner
   //   impl       the engine (Leaflet or SVG controller) once ready, null before
   //   dead       destroy() was called: do not build anything when Leaflet arrives
-  const ctl = { km: null, hl: null, following: false, impl: null, dead: false };
+  const ctl = { km: null, hl: null, fc: null, following: false, impl: null, dead: false };
   el.classList.add("map");
   el.innerHTML = `<div class="map-loading">Loading map…</div>`;
   // Each method stores the wish in `ctl`, and passes it on right away if the engine is ready.
@@ -125,6 +126,7 @@ export function courseMap(el, opts) {
     setRunner(km) { ctl.km = km; if (ctl.impl) ctl.impl.setRunner(km); },
     highlight(cur) { ctl.hl = [cur]; if (ctl.impl) ctl.impl.highlight(cur); },
     show(fromKm, toKm) { if (ctl.impl) ctl.impl.show(fromKm, toKm); },
+    focus(fromKm, toKm) { ctl.fc = fromKm === null || fromKm === undefined ? null : [fromKm, toKm]; if (ctl.impl) ctl.impl.focus(ctl.fc); },
     follow(on) { ctl.following = on; if (ctl.impl) ctl.impl.follow(on); },
     fit() { if (ctl.impl) ctl.impl.fit(); },
     destroy() { ctl.dead = true; if (ctl.impl) ctl.impl.destroy(); },
@@ -137,6 +139,7 @@ export function courseMap(el, opts) {
     ctl.impl = L ? leafletMap(L, el, opts) : svgMap(el, opts);
     // Replay the stored wishes on the new engine. `...ctl.hl` spreads the saved argument list.
     if (ctl.hl) ctl.impl.highlight(...ctl.hl);
+    if (ctl.fc) ctl.impl.focus(ctl.fc);
     if (ctl.km !== null) ctl.impl.setRunner(ctl.km);
     if (ctl.following) ctl.impl.follow(true);
   });
@@ -245,6 +248,20 @@ function leafletMap(L, el, { route, totalKm, paint = [], marks = [] }) {
   // Coloured stretches (climbs by level, braking descents), each with a tooltip that follows
   // the mouse along the line (sticky).
   paint.forEach((p) => L.polyline(slice(route, totalKm, p.fromKm, p.toKm), { className: p.cls }).bindTooltip(p.title, { sticky: true }).addTo(map));
+  // The focused stretch (a profile zoom, a race-script moment): the route outside it is dimmed by
+  // the "map-dim" class on the box (see style.css), and this group redraws the stretch on top at
+  // full strength: the plain line, then each coloured stretch cut to the window. Empty otherwise.
+  const focusGroup = L.layerGroup().addTo(map);
+  const drawFocus = (a, b) => {
+    focusGroup.clearLayers();
+    el.classList.toggle("map-dim", a !== null);
+    if (a === null) return;
+    focusGroup.addLayer(L.polyline(slice(route, totalKm, a, b), { className: "rt-line rt-f", interactive: false }));
+    paint.forEach((p) => {
+      const f = Math.max(a, p.fromKm), t = Math.min(b, p.toKm);
+      if (t > f) focusGroup.addLayer(L.polyline(slice(route, totalKm, f, t), { className: `${p.cls} rt-f`, interactive: false }));
+    });
+  };
   // 5. Markers. L.divIcon makes a marker from our own HTML instead of Leaflet's blue pin;
   // iconSize: null lets CSS decide the size. zIndexOffset raises aid stations above km badges.
   marks.forEach((m) => {
@@ -325,6 +342,11 @@ function leafletMap(L, el, { route, totalKm, paint = [], marks = [] }) {
       // 40 px margin, and never closer than zoom 14 (a short stretch would fill the screen).
       map.fitBounds(L.latLngBounds(pts), { padding: [40, 40], maxZoom: 14 });
     },
+    /** Zoom on [fromKm, toKm] and dim the rest of the route; null brings the whole route back. */
+    focus(fc) {
+      drawFocus(fc ? fc[0] : null, fc ? fc[1] : null);
+      if (fc) this.show(fc[0], fc[1]);
+    },
     /** Make the section `cur` ({fromKm, toKm}) glow; null clears the glow. */
     highlight(cur) {
       const pts = (x) => (x ? slice(route, totalKm, x.fromKm, x.toKm) : []);
@@ -401,6 +423,7 @@ function svgMap(el, { route, totalKm, paint = [], marks = [] }) {
     setRunner(km) { const [x, y] = pt(pointAt(route, totalKm, km)); dot.style.display = ""; dot.setAttribute("transform", `translate(${x.toFixed(1)},${y.toFixed(1)})`); },
     follow() {},
     show() {},
+    focus(fc) { this.highlight(fc ? { fromKm: fc[0], toKm: fc[1] } : null); },
     fit() {},
     destroy() {},
   };

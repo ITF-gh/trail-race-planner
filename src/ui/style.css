@@ -154,16 +154,22 @@ button,.btn{font:inherit;cursor:pointer}
 .row.sec .c b{font-weight:500}
 
 /* pace by gradient (section 01) */
-.paces{display:flex;flex-direction:column;gap:10px}
-.pace{display:grid;grid-template-columns:minmax(120px,170px) 1fr minmax(120px,auto);gap:6px 16px;align-items:center}
+.paces{display:flex;flex-direction:column;gap:7px}
+.pace{display:grid;grid-template-columns:minmax(120px,170px) 1fr minmax(170px,auto);gap:4px 16px;align-items:center}
 .pace .lab{font-weight:600;font-size:14px}
 .pace .lab small{display:block;font-weight:500;color:var(--muted);font-size:12px}
 .pace .bars{display:flex;flex-direction:column;gap:3px}
-.pace .bars i{display:block;height:9px;border-radius:5px}
+.pace .bars i{display:block;height:8px;border-radius:5px}
 .pace .bars .fr{background:var(--accent)}
 .pace .bars .ti{background:color-mix(in srgb,var(--fg) 35%,transparent)}
-.pace .num{font-variant-numeric:tabular-nums;font-size:14px;text-align:right}
-.pace .num b{font-family:var(--f-display);font-size:18px;font-weight:700}
+.pace .lab{line-height:1.2}
+/* The values are the main information of the chart: fresh pace big and red like its bar, tired
+   pace in plain white, the fade as a small tag (orange from +15%). */
+.pace .num{display:flex;align-items:baseline;justify-content:flex-end;gap:10px;font-variant-numeric:tabular-nums;text-align:right}
+.pace .num .pf{font-family:var(--f-display);font-size:22px;font-weight:800;font-style:italic;color:var(--accent);min-width:3.2ch}
+.pace .num .pt{font-family:var(--f-display);font-size:17px;font-weight:700;color:var(--fg);min-width:3.2ch}
+.pace .num .pfade{font-size:12px;font-weight:700;padding:1px 7px;border-radius:999px;background:color-mix(in srgb,var(--fg) 12%,transparent);color:var(--fg);min-width:4.2ch;text-align:center}
+.pace .num .pfade.hi{background:color-mix(in srgb,var(--h-bar) 30%,transparent);color:var(--h-bar)}
 .pace.est .lab,.pace.est .num{opacity:.6}
 .keyline{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin-bottom:12px}
 .keyline i{display:inline-block;width:18px;height:8px;border-radius:4px;margin-right:6px;vertical-align:middle}
@@ -275,10 +281,14 @@ details.adv summary{cursor:pointer;font-family:var(--f-display);font-weight:700;
 }
 
 /* in-section jump links */
-.jumps{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 18px}
-.jumps a{padding:6px 14px;border-radius:999px;border:1px solid var(--line);color:var(--fg);text-decoration:none;font-size:13.5px;font-weight:600;background:var(--surface)}
-.jumps a:hover{border-color:var(--sun)}
-.jumps a.go{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+/* No boxes: plain links signed with the small red flag of the section sub-titles, in the same
+   italic display type, so they read as part of the page rather than as buttons. */
+.jumps{display:flex;flex-wrap:wrap;gap:6px 22px;margin:0 0 18px}
+.jumps a{display:inline-flex;align-items:center;gap:8px;padding:4px 0;color:var(--fg);text-decoration:none;font-family:var(--f-display);font-weight:700;font-style:italic;text-transform:uppercase;letter-spacing:.08em;font-size:13.5px;background:none;border:0}
+.jumps a::before{content:"";width:14px;height:4px;background:var(--accent);transform:skewX(-30deg);flex:none}
+.jumps a:hover{color:var(--sun)}
+.jumps a.go{color:var(--sun)}
+.jumps a.go::before{background:var(--sun)}
 
 /* ---------- maps ---------- */
 .map{position:relative;isolation:isolate;border-radius:var(--r);overflow:hidden;border:1px solid var(--line);background:var(--pine-2)}
@@ -737,7 +747,7 @@ details.fold>summary small{font-size:11px;color:var(--muted);font-style:normal;t
 .sec-head.folded{min-height:0;padding-top:12px;padding-bottom:12px}
 .sec-head.folded::before{content:"▸ show";position:absolute;right:16px;top:12px;z-index:2;font:600 12px var(--f-body);color:#fff;opacity:.8}
 .fold-hid{display:none !important}
-.jumps{margin:0 0 15px;gap:7px}
+.jumps{margin:0 0 15px}
 .panel{padding:15px}
 .prof-wrap{padding:12px 12px 9px}
 .grid{gap:12px}
@@ -1033,9 +1043,6 @@ html[data-theme="sky"] .acct-panel-in h4,html[data-theme="sky"] .acct-kicker{col
    else is hidden and only it shows, on A4 pages: black on white for ink, colours only where they
    mean something. Sizes are in mm and pt, the units of paper. */
 #printDoc{display:none}
-.tn-print{flex:none;white-space:nowrap}
-.tn-print[disabled]{opacity:.45;cursor:not-allowed}
-@media (max-width:640px){ .tn-print{padding:4px 9px;font-size:12px} .tn-print .tn-pl{display:none} }
 @media print{
   @page{size:A4 portrait;margin:11mm 11mm 13mm;
     @bottom-right{content:"Page " counter(page) " of " counter(pages);font-family:Barlow,Arial,sans-serif;font-size:8pt;color:#6b7383}}
@@ -1298,3 +1305,195 @@ html[data-theme="sky"] .tn-links a.tn-star{color:transparent;filter:drop-shadow(
 /* Account menu > AI docs: each doc is a row button (date · race, then verdict · AI finish). */
 .acct-doc{width:100%;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer;border-radius:6px}
 .acct-doc:hover{background:rgba(185,140,255,.12)} .acct-doc b{color:#b98cff}
+
+/* ---------- climbs and descents tables (v2.3): one header row, compact rows, a mini profile ----------
+   .rows.tbl is a CSS grid table: every row uses the same column template, so the columns line up
+   and the labels sit once in the header row (.rh) instead of in every row. The per-cell labels
+   (.c .k) stay in the HTML for screen readers but are hidden. .sp holds the small elevation line,
+   drawn in the row's difficulty colour (currentColor). */
+.rows.tbl .row{display:grid;align-items:center;gap:0 12px;padding:3px 10px;flex-wrap:nowrap}
+.rows.tbl.t-route .row{grid-template-columns:34px 80px minmax(92px,1.2fr) repeat(4,minmax(54px,.8fr)) minmax(96px,auto)}
+.rows.tbl.t-plan .row{grid-template-columns:34px 80px minmax(92px,1fr) repeat(3,minmax(54px,.7fr)) minmax(150px,2.6fr) minmax(96px,auto)}
+.rows.tbl .row .c,.rows.tbl .row .c.w,.rows.tbl .row .diff{flex:none;min-width:0}
+.rows.tbl .row .c .k{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.rows.tbl .row .c b{font-size:13.5px;white-space:nowrap}
+.rows.tbl.t-plan .row .c.w b{white-space:normal;font-weight:500;font-size:13px;line-height:1.3}
+.rows.tbl .row .n{font-size:17px;min-width:0}
+.rows.tbl .row.sec{margin-left:0;background:rgba(255,255,255,.025)}
+.rows.tbl .row.sec .n{font-size:14px;padding-left:10px;opacity:.85}
+.rows.tbl .row .diff .chip{font-size:10.5px;padding:2px 8px 2px 7px}
+.rows.tbl .rh{border-left-color:transparent;padding-block:4px;background:none}
+.rows.tbl .rh:hover{background:none}
+.rows.tbl .rh>div{font-family:var(--f-display);font-weight:700;text-transform:uppercase;letter-spacing:.1em;font-size:10.5px;color:var(--muted);font-style:normal}
+.rows.tbl .sp svg{display:block;width:80px;height:22px}
+.rows.tbl .sp path{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke}
+.rows.tbl .row.v1 .sp{color:var(--e-bar)} .rows.tbl .row.v2 .sp{color:var(--m-bar)} .rows.tbl .row.v3 .sp{color:var(--h-bar)} .rows.tbl .row.v4 .sp{color:var(--c-bar)}
+@media (max-width:760px){
+  .rows.tbl .row{gap:0 9px;padding:3px 4px}
+  .rows.tbl.t-route .row{grid-template-columns:26px minmax(64px,1.2fr) repeat(4,minmax(34px,.8fr)) auto}
+  .rows.tbl.t-plan .row{grid-template-columns:26px minmax(64px,1.2fr) repeat(3,minmax(38px,.8fr)) auto}
+  .rows.tbl .sp{display:none}
+  .rows.tbl.t-plan .row .c.w{grid-column:2 / -1;grid-row:2;padding-bottom:3px}
+  .rows.tbl.t-plan .rh .c.w{display:none}
+  .rows.tbl .row .c b{font-size:11.5px}
+  .rows.tbl .rh>div{font-size:9px;letter-spacing:.04em}
+  .rows.tbl .row .diff .chip{font-size:8.5px;padding:1px 5px;letter-spacing:.04em}
+}
+/* Your plan: the Ask the AI edelweiss sits right next to the Best / Balanced / Cautious switch. */
+.scen-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.scen-row .seg{flex:1 1 auto}
+.ar-note .ar-ask{margin-left:8px;vertical-align:middle}
+/* Your race panel: where you are, always on top of the section box (section % done, course %),
+   and a stronger key-figure list under the clock (D+ done first, then km, then the clock). */
+.rp-leg-pct{order:3;margin-left:auto;display:flex;align-items:baseline;gap:4px;white-space:nowrap;font-family:var(--f-display);font-style:italic;flex:none}
+.rp-leg-pct b{font-size:26px;font-weight:800;line-height:.9;color:var(--sun);font-variant-numeric:tabular-nums}
+.rp-leg-pct b.tot{font-size:18px;color:var(--fg);margin-left:8px}
+.rp-leg-pct small{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-style:normal;font-weight:700}
+.rp-run{font-size:14px;gap:1px}
+.rp-run b{font-family:var(--f-display);font-weight:800;font-style:italic;font-size:19px;color:var(--fg);font-variant-numeric:tabular-nums}
+.rp-run #rpUp b{color:var(--sun)}
+@media (max-width:640px){
+  .rp-leg-pct b{font-size:20px} .rp-leg-pct b.tot{font-size:15px;margin-left:4px} .rp-leg-pct small{font-size:9px}
+  .rp-cockpit .rp-run b{font-size:14px}
+  .rp-cockpit .rp-run span{white-space:nowrap}
+  .rp-cockpit #rpElapsed{display:none}
+}
+/* Watch messages: a count and Keep all / Keep none above the list. */
+.wm-tools{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:8px}
+.wm-tools .wm-count{margin-right:auto;font-size:14px;color:var(--muted)}
+.wm-tools .wm-count b{color:var(--fg);font-size:16px}
+
+/* ---------- Design review 2 (v2.3): star difficulty chips, thinner section sparklines ---------- */
+/* A climb's difficulty as 1 to 4 stars in its level colour; the unlit stars (<i>) are dimmed. */
+.chip.st{background:none;padding:0 2px;gap:0;letter-spacing:.04em;font-size:14px;line-height:1}
+.chip.st::before{display:none}
+.chip.st i{font-style:normal;opacity:.18}
+.chip.st.l1{color:var(--e-bar)} .chip.st.l2{color:var(--m-bar)} .chip.st.l3{color:var(--h-bar)} .chip.st.l4{color:var(--c-bar)}
+html[data-theme="sky"] .chip.st{background:none}
+html[data-theme="sky"] .chip.st.l1{color:var(--e-bar)} html[data-theme="sky"] .chip.st.l2{color:var(--m-bar)} html[data-theme="sky"] .chip.st.l3{color:var(--h-bar)} html[data-theme="sky"] .chip.st.l4{color:var(--c-bar)}
+.rows.tbl .row .diff .chip.st{font-size:13px;padding:0}
+/* Section rows: a smaller, thinner mini profile than the climb they belong to. */
+.rows.tbl .row.sec .sp svg{width:56px;height:14px;margin-left:12px}
+.rows.tbl .row.sec .sp path{stroke-width:1.1}
+.legend .chip.st{font-size:13px}
+@media (max-width:640px){ .rows.tbl .row .diff .chip.st{font-size:10px} }
+/* The average gradient in bold on the middle of the mini profile (no separate Average column).
+   Column order: #, Km, mini profile + average, then the figures, then the stars. */
+.rows.tbl .sp{position:relative}
+.rows.tbl .sp b{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;font-size:11.5px;font-weight:800;color:var(--fg);text-shadow:0 0 3px var(--bg),0 0 3px var(--bg),0 0 6px var(--bg);pointer-events:none}
+.rows.tbl .row.sec .sp b{font-size:10.5px;padding-left:12px}
+.rows.tbl.t-route .row{grid-template-columns:34px minmax(48px,.6fr) 88px repeat(3,minmax(60px,.8fr)) minmax(80px,auto)}
+.rows.tbl.t-plan .row{grid-template-columns:34px minmax(48px,.5fr) 88px repeat(3,minmax(54px,.7fr)) minmax(150px,2.6fr) minmax(80px,auto)}
+@media (max-width:760px){
+  .rows.tbl .sp{display:block}
+  .rows.tbl .sp svg{width:60px;height:18px}
+  .rows.tbl .row.sec .sp svg{width:44px;height:12px;margin-left:8px}
+  .rows.tbl .sp b{font-size:10px}
+  .rows.tbl .row.sec .sp b{font-size:9px;padding-left:8px}
+  .rows.tbl.t-route .row{grid-template-columns:24px minmax(30px,.6fr) 62px repeat(3,minmax(34px,.8fr)) auto}
+  .rows.tbl.t-plan .row{grid-template-columns:24px minmax(30px,.6fr) 62px repeat(3,minmax(34px,.8fr)) auto}
+  .rows.tbl .rh .sph{font-size:0} .rows.tbl .rh .sph::after{content:"Avg";font-size:9px}
+}
+/* Your route: map and profile on one screen (shorter map, the profile right under it). */
+.b-map{height:clamp(220px,calc(100svh - 470px),440px)}
+.b-prof{margin-top:8px;position:relative}
+.b-prof .prof-tools{margin-bottom:2px}
+.b-prof .legend{margin-top:4px!important}
+/* Climb numbers on the route profile, and the pop-up window they open. */
+svg .clab{cursor:pointer}
+svg .clab rect{fill:var(--bg);stroke:var(--fg);stroke-width:1.2;opacity:.92}
+svg .clab text{fill:var(--fg);font-size:11px;font-weight:800;font-family:var(--f-display)}
+svg .clab.sub rect{stroke:var(--muted)} svg .clab.sub text{font-size:10px;fill:var(--muted)}
+svg path.cl[data-tip]{cursor:pointer}
+.prof-pop{position:absolute;z-index:5;display:flex;flex-wrap:wrap;align-items:center;gap:2px 10px;max-width:260px;padding:7px 10px;border-radius:10px;background:var(--bg);border:1px solid var(--line);box-shadow:0 6px 18px rgba(0,0,0,.35);font-size:12px;color:var(--muted);pointer-events:none}
+.prof-pop>b:first-child{color:var(--fg);font-size:13px}
+.prof-pop span b{color:var(--fg)}
+/* Your plan: the key zones as a row of star chips; the picked one opens its card below. */
+.kz-bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:10px 0 6px}
+.kz-h{font-family:var(--f-display);font-weight:800;font-style:italic;text-transform:uppercase;letter-spacing:.06em;color:var(--sun);font-size:14px;margin-right:4px}
+.kz-chip{display:inline-flex;align-items:baseline;gap:6px;padding:4px 12px;border-radius:999px;border:1px solid rgba(255,201,40,.5);background:rgba(255,201,40,.08);color:var(--sun);font-family:var(--f-display);font-weight:800;font-style:italic;font-size:17px;cursor:pointer}
+.kz-chip small{font-style:normal;font-weight:700;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.kz-chip:hover{background:rgba(255,201,40,.18)}
+.kz-chip[aria-pressed="true"]{background:var(--sun);color:#1a1300;border-color:var(--sun)} .kz-chip[aria-pressed="true"] small{color:#1a1300}
+.kz-hint{color:var(--muted);font-size:12.5px}
+#kzMsg .zones{margin-bottom:4px} .kz-note{font-size:12px;margin:4px 0 10px}
+svg rect.zone.on{opacity:.4}
+/* Engine: fresh, tired and fade in three fixed columns, so every row's values line up
+   (no grid lines, no headings: the bars on the left already say which is which). */
+.pace .num{display:grid;grid-template-columns:5ch 4.6ch 5.4ch;justify-content:end;gap:0 12px;align-items:baseline}
+.pace .num .pf,.pace .num .pt{text-align:right;min-width:0}
+.pace .num .pfade{justify-self:end;min-width:0;width:100%;box-sizing:border-box}
+/* Map focus (profile zoom, a race-script moment or a key zone): the route outside the stretch
+   fades, the stretch itself is redrawn on top at full strength (.rt-f, see map.js focus). */
+.map-dim .leaflet-overlay-pane path:not(.rt-f){stroke-opacity:.2;transition:stroke-opacity .25s}
+.map-dim .leaflet-overlay-pane path.rt-casing{stroke-opacity:.15}
+.rt-f.rt-line{stroke-width:5}
+svg .pcur,svg .psel{pointer-events:none}
+/* Cockpit (design review 2): the profile on top, the section bar right under it, then map and panel. */
+.rp-cockpit{grid-template-areas:"tot tot" "prof prof" "bar bar" "map hud" "ctl ctl"}
+.rp-cockpit.nomap{grid-template-areas:"tot tot" "prof prof" "bar bar" "hud hud" "ctl ctl"}
+.rp-cockpit .rp-legs{margin-top:2px}
+@media (max-width:900px){
+  .rp-cockpit{grid-template-areas:"tot" "prof" "bar" "map" "hud" "ctl"}
+  .rp-cockpit.nomap{grid-template-areas:"tot" "prof" "bar" "hud" "ctl"}
+  .rp-cockpit .rp-legs{margin-top:2px}
+}
+/* Race script, compact: one line per moment (the cue cut to one line, the open moment shows it
+   all), so the map top down to at least three moments fits one screen. */
+#rp-script{margin-top:10px;margin-bottom:6px}
+.rp-script button{grid-template-columns:auto minmax(150px,240px) 1fr;padding:3px 8px;gap:4px 12px}
+.rp-script .ic{width:22px;height:22px;font-size:11px}
+.rp-script .t{display:flex;align-items:baseline;gap:8px;min-width:0}
+.rp-script .t b{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rp-script .t small{white-space:nowrap;font-size:11.5px}
+.rp-script .cue{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rp-script li.on .cue{white-space:normal}
+@media (max-width:900px){
+  .rp-script button{grid-template-columns:auto 1fr}
+  .rp-script .t{flex-wrap:wrap;row-gap:0}
+}
+/* With the taller profile, the panel gets a little less room on laptop screens: the D+, km and
+   clock figures sit side by side on one line next to the clock, the table rows tighten, and the
+   panel scrolls rather than cut anything if a long section text still does not fit. */
+@media (min-width:901px) and (max-height:960px){
+  .rp-cockpit .rp-top{align-items:center}
+  .rp-cockpit .rp-run{display:grid;grid-template-columns:auto auto;column-gap:12px;justify-items:end;font-size:12.5px}
+  .rp-cockpit .rp-run b{font-size:16px}
+  .rp-cockpit #rpElapsed{grid-column:1 / -1}
+  .rp-cockpit .rp-clock b{font-size:30px}
+  .rp-cockpit .rp-tg th,.rp-cockpit .rp-tg td{padding-top:1px;padding-bottom:1px;line-height:1.2}
+  .rp-cockpit .rp-tg tbody tr:nth-child(-n+2) td.now{font-size:18px}
+}
+.rp-cockpit>.rp-hud{overflow-y:auto;scrollbar-width:thin}
+@media (min-width:901px) and (max-height:800px){
+  /* small laptop screens: title, chip and length on one line; the next-section line goes (the
+     section bar already shows what comes next) */
+  .rp-cockpit .rp-leg-t{flex-wrap:nowrap;white-space:nowrap;overflow:hidden}
+  .rp-cockpit .rp-leg-len{font-size:11px;padding:0 6px}
+  .rp-cockpit .rp-leg-next{display:none!important}
+}
+@media (min-width:901px) and (max-height:800px){
+  .rp-cockpit .rp-leg{padding:6px 10px}
+  .rp-cockpit .rp-leg-h{margin-bottom:2px}
+  .rp-cockpit .rp-tg td{font-size:13px} .rp-cockpit .rp-tg tbody tr:nth-child(-n+2) td.now{font-size:16px}
+}
+@media (min-width:901px) and (max-height:800px){ .rp-cockpit>.rp-hud{padding:6px 10px;gap:3px} }
+.rp-run #rpKm b.pct{color:var(--sun)}
+/* One Export A4 box per printable section (design review 2), folded by default. */
+.a4x{margin:4px 0 12px}
+.a4x>summary{display:inline-flex;align-items:center;gap:6px;cursor:pointer;list-style:none;font-family:var(--f-display);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:12.5px;color:var(--muted);padding:4px 12px;border:1px solid var(--line);border-radius:999px}
+.a4x>summary::-webkit-details-marker{display:none}
+.a4x>summary:hover,.a4x[open]>summary{color:var(--fg);border-color:var(--muted)}
+.a4x-body{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;margin-top:8px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.a4x-h{flex:1 1 100%;color:var(--muted);font-size:13px}
+.a4x .chk{font-size:13.5px}
+.a4x-msg{color:var(--sun);font-size:13px}
+@media print{ .a4x{display:none!important} }
+/* Your race panel: D+ and km figures stacked and right-aligned next to the duration (the clock
+   of day line is gone, design review 2). */
+.rp-cockpit .rp-run{display:flex!important;flex-direction:column!important;align-items:flex-end;text-align:right;margin-left:auto}
+.rp-cockpit .rp-top{justify-content:space-between}
+/* Descent risk as running shoes: 3 green Let it run, 2 orange Control, 1 red Brake. */
+.chip.st.dsc{gap:2px}
+.chip.st.dsc svg,.p4-shoes svg,.note .chip.st.dsc svg{width:22px;height:10px;fill:currentColor;display:inline-block;vertical-align:-1px}
+.chip.st.dsc.d3{color:var(--e-bar)} .chip.st.dsc.d2{color:var(--h-bar)} .chip.st.dsc.d1{color:var(--c-bar)}

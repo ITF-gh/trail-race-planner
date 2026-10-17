@@ -2,6 +2,23 @@
 // technical detail). The first entry is the current version: the footer shows it on every page.
 
 export const CHANGELOG = [
+  { v: "2.4", date: "2026-10-17", items: [
+    "Design review, part 2. A climb now gains at least 10% of the race's D+ (any rise of 100 m or more counts): smaller rises are bumps, not counted but still in your plan, race script and watch messages. Long climbs split where the gradient clearly changes, each section at least 15% of the climb.",
+    "Difficulty shows as 1 to 4 stars, green, yellow, orange and red, everywhere. Key zones say how many minutes there are to gain.",
+    "Climbs and descents tables: the start km, a mini profile with the average gradient on it, length, gain, steepest 100 m, then the stars.",
+    "Your route: the map and the profile fit one screen, each climb has its number with a small window of figures, and zooming the profile zooms the map and dims the rest of the route. The key zones moved to Your plan, as star chips that open their message and show the zone on the profile and the map.",
+    "Smoother pace: it now blends between gradient bands instead of jumping at each band edge.",
+    "Your race: the profile is on top, taller, with the section bar under it; the % of the race joins the km line; the race script is compact, and a click on a moment zooms the map on it.",
+    "Export A4 moved from the top bar into each printable section, with tick boxes to leave parts out. Your engine's pace chart lines up in three columns.",
+  ] },
+  { v: "2.3", date: "2026-10-17", items: [
+    "Design review, part 1. A shorter line next to the logo (Prep & go) and new, livelier intro texts in the three modes.",
+    "Your engine: key figures about how you move (flat pace, cadence, pace on gentle and steep climbs, best climb rate); the Your runs block is gone (each run and its weight shows under the drop box); the pace chart is lower and its values easier to read.",
+    "Your route: Start time replaces Crux in the key figures, jump links without boxes, and climbs and descents tables with one header row, a new column order and a small elevation line on each row (also in Climb by climb).",
+    "Scenarios are now Best, Balanced and Cautious. The Ask the AI edelweiss sits next to them, and the same edelweiss button replaces the Ask the AI text links.",
+    "Your race: the section box shows its % done and the % of the race on top; under the clock, D+ done comes first, then km and the time of day.",
+    "Watch messages: Keep all, Keep none and a count of the messages kept.",
+  ] },
   { v: "2.2", date: "2026-10-16", items: [
     "Every replay now shows the pace line on its profile, like Rewind my run: Your race (calculated or AI) and Prep my run (with or without the AI coach). Faster is higher, the section you are on is lit, and the dot gives the pace at the runner.",
   ] },

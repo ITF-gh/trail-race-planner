@@ -30,7 +30,7 @@
 // if t is 40% of the way between the times of two points, the runner is 40% of the way
 // between their km and altitudes.
 
-import { LEVELS, DESCENT_LABELS } from "./plan.js";
+import { LEVELS, STARS, DESCENT_LABELS } from "./plan.js";
 import { clock, hm } from "./format.js";
 
 /**
@@ -122,11 +122,11 @@ export function raceScript(plan, sid) {
     const secs = c.sections.length ? ` In ${c.sections.length} sections: ${c.sections.map((x) => `${x.n} ${x.tactic.toLowerCase()}`).join(", ")}.` : "";
     add({
       kind: "climb", sec: c.start[sid], km: c.startKm, level: c.level,
-      title: `Climb ${c.n} · ${LEVELS[c.level]}`,
+      title: `${(c.label || `Climb ${c.n}`)} · ${STARS[c.level]}`,
       cue: `${r0(c.gain)} m up over ${(c.lenM / 1000).toFixed(1)} km at ${c.avg.toFixed(0)}% (steepest 100 m: ${r0(c.steep)}%). ${c.tactic}. About ${min} min, top at ${at(c.start[sid] + c.dur[sid])}.${secs} ${CLIMB_CUE[c.level]}`,
     });
     if (c.level >= 3) {
-      add({ kind: "top", sec: c.start[sid] + c.dur[sid], km: c.endKm, level: c.level, title: `Top of climb ${c.n}`, cue: "Shake out your arms, reset your breathing, let the legs turn over for a minute before you push the descent." });
+      add({ kind: "top", sec: c.start[sid] + c.dur[sid], km: c.endKm, level: c.level, title: `Top of ${(c.label || `Climb ${c.n}`).toLowerCase()}`, cue: "Shake out your arms, reset your breathing, let the legs turn over for a minute before you push the descent." });
     }
   });
 
@@ -287,7 +287,7 @@ export function raceLegs(plan, sid) {
   const parts = [];
   plan.climbs.forEach((c) => (c.sections.length ? c.sections : [c]).forEach((x) => parts.push({
     kind: "climb", n: x.n, level: x.level, startKm: x.startKm, endKm: x.endKm,
-    title: `${c.sections.length ? "Climb section" : "Climb"} ${x.n}`, label: LEVELS[x.level], tactic: x.tactic,
+    title: c.sections.length ? `Climb section ${x.n}` : (c.label || `Climb ${c.n}`), label: LEVELS[x.level], tactic: x.tactic,
   })));
   plan.descents.forEach((d) => parts.push({
     kind: "descent", n: d.n, level: d.level, startKm: d.startKm, endKm: d.endKm,

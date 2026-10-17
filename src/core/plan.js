@@ -40,8 +40,10 @@ export const PLAN_DEFAULTS = {
   // A checkpoint (clock time) every this many km.
   checkpointKm: 10,
   splitClimbM: 3000, // climbs this long or longer are split into sections
-  sectionMinM: 1500, // shortest section allowed
+  sectionMinShare: 0.15, // shortest section allowed, as a share of its climb's length
   splitClimbMinGain: 100, // ...and only if they gain at least this many metres
+  climbShare: 0.1, // a rise counts as a climb when it gains this share of the race's total D+...
+  climbFloorM: 100, // ...or at least this many metres; smaller rises are "bumps" (advice kept, not counted)
   halfLifeDays: 28, // with several reference runs, a run this many days older counts half as much
   aidStations: [], // [{km, name, stopMin}] or text, one per line: "8.5 Refuge du Lac 2"
   gelToAidMin: 10, // a gel due within this many minutes of an aid station is taken there
@@ -81,6 +83,8 @@ export function parseAidStations(text) {
 
 // Climb difficulty words, indexed by level 1 to 4 (index 0 is unused).
 export const LEVELS = ["", "Easy", "Moderate", "Hard", "Crux"];
+// The same levels as 1 to 4 stars, for the chips, legends and map titles (green, yellow, orange, red).
+export const STARS = ["", "★", "★★", "★★★", "★★★★"];
 // Descent risk words, keyed by descentLevel() (there is no level 3).
 export const DESCENT_LABELS = { 1: "Let it run", 2: "Control", 4: "Brake" };
 
@@ -136,25 +140,31 @@ const DESCENT_TACTIC = { 1: "Let it run, recover", 2: "Quick steps, stay light",
 /**
  * Split a long climb into sections that each hold a fairly even gradient.
  *
- * The number of sections is fixed by the length (as many as fit at sectionMinM
- * each); dynamic programming then picks where to cut. The cost of a section is
- * how much its 10 m gradients scatter around the section's own average (a sum
- * of squared deviations), so cuts land where the slope changes character, for
- * example between a runnable ramp and a steep wall.
+ * The cost of a section is how much its 10 m gradients scatter around the
+ * section's own average (a sum of squared deviations), so cuts land where the
+ * slope changes character, for example between a runnable ramp and a steep wall.
+ * Dynamic programming finds the best cuts for 1, 2, 3... sections; we then keep
+ * adding a section only while it pays: it must remove at least `minGainShare`
+ * of the one-piece cost AND every pair of neighbouring sections must differ by
+ * at least `minDiff` points of average gradient (the weight on gradient change:
+ * two sections at 7% and 8% are one section). Each section is at least
+ * `minShare` of the climb's length; a climb shorter than `minM` is not split.
  * Returns [[a, b], ...] sample indices, contiguous from the climb's a to b.
  *
  * Inputs: `ele` smoothed elevations (m), `a` and `b` the climb's first and last
- * sample, `step` metres per sample, `minM` shortest section (m).
+ * sample, `step` metres per sample, options {minM, minShare, minDiff, minGainShare}.
  * Dynamic programming in one sentence: the best way to cut the first q steps
  * into j sections is the best way to cut the first p steps into j - 1
  * sections, plus one last section from p to q, for the best p. We fill a
- * table of those answers for j = 1, 2, ..., k, then walk back through it.
+ * table of those answers for j = 1, 2, ..., kMax, then walk back through it.
  */
-export function splitClimb(ele, a, b, step, minM = 1500) {
+export function splitClimb(ele, a, b, step, opts = {}) {
+  const { minM = 3000, minShare = 0.15, minDiff = 2, minGainShare = 0.1 } = opts;
   const m = b - a; // number of 10 m steps in the climb
-  const k = Math.floor((m * step) / minM);
-  if (k < 2) return [[a, b]];
-  const minN = Math.ceil(minM / step);
+  if (m * step < minM) return [[a, b]];
+  const minN = Math.max(1, Math.ceil(m * minShare));
+  const kMax = Math.floor(m / minN);
+  if (kMax < 2) return [[a, b]];
   // Prefix sums of gradient and gradient squared: any section's cost in O(1).
   const S = new Float64Array(m + 1);
   const Q = new Float64Array(m + 1);
@@ -166,15 +176,15 @@ export function splitClimb(ele, a, b, step, minM = 1500) {
   // Cost of a section from step p to step q: sum of squared deviations of its
   // gradients from their mean, which equals sum(g^2) - (sum(g))^2 / count.
   const cost = (p, q) => Q[q] - Q[p] - ((S[q] - S[p]) ** 2) / (q - p);
+  const mean = (p, q) => (S[q] - S[p]) / (q - p);
   // best[j][q]: lowest cost to cut steps 0..q into j sections; from[j][q]: where the last one starts.
   const best = [new Float64Array(m + 1).fill(Infinity)];
   best[0][0] = 0;
   const from = [null];
-  for (let j = 1; j <= k; j++) {
+  for (let j = 1; j <= kMax; j++) {
     const bj = new Float64Array(m + 1).fill(Infinity);
     const fj = new Int32Array(m + 1);
-    // q can only range where j sections fit before it and k - j sections after it.
-    for (let q = j * minN; q <= m - (k - j) * minN; q++) {
+    for (let q = j * minN; q <= m; q++) {
       // Try every start p of the last section, keeping it at least minN long.
       for (let p = (j - 1) * minN; p <= q - minN; p++) {
         if (best[j - 1][p] === Infinity) continue;
@@ -185,10 +195,23 @@ export function splitClimb(ele, a, b, step, minM = 1500) {
     best.push(bj);
     from.push(fj);
   }
-  // Walk back from the end through `from` to recover where each section starts.
-  const cuts = [m];
-  for (let j = k, q = m; j > 1; j--) { q = from[j][q]; cuts.unshift(q); }
-  cuts.unshift(0);
+  // Walk back from the end through `from` to recover where each of k sections starts.
+  const cutsFor = (k) => {
+    const cuts = [m];
+    for (let j = k, q = m; j > 1; j--) { q = from[j][q]; cuts.unshift(q); }
+    cuts.unshift(0);
+    return cuts;
+  };
+  const one = best[1][m];
+  let cuts = [0, m];
+  for (let k = 2; k <= kMax; k++) {
+    if (best[k][m] === Infinity || best[k - 1][m] - best[k][m] < minGainShare * one) break;
+    const c = cutsFor(k);
+    let distinct = true;
+    for (let i = 1; i + 1 < c.length; i++) if (Math.abs(mean(c[i - 1], c[i]) - mean(c[i], c[i + 1])) < minDiff) distinct = false;
+    if (!distinct) break;
+    cuts = c;
+  }
   // Turn cut positions (steps from the climb's start) back into course sample indices.
   const out = [];
   for (let i = 0; i + 1 < cuts.length; i++) out.push([a + cuts[i], a + cuts[i + 1]]);
@@ -262,8 +285,8 @@ function closestEffortClimb(c, effortClimbs, rs) {
  *
  * Input: `course` from analyseCourse(), `userParams` overrides of PLAN_DEFAULTS
  * (only the climb-splitting settings are used here).
- * Returns {totalKm, gain, loss, climbs, descents}. A climb is {n, startKm,
- * endKm, lenM, delta, gain, avg, steep, score, level, a, b, sections}; a
+ * Returns {totalKm, gain, loss, climbs, descents, minClimb}. A climb is {n, label, bump,
+ * startKm, endKm, lenM, delta, gain, avg, steep, score, level, a, b, sections}; a
  * section has the same fields with n like "2.1". A descent is {n, startKm,
  * endKm, lenM, delta, loss, avg, steep, level, a, b}.
  */
@@ -283,18 +306,29 @@ export function briefCourse(course, userParams = {}) {
   };
   // Whole climbs keep the steepest-100 m value analyseCourse already measured.
   // A climb long enough that also gains enough gets sections from splitClimb.
-  const climbs = course.climbs.map((c, i) => {
-    const r = { ...rate(i + 1, c.a, c.b), steep: c.steep };
-    r.sections = c.lenM >= params.splitClimbM && c.delta >= params.splitClimbMinGain
-      ? splitClimb(course.ele, c.a, c.b, course.step, params.sectionMinM).map(([a, b], j) => rate(`${i + 1}.${j + 1}`, a, b))
+  // Climb or bump: a rise is a climb when it gains at least climbShare of the total D+, or
+  // climbFloorM metres whatever the race (so on a hilly race every 100 m rise counts).
+  // Bumps keep their tactic and race-script cue but are not counted or numbered as climbs:
+  // they are numbered on their own ("b1", "b2"...) so a bump never shares a number with a climb.
+  const minClimb = Math.min(params.climbShare * course.gain, params.climbFloorM);
+  let nc = 0;
+  let nb = 0;
+  const climbs = course.climbs.map((c) => {
+    const bump = c.delta < minClimb;
+    const n = bump ? `b${++nb}` : ++nc;
+    const r = { ...rate(n, c.a, c.b), steep: c.steep, bump, label: bump ? `Bump ${nb}` : `Climb ${nc}` };
+    // A climb that splitClimb keeps in one piece has no sections (it is its own only section).
+    const parts = !bump && c.delta >= params.splitClimbMinGain
+      ? splitClimb(course.ele, c.a, c.b, course.step, { minM: params.splitClimbM, minShare: params.sectionMinShare })
       : [];
+    r.sections = parts.length > 1 ? parts.map(([a, b], j) => rate(`${n}.${j + 1}`, a, b)) : [];
     return r;
   });
   const descents = course.descents.map((d, i) => ({
     n: i + 1, startKm: d.startKm, endKm: d.startKm + d.lenM / 1000, lenM: d.lenM, delta: d.delta, loss: -d.delta,
     avg: d.avg, steep: d.steep, level: descentLevel(d), a: d.a, b: d.b,
   }));
-  return { totalKm: total, gain: course.gain, loss: course.loss, climbs, descents };
+  return { totalKm: total, gain: course.gain, loss: course.loss, climbs, descents, minClimb };
 }
 
 /**
@@ -472,7 +506,7 @@ export function buildPlan(raceParsed, effortParsed, userParams = {}) {
   return {
     params: { ...params, hikeGrade },
     startSec,
-    course: { totalKm: total, gain: course.gain, loss: course.loss, climbCount: climbs.length, descentCount: descents.length, profile, route },
+    course: { totalKm: total, gain: course.gain, loss: course.loss, climbCount: climbs.filter((c) => !c.bump).length, descentCount: descents.length, profile, route },
     effort: {
       durationSec: effort.durationSec,
       distKm: effort.distKm,
