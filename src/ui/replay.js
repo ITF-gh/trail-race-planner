@@ -254,14 +254,14 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     </div>
     <div class="rp-legfoot">
       <div class="rp-legnow" id="rpLegNow" aria-live="polite"></div>
-      <div class="rp-legend" aria-label="Legend">${[1, 2, 3, 4].map((l) => `<span class="chip st l${l}" title="${["", "Easy", "Moderate", "Hard", "Crux"][l]}">${"★".repeat(l)}<i>${"★".repeat(4 - l)}</i></span>`).join("")}<span><i class="sw fl"></i>Runnable</span><span><i class="sw ds"></i>Descent</span><span><i class="sw ds4"></i>Brake</span><span><i class="sw kz"></i>Key zone</span><span><i class="sw ad"></i>Aid</span><span><i class="sw rv-pl-sw"></i>Pace</span></div>
+      <div class="rp-legend" aria-label="Legend"><span><i class="sw fl"></i>Runnable</span><span><i class="sw ds"></i>Descent</span><span><i class="sw ds4"></i>Brake</span><span><i class="sw kz"></i>Key zone</span><span><i class="sw ad"></i>Aid</span><span><i class="sw rv-pl-sw"></i>Pace</span></div>
     </div>
   </div>
     ${hasMap ? `<div class="rp-map" id="rpMap"></div>` : ""}
     <div class="panel rp-hud">
       <div class="rp-top">
         <div class="rp-clock"><span class="k">Duration</span><b id="rpClock"></b></div>
-        <div class="rp-run"><span id="rpUp"></span><span id="rpKm"></span><span id="rpElapsed"></span></div>
+        <div class="rp-run"><span id="rpUp"></span><span id="rpKm"></span></div>
       </div>
       <div class="rp-prog" aria-hidden="true"><i id="rpBar"></i></div>
       <div class="rp-leg" id="rpLeg"></div>
@@ -287,7 +287,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
   // 3. Find the elements once and keep them in `els`, so each frame does not search the page.
   // $r(selector) is a short name for "the first element in this box matching the CSS selector".
   const $r = (s) => box.querySelector(s);
-  const els = { leg: $r("#rpLeg"), legNow: $r("#rpLegNow"), legPos: $r("#rpLegPos"), legBtns: [...box.querySelectorAll("#rpLegs .lg")], clock: $r("#rpClock"), el: $r("#rpElapsed"), bar: $r("#rpBar"), km: $r("#rpKm"), up: $r("#rpUp"), now: $r("#rpNow"), next: $r("#rpNext"), cue: $r("#rpCue"), ai: box.querySelector("#rpAi"), play: $r("#rpPlay"), seek: $r("#rpSeek"), cur: $r("#rpProf .pcur"), list: $r("#rpScript") };
+  const els = { leg: $r("#rpLeg"), legNow: $r("#rpLegNow"), legPos: $r("#rpLegPos"), legBtns: [...box.querySelectorAll("#rpLegs .lg")], clock: $r("#rpClock"), bar: $r("#rpBar"), km: $r("#rpKm"), up: $r("#rpUp"), now: $r("#rpNow"), next: $r("#rpNext"), cue: $r("#rpCue"), ai: box.querySelector("#rpAi"), play: $r("#rpPlay"), seek: $r("#rpSeek"), cur: $r("#rpProf .pcur"), list: $r("#rpScript") };
   // A window resize changes the room in the panel: fit the "coming next" list again.
   if (typeof ResizeObserver === "function") new ResizeObserver(() => fitPanel(els.next)).observe($r(".rp-hud"));
   alignBar($r(".rp-legbar"), $r("#rpProf svg"), prof.x(0), prof.x(plan.course.totalKm));
@@ -359,8 +359,14 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
   // Average gradient with its sign, e.g. "+7.4%" or "-3.0%".
   const gradeTxt = (l) => `${l.avg > 0 ? "+" : ""}${l.avg.toFixed(1)}%`;
   // A runnable stretch says so in its title already: no chip repeating it.
-  // Climbs show their difficulty as 1 to 4 stars (the word stays in the tooltip); descents keep their word.
-  const legChip = (l) => (l.kind === "flat" ? "" : l.kind === "climb" ? `<span class="chip st l${l.level}" title="${escR(l.label)}">${"★".repeat(l.level)}<i>${"★".repeat(4 - l.level)}</i></span>` : `<span class="chip l${l.level}">${escR(l.label)}</span>`);
+  // Every section shows its rating as 1 to 4 stars (the word stays in the tooltip): climbs by
+  // difficulty, a runnable stretch 1 star; descents show ▼ icons by risk instead.
+  const legChip = (l) => {
+    // Descents: ▼ icons instead of stars (▼ Let it run, ▼▼ Control, ▼▼▼ Brake).
+    if (l.kind === "descent") { const k = l.level >= 4 ? 3 : l.level >= 2 ? 2 : 1; return `<span class="chip st dsc d${k}" title="${escR(l.label)}">${"▼".repeat(k)}</span>`; }
+    const n = l.kind === "flat" ? 1 : Math.max(1, Math.min(4, l.level || 1));
+    return `<span class="chip st l${n}" title="${escR(l.label)}">${"★".repeat(n)}<i>${"★".repeat(4 - n)}</i></span>`;
+  };
   // The scrolling box around the profile (used by drawLeg above: it runs only later, after this
   // line has set the value).
   const profScroll = $r("#rpProf .prof-scroll");
@@ -383,7 +389,6 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     els.up.innerHTML = `<b>+${Math.round(gainLoss(P, 0, s.km).up)}</b> / ${Math.round(tot.gain)} m D+`;
     // Share of the race done first, then km done / total, on one line (design review 2).
     els.km.innerHTML = `<b class="pct">${Math.round(s.frac * 100)}%</b> · <b>${s.km.toFixed(1)}</b> / ${plan.course.totalKm.toFixed(1)} km`;
-    els.el.textContent = `clock ${clock(st, s.sec)}`;
     els.bar.style.width = `${(s.frac * 100).toFixed(2)}%`;
     els.seek.value = Math.round(s.sec);
     // The section you are on: lit up everywhere when it changes, its countdown on every frame.

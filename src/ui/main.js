@@ -565,6 +565,8 @@ const tile = (k, v, s = "", cls = "") => `<div class="tile ${cls}"><div class="k
 const cell = (k, v, cls = "") => `<div class="c ${cls}"><span class="k">${k}</span><b>${v}</b></div>`;
 const len = (m) => (m >= 1000 ? `${(m / 1000).toFixed(2)} km` : `${Math.round(m)} m`);
 const kmRange = (x) => x.startKm.toFixed(1); // the start km only: the length column gives the rest
+// descChip(level): a descent's risk as ▼ icons (▼ Let it run, ▼▼ Control, ▼▼▼ Brake), the word in the tooltip.
+const descChip = (l) => { const k = l >= 4 ? 3 : l >= 2 ? 2 : 1; return `<span class="chip st dsc d${k}" title="${DESCENT_LABELS[l]}" aria-label="${DESCENT_LABELS[l]}">${"▼".repeat(k)}</span>`; };
 // starChip(l): a climb's difficulty as 1 to 4 stars in its level colour (the unlit ones dimmed),
 // with the word (Easy...Crux) kept for screen readers and the hover tooltip.
 const starChip = (l) => `<span class="chip st l${l}" title="${LEVELS[l]}" aria-label="${l} of 4 stars, ${LEVELS[l]}">${STARS[l]}<i>${"★".repeat(4 - l)}</i></span>`;
@@ -688,26 +690,30 @@ function profileView(P, brief, race, zones = [], { flat = false, win = null, inn
     for (let i = 0; i <= n; i++) { const k = a + ((b - a) * i) / n; pts.push(`${i ? "L" : "M"}${x(k).toFixed(1)},${y(elevAt(P, k)).toFixed(1)}`); }
     return pts.join("");
   };
-  // label(c): the climb's number, written 10 units above the middle of the climb.
-  const label = (c) => { const mid = (c.startKm + c.endKm) / 2; return `<text class="num" x="${x(mid).toFixed(1)}" y="${(y(elevAt(P, mid)) - 10).toFixed(1)}" text-anchor="middle">${c.n}</text>`; };
+  // label(c): the climb's (or section's) average gradient, written 10 units above its middle
+  // (design review 2: the gradient says more on the profile than the number).
+  const label = (c) => { const mid = (c.startKm + c.endKm) / 2; return `<text class="num" x="${x(mid).toFixed(1)}" y="${(y(elevAt(P, mid)) - 10).toFixed(1)}" text-anchor="middle">${c.avg.toFixed(0)}%</text>`; };
   // 4. Descents of level 4 (Brake) get a dashed red line; climbs are coloured by level 1..4.
   brief.descents.forEach((dd) => { if (dd.level === 4) s += `<path class="dl" d="${seg(dd.startKm, dd.endKm)}"><title>Descent ${dd.n}, km ${dd.startKm.toFixed(2)}: ${Math.round(dd.loss)} m at ${Math.abs(dd.avg).toFixed(1)}%</title></path>`; });
   brief.climbs.forEach((c) => {
-    // A split climb is drawn section by section, each in its own difficulty colour.
-    const parts = c.sections.length ? c.sections : [c];
+    // A split climb is drawn section by section, each in its own difficulty colour, except on
+    // the route profile (`labels`), where every climb shows whole, with its overall gradient.
+    // Bumps are not drawn there either: the route shows climbs only.
+    if (labels && c.bump) return;
+    const parts = c.sections.length && !labels ? c.sections : [c];
     parts.forEach((p) => {
-      const name = c.sections.length ? `Section ${p.n}` : c.label || `Climb ${c.n}`;
+      const name = p !== c ? `Section ${p.n}` : c.label || `Climb ${c.n}`;
       // With `labels` (the route profile) the facts go in data-tip for the small pop-up window
       // (see renderBriefing) instead of the browser's slow <title> tooltip.
       const tip = `${name}|km ${p.startKm.toFixed(1)}|${len(p.lenM)}|+${Math.round(p.gain)} m|${p.avg.toFixed(1)}%|${p.level}`;
       s += labels
         ? `<path class="cl cl${p.level}" data-tip="${tip}" d="${seg(p.startKm, p.endKm)}"/>`
         : `<path class="cl cl${p.level}" d="${seg(p.startKm, p.endKm)}"><title>${name}, km ${p.startKm.toFixed(2)}: ${Math.round(p.gain)} m at ${p.avg.toFixed(1)}%, ${STARS[p.level]}</title></path>`;
-      // Route profile: every climb (not the bumps) and every section of a long climb gets its
-      // number, written above its middle, in a small round badge that also opens the pop-up.
+      // Route profile: every climb (not the bumps) gets its overall average gradient, written
+      // above its middle, in a small round badge that also opens the pop-up (name and figures).
       if (labels && !c.bump) {
         const mid = (p.startKm + p.endKm) / 2;
-        if (mid >= K0 && mid <= K1) s += `<g class="clab${c.sections.length ? " sub" : ""}" data-tip="${tip}" transform="translate(${x(mid).toFixed(1)},${(y(elevAt(P, mid)) - 14).toFixed(1)})"><rect x="-${c.sections.length ? 13 : 9}" y="-9" width="${c.sections.length ? 26 : 18}" height="16" rx="8"/><text y="3" text-anchor="middle">${p.n}</text></g>`;
+        if (mid >= K0 && mid <= K1) s += `<g class="clab" data-tip="${tip}" transform="translate(${x(mid).toFixed(1)},${(y(elevAt(P, mid)) - 14).toFixed(1)})"><rect x="-17" y="-9" width="34" height="16" rx="8"/><text y="3" text-anchor="middle">${p.avg.toFixed(0)}%</text></g>`;
       }
       if (inner && p.level >= 3) s += label(p);
     });
@@ -795,10 +801,12 @@ function renderEngine() {
 //   marks: points [{km, kind, label, title?}]: the start, a km marker every 5 km (10 km on
 //          races over 60 km, stopping a km before the finish) and the aid stations.
 // A split climb is painted section by section (each in its own colour) instead of as one stretch.
-function mapStyle(brief, aid, zones = []) {
+function mapStyle(brief, aid, zones = [], whole = false) {
   // key zones first, as a wide glow under the coloured climbs
   const paint = zones.map((z) => ({ fromKm: z.fromKm, toKm: z.toKm, cls: "rt-key", title: `★ Key zone ${z.n} · ${esc(z.title)}` }));
-  brief.climbs.forEach((c) => (c.sections.length ? c.sections : [c]).forEach((p) => paint.push({ fromKm: p.startKm, toKm: p.endKm, cls: `rt-cl rt-cl${p.level}`, title: `${c.sections.length ? `Climb section ${p.n}` : c.label || `Climb ${c.n}`} · km ${p.startKm.toFixed(1)} · ${Math.round(p.gain)} m at ${p.avg.toFixed(1)}% · ${STARS[p.level]}` })));
+  // `whole` (Your route): each climb painted in one piece, in its own colour, like its profile;
+  // bumps are left plain.
+  brief.climbs.filter((c) => !whole || !c.bump).forEach((c) => (c.sections.length && !whole ? c.sections : [c]).forEach((p) => paint.push({ fromKm: p.startKm, toKm: p.endKm, cls: `rt-cl rt-cl${p.level}`, title: `${p !== c ? `Climb section ${p.n}` : c.label || `Climb ${c.n}`} · km ${p.startKm.toFixed(1)} · ${Math.round(p.gain)} m at ${p.avg.toFixed(1)}% · ${STARS[p.level]}` })));
   brief.descents.filter((d) => d.level === 4).forEach((d) => paint.push({ fromKm: d.startKm, toKm: d.endKm, cls: "rt-dl", title: `Descent ${d.n} · km ${d.startKm.toFixed(1)} · ${Math.round(d.loss)} m at ${Math.abs(d.avg).toFixed(1)}% · brake` }));
   const marks = [{ km: 0, kind: "start", label: "Start" }];
   const every = brief.totalKm > 60 ? 10 : 5;
@@ -862,7 +870,7 @@ function renderBriefing() {
   const bumps = brief.climbs.filter((c) => c.bump).length;
   const climbs = brief.climbs.filter((c) => !c.bump).map((c) => climbRow(c) + c.sections.map((x) => climbRow(x, true)).join("")).join("");
   const descents = brief.descents.map((d) => `<div class="row v${d.level}">
-      <div class="n">${d.n}</div>${cell("Km", kmRange(d))}${spark(P, d.startKm, d.endKm, d.avg)}${cell("Length", len(d.lenM))}${cell("Loss", `${Math.round(d.loss)} m`)}${cell("Steepest 100 m", `${Math.abs(Math.round(d.steep))}%`)}<div class="diff"><span class="chip l${d.level}">${DESCENT_LABELS[d.level]}</span></div>
+      <div class="n">${d.n}</div>${cell("Km", kmRange(d))}${spark(P, d.startKm, d.endKm, d.avg)}${cell("Length", len(d.lenM))}${cell("Loss", `${Math.round(d.loss)} m`)}${cell("Steepest 100 m", `${Math.abs(Math.round(d.steep))}%`)}<div class="diff">${descChip(d.level)}</div>
     </div>`).join("");
   const aid = parseAidStations(state.settings.aidStations).filter((a) => a.km <= brief.totalKm);
   // With a plan, the zones use your predicted times; before that, a typical runner's (Tobler's hiking function).
@@ -875,7 +883,7 @@ function renderBriefing() {
     <div class="tiles">${tiles}</div>
     <div class="sub-h" id="b-map">Map and profile</div>
     <div class="b-map" id="briefMap"></div>
-    <div class="prof-wrap b-prof" id="briefProf"><div class="prof-tools"><span class="note" style="margin:0">Drag across the profile to zoom: the map follows. Hover or tap a climb number for its figures.</span><button type="button" class="btn sm" id="profReset" hidden>Reset zoom</button></div><div id="briefProfSvg"></div><div class="prof-pop" id="profPop" hidden></div>${LEGEND}</div>
+    <div class="prof-wrap b-prof" id="briefProf"><div class="prof-tools"><span class="note" style="margin:0">Drag across the profile to zoom: the map follows. Each climb shows whole, its badge gives its average gradient; hover or tap it for the figures.</span><button type="button" class="btn sm" id="profReset" hidden>Reset zoom</button></div><div id="briefProfSvg"></div><div class="prof-pop" id="profPop" hidden></div>${LEGEND}</div>
     <p class="note">Map and profile share their colours: climbs by difficulty, dashed red for descents to brake on, a yellow glow on the key zones (the details are in Your plan). Triangles are aid stations, numbers are km. Hover the profile to see where you are on the map.</p>
     <div class="sub-h" id="b-list">Climbs and descents</div>
     <div class="tabs" role="tablist" aria-label="Segments">
@@ -887,7 +895,7 @@ function renderBriefing() {
     ${climbs ? rowsTable("t-route", ["Length", "Gain", "Steepest 100 m"], climbs) : empty(`No climb of ${Math.round(brief.minClimb)} m or more.`)}
     </div>
     <div ${state.btab === "d" ? "" : "hidden"}>
-    <p class="note" style="margin:-4px 0 12px">Brake: a 100 m stretch of 20% or more, or 12% on average. Control: 6% on average, or a 15% stretch. Let it run: everything else.</p>
+    <p class="note" style="margin:-4px 0 12px">▼▼▼ Brake: a 100 m stretch of 20% or more, or 12% on average. ▼▼ Control: 6% on average, or a 15% stretch. ▼ Let it run: everything else.</p>
     ${descents ? rowsTable("t-route", ["Length", "Loss", "Steepest 100 m"], descents) : empty("No descents over 10 m.")}
     </div>`;
   // Tabs: a click selects one tab and shows its list without redrawing the whole section.
@@ -904,7 +912,7 @@ function renderBriefing() {
 
   // The map: the route coloured like the profile. `...mapStyle(...)` spreads paint and marks into
   // the options object.
-  briefMap = courseMap($("#briefMap"), { route: state.race.route, totalKm: brief.totalKm, ...mapStyle(brief, aid, zones) });
+  briefMap = courseMap($("#briefMap"), { route: state.race.route, totalKm: brief.totalKm, ...mapStyle(brief, aid, zones, true) });
   // The profile, drawn for the whole course or for the zoom window. Hover (or touch) it for a cursor
   // there and a dot at the same km on the map; drag across it (like Strava) to zoom on that stretch.
   // drawProf is an arrow function kept in a variable so it can call itself again after a zoom.
@@ -1025,7 +1033,7 @@ function renderDday() {
       <div class="n">${x.n}</div>${cell("Km", kmRange(x))}${spark(plan.course.profile, x.startKm, x.endKm, x.avg)}${cell("Arrive", clock(st, x.start[sid]))}${cell("Time on it", `${Math.max(1, Math.round(x.dur[sid] / 60))} min`)}${cell("Pace", `${mmss(x.dur[sid] / (x.lenM / 1000))}/km`)}${cell("Tactic", esc(x.tactic), "w")}<div class="diff">${chip}</div>
     </div>`;
   const climbRows = plan.climbs.map((c) => raceRow(c, false, starChip(c.level)) + c.sections.map((x) => raceRow(x, true, starChip(x.level))).join("")).join("");
-  const descRows = plan.descents.map((d) => raceRow(d, false, `<span class="chip l${d.level}">${DESCENT_LABELS[d.level]}</span>`)).join("");
+  const descRows = plan.descents.map((d) => raceRow(d, false, descChip(d.level))).join("");
   const PLAN_COLS = ["Arrive", "Time on it", "Pace", { t: "Tactic", w: true }];
 
   // The plan-versus-actual times are saved per race name and distance, so two races do not mix.
@@ -1145,7 +1153,7 @@ function renderDday() {
     const z = i === null ? null : plan.keyZones[i];
     out.querySelectorAll(".prof-wrap rect.zone").forEach((rc) => rc.classList.toggle("on", !!z && +rc.dataset.z === z.n));
     const msg = $("#kzMsg");
-    if (msg) msg.innerHTML = z ? `${zoneList([z], (km) => `you get there at ${clock(st, secAtKm(plan, sid, km))}`)}<p class="note kz-note">${ZONE_NOTE}</p>` : "";
+    if (msg) msg.innerHTML = z ? `${zoneList([z])}<p class="note kz-note">${ZONE_NOTE}</p>` : "";
     if (ddayMap) { if (z) ddayMap.focus(z.fromKm, z.toKm); else { ddayMap.focus(null); ddayMap.fit(); } }
   };
   out.querySelectorAll(".kz-chip").forEach((b) => b.addEventListener("click", () => {

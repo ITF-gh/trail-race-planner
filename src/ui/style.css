@@ -1489,3 +1489,10 @@ svg .pcur,svg .psel{pointer-events:none}
 .a4x .chk{font-size:13.5px}
 .a4x-msg{color:var(--sun);font-size:13px}
 @media print{ .a4x{display:none!important} }
+/* Your race panel: D+ and km figures stacked and right-aligned next to the duration (the clock
+   of day line is gone, design review 2). */
+.rp-cockpit .rp-run{display:flex!important;flex-direction:column!important;align-items:flex-end;text-align:right;margin-left:auto}
+.rp-cockpit .rp-top{justify-content:space-between}
+/* Descent risk as ▼ icons: green Let it run, orange Control, red Brake. */
+.chip.st.dsc{font-size:11px;letter-spacing:.08em}
+.chip.st.dsc.d1{color:var(--e-bar)} .chip.st.dsc.d2{color:var(--h-bar)} .chip.st.dsc.d3{color:var(--c-bar)}
