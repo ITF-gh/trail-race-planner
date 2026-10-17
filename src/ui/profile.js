@@ -22,6 +22,7 @@
 
 import { PROFILE_DISTANCES, PROFILE_COUNTRIES, PROFILE_TAGS, PROFILE_LIMITS, flagEmoji, profileClean, profileBests } from "../core/profile.js";
 import { mmss, hms, parseDuration } from "../core/format.js";
+import { historySummary } from "../core/history.js";
 
 const PF_KEY = "trp.profile", PF_ATHLETE = "trp.athlete";
 // Escape text for HTML (& < > " become entities), so a typed name can never be read as HTML.
@@ -89,6 +90,15 @@ export function profileHtml(records, demo, fallbackName) {
       <td><input data-pf="best:${d.code}" inputmode="numeric" autocomplete="off" placeholder="${lb ? pfTime(lb.sec) : ph}" value="${g.best ? pfTime(g.best) : ""}">${from}</td>
       <td class="pf-gap">${gap}</td></tr>`;
   };
+  // The other all-time bests found in the runs (the menu's "Bests" link opens the window here):
+  // fastest 1 km, best climbing speed and longest run, each with its date. The 5K and 10K bests
+  // are already in the table above (the same values).
+  const B = historySummary(records || []).bests;
+  const bestRow = (label, b, f) => (b ? `<div class="acct-row"><span>${label}</span><b>${f(b.value, b.run)} <small>${pfDate(b.run.date)}${demo ? " (demo)" : ""}</small></b></div>` : "");
+  const more = bestRow("Fastest 1 km", B.best1k, (v) => mmss(v))
+    + bestRow("Best climbing speed", B.vam, (v) => `${Math.round(v).toLocaleString("en-US")} m/h`)
+    + bestRow("Longest run", B.longest, (v, r) => `${v.toFixed(1)} km · ${Math.round(r.gain).toLocaleString("en-US")} m`);
+  const moreBests = more ? `<div class="acct-bests pf-more" data-pf-sec="bests">${more}</div>` : "";
   const extraRow = (x, i) => `<div class="pf-extra"><input data-pf="xl:${i}" maxlength="${L.label}" placeholder="VO2max" value="${pfEsc(x.label)}"><input data-pf="xv:${i}" maxlength="${L.value}" placeholder="54" value="${pfEsc(x.value)}"><button type="button" class="acct-x pf-del" data-acct="pf:del:${i}" aria-label="Remove this line">×</button></div>`;
   return `<p class="acct-kicker">Account</p>
     <div class="pf-card">
@@ -108,6 +118,7 @@ export function profileHtml(records, demo, fallbackName) {
     <h4>Goals and bests</h4>
     <table class="pf-goals"><thead><tr><th></th><th>Goal</th><th>Best</th><th>To go</th></tr></thead><tbody>${PROFILE_DISTANCES.map(goalRow).join("")}</tbody></table>
     <p class="acct-note">Type a best to replace the one found in your runs. 5K and 10K read as mm:ss, longer ones as h:mm (or h:mm:ss everywhere).</p>
+    ${moreBests}
     <h4>Heart and body</h4>
     <div class="pf-grid three">
       <label>Max heart rate<span class="pf-u"><input type="number" data-pf="hrMax" min="120" max="230" step="1" placeholder="190" value="${a.hrMax || ""}"> bpm</span></label>

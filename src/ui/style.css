@@ -1137,7 +1137,16 @@ html[data-theme="sky"] .brand-desc{color:#fff;opacity:.92;border-color:rgba(255,
 .acct-row{font-size:13.5px;padding:2px 0}
 .acct-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .acct-medals.mini{gap:6px}
-.acct-medals.mini span{font-size:17px;line-height:1;padding:5px 7px;border-radius:10px}
+/* Achievements: reached = lit, gold edge and a warm tint; not yet = grey, faded, with a thin bar
+   of progress at the bottom. "pick" marks the one shown in the caption line under them. */
+.acct-medals.mini button{position:relative;overflow:hidden;font:inherit;font-size:19px;line-height:1;padding:6px 8px;border-radius:10px;border:1px solid var(--acct-line);background:none;cursor:pointer;color:inherit}
+.acct-medals.mini button.on{border-color:#ffc928;background:rgba(255,201,40,.14)}
+.acct-medals.mini button span{border:0;padding:0;border-radius:0;font-size:inherit}
+.acct-medals.mini button.lock span{filter:grayscale(1);opacity:.38}
+.acct-medals.mini button i{position:absolute;left:0;bottom:0;height:3px;background:#ffc928;opacity:.8}
+.acct-medals.mini button.pick{outline:2px solid currentColor;outline-offset:1px}
+.acct-medal-cap{margin:8px 0 0;font-size:13px;line-height:1.4;opacity:.85;min-height:2.8em}
+.acct-medal-cap span{color:#ffc928}
 .acct-cairns b{font-size:26px}
 .acct-cairns .btn svg,.acct-actions .btn svg{width:16px;height:16px;margin-right:6px;vertical-align:-2px}
 .acct-cairns .acct-note,.acct-menu .acct-note{margin-top:4px}
