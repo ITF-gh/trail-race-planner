@@ -215,16 +215,8 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
   <div id="prepAi"></div>
   <div id="prepCockpit"></div>
 
-  <div class="sub-h" id="prep-pimp">◆ Pimp my GPX · watch messages</div>
-  <div id="prepWatch">${watchPanelHtml(plan)}</div>
-
-  <div class="sub-h">Your pimped GPX</div>
-  <div class="actions">
-    <button class="btn primary" id="prepFit" type="button">Garmin course (.fit)</button>
-    <button class="btn" id="prepGpx" type="button">GPX with messages</button>
-    <span class="status" id="prepStat" aria-live="polite"></span>
-  </div>
-  <p class="note">Import the .fit in Garmin Connect (Courses, Import) or copy it to the watch's GARMIN/NewFiles folder, then follow the course: the watch shows each message as you reach it. The GPX works with other brands too.</p>`;
+  <div class="sub-h" id="prep-pimp">◆ Pimp my GPX</div>
+  <div id="prepWatch">${watchPanelHtml(plan, `<button class="btn primary sm" id="prepFit" type="button" title="Import it in Garmin Connect (Courses, Import) or copy it to the watch's GARMIN/NewFiles folder">Garmin .fit</button><button class="btn sm" id="prepGpx" type="button" title="For other brands of watch">.gpx</button><span class="status" id="prepStat" aria-live="polite"></span>`)}</div>`;
     // say(text): show a short status or error message next to the download buttons.
     const say = (t) => { $p("#prepStat").textContent = t; };
     mountWatch($p("#prepWatch"), { plan, sid, key, say });

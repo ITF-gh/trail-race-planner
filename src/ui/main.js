@@ -1186,16 +1186,7 @@ function renderPimp() {
   const sid = plan.scenarios[state.scenario] ? state.scenario : "central";
   box.innerHTML = `
   <p class="note" style="margin-top:0">Timed on your <b>${esc(plan.scenarios[sid].label.toLowerCase())}</b> scenario (change it in 03 Your plan).</p>
-  <div class="sub-h" id="d-watch">Watch messages</div>
-  <div id="dWatch">${watchPanelHtml(plan)}</div>
-
-  <div class="sub-h" id="d-pimp">Your pimped GPX</div>
-  <div class="actions">
-    <button class="btn primary" id="dlFit" type="button">Garmin course (.fit)</button>
-    <button class="btn" id="dlGpx" type="button">GPX with messages</button>
-    <span class="status" id="pimpStat" aria-live="polite"></span>
-  </div>
-  <p class="note">The course files carry this scenario's plan and your watch messages above: for example "HIKE 5.5k +726" (hike the next 5.5 km, 726 m up) or "!POWER HIKE 2.3k" at a key zone. Messages are at least 200 m and 1 minute apart. Import the .fit in Garmin Connect (Courses, Import) or copy it to the watch's GARMIN/NewFiles folder, then follow the course. The GPX works with other brands too.</p>`;
+  <div id="dWatch">${watchPanelHtml(plan, `<button class="btn primary sm" id="dlFit" type="button" title="Import it in Garmin Connect (Courses, Import) or copy it to the watch's GARMIN/NewFiles folder">Garmin .fit</button><button class="btn sm" id="dlGpx" type="button" title="For other brands of watch">.gpx</button><span class="status" id="pimpStat" aria-live="polite"></span>`)}</div>`;
   const say = (t) => { $("#pimpStat").textContent = t; };
   mountWatch($("#dWatch"), { plan, sid, key: watchKey(plan, sid), say });
   $("#dlFit").addEventListener("click", () => exportCourse("fit", plan, sid, say));
