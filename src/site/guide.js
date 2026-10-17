@@ -25,7 +25,7 @@ export const GUIDE = [
       { id: "plan", sec: "s3", num: "03", name: "Plan", shot: "plan",
         what: "What the planner computes from your engine and the route settings: finish time, clock time at every checkpoint, the pace strategy for each climb and descent, when to eat.",
         how: ["The settings are in Route: change one there and the plan redraws here.", "Pick a scenario (best, average, cautious) and read the checkpoint table, the gels and the heart-rate guide."],
-        tip: "Plan on the average scenario, keep the best one for a great day. The model is usually within 5 to 10%." },
+        tip: "Plan on the balanced scenario, keep the best one for a great day. The model is usually within 5 to 10%." },
       { id: "rehearsal", sec: "s4", num: "04", name: "Rehearsal", shot: "rehearsal",
         what: "Live the race before you run it: press play and follow yourself along the course at your predicted pace, with what to do on every section.",
         how: ["Press play; change the speed, or tap the section bar to jump to a section.", "Tap the profile for a section's length and climb; the map follows the runner.", "Watch the panel: target pace, gradient and time for the section you are in."],

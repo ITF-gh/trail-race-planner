@@ -2,6 +2,14 @@
 // technical detail). The first entry is the current version: the footer shows it on every page.
 
 export const CHANGELOG = [
+  { v: "2.3", date: "2026-10-17", items: [
+    "Design review, part 1. A shorter line next to the logo (Prep & go) and new, livelier intro texts in the three modes.",
+    "Your engine: key figures about how you move (flat pace, cadence, pace on gentle and steep climbs, best climb rate); the Your runs block is gone (each run and its weight shows under the drop box); the pace chart is lower and its values easier to read.",
+    "Your route: Start time replaces Crux in the key figures, jump links without boxes, and climbs and descents tables with one header row, a new column order and a small elevation line on each row (also in Climb by climb).",
+    "Scenarios are now Best, Balanced and Cautious. The Ask the AI edelweiss sits next to them, and the same edelweiss button replaces the Ask the AI text links.",
+    "Your race: the section box shows its % done and the % of the race on top; under the clock, D+ done comes first, then km and the time of day.",
+    "Watch messages: Keep all, Keep none and a count of the messages kept.",
+  ] },
   { v: "2.2", date: "2026-10-16", items: [
     "Every replay now shows the pace line on its profile, like Rewind my run: Your race (calculated or AI) and Prep my run (with or without the AI coach). Faster is higher, the section you are on is lit, and the dot gives the pace at the runner.",
   ] },

@@ -55,6 +55,7 @@ export function pimpBadge(href, sub = "Put this plan on your watch →") {
 export function watchPanelHtml(plan) {
   return `<div class="panel wm">
     <p class="note" style="margin-top:0">What your watch will show along the course: one message each time the strategy changes, one at every key zone (marked "!"). Check them, rewrite any (${POINT_NAME_MAX} characters, the watch cuts the rest), move any to another km (it stays at least 200 m and 1 minute after the one before), untick the ones you do not want, add your own. Your version goes into the course files and is saved in this browser.</p>
+    <div class="wm-tools"><span class="wm-count" aria-live="polite"></span><button class="btn ghost sm" type="button" data-keep-all="1">Keep all</button><button class="btn ghost sm" type="button" data-keep-all="0">Keep none</button></div>
     <div class="wm-row wm-head"><span>Km</span><span>Arrive</span><span>Message on the watch</span><span>Keep</span></div>
     <div class="wm-rows"></div>
     <div class="wm-add">
@@ -94,6 +95,8 @@ export function mountWatch(root, { plan, sid, key, say = () => {} }) {
       <span class="wm-msg"><input type="text" maxlength="${POINT_NAME_MAX}" value="${wmEsc(p.name)}" aria-label="Message at km ${p.km.toFixed(1)}" title="${wmEsc(p.text)}"><small class="wm-n">${p.name.length}/${POINT_NAME_MAX}</small></span>
       <span class="wm-keep">${p.added ? `<button class="btn ghost sm" type="button" data-del="1" aria-label="Remove">✕</button>` : `<input type="checkbox" ${on.has(p.id) ? "checked" : ""} aria-label="Keep this message">`}</span>
     </div>`).join("");
+    // How many messages go to the watch, out of all those listed.
+    q(".wm-count").innerHTML = `<b>${all.filter((p) => on.has(p.id)).length}</b> of ${all.length} messages kept`;
     // Wire each row. `id` is kept by each listener (a closure), so it knows which row it serves.
     box.querySelectorAll(".wm-row").forEach((row) => {
       const id = row.dataset.id;
@@ -148,6 +151,15 @@ export function mountWatch(root, { plan, sid, key, say = () => {} }) {
     q(".wm-addkm").value = ""; q(".wm-addname").value = "";
     draw();
   });
+  // Keep all / Keep none: tick or untick every planner message at once (your own messages are
+  // always kept; remove them with their ✕). `off` maps each message id to true when unticked.
+  root.querySelectorAll("[data-keep-all]").forEach((b) => b.addEventListener("click", () => {
+    const keep = b.dataset.keepAll === "1";
+    const e = wmGet(key);
+    const ids = editedPoints(plan, sid, { names: e.names, kms: e.kms }).map((p) => p.id);
+    e.off = keep ? {} : Object.fromEntries(ids.map((id) => [id, true]));
+    wmSet(key, e); trackEvent("watch-msg", keep ? "keep-all" : "keep-none"); draw();
+  }));
   // Reset: store an empty edit set, so the planner's messages come back as they were.
   q(".wm-reset").addEventListener("click", () => { wmSet(key, {}); trackEvent("watch-msg", "reset"); draw(); });
   draw();

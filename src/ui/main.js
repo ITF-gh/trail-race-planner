@@ -184,9 +184,9 @@ $("#app").innerHTML = `
     ${prepHeroHtml(PEAK)}
     <div class="hero-row review-only">
       <div>
-        <div class="brand">${PEAK}Prep my race <span class="brand-desc">Trail race &amp; run planner</span></div>
+        <div class="brand">${PEAK}Prep my race <span class="brand-desc">Prep &amp; go</span></div>
         <h1 style="margin-top:14px">Relive the run.<br><em>Learn from it.</em></h1>
-        <p class="lead">Drop the GPX of a run you just did. It plays back on the map at your real pace, and the planner finds the key moments: where you were strong, where it cost you, where you stopped, when you faded. Your file never leaves this page.</p>
+        <p class="lead">Drop the run you just did and watch it again at your real pace. See where you flew, where it cost you and what to change next time. Your file never leaves this page.</p>
       </div>
       <button class="btn primary" type="button" data-run-sample>Try a sample run</button>
     </div>
@@ -200,9 +200,9 @@ $("#app").innerHTML = `
     </div>
     <div class="hero-row plan-only">
       <div>
-        <div class="brand">${PEAK}Prep my race <span class="brand-desc">Trail race &amp; run planner</span></div>
+        <div class="brand">${PEAK}Prep my race <span class="brand-desc">Prep &amp; go</span></div>
         <h1 style="margin-top:14px">Know the course.<br><em>Own the day.</em></h1>
-        <p class="lead">Drop one or more of your own runs and the race GPX. The planner learns how you move on every gradient, reads every climb of the course, and builds your race-day plan: pace, hikes, gels, checkpoints. Your files never leave this page.</p>
+        <p class="lead">Drop a few of your runs and the race GPX: you get a race-day plan built on how you really move, with pace, hikes, gels and aid stations. Rehearse it, put it on your watch, and start the day already knowing it. Your files never leave this page.</p>
       </div>
       <button class="btn primary" id="demo" type="button">Try the demo</button>
     </div>
@@ -242,7 +242,7 @@ $("#app").innerHTML = `
 </section>
 
 <section id="s2" class="plan-only">
-  ${head("02", "What the mountain asks, climb by climb", "Your route")}
+  ${head("02", "What the route asks, section by section", "Your route")}
   <p class="sec-intro">The course and your race-day settings: start time, terrain, gels and aid stations, then where the climbs and descents are, how hard each one is, and where the long climbs change character.</p>
   <div class="panel">
     <div class="fields">
@@ -549,6 +549,24 @@ const cell = (k, v, cls = "") => `<div class="c ${cls}"><span class="k">${k}</sp
 const len = (m) => (m >= 1000 ? `${(m / 1000).toFixed(2)} km` : `${Math.round(m)} m`);
 const kmRange = (x) => `${x.startKm.toFixed(1)} → ${x.endKm.toFixed(1)}`;
 const empty = (html) => `<div class="empty">${html}</div>`;
+/**
+ * The climbs and descents tables: one header row on top (the labels are not repeated in every
+ * row), then the rows. cols: the column titles after the number and the mini profile; cls: the
+ * table's kind ("t-route" or "t-plan"), which sets its column widths in style.css.
+ */
+const rowsTable = (cls, cols, body) => `<div class="rows tbl ${cls}" role="table"><div class="row rh" role="row"><div class="n">#</div><div class="sp" aria-hidden="true"></div>${cols.map((c) => `<div class="c${c.w ? " w" : ""}">${c.t || c}</div>`).join("")}<div class="diff"></div></div>${body}</div>`;
+/**
+ * spark(P, a, b): a small elevation line of the course from km a to km b, as an SVG (80 x 22),
+ * scaled to that stretch's own lowest and highest point (at least 30 m of range, so a gentle
+ * stretch looks gentle). 28 points along the stretch, read with elevAt from the profile.
+ */
+function spark(P, a, b) {
+  const n = 28, pts = [];
+  for (let i = 0; i <= n; i++) pts.push(elevAt(P, a + ((b - a) * i) / n));
+  const lo = Math.min(...pts), hi = Math.max(...pts), mid = (lo + hi) / 2, half = Math.max(15, (hi - lo) / 2);
+  const d = pts.map((e, i) => `${i ? "L" : "M"}${((i / n) * 78 + 1).toFixed(1)},${(11 - ((e - mid) / half) * 9).toFixed(1)}`).join("");
+  return `<div class="sp" aria-hidden="true"><svg viewBox="0 0 80 22"><path d="${d}"/></svg></div>`;
+}
 
 /**
  * Altitude (m) at a given km along the course, by linear interpolation in the profile.
@@ -685,8 +703,8 @@ const LEGEND = `<div class="legend" style="margin-top:10px"><span class="chip l1
 /* ---------- 01 your engine ---------- */
 /**
  * Section 01 Engine: what your own runs say about you. Reads state.effort.info from
- * core/effort.js and writes into #s1body: key figure tiles, the list of runs with their weights
- * (when there are several) and a bar chart of your pace on each gradient band, fresh and tired.
+ * core/effort.js and writes into #s1body: key figure tiles (how you move: flat pace, cadence,
+ * climbing paces, climb rate) and a bar chart of your pace on each gradient band, fresh and tired.
  */
 function renderEngine() {
   const box = $("#s1body");
@@ -697,15 +715,17 @@ function renderEngine() {
   // a real climb rate (over 50 m/h) that were measured rather than estimated. sort() puts the
   // highest first, [0] takes it (undefined if none qualify).
   const steep = bands.filter((b) => b.vam && b.vam > 50 && b.source !== "estimated").sort((a, b) => b.vam - a.vam)[0];
-  const many = e.runs.length > 1;
-  // With several runs, show the totals of all runs; reduce() adds up one field over the array.
-  const sumDur = many ? e.runs.reduce((a, r) => a + r.durationSec, 0) : e.durationSec;
-  const sumKm = many ? e.runs.reduce((a, r) => a + r.distKm, 0) : e.distKm;
+  // The key figures are about how you move, not about the run itself (its length and duration
+  // say nothing without context): flat pace, cadence, a gentle and a steep climb, best climb rate.
+  // band(id): one gradient band of BANDS (core/terrain.js); fadeTxt: how much slower tired is.
+  const band = (id) => bands.find((b) => b.id === id);
+  const fadeTxt = (b) => `tired ${mmss(b.tired)} · +${((b.tired / b.fresh - 1) * 100).toFixed(0)}%`;
+  const gentle = band("u1"), steepB = band("u4");
   const tiles = [
-    tile("Duration", hm(sumDur), many ? `${e.runs.length} runs together` : ""),
-    tile("Distance", `${sumKm.toFixed(1)}<small>km</small>`, many ? `weighted, half-life ${state.settings.halfLifeDays} days` : ""),
-    tile("Flat pace", `${mmss(e.flatPace)}<small>/km</small>`, "on the flat"),
+    tile("Flat pace", `${mmss(e.flatPace)}<small>/km</small>`, e.runs.length > 1 ? `${e.runs.length} runs, weighted` : "on the flat"),
     tile("Cadence", e.flatCad ? `${Math.round(e.flatCad)}<small>spm</small>` : "–", e.cadenceWasPerFoot ? "doubled from per-foot" : "on the flat"),
+    tile("Pace +2 to +6%", `${mmss(gentle.fresh)}<small>/km</small>`, fadeTxt(gentle)),
+    tile("Pace +15 to +22%", `${mmss(steepB.fresh)}<small>/km</small>`, fadeTxt(steepB)),
     tile("Best climb rate", steep ? `${Math.round(steep.vam)}<small>m/h</small>` : "–", steep ? steep.label : "not enough climbing"),
   ].join("");
   // Bars are drawn as a share of the slowest pace on the page, so the longest bar fills the row.
@@ -716,16 +736,15 @@ function renderEngine() {
     return `<div class="pace ${b.source === "estimated" ? "est" : ""}">
       <div class="lab">${esc(b.label)}<small>${b.source}${b.hr ? ` · HR ${Math.round(b.hr)}` : ""}</small></div>
       <div class="bars"><i class="fr" style="width:${((b.fresh / maxPace) * 100).toFixed(1)}%"></i><i class="ti" style="width:${((b.tired / maxPace) * 100).toFixed(1)}%"></i></div>
-      <div class="num"><b>${mmss(b.fresh)}</b> → ${mmss(b.tired)} <span style="color:var(--muted)">+${fade.toFixed(0)}%</span></div>
+      <div class="num"><b class="pf">${mmss(b.fresh)}</b><span class="pt">${mmss(b.tired)}</span><span class="pfade${fade >= 15 ? " hi" : ""}">+${fade.toFixed(0)}%</span></div>
     </div>`;
   }).join("");
-  // The runs panel (with weights) only appears when there are several runs.
+  // Your runs and their weights show under the drop box at the top (setRuns), not here.
   box.innerHTML = `
     <div class="tiles">${tiles}</div>
-    ${e.runs.length > 1 ? `<div class="sub-h">Your runs</div><div class="panel compact"><div class="paces">${e.runs.map((r, i) => `<div class="pace"><div class="lab">${esc(state.effort.runs[i].name)}<small>${r.date} · ${r.distKm.toFixed(1)} km · ${hm(r.durationSec)}</small></div><div class="bars"><i class="fr" style="width:${(r.weight * 100).toFixed(1)}%"></i></div><div class="num"><b>${Math.round(r.weight * 100)}%</b> weight</div></div>`).join("")}</div><p class="note">Each run counts with a weight that halves every ${state.settings.halfLifeDays} days of age, measured from your most recent run (an exponential decay, like a half-life). The paces below are the weighted average.</p></div>` : ""}
     <div class="sub-h">Pace by gradient</div>
     <div class="panel compact">
-      <div class="keyline"><span><i style="background:var(--accent)"></i>Fresh (first half of your run)</span><span><i style="background:color-mix(in srgb,var(--fg) 35%,transparent)"></i>Tired (second half)</span><span>Longer bar = slower. Pace in min/km.</span></div>
+      <div class="keyline"><span><i style="background:var(--accent)"></i>Fresh (first half of your run)</span><span><i style="background:color-mix(in srgb,var(--fg) 35%,transparent)"></i>Tired (second half)</span><span>Longer bar = slower. On the right: fresh pace, tired pace, how much you fade. Pace in min/km.</span></div>
       <div class="paces">${rows}</div>
       <p class="note">"Estimated" bands had under a minute of data in your run, so they use typical ratios to your flat pace.</p>
     </div>`;
@@ -789,25 +808,22 @@ function renderBriefing() {
   // briefCourse (core/plan.js) lists the climbs and descents with their difficulty level.
   const brief = briefCourse(state.race.course, state.settings);
   const P = state.race.profile;
-  // The crux is the hardest piece by difficulty score, counting the sections of split climbs.
-  // flatMap turns [[climb, sec, sec], [climb], ...] into one flat list; reduce keeps the max score.
-  const all = brief.climbs.flatMap((c) => [c, ...c.sections]);
-  const crux = all.reduce((a, c) => (c.score > (a ? a.score : -1) ? c : a), null);
   const top = Math.max(...P.map((p) => p[1]));
   const tiles = [
     tile("Distance", `${brief.totalKm.toFixed(1)}<small>km</small>`),
     tile("Elevation gain", `${Math.round(brief.gain)}<small>m D+</small>`, `${Math.round(brief.loss)} m D−`),
     tile("Climbs", `${brief.climbs.length}`, `${brief.descents.length} descents`),
     tile("High point", `${Math.round(top)}<small>m</small>`),
-    crux ? tile("Crux", `#${crux.n}`, `km ${crux.startKm.toFixed(1)} · ${Math.round(crux.gain)} m at ${crux.avg.toFixed(1)}%`) : "",
+    tile("Start time", esc(state.settings.startTime || PLAN_DEFAULTS.startTime), "set it below"),
   ].join("");
   // One table row for a climb (or, with sec = true, one of its sections, styled as indented).
+  // Columns in reading order: where, how long, how steep, how much, the steepest bit.
   const climbRow = (c, sec) => `<div class="row v${c.level} ${sec ? "sec" : ""}">
-      <div class="n">${c.n}</div>${cell("Km", kmRange(c))}${cell("Length", len(c.lenM))}${cell("Gain", `${Math.round(c.gain)} m`)}${cell("Average", `${c.avg.toFixed(1)}%`)}${cell("Steepest 100 m", `${Math.round(c.steep)}%`)}${diffCell(c)}
+      <div class="n">${c.n}</div>${spark(P, c.startKm, c.endKm)}${cell("Km", kmRange(c))}${cell("Length", len(c.lenM))}${cell("Average", `${c.avg.toFixed(1)}%`)}${cell("Gain", `${Math.round(c.gain)} m`)}${cell("Steepest 100 m", `${Math.round(c.steep)}%`)}${diffCell(c)}
     </div>`;
   const climbs = brief.climbs.map((c) => climbRow(c) + c.sections.map((x) => climbRow(x, true)).join("")).join("");
   const descents = brief.descents.map((d) => `<div class="row v${d.level}">
-      <div class="n">${d.n}</div>${cell("Km", kmRange(d))}${cell("Length", len(d.lenM))}${cell("Loss", `${Math.round(d.loss)} m`)}${cell("Average", `${Math.abs(d.avg).toFixed(1)}%`)}${cell("Steepest 100 m", `${Math.abs(Math.round(d.steep))}%`)}<div class="diff"><span class="chip l${d.level}">${DESCENT_LABELS[d.level]}</span></div>
+      <div class="n">${d.n}</div>${spark(P, d.startKm, d.endKm)}${cell("Km", kmRange(d))}${cell("Length", len(d.lenM))}${cell("Average", `${Math.abs(d.avg).toFixed(1)}%`)}${cell("Loss", `${Math.round(d.loss)} m`)}${cell("Steepest 100 m", `${Math.abs(Math.round(d.steep))}%`)}<div class="diff"><span class="chip l${d.level}">${DESCENT_LABELS[d.level]}</span></div>
     </div>`).join("");
   const aid = parseAidStations(state.settings.aidStations).filter((a) => a.km <= brief.totalKm);
   // With a plan, the zones use your predicted times; before that, a typical runner's (Tobler's hiking function).
@@ -833,11 +849,11 @@ function renderBriefing() {
     </div>
     <div ${state.btab === "c" ? "" : "hidden"}>
     <p class="note" style="margin:-4px 0 12px">Difficulty = gain × steepness (average ÷ 8%, between 0.5 and 2) × fatigue (1.00 early, 1.15 mid-race, 1.35 late). Climbs of ${(state.settings.splitClimbM / 1000).toFixed(0)} km or more with ${state.settings.splitClimbMinGain} m of gain are split into sections of at least ${(state.settings.sectionMinM / 1000).toFixed(1)} km, each rated on its own.</p>
-    <div class="rows">${climbs || empty("No climbs over 10 m.")}</div>
+    ${climbs ? rowsTable("t-route", ["Km", "Length", "Average", "Gain", "Steepest 100 m"], climbs) : empty("No climbs over 10 m.")}
     </div>
     <div ${state.btab === "d" ? "" : "hidden"}>
     <p class="note" style="margin:-4px 0 12px">Brake: a 100 m stretch of 20% or more, or 12% on average. Control: 6% on average, or a 15% stretch. Let it run: everything else.</p>
-    <div class="rows">${descents || empty("No descents over 10 m.")}</div>
+    ${descents ? rowsTable("t-route", ["Km", "Length", "Average", "Loss", "Steepest 100 m"], descents) : empty("No descents over 10 m.")}
     </div>`;
   // Tabs: a click selects one tab and shows its list without redrawing the whole section.
   // ".tabs ~ div" selects the divs that come after the tab bar at the same level: the two lists.
@@ -953,10 +969,11 @@ function renderDday() {
   // One table row for a climb, section or descent: arrival clock time, time on it (at least
   // 1 min), average pace in min/km (duration in s / length in km) and the tactic.
   const raceRow = (x, sec, chip) => `<div class="row v${x.level} ${sec ? "sec" : ""}">
-      <div class="n">${x.n}</div>${cell("Km", kmRange(x))}${cell("Arrive", clock(st, x.start[sid]))}${cell("Time on it", `${Math.max(1, Math.round(x.dur[sid] / 60))} min`)}${cell("Pace", `${mmss(x.dur[sid] / (x.lenM / 1000))}/km`)}${cell("Tactic", esc(x.tactic), "w")}<div class="diff">${chip}</div>
+      <div class="n">${x.n}</div>${spark(plan.course.profile, x.startKm, x.endKm)}${cell("Km", kmRange(x))}${cell("Arrive", clock(st, x.start[sid]))}${cell("Time on it", `${Math.max(1, Math.round(x.dur[sid] / 60))} min`)}${cell("Pace", `${mmss(x.dur[sid] / (x.lenM / 1000))}/km`)}${cell("Tactic", esc(x.tactic), "w")}<div class="diff">${chip}</div>
     </div>`;
   const climbRows = plan.climbs.map((c) => raceRow(c, false, `<span class="chip l${c.level}">${LEVELS[c.level]}</span>`) + c.sections.map((x) => raceRow(x, true, `<span class="chip l${x.level}">${LEVELS[x.level]}</span>`)).join("")).join("");
   const descRows = plan.descents.map((d) => raceRow(d, false, `<span class="chip l${d.level}">${DESCENT_LABELS[d.level]}</span>`)).join("");
+  const PLAN_COLS = ["Km", "Arrive", "Time on it", "Pace", { t: "Tactic", w: true }];
 
   // The plan-versus-actual times are saved per race name and distance, so two races do not mix.
   const logKey = `trp.log.${(state.race && state.race.name) || "race"}.${plan.course.totalKm.toFixed(1)}`;
@@ -981,8 +998,8 @@ function renderDday() {
     return `<div class="panel target-card t-${tone}" id="d-target">
       <div class="tg-h"><span class="k">Targeted duration</span><b>${hm(target.targetSec)}</b><span class="chip tg-chip">${title}</span></div>
       <p>${why}</p>
-      <ul class="kv"><li><span>Versus your average scenario (${hm(plan.scenarios.central.finishSec)})</span><b>${Math.abs(pct) < 0.5 ? "the same" : `${Math.abs(pct).toFixed(1)}% ${pct > 0 ? "faster" : "slower"}`}</b></li>
-      <li><span>Average pace it needs, stops included</span><b>${mmss(target.paceSec)}/km <small>average ${mmss(target.centralPaceSec)}/km</small></b></li>
+      <ul class="kv"><li><span>Versus your balanced scenario (${hm(plan.scenarios.central.finishSec)})</span><b>${Math.abs(pct) < 0.5 ? "the same" : `${Math.abs(pct).toFixed(1)}% ${pct > 0 ? "faster" : "slower"}`}</b></li>
+      <li><span>Average pace it needs, stops included</span><b>${mmss(target.paceSec)}/km <small>balanced ${mmss(target.centralPaceSec)}/km</small></b></li>
       <li><span>Scenario range</span><b>${hm(plan.scenarios.best.finishSec)} to ${hm(plan.scenarios.cautious.finishSec)}</b></li></ul>
     </div>`;
   })() : state.settings.targetTime ? `<div class="panel target-card t-warn" id="d-target"><p>Write the targeted duration as hours:minutes, for example 10:15.</p></div>` : "";
@@ -993,10 +1010,10 @@ function renderDday() {
   <div class="dday-top has-pimp">
     ${tile(`Estimated duration · ${sc.label.toLowerCase()}`, hm(sc.finishSec), `finish at ${clock(st, sc.finishSec)} · start ${clock(st, 0)}`, "big")}
     <div class="panel" style="display:flex;flex-direction:column;gap:12px;justify-content:center">
-      <div class="seg" role="group" aria-label="Scenario" id="scen">${seg}</div>
+      <div class="scen-row"><div class="seg" role="group" aria-label="Scenario" id="scen">${seg}</div>${acctAiBadge("race")}</div>
       <p class="note" style="margin:0">Race pace is ${((sc.factor - 1) * 100).toFixed(0)}% slower than your run on the same gradients: terrain factor plus the fade for a longer effort. Every clock time on this page follows the scenario you pick.</p>
     </div>
-    <div class="side-stack">${pimpBadge("#s-pimp")}${acctAiBadge("race")}</div>
+    <div class="side-stack">${pimpBadge("#s-pimp")}</div>
   </div>
   ${targetHtml}
   <div class="prof-wrap">${profileView(plan.course.profile, brief, { ...sc, startSec: st, aid: aidMarks }, plan.keyZones).html}
@@ -1024,8 +1041,8 @@ function renderDday() {
     <button type="button" role="tab" data-t="c" aria-selected="${state.tab === "c"}">Climbs</button>
     <button type="button" role="tab" data-t="d" aria-selected="${state.tab === "d"}">Descents</button>
   </div>
-  <div class="rows" ${state.tab === "c" ? "" : "hidden"}>${climbRows}</div>
-  <div class="rows" ${state.tab === "d" ? "" : "hidden"}>${descRows}</div>
+  <div ${state.tab === "c" ? "" : "hidden"}>${rowsTable("t-plan", PLAN_COLS, climbRows)}</div>
+  <div ${state.tab === "d" ? "" : "hidden"}>${rowsTable("t-plan", PLAN_COLS, descRows)}</div>
   </details>
 
   <details class="fold" id="d-log"><summary class="sub-h">Plan versus actual <small>extra</small></summary>

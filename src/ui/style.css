@@ -154,16 +154,22 @@ button,.btn{font:inherit;cursor:pointer}
 .row.sec .c b{font-weight:500}
 
 /* pace by gradient (section 01) */
-.paces{display:flex;flex-direction:column;gap:10px}
-.pace{display:grid;grid-template-columns:minmax(120px,170px) 1fr minmax(120px,auto);gap:6px 16px;align-items:center}
+.paces{display:flex;flex-direction:column;gap:7px}
+.pace{display:grid;grid-template-columns:minmax(120px,170px) 1fr minmax(170px,auto);gap:4px 16px;align-items:center}
 .pace .lab{font-weight:600;font-size:14px}
 .pace .lab small{display:block;font-weight:500;color:var(--muted);font-size:12px}
 .pace .bars{display:flex;flex-direction:column;gap:3px}
-.pace .bars i{display:block;height:9px;border-radius:5px}
+.pace .bars i{display:block;height:8px;border-radius:5px}
 .pace .bars .fr{background:var(--accent)}
 .pace .bars .ti{background:color-mix(in srgb,var(--fg) 35%,transparent)}
-.pace .num{font-variant-numeric:tabular-nums;font-size:14px;text-align:right}
-.pace .num b{font-family:var(--f-display);font-size:18px;font-weight:700}
+.pace .lab{line-height:1.2}
+/* The values are the main information of the chart: fresh pace big and red like its bar, tired
+   pace in plain white, the fade as a small tag (orange from +15%). */
+.pace .num{display:flex;align-items:baseline;justify-content:flex-end;gap:10px;font-variant-numeric:tabular-nums;text-align:right}
+.pace .num .pf{font-family:var(--f-display);font-size:22px;font-weight:800;font-style:italic;color:var(--accent);min-width:3.2ch}
+.pace .num .pt{font-family:var(--f-display);font-size:17px;font-weight:700;color:var(--fg);min-width:3.2ch}
+.pace .num .pfade{font-size:12px;font-weight:700;padding:1px 7px;border-radius:999px;background:color-mix(in srgb,var(--fg) 12%,transparent);color:var(--fg);min-width:4.2ch;text-align:center}
+.pace .num .pfade.hi{background:color-mix(in srgb,var(--h-bar) 30%,transparent);color:var(--h-bar)}
 .pace.est .lab,.pace.est .num{opacity:.6}
 .keyline{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin-bottom:12px}
 .keyline i{display:inline-block;width:18px;height:8px;border-radius:4px;margin-right:6px;vertical-align:middle}
@@ -275,10 +281,14 @@ details.adv summary{cursor:pointer;font-family:var(--f-display);font-weight:700;
 }
 
 /* in-section jump links */
-.jumps{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 18px}
-.jumps a{padding:6px 14px;border-radius:999px;border:1px solid var(--line);color:var(--fg);text-decoration:none;font-size:13.5px;font-weight:600;background:var(--surface)}
-.jumps a:hover{border-color:var(--sun)}
-.jumps a.go{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+/* No boxes: plain links signed with the small red flag of the section sub-titles, in the same
+   italic display type, so they read as part of the page rather than as buttons. */
+.jumps{display:flex;flex-wrap:wrap;gap:6px 22px;margin:0 0 18px}
+.jumps a{display:inline-flex;align-items:center;gap:8px;padding:4px 0;color:var(--fg);text-decoration:none;font-family:var(--f-display);font-weight:700;font-style:italic;text-transform:uppercase;letter-spacing:.08em;font-size:13.5px;background:none;border:0}
+.jumps a::before{content:"";width:14px;height:4px;background:var(--accent);transform:skewX(-30deg);flex:none}
+.jumps a:hover{color:var(--sun)}
+.jumps a.go{color:var(--sun)}
+.jumps a.go::before{background:var(--sun)}
 
 /* ---------- maps ---------- */
 .map{position:relative;isolation:isolate;border-radius:var(--r);overflow:hidden;border:1px solid var(--line);background:var(--pine-2)}
@@ -737,7 +747,7 @@ details.fold>summary small{font-size:11px;color:var(--muted);font-style:normal;t
 .sec-head.folded{min-height:0;padding-top:12px;padding-bottom:12px}
 .sec-head.folded::before{content:"▸ show";position:absolute;right:16px;top:12px;z-index:2;font:600 12px var(--f-body);color:#fff;opacity:.8}
 .fold-hid{display:none !important}
-.jumps{margin:0 0 15px;gap:7px}
+.jumps{margin:0 0 15px}
 .panel{padding:15px}
 .prof-wrap{padding:12px 12px 9px}
 .grid{gap:12px}
@@ -1298,3 +1308,60 @@ html[data-theme="sky"] .tn-links a.tn-star{color:transparent;filter:drop-shadow(
 /* Account menu > AI docs: each doc is a row button (date · race, then verdict · AI finish). */
 .acct-doc{width:100%;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer;border-radius:6px}
 .acct-doc:hover{background:rgba(185,140,255,.12)} .acct-doc b{color:#b98cff}
+
+/* ---------- climbs and descents tables (v2.3): one header row, compact rows, a mini profile ----------
+   .rows.tbl is a CSS grid table: every row uses the same column template, so the columns line up
+   and the labels sit once in the header row (.rh) instead of in every row. The per-cell labels
+   (.c .k) stay in the HTML for screen readers but are hidden. .sp holds the small elevation line,
+   drawn in the row's difficulty colour (currentColor). */
+.rows.tbl .row{display:grid;align-items:center;gap:0 12px;padding:3px 10px;flex-wrap:nowrap}
+.rows.tbl.t-route .row{grid-template-columns:34px 80px minmax(92px,1.2fr) repeat(4,minmax(54px,.8fr)) minmax(96px,auto)}
+.rows.tbl.t-plan .row{grid-template-columns:34px 80px minmax(92px,1fr) repeat(3,minmax(54px,.7fr)) minmax(150px,2.6fr) minmax(96px,auto)}
+.rows.tbl .row .c,.rows.tbl .row .c.w,.rows.tbl .row .diff{flex:none;min-width:0}
+.rows.tbl .row .c .k{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.rows.tbl .row .c b{font-size:13.5px;white-space:nowrap}
+.rows.tbl.t-plan .row .c.w b{white-space:normal;font-weight:500;font-size:13px;line-height:1.3}
+.rows.tbl .row .n{font-size:17px;min-width:0}
+.rows.tbl .row.sec{margin-left:0;background:rgba(255,255,255,.025)}
+.rows.tbl .row.sec .n{font-size:14px;padding-left:10px;opacity:.85}
+.rows.tbl .row .diff .chip{font-size:10.5px;padding:2px 8px 2px 7px}
+.rows.tbl .rh{border-left-color:transparent;padding-block:4px;background:none}
+.rows.tbl .rh:hover{background:none}
+.rows.tbl .rh>div{font-family:var(--f-display);font-weight:700;text-transform:uppercase;letter-spacing:.1em;font-size:10.5px;color:var(--muted);font-style:normal}
+.rows.tbl .sp svg{display:block;width:80px;height:22px}
+.rows.tbl .sp path{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke}
+.rows.tbl .row.v1 .sp{color:var(--e-bar)} .rows.tbl .row.v2 .sp{color:var(--m-bar)} .rows.tbl .row.v3 .sp{color:var(--h-bar)} .rows.tbl .row.v4 .sp{color:var(--c-bar)}
+@media (max-width:760px){
+  .rows.tbl .row{gap:0 9px;padding:3px 4px}
+  .rows.tbl.t-route .row{grid-template-columns:26px minmax(64px,1.2fr) repeat(4,minmax(34px,.8fr)) auto}
+  .rows.tbl.t-plan .row{grid-template-columns:26px minmax(64px,1.2fr) repeat(3,minmax(38px,.8fr)) auto}
+  .rows.tbl .sp{display:none}
+  .rows.tbl.t-plan .row .c.w{grid-column:2 / -1;grid-row:2;padding-bottom:3px}
+  .rows.tbl.t-plan .rh .c.w{display:none}
+  .rows.tbl .row .c b{font-size:11.5px}
+  .rows.tbl .rh>div{font-size:9px;letter-spacing:.04em}
+  .rows.tbl .row .diff .chip{font-size:8.5px;padding:1px 5px;letter-spacing:.04em}
+}
+/* Your plan: the Ask the AI edelweiss sits right next to the Best / Balanced / Cautious switch. */
+.scen-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.scen-row .seg{flex:1 1 auto}
+.ar-note .ar-ask{margin-left:8px;vertical-align:middle}
+/* Your race panel: where you are, always on top of the section box (section % done, course %),
+   and a stronger key-figure list under the clock (D+ done first, then km, then the clock). */
+.rp-leg-pct{order:3;margin-left:auto;display:flex;align-items:baseline;gap:4px;white-space:nowrap;font-family:var(--f-display);font-style:italic;flex:none}
+.rp-leg-pct b{font-size:26px;font-weight:800;line-height:.9;color:var(--sun);font-variant-numeric:tabular-nums}
+.rp-leg-pct b.tot{font-size:18px;color:var(--fg);margin-left:8px}
+.rp-leg-pct small{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-style:normal;font-weight:700}
+.rp-run{font-size:14px;gap:1px}
+.rp-run b{font-family:var(--f-display);font-weight:800;font-style:italic;font-size:19px;color:var(--fg);font-variant-numeric:tabular-nums}
+.rp-run #rpUp b{color:var(--sun)}
+@media (max-width:640px){
+  .rp-leg-pct b{font-size:20px} .rp-leg-pct b.tot{font-size:15px;margin-left:4px} .rp-leg-pct small{font-size:9px}
+  .rp-cockpit .rp-run b{font-size:14px}
+  .rp-cockpit .rp-run span{white-space:nowrap}
+  .rp-cockpit #rpElapsed{display:none}
+}
+/* Watch messages: a count and Keep all / Keep none above the list. */
+.wm-tools{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:8px}
+.wm-tools .wm-count{margin-right:auto;font-size:14px;color:var(--muted)}
+.wm-tools .wm-count b{color:var(--fg);font-size:16px}
