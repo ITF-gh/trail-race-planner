@@ -60,8 +60,8 @@ export function prepHeroHtml(brand) {
       <div class="drop" id="dropPrep">
         <h3><span class="tag">GPX</span>Your run to come</h3>
         <p>The course you will follow, with elevation: from Garmin Connect, Strava, Komoot, a race website...</p>
-        <div class="actions"><label class="btn ghost" for="filePrep">Choose GPX</label><input type="file" id="filePrep" accept=".gpx,application/gpx+xml,text/xml"></div>
         <div class="status" id="stPrep" aria-live="polite"></div>
+        <div class="actions drop-act"><label class="btn ghost" for="filePrep">Add GPX</label><input type="file" id="filePrep" accept=".gpx,application/gpx+xml,text/xml"></div>
       </div>
       ${refsCardHtml("prep")}
     </div>`;
@@ -238,7 +238,7 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
     onLoaded();
   };
 
-  // Two ways to give a file: the "Choose GPX" button (file input) or drag-and-drop on the box.
+  // Two ways to give a file: the "Add GPX" button (file input) or drag-and-drop on the box.
   // f.text() reads the file as text and returns a Promise; .then() runs once it is read. The
   // name shown is the file name without ".gpx" (regex: ".gpx" at the end, any case, flag i).
   const file = $p("#filePrep");

@@ -2,7 +2,7 @@
 // engine (buildPlan's params.calib, prepRunPlan's opts.calib).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { vdot, raceTime, refsClean, refsRead, refsCalib, calibrateEffort } from "../src/core/refs.js";
+import { vdot, raceTime, refsClean, refsRead, refsCalib, calibrateEffort, REF_LEVELS } from "../src/core/refs.js";
 import { prepRunPlan } from "../src/core/preprun.js";
 import { buildPlan } from "../src/core/plan.js";
 import { parseGpx } from "../src/core/track.js";
@@ -64,4 +64,12 @@ test("Prep my race: a faster 10K plans a faster race from the same runs", () => 
   const slow = buildPlan(race, runs, { calib: refsCalib({ k10: 3300 }, "race") });
   const fast = buildPlan(race, runs, { calib: refsCalib({ k10: 2400 }, "race") });
   assert.ok(fast.scenarios.central.finishSec < slow.scenarios.central.finishSec);
+});
+
+test("the five levels plan the same run faster at each step, short or long", () => {
+  const r = { k10: 2700, half: 6000 };
+  for (const p of [parseGpx(makeDemoRaceGpx(DEMO_LONG_RUN_PROFILE, { loop: true })), parseGpx(makeDemoRaceGpx())]) {
+    const t = REF_LEVELS.map((l) => prepRunPlan(p, { calib: refsCalib(r, l) }).scenarios.central.finishSec);
+    for (let i = 1; i < t.length; i++) assert.ok(t[i] < t[i - 1], `${REF_LEVELS[i]} ${t[i]} vs ${t[i - 1]}`);
+  }
 });

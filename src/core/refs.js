@@ -26,7 +26,8 @@ import { FALLBACK_MULT, FALLBACK_TIRED } from "./effort.js";
 // Ranges a typed reference must fall in to be used (seconds): a 10K between 25 min and 2 h,
 // a half between 55 min and 4 h, an easy pace between 3:00 and 12:00 per km.
 export const REF_LIMITS = { k10: [1500, 7200], half: [3300, 14400], easy: [180, 720] };
-export const REF_LEVELS = ["easy", "steady", "race"];
+// The five levels of a run, from 1 (gentlest) to 5 (all in).
+export const REF_LEVELS = ["recovery", "easy", "steady", "marathon", "race"];
 const HALF_M = 21097.5, MARATHON_M = 42195;
 // The share of VDOT used for easy pace (see step 2), and the time an easy or steady run is
 // planned for before the engine starts to add fatigue (2 h 30).
@@ -108,12 +109,15 @@ export function refsRead(raw) {
 }
 
 /**
- * The engine's calibration for a run at `level` ("easy", "steady" or "race"):
+ * The engine's calibration for a run at `level` (REF_LEVELS: "recovery", "easy", "steady",
+ * "marathon" or "race", levels 1 to 5):
  * {level, flatPace (s/km), durationSec (how long that pace is held before fatigue adds up),
  * enduranceExp (your fatigue exponent, or null for the engine's default), from (words for the
  * page)}. null without references.
- *   easy    your easy pace (typed, or from your fitness), held 2 h 30 before fatigue
- *   steady  halfway between easy and marathon pace, held 2 h 30 before fatigue
+ *   recovery  slower than easy: 62% of VDOT instead of 70%, held 2 h 30 before fatigue
+ *   easy      your easy pace (typed, or from your fitness), held 2 h 30 before fatigue
+ *   steady    halfway between easy and marathon pace, held 2 h 30 before fatigue
+ *   marathon  your marathon pace (from your fitness), held 2 h 30 before fatigue
  *   race    your half pace over a half's time (or your 10K over a 10K's time), with your own
  *           fatigue exponent when both races are set
  */
@@ -124,8 +128,14 @@ export function refsCalib(raw, level = "race") {
   // Riegel's k turned into the engine's exponent e = (k - 1) / k, kept to a sensible 0.02-0.15.
   const exp = x.riegel ? Math.max(0.02, Math.min(0.15, (x.riegel - 1) / x.riegel)) : null;
   const names = [r.k10 ? "10K" : "", r.half ? "half" : "", r.easy ? "easy pace" : ""].filter(Boolean).join(", ");
+  // Recovery: easier than easy, at 62% of VDOT (the bottom of Daniels' easy range), scaled on
+  // your easy pace so a typed easy pace still counts.
+  if (level === "recovery") return { level, flatPace: x.easyPace * (easyPaceOf(x.vdot, 0.62) / easyPaceOf(x.vdot)), durationSec: EASY_HOLD_SEC, enduranceExp: exp, from: `a recovery jog, slower than your easy pace (from your ${names})` };
   if (level === "easy") return { level, flatPace: x.easyPace, durationSec: EASY_HOLD_SEC, enduranceExp: exp, from: `your easy pace (${r.easy ? "typed" : `from your ${names}`})` };
   if (level === "steady") return { level, flatPace: (x.easyPace + x.marathonPace) / 2, durationSec: EASY_HOLD_SEC, enduranceExp: exp, from: `a steady effort between your easy and marathon paces (from your ${names})` };
+  // Marathon effort: your marathon pace, but held 2 h 30 like the gentler levels, so it stays
+  // slower than Race on long runs too.
+  if (level === "marathon") return { level, flatPace: x.marathonPace, durationSec: EASY_HOLD_SEC, enduranceExp: exp, from: `your marathon effort (from your ${names})` };
   const half = Boolean(r.half) || !r.k10;
   return {
     level: "race",

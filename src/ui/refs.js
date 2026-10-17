@@ -7,11 +7,12 @@
 // (ui/profile.js profileSetRefs, localStorage on this device), and a "trp-refs" event tells each
 // mode to plan again.
 //
-// The level picker: Easy / Steady / Race, shown in Prep my run only once a reference is set (and
-// no target time). A coloured thumb slides along a track with a little bounce (a CSS transition
-// whose timing curve overshoots: cubic-bezier with a value above 1), and its icon moves: a leaf
-// sways for Easy, a heart beats for Steady, a flame flickers for Race. Pure CSS animation, see
-// style.css ".lvl"; the CSS variable --i (0, 1, 2) places the thumb.
+// The level picker: levels 1 to 5 (Recovery, Easy, Steady, Marathon, Race), shown in Prep my run
+// only once a reference is set (and no target time). A gauge fills from green to red and a round
+// knob slides to the level with a little bounce (a CSS transition whose timing curve overshoots:
+// cubic-bezier with a value above 1); its icon moves: a turtle bobs, a leaf sways, a heart
+// beats, a bolt flashes, a flame flickers. Pure CSS animation, see style.css ".lvl"; the CSS
+// variable --i (0 to 4) places the knob and the end of the fill.
 //
 // Main exports: refsCardHtml(mode), levelPickerHtml(level), initRefs().
 
@@ -23,14 +24,16 @@ import { trackEvent } from "./analytics.js";
 // The boxes: key in the profile, label, placeholder, and how a value is written back.
 const BOXES = [
   { k: "k10", label: "10K", ph: "45:00", show: (s) => (s < 3600 ? mmss(s) : hms(s)) },
-  { k: "half", label: "Half marathon", ph: "1:40:00", show: (s) => hms(s) },
-  { k: "easy", label: "Easy pace /km", ph: "5:30", show: (s) => mmss(s) },
+  { k: "half", label: "Half", ph: "1:40:00", show: (s) => hms(s) },
+  { k: "easy", label: "Easy /km", ph: "5:30", show: (s) => mmss(s) },
 ];
-// The levels: name, icon and what it means, for the picker.
+// The five levels (1 to 5): name, icon and what it means, for the picker.
 export const RUN_LEVELS = {
-  easy: { name: "Easy", ic: "🍃", tip: "Talking pace: the pace of most of your training" },
-  steady: { name: "Steady", ic: "💓", tip: "Between easy and marathon effort" },
-  race: { name: "Race", ic: "🔥", tip: "All in: your race level, carried over the distance" },
+  recovery: { name: "Recovery", ic: "🐢", tip: "a gentle jog, slower than easy" },
+  easy: { name: "Easy", ic: "🍃", tip: "talking pace, most of your training" },
+  steady: { name: "Steady", ic: "💓", tip: "between easy and marathon effort" },
+  marathon: { name: "Marathon", ic: "⚡", tip: "your marathon effort" },
+  race: { name: "Race", ic: "🔥", tip: "all in, your race level" },
 };
 
 /**
@@ -45,58 +48,50 @@ const readBox = (k, text) => {
   return v === null ? NaN : v;
 };
 
-/** The line under the boxes: what the references say, or how to use them. */
-function summaryHtml(mini = false) {
-  const { refs } = profileRefs();
-  const x = refsRead(refs);
-  if (!x) return `<span class="muted">${mini ? "Any one is enough." : "Any one is enough. They set your level in the plan."}</span>`;
-  if (mini) return `Easy <b>${mmss(x.easyPace)}</b>/km · marathon ${mmss(x.marathonPace)}/km`;
-  const easy = refs.easy ? `Easy pace <b>${mmss(x.easyPace)}</b>/km` : `Easy pace <b>${mmss(x.easyPace)}</b>/km <span class="muted">(${mmss(x.easyRange[0])} to ${mmss(x.easyRange[1])})</span>`;
-  // Riegel: doubling the distance makes the pace 2^(k-1) times slower.
-  const own = x.riegel ? ` · twice the distance costs you ${((2 ** (x.riegel - 1) - 1) * 100).toFixed(1)}% of pace` : "";
-  return `${easy} · marathon ${mmss(x.marathonPace)}/km${own}`;
+/** The short line after the boxes: what the references say, or that any one is enough. */
+function summaryHtml() {
+  const x = refsRead(profileRefs().refs);
+  if (!x) return `<span class="muted">Optional, any one is enough.</span>`;
+  // Riegel: doubling the distance makes the pace 2^(k-1) times slower (in the tooltip).
+  const own = x.riegel ? `Twice the distance costs you ${((2 ** (x.riegel - 1) - 1) * 100).toFixed(1)}% of pace. ` : "";
+  return `<span title="${own}Easy pace range ${mmss(x.easyRange[0])} to ${mmss(x.easyRange[1])}/km (Daniels).">Easy <b>${mmss(x.easyPace)}</b>/km · marathon ${mmss(x.marathonPace)}/km</span>`;
 }
 
 /**
- * The card, for one mode ("race", "prep" or "run"), placed in that mode's drops (in Prep my run
- * it is "Your settings", with the target time too). The values are
- * the saved ones; data-ref names the box, so one listener (initRefs) serves the three cards.
+ * The references strip, for one mode ("race", "prep" or "run"): one thin line under that mode's
+ * file drops (owner's rule: it must not take room), with the title, the boxes (label beside the
+ * box) and the short summary. In Prep my run it is "Your settings": the target time comes first
+ * (it wins over everything), and the level picker follows on its own line (#prepLevel, drawn by
+ * preprun.js once a reference is set and no target is typed). The values are the saved ones;
+ * data-ref names the box, so one listener (initRefs) serves the three strips.
  */
 export function refsCardHtml(mode) {
   const { refs } = profileRefs();
-  const mini = mode !== "prep";
-  const boxes = `<div class="refs-boxes">${BOXES.map((b) => `<label class="f">${b.label}<input type="text" inputmode="numeric" autocomplete="off" data-ref="${b.k}" placeholder="${b.ph}" value="${refs[b.k] ? b.show(refs[b.k]) : ""}"></label>`).join("")}</div>
-        <div class="status refs-sum" aria-live="polite">${summaryHtml(mini)}</div>`;
-  // Prep my run: every input of the run sits here, next to its GPX drop (owner's rule): the
-  // target time first (it wins over everything), then the references, then the level picker,
-  // which preprun.js draws into #prepLevel once a reference is set and no target is typed.
-  if (mode === "prep") {
-    return `<div class="drop refs-card prep-set${refsAny(refs) ? " done" : ""}" data-refs="prep">
-        <h3><span class="tag">★</span>Your settings</h3>
-        <p>Optional. A target time, or your references: your best 10K and half marathon, your easy pace.</p>
-        <label class="f prep-tgt">Target time (h:mm)<input type="text" id="prepTarget" inputmode="numeric" autocomplete="off" placeholder="3:30"></label>
-        ${boxes}
-        <div id="prepLevel"></div>
-      </div>`;
-  }
-  // Prep my race and Rewind my run: a slim card in the same row as the drops (owner's rule: not
-  // bigger than needed). One line per reference, label on the left; the explanation is the
-  // card's tooltip, and the summary keeps only the easy and marathon paces.
-  const note = mode === "run" ? "Your run is compared with them." : "They set the level of your plan.";
-  return `<div class="drop refs-card refs-mini${refsAny(refs) ? " done" : ""}" data-refs="${mode}" title="Optional. Your best 10K and half marathon, your easy pace. ${note}">
-        <h3><span class="tag">★</span>My references</h3>
-        ${boxes}
+  const prep = mode === "prep";
+  const note = mode === "run" ? "Your run is compared with them." : prep ? "A target time wins over them." : "They set the level of your plan.";
+  return `<div class="refs-card refs-strip${refsAny(refs) ? " done" : ""}" data-refs="${mode}" title="Your best 10K and half marathon, your easy pace. ${note}">
+        <span class="rf-title"><span class="tag">★</span>${prep ? "Your settings" : "My references"}</span>
+        ${prep ? `<label class="rf-f">Target<input type="text" id="prepTarget" inputmode="numeric" autocomplete="off" placeholder="3:30" aria-label="Target time (h:mm)"></label><span class="rf-or">or</span>` : ""}
+        ${BOXES.map((b) => `<label class="rf-f">${b.label}<input type="text" inputmode="numeric" autocomplete="off" data-ref="${b.k}" placeholder="${b.ph}" value="${refs[b.k] ? b.show(refs[b.k]) : ""}"></label>`).join("")}
+        <span class="status refs-sum" aria-live="polite">${summaryHtml()}</span>
+        ${prep ? `<div id="prepLevel"></div>` : ""}
       </div>`;
 }
 
-/** The level picker of Prep my run (Easy / Steady / Race), with `level` selected. */
+/**
+ * The level picker of Prep my run, levels 1 to 5, with `level` selected: a gauge whose coloured
+ * fill grows from green to red, a round knob carrying the level's moving icon, and the level's
+ * name and meaning beside it.
+ */
 export function levelPickerHtml(level) {
   const i = Math.max(0, REF_LEVELS.indexOf(level));
+  const L = RUN_LEVELS[REF_LEVELS[i]];
   return `<div class="lvl" role="radiogroup" aria-label="How hard you run it" style="--i:${i}" data-lvl="${REF_LEVELS[i]}">
       <span class="lvl-k">How hard?</span>
-      <div class="lvl-track"><span class="lvl-knob" aria-hidden="true"><span class="lvl-ic">${RUN_LEVELS[REF_LEVELS[i]].ic}</span><span class="lvl-n">${RUN_LEVELS[REF_LEVELS[i]].name}</span></span>
-        ${REF_LEVELS.map((l, n) => `<button type="button" role="radio" aria-checked="${n === i}" data-level="${l}" title="${RUN_LEVELS[l].tip}">${RUN_LEVELS[l].name}</button>`).join("")}
+      <div class="lvl-track"><i class="lvl-fill" aria-hidden="true"></i><span class="lvl-knob" aria-hidden="true"><span class="lvl-ic">${L.ic}</span></span>
+        ${REF_LEVELS.map((l, n) => `<button type="button" role="radio" aria-checked="${n === i}" data-level="${l}" title="${n + 1}. ${RUN_LEVELS[l].name}: ${RUN_LEVELS[l].tip}" aria-label="${RUN_LEVELS[l].name}">${n + 1}</button>`).join("")}
       </div>
+      <span class="lvl-name"><b>${L.name}</b> <small>${L.tip}</small></span>
     </div>`;
 }
 
@@ -130,8 +125,9 @@ export function initRefs() {
     // Move the knob first (CSS animates it), then plan again.
     box.style.setProperty("--i", String(i));
     box.dataset.lvl = b.dataset.level;
-    box.querySelector(".lvl-ic").textContent = RUN_LEVELS[b.dataset.level].ic;
-    box.querySelector(".lvl-n").textContent = RUN_LEVELS[b.dataset.level].name;
+    const L = RUN_LEVELS[b.dataset.level];
+    box.querySelector(".lvl-ic").textContent = L.ic;
+    box.querySelector(".lvl-name").innerHTML = `<b>${L.name}</b> <small>${L.tip}</small>`;
     box.querySelectorAll("[data-level]").forEach((x) => x.setAttribute("aria-checked", String(x === b)));
     trackEvent("refs-level", b.dataset.level);
     // Let the knob land before the page is drawn again.
@@ -147,7 +143,7 @@ export function initRefs() {
         const b = BOXES.find((x) => x.k === inp.dataset.ref);
         inp.value = refs[b.k] ? b.show(refs[b.k]) : "";
       });
-      card.querySelector(".refs-sum").innerHTML = summaryHtml(card.classList.contains("refs-mini"));
+      card.querySelector(".refs-sum").innerHTML = summaryHtml();
     });
   });
 }

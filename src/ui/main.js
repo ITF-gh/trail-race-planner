@@ -210,8 +210,8 @@ $("#app").innerHTML = `
       <div class="drop" id="dropRun">
         <h3><span class="tag">▶</span>Your run</h3>
         <p>The GPX your watch recorded (export it from Garmin Connect, Strava, Suunto, Coros...). Cadence is a bonus; heart rate in the file is ignored.</p>
-        <div class="actions"><label class="btn ghost" for="fileRun">Choose GPX</label><input type="file" id="fileRun" accept=".gpx,application/gpx+xml,text/xml"></div>
         <div class="status" id="stRun" aria-live="polite"></div>
+        <div class="actions drop-act"><label class="btn ghost" for="fileRun">Add GPX</label><input type="file" id="fileRun" accept=".gpx,application/gpx+xml,text/xml"></div>
       </div>
       ${refsCardHtml("run")}
     </div>
@@ -227,14 +227,14 @@ $("#app").innerHTML = `
       <div class="drop" id="dropEffort">
         <h3><span class="tag">01</span>Your runs</h3>
         <p>One or more recorded runs of 1.5 h or more at a steady effort, with some climbs. Recent runs count more. Cadence is a bonus; heart rate in the file is ignored.</p>
-        <div class="actions"><label class="btn ghost" for="fileEffort">Add GPX</label><input type="file" id="fileEffort" multiple accept=".gpx,application/gpx+xml,text/xml"><button class="btn ghost" id="clearRuns" type="button" hidden>Clear</button></div>
         <div class="status" id="stEffort" aria-live="polite"></div>
+        <div class="actions drop-act"><label class="btn ghost" for="fileEffort">Add GPX</label><input type="file" id="fileEffort" multiple accept=".gpx,application/gpx+xml,text/xml"><button class="btn ghost" id="clearRuns" type="button" hidden>Clear</button></div>
       </div>
       <div class="drop" id="dropRace">
         <h3><span class="tag">02</span>The race</h3>
         <p>The official course GPX, with elevation. Drop it here or choose it.</p>
-        <div><label class="btn ghost" for="fileRace">Choose GPX</label><input type="file" id="fileRace" accept=".gpx,application/gpx+xml,text/xml"></div>
         <div class="status" id="stRace" aria-live="polite"></div>
+        <div class="actions drop-act"><label class="btn ghost" for="fileRace">Add GPX</label><input type="file" id="fileRace" accept=".gpx,application/gpx+xml,text/xml"></div>
       </div>
       ${refsCardHtml("race")}
     </div>
@@ -475,7 +475,7 @@ function setRuns(runs, bad = []) {
 }
 
 /**
- * Make a drop box accept files, both by drag and drop and by its "Choose GPX" button.
+ * Make a drop box accept files, both by drag and drop and by its "Add GPX" button.
  * boxId / inputId: CSS selectors of the box and of its <input type="file">.
  * loader: called with [{xml, label}] once every file has been read as text.
  * Files are read in the browser (File.text()), nothing is uploaded. Promise.all waits for all
