@@ -77,8 +77,9 @@ export function refsCardHtml(mode) {
 
 /**
  * The level picker of Prep my run, levels 1 to 5, with `level` selected: a thin line whose
- * coloured fill grows from green to red, five dots to tap, a round knob carrying the level's
- * moving icon, and the level's name (its meaning in the tooltip).
+ * coloured fill grows from green to red, five dots to tap, a small coloured knob that slides
+ * there, and the level's name (its meaning in the tooltip). Owner: light and simple, so the
+ * knob is a plain dot (the icon element stays, hidden by CSS).
  */
 export function levelPickerHtml(level) {
   const i = Math.max(0, REF_LEVELS.indexOf(level));

@@ -1643,26 +1643,15 @@ html[data-theme="sky"] .rs-chip{background:rgba(31,111,209,.05)}
 .lvl-track button::before{content:"";width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,.35)}
 .lvl-track button:hover::before{background:#fff}
 .lvl-track button:focus-visible{outline:2px solid var(--sun);outline-offset:-2px;border-radius:50%}
-.lvl-knob{position:absolute;z-index:2;top:50%;left:calc((var(--i) + .5) * 20%);width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;display:grid;place-items:center;pointer-events:none;transition:left .5s cubic-bezier(.34,1.7,.5,1),background .3s,box-shadow .3s}
-.lvl-ic{display:inline-block;font-size:10px;line-height:1}
+.lvl-knob{position:absolute;z-index:2;top:50%;left:calc((var(--i) + .5) * 20%);width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-radius:50%;display:grid;place-items:center;pointer-events:none;transition:left .5s cubic-bezier(.34,1.7,.5,1),background .3s,box-shadow .3s}
+.lvl-ic{display:none}
 .lvl-name{font-weight:600;font-size:11px;color:rgba(255,255,255,.7);min-width:60px;cursor:help}
-.lvl[data-lvl="recovery"] .lvl-knob{background:radial-gradient(circle at 35% 30%,#b8f5d0,#3fae75);box-shadow:0 0 6px rgba(63,174,117,.5)}
-.lvl[data-lvl="easy"] .lvl-knob{background:radial-gradient(circle at 35% 30%,#a8ffc6,#2fbf63);box-shadow:0 0 6px rgba(47,191,99,.6)}
-.lvl[data-lvl="steady"] .lvl-knob{background:radial-gradient(circle at 35% 30%,#fff0a8,#ffc21f);box-shadow:0 0 6px rgba(255,194,31,.6)}
-.lvl[data-lvl="marathon"] .lvl-knob{background:radial-gradient(circle at 35% 30%,#ffd2a1,#ff8a1f);box-shadow:0 0 6px rgba(255,138,31,.65)}
-.lvl[data-lvl="race"] .lvl-knob{background:radial-gradient(circle at 35% 30%,#ffb39e,#ff2e4d);box-shadow:0 0 6px rgba(255,46,77,.75);animation:lvlGlow 1s ease-in-out infinite alternate}
-.lvl[data-lvl="recovery"] .lvl-ic{animation:lvlBob 2.2s ease-in-out infinite}
-.lvl[data-lvl="easy"] .lvl-ic{animation:lvlSway 2.4s ease-in-out infinite;transform-origin:50% 90%}
-.lvl[data-lvl="steady"] .lvl-ic{animation:lvlBeat 1s ease-in-out infinite}
-.lvl[data-lvl="marathon"] .lvl-ic{animation:lvlZap .9s steps(2,jump-none) infinite}
-.lvl[data-lvl="race"] .lvl-ic{animation:lvlFlick .45s ease-in-out infinite alternate;transform-origin:50% 100%}
-@keyframes lvlBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px) rotate(-6deg)}}
-@keyframes lvlSway{0%,100%{transform:rotate(-14deg)}50%{transform:rotate(14deg) translateY(-1px)}}
-@keyframes lvlBeat{0%,40%,100%{transform:scale(1)}15%{transform:scale(1.28)}28%{transform:scale(1.12)}}
-@keyframes lvlZap{0%{transform:scale(1) rotate(-8deg);filter:brightness(1)}100%{transform:scale(1.18) rotate(8deg);filter:brightness(1.6)}}
-@keyframes lvlFlick{0%{transform:scale(1,1) rotate(-4deg)}100%{transform:scale(1.12,1.22) rotate(5deg)}}
-@keyframes lvlGlow{to{box-shadow:0 0 10px rgba(255,80,40,.9)}}
-@media (prefers-reduced-motion:reduce){.lvl-knob,.lvl-fill{transition:none}.lvl-knob,.lvl-ic{animation:none!important}}
+.lvl[data-lvl="recovery"] .lvl-knob{background:#3fae75}
+.lvl[data-lvl="easy"] .lvl-knob{background:#2fbf63}
+.lvl[data-lvl="steady"] .lvl-knob{background:#ffc21f}
+.lvl[data-lvl="marathon"] .lvl-knob{background:#ff8a1f}
+.lvl[data-lvl="race"] .lvl-knob{background:#ff2e4d}
+@media (prefers-reduced-motion:reduce){.lvl-knob,.lvl-fill{transition:none}}
 /* The Add GPX buttons sit at the bottom of their box, so in a row of boxes (same height, grid
    stretch) they line up, whatever the text above them. The file status sits above the buttons. */
 .drop .drop-act{margin-top:auto;padding-top:4px}
