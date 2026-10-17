@@ -25,7 +25,7 @@ import { trackEvent } from "./analytics.js";
 const BOXES = [
   { k: "k10", label: "10K", ph: "45:00", show: (s) => (s < 3600 ? mmss(s) : hms(s)) },
   { k: "half", label: "half", ph: "1:40:00", show: (s) => hms(s) },
-  { k: "easy", label: "easy /km", ph: "5:30", show: (s) => mmss(s) },
+  { k: "easy", label: "easy", ph: "5:30", show: (s) => mmss(s) },
 ];
 // The five levels (1 to 5): name, icon and what it means, for the picker.
 export const RUN_LEVELS = {
@@ -60,7 +60,7 @@ function summaryText() {
 /**
  * The references line, for one mode ("race", "prep" or "run"): discreet optional text under that
  * mode's file drops, no box and no border (owner's rule), with the values typed straight into the
- * sentence: "Optional references: 10K __ half __ easy __ /km". What they mean is in the tooltip.
+ * sentence: "Optional 10K __ half __ easy __", in small faint type (owner: minimalist). What they mean is in the tooltip.
  * In Prep my run the target time comes first ("Target __ or ..."), and the level picker follows
  * (#prepLevel, drawn by preprun.js once a reference is set and no target is typed). The values
  * are the saved ones; data-ref names the box, so one listener (initRefs) serves the three lines.
@@ -69,7 +69,7 @@ export function refsCardHtml(mode) {
   const { refs } = profileRefs();
   const prep = mode === "prep";
   return `<div class="refs-card refs-strip${refsAny(refs) ? " done" : ""}" data-refs="${mode}" title="${summaryText()}">
-        ${prep ? `<label class="rf-f">Target<input type="text" id="prepTarget" inputmode="numeric" autocomplete="off" placeholder="3:30" aria-label="Target time (h:mm)"></label><span class="rf-lead">or optional references:</span>` : `<span class="rf-lead">Optional references:</span>`}
+        ${prep ? `<label class="rf-f">Target<input type="text" id="prepTarget" inputmode="numeric" autocomplete="off" placeholder="3:30" aria-label="Target time (h:mm)"></label><span class="rf-lead">or</span>` : `<span class="rf-lead">Optional</span>`}
         ${BOXES.map((b) => `<label class="rf-f">${b.label}<input type="text" inputmode="numeric" autocomplete="off" data-ref="${b.k}" placeholder="${b.ph}" value="${refs[b.k] ? b.show(refs[b.k]) : ""}"></label>`).join("")}
         ${prep ? `<div id="prepLevel"></div>` : ""}
       </div>`;

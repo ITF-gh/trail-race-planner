@@ -1623,34 +1623,34 @@ html[data-theme="sky"] .rs-chip{background:rgba(31,111,209,.05)}
    box and no border (owner's rule). The values are typed straight into the sentence; a faint
    dotted line under each says it can be typed in. It wraps on phones. In Prep my run the target
    time comes first and the level picker follows. */
-.refs-strip{grid-column:1 / -1;display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;padding:0 4px;font-size:12px;color:var(--muted);text-shadow:0 1px 3px rgba(0,0,0,.6)}
+.refs-strip{grid-column:1 / -1;display:flex;flex-wrap:wrap;align-items:center;gap:2px 10px;padding:0 4px;font-size:11px;color:rgba(255,255,255,.45);text-shadow:0 1px 2px rgba(0,0,0,.5)}
 .rf-lead{white-space:nowrap}
-.rf-f{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);white-space:nowrap}
-.rf-f input{width:54px;height:22px;min-height:0;padding:0 2px;font-size:12px;font-weight:700;color:#fff;background:transparent;border:0;border-bottom:1px dotted rgba(255,255,255,.28);border-radius:0;box-shadow:none;text-shadow:inherit}
+.rf-f{display:flex;align-items:center;gap:4px;font-size:11px;color:inherit;white-space:nowrap}
+.rf-f input{width:44px;height:18px;min-height:0;padding:0 1px;font-size:11px;font-weight:600;color:rgba(255,255,255,.85);background:transparent;border:0;border-bottom:1px dotted rgba(255,255,255,.18);border-radius:0;box-shadow:none;text-shadow:inherit}
 .rf-f input:focus{outline:0;border-bottom:1px solid var(--sun)}
-.rf-f input::placeholder{color:rgba(255,255,255,.28);font-weight:400}
+.rf-f input::placeholder{color:rgba(255,255,255,.22);font-weight:400}
 .rf-f input.bad{border-bottom:1px solid #ff5a5a;color:#ff8a8a}
 #prepLevel:empty{display:none}
 /* Level picker, 1 to 5 (ui/refs.js levelPickerHtml): a gauge whose fill grows green to red up to
    the level, a round knob that slides there with a bounce (a cubic-bezier above 1 overshoots,
    then settles), and the level's name and meaning. --i (0 to 4) places the knob; data-lvl picks
    the knob's colour and its icon's animation. */
-.lvl{display:flex;align-items:center;gap:12px;font-size:12px}
-.lvl-track{position:relative;display:grid;grid-template-columns:repeat(5,1fr);width:150px;height:26px}
-.lvl-track::before{content:"";position:absolute;left:10%;right:10%;top:50%;height:3px;margin-top:-1.5px;border-radius:2px;background:rgba(255,255,255,.15)}
-.lvl-fill{position:absolute;left:10%;top:50%;height:3px;margin-top:-1.5px;width:calc(var(--i) * 20%);border-radius:2px;background:linear-gradient(90deg,#2fbf63,#ffd23f 45%,#ff8a1f 70%,#ff2e4d) 0 0 / 120px 100%;transition:width .5s cubic-bezier(.34,1.56,.64,1)}
+.lvl{display:flex;align-items:center;gap:6px;font-size:11px}
+.lvl-track{position:relative;display:grid;grid-template-columns:repeat(5,1fr);width:90px;height:18px}
+.lvl-track::before{content:"";position:absolute;left:10%;right:10%;top:50%;height:2px;margin-top:-1px;border-radius:1px;background:rgba(255,255,255,.12)}
+.lvl-fill{position:absolute;left:10%;top:50%;height:2px;margin-top:-1px;width:calc(var(--i) * 20%);border-radius:1px;opacity:.8;background:linear-gradient(90deg,#2fbf63,#ffd23f 45%,#ff8a1f 70%,#ff2e4d) 0 0 / 72px 100%;transition:width .5s cubic-bezier(.34,1.56,.64,1)}
 .lvl-track button{position:relative;z-index:1;background:none;border:0;padding:0;cursor:pointer;display:grid;place-items:center}
-.lvl-track button::before{content:"";width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.45)}
+.lvl-track button::before{content:"";width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,.35)}
 .lvl-track button:hover::before{background:#fff}
 .lvl-track button:focus-visible{outline:2px solid var(--sun);outline-offset:-2px;border-radius:50%}
-.lvl-knob{position:absolute;z-index:2;top:50%;left:calc((var(--i) + .5) * 20%);width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;display:grid;place-items:center;pointer-events:none;transition:left .5s cubic-bezier(.34,1.7,.5,1),background .3s,box-shadow .3s}
-.lvl-ic{display:inline-block;font-size:14px;line-height:1}
-.lvl-name{font-family:var(--f-display);font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.05em;min-width:76px;cursor:help}
-.lvl[data-lvl="recovery"] .lvl-knob{background:radial-gradient(circle at 35% 30%,#b8f5d0,#3fae75);box-shadow:0 0 10px rgba(63,174,117,.5)}
-.lvl[data-lvl="easy"] .lvl-knob{background:radial-gradient(circle at 35% 30%,#a8ffc6,#2fbf63);box-shadow:0 0 12px rgba(47,191,99,.6)}
-.lvl[data-lvl="steady"] .lvl-knob{background:radial-gradient(circle at 35% 30%,#fff0a8,#ffc21f);box-shadow:0 0 12px rgba(255,194,31,.6)}
-.lvl[data-lvl="marathon"] .lvl-knob{background:radial-gradient(circle at 35% 30%,#ffd2a1,#ff8a1f);box-shadow:0 0 14px rgba(255,138,31,.65)}
-.lvl[data-lvl="race"] .lvl-knob{background:radial-gradient(circle at 35% 30%,#ffb39e,#ff2e4d);box-shadow:0 0 18px rgba(255,46,77,.75);animation:lvlGlow 1s ease-in-out infinite alternate}
+.lvl-knob{position:absolute;z-index:2;top:50%;left:calc((var(--i) + .5) * 20%);width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;display:grid;place-items:center;pointer-events:none;transition:left .5s cubic-bezier(.34,1.7,.5,1),background .3s,box-shadow .3s}
+.lvl-ic{display:inline-block;font-size:10px;line-height:1}
+.lvl-name{font-weight:600;font-size:11px;color:rgba(255,255,255,.7);min-width:60px;cursor:help}
+.lvl[data-lvl="recovery"] .lvl-knob{background:radial-gradient(circle at 35% 30%,#b8f5d0,#3fae75);box-shadow:0 0 6px rgba(63,174,117,.5)}
+.lvl[data-lvl="easy"] .lvl-knob{background:radial-gradient(circle at 35% 30%,#a8ffc6,#2fbf63);box-shadow:0 0 6px rgba(47,191,99,.6)}
+.lvl[data-lvl="steady"] .lvl-knob{background:radial-gradient(circle at 35% 30%,#fff0a8,#ffc21f);box-shadow:0 0 6px rgba(255,194,31,.6)}
+.lvl[data-lvl="marathon"] .lvl-knob{background:radial-gradient(circle at 35% 30%,#ffd2a1,#ff8a1f);box-shadow:0 0 6px rgba(255,138,31,.65)}
+.lvl[data-lvl="race"] .lvl-knob{background:radial-gradient(circle at 35% 30%,#ffb39e,#ff2e4d);box-shadow:0 0 6px rgba(255,46,77,.75);animation:lvlGlow 1s ease-in-out infinite alternate}
 .lvl[data-lvl="recovery"] .lvl-ic{animation:lvlBob 2.2s ease-in-out infinite}
 .lvl[data-lvl="easy"] .lvl-ic{animation:lvlSway 2.4s ease-in-out infinite;transform-origin:50% 90%}
 .lvl[data-lvl="steady"] .lvl-ic{animation:lvlBeat 1s ease-in-out infinite}
@@ -1661,7 +1661,7 @@ html[data-theme="sky"] .rs-chip{background:rgba(31,111,209,.05)}
 @keyframes lvlBeat{0%,40%,100%{transform:scale(1)}15%{transform:scale(1.28)}28%{transform:scale(1.12)}}
 @keyframes lvlZap{0%{transform:scale(1) rotate(-8deg);filter:brightness(1)}100%{transform:scale(1.18) rotate(8deg);filter:brightness(1.6)}}
 @keyframes lvlFlick{0%{transform:scale(1,1) rotate(-4deg)}100%{transform:scale(1.12,1.22) rotate(5deg)}}
-@keyframes lvlGlow{to{box-shadow:0 0 26px rgba(255,80,40,.9)}}
+@keyframes lvlGlow{to{box-shadow:0 0 10px rgba(255,80,40,.9)}}
 @media (prefers-reduced-motion:reduce){.lvl-knob,.lvl-fill{transition:none}.lvl-knob,.lvl-ic{animation:none!important}}
 /* The Add GPX buttons sit at the bottom of their box, so in a row of boxes (same height, grid
    stretch) they line up, whatever the text above them. The file status sits above the buttons. */
