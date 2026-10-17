@@ -17,6 +17,7 @@
 //   profileHeart   { maxHr, restHr } for the plan (null when not set)
 //   profileAthlete { hrMax, hrRest, weight } for the AI analysis (null when not set)
 //   profileWho     { name, flag } for the menu's first line
+//   profileRefs, profileSetRefs   your references (10K, half, easy pace) and the run level
 //   profileHtml    the Account window
 //   profileInput, profileAction   what typing and clicking in it do
 
@@ -49,6 +50,23 @@ export function profileHeart() {
 export function profileAthlete() {
   const a = pfRead(PF_ATHLETE);
   return { hrMax: a.hrMax || null, hrRest: a.hrRest || null, weight: a.weight || null };
+}
+/** Your references and the level of the next run: { refs: { k10, half, easy }, level }. */
+export function profileRefs() {
+  const p = pfGet();
+  return { refs: { ...p.refs }, level: p.level };
+}
+/**
+ * Save references and / or the level ({ refs: { k10: 2700 }, level: "race" }; fields left out
+ * stay as they are), then announce it with a "trp-refs" event so every mode plans again.
+ */
+export function profileSetRefs({ refs, level } = {}) {
+  const p = pfGet();
+  if (refs) p.refs = { ...p.refs, ...refs };
+  if (level) p.level = level;
+  pf = profileClean(p);
+  pfSave();
+  document.dispatchEvent(new CustomEvent("trp-refs"));
 }
 /** Name and flag emoji for the menu ("" when not set). */
 export function profileWho() {

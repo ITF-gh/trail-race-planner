@@ -101,8 +101,9 @@ test("the AI request is built from the digest and asks for the app's JSON shape"
 });
 
 test("online writes are closed until the account opens", async () => {
-  const { CLOUD, cloudOn } = await import("../src/ui/cloud.js");
-  assert.equal(CLOUD.open, false);
+  const { CLOUD, cloudOn, cloudWritable } = await import("../src/ui/cloud.js");
+  assert.equal(CLOUD.connect, false);
+  assert.equal(cloudWritable(), false, "the app has no write call");
   const saved = { ...CLOUD };
   Object.assign(CLOUD, { url: "https://x.supabase.co", anonKey: "k" });
   assert.equal(cloudOn(), false, "a filled URL alone must not switch the online part on");

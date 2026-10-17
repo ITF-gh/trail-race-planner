@@ -2,6 +2,14 @@
 // technical detail). The first entry is the current version: the footer shows it on every page.
 
 export const CHANGELOG = [
+  { v: "2.5", date: "2026-10-17", items: [
+    "Prep my run review. The line next to the logo is back to Trail race & run planner.",
+    "Optional references: type your 10K and half-marathon bests or your easy pace (as coaches define it: you can still talk in full sentences) in the small line under the file drops of every mode. They set the level of your plan, while your runs keep the shape of how you climb and descend; in Rewind my run they put your pace in context.",
+    "Prep my run: the target time sits next to the GPX drop (start time removed), a level picker from 1 Recovery to 5 Race once references are set, and the finish time under the duration.",
+    "Pimp my GPX is lighter: a watch face preview, slim rows with on/off switches, Garmin .fit and .gpx downloads. Every Add GPX button sits at the bottom of its box.",
+    "Online account (not open yet): read-only, the app holds no write code.",
+    "Every cockpit: the fourth tile shows the elevation instead of the finish time, the bars and the profile follow your finger or mouse when you slide them, and a section or a moment lights up on the map without zooming in or out.",
+  ] },
   { v: "2.4", date: "2026-10-17", items: [
     "Design review, part 2. A climb now gains at least 10% of the race's D+ (any rise of 100 m or more counts): smaller rises are bumps, not counted but still in your plan, race script and watch messages. Long climbs split where the gradient clearly changes, each section at least 15% of the climb.",
     "Difficulty shows as 1 to 4 stars, green, yellow, orange and red, everywhere. Key zones say how many minutes there are to gain.",

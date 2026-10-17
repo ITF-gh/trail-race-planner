@@ -211,22 +211,6 @@ details.adv summary{cursor:pointer;font-family:var(--f-display);font-weight:700;
 /* plan vs actual */
 .logrow{display:grid;grid-template-columns:minmax(90px,1fr) 1fr 1fr 1.2fr;gap:10px 14px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
 .logrow:last-child{border-bottom:0}
-/* Watch messages: the planner's alerts, editable before export */
-.wm-row{display:grid;grid-template-columns:76px 76px minmax(0,1fr) 56px;gap:8px 12px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
-.wm-head{font-family:var(--f-display);text-transform:uppercase;letter-spacing:.1em;font-size:12.5px;color:var(--muted);font-weight:700;margin-top:10px}
-.wm-km{font-weight:600}
-.wm-km input{width:100%;padding:6px 4px 6px 8px;font-weight:600;font-variant-numeric:tabular-nums}
-.wm-t small{display:block;font-size:11.5px;color:var(--muted)}
-.wm-msg{display:flex;align-items:center;gap:8px}
-.wm-msg input{max-width:260px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.02em;min-height:38px}
-.wm-n{font-size:11.5px;color:var(--muted);min-width:34px}
-.wm-keep{text-align:center}
-.wm-keep input{width:20px;height:20px;accent-color:var(--accent)}
-.wm-row.key .wm-msg input{border-color:var(--accent)}
-.wm-row.off .wm-msg input,.wm-row.off .wm-km,.wm-row.off .wm-t{opacity:.45;text-decoration:line-through}
-.wm-add{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-top:14px}
-.wm-add .f{flex:1 1 140px;min-width:0}
-.wm-add .f:first-child{flex:0 1 110px}
 .loghead{font-family:var(--f-display);text-transform:uppercase;letter-spacing:.1em;font-size:12.5px;color:var(--muted);font-weight:700}
 .delta{font-weight:600;font-variant-numeric:tabular-nums}
 .actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
@@ -244,9 +228,6 @@ details.adv summary{cursor:pointer;font-family:var(--f-display);font-weight:700;
   .logrow{grid-template-columns:1fr 1fr}
   .logrow .lbl{grid-column:1 / -1;font-weight:600}
   .loghead{display:none}
-  .wm-row{grid-template-columns:66px minmax(0,1fr) 40px;font-size:14px}
-  .wm-row .wm-t,.wm-head{display:none}
-  .wm-n{display:none}
   .tile .v{font-size:24px}
   .tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
   .tile:nth-child(odd){border-left:0;padding-left:0}
@@ -583,8 +564,6 @@ html:not([data-mode="prep"]) .prep-only{display:none!important}
 /* Prep my run: course summary above the watch messages */
 .prep-facts{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:baseline;font-variant-numeric:tabular-nums}
 .prep-facts>b:first-child{font-size:18px;margin-right:6px}
-.prep-opts{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px}
-.prep-opts .f{flex:0 1 180px}
 .mode-seg{align-self:flex-start}
 .mode-seg button{min-height:40px;font-size:14px;padding:6px 16px}
 #s5{--band:var(--band-2)}
@@ -1278,20 +1257,20 @@ html[data-theme="sky"] .tn-links a.tn-star{color:transparent;filter:drop-shadow(
    AI's violet, so they read at once as AI-computed. Distance, climbing and gradients stay plain:
    the course is never the AI's. A gradient painted inside the letters (background-clip:text)
    slides across them (aiShine); it stands still for people who ask for less motion. */
-.ai-on #s4 .rp-tot:not(:nth-child(2)) b,
+.ai-on #s4 .rp-tot:not(.geo) b,
 .ai-on #s4 #rpClock,
 .ai-on #s4 .rp-tg tbody tr:nth-child(1) td:not(.now),
 .ai-on #s4 .rp-tg tbody tr:nth-child(5) td:not(.now),
 .ai-on #s4 .rp-leg-info > p:not(.nx):not(.rp-cue-line):not(.rp-ai-note) b,
-.ai-run-on #s-prep .rp-tot:not(:nth-child(2)) b,
+.ai-run-on #s-prep .rp-tot:not(.geo) b,
 .ai-run-on #s-prep #rpClock,
 .ai-run-on #s-prep .rp-leg-info > p:not(.nx):not(.rp-cue-line):not(.rp-ai-note) b,
 .ar-ex .ar-dose{
   color:transparent;-webkit-text-fill-color:transparent;
   background-image:linear-gradient(100deg,#b98cff 0%,#b98cff 35%,#fff 50%,#ff9ad5 65%,#b98cff 100%);background-size:250% 100%;
   -webkit-background-clip:text;background-clip:text;text-shadow:none;filter:drop-shadow(0 0 6px rgba(185,140,255,.45));animation:aiShine 3.5s ease-in-out infinite}
-.ai-on #s4 .rp-tot:not(:nth-child(2)) b small,.ai-run-on #s-prep .rp-tot:not(:nth-child(2)) b small{-webkit-text-fill-color:transparent}
-.ai-on #s4 .rp-tot:not(:nth-child(2)) .k::after,.ai-run-on #s-prep .rp-tot:not(:nth-child(2)) .k::after{content:" ✦";color:#b98cff}
+.ai-on #s4 .rp-tot:not(.geo) b small,.ai-run-on #s-prep .rp-tot:not(.geo) b small{-webkit-text-fill-color:transparent}
+.ai-on #s4 .rp-tot:not(.geo) .k::after,.ai-run-on #s-prep .rp-tot:not(.geo) .k::after{content:" ✦";color:#b98cff}
 @keyframes aiShine{0%{background-position:100% 0}60%,100%{background-position:0 0}}
 @media (prefers-reduced-motion:reduce){.ai-on #s4 .rp-tot b,.ai-on #s4 #rpClock,.ai-on #s4 .rp-tg td,.ai-on #s4 .rp-leg-info b,.ai-run-on #s-prep .rp-tot b,.ai-run-on #s-prep #rpClock,.ai-run-on #s-prep .rp-leg-info b,.ar-ex .ar-dose,.ai-badge,.ai-badge svg{animation:none}}
 /* Prep my run: the AI coach's exercises in the bar above the cockpit. */
@@ -1368,9 +1347,6 @@ html[data-theme="sky"] .tn-links a.tn-star{color:transparent;filter:drop-shadow(
   .rp-cockpit #rpElapsed{display:none}
 }
 /* Watch messages: a count and Keep all / Keep none above the list. */
-.wm-tools{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:8px}
-.wm-tools .wm-count{margin-right:auto;font-size:14px;color:var(--muted)}
-.wm-tools .wm-count b{color:var(--fg);font-size:16px}
 
 /* ---------- Design review 2 (v2.3): star difficulty chips, thinner section sparklines ---------- */
 /* A climb's difficulty as 1 to 4 stars in its level colour; the unlit stars (<i>) are dimmed. */
@@ -1579,6 +1555,115 @@ html[data-theme="sky"] .rs-chip{background:rgba(31,111,209,.05)}
   .rp-cockpit .rp-notifs li{flex:0 1 auto;min-width:0;max-width:60%}
   .rp-cockpit .rp-notifs li:nth-child(n+3):not(.o0){display:flex}
 }
+/* Slidable bars (slide.js): a sideways finger move is ours, an up-and-down one still scrolls the
+   page (touch-action: pan-y). The thin progress bar under the clock gets 8 px of invisible touch
+   area above and below: padding, with the background kept to the content box. */
+.slidable{touch-action:pan-y}
+.sliding,.sliding *{cursor:grabbing!important;user-select:none;-webkit-user-select:none}
+.rp-prog.slidable{box-sizing:content-box;cursor:pointer;padding:8px 0;margin:-8px 0;background-clip:content-box;overflow:visible}
+.rp-prog.slidable i{border-radius:4px}
+/* Prep my run: the finish time under Duration shows on every screen (the other small lines of the
+   tiles hide on short screens and phones). */
+.rp-cockpit .rp-tot>small.keep{display:block;opacity:1}
+.rp-hud .fit-off{display:none!important}
+.rp-notifs.rp-wait{opacity:0;transition:opacity .15s}
+
+/* Pimp my GPX (ui/watch.js), the light version: a watch face that previews the picked message,
+   the count, the two download buttons and small text tools beside it, then slim rows of messages
+   (two columns on wide screens). Each row: an on/off switch, the km, the message in the watch's
+   monospace letters (no box until you touch it) and the arrival time. */
+.wm{padding:16px 18px}
+.wm-hero{display:grid;grid-template-columns:150px minmax(0,1fr);gap:18px;align-items:center;margin-bottom:12px}
+.wm-watch{width:150px;height:150px;border-radius:50%;padding:9px;background:conic-gradient(from 210deg,#3a4256,#151a26,#4a5470,#151a26,#3a4256);box-shadow:0 10px 28px rgba(0,0,0,.45),inset 0 0 0 2px rgba(255,255,255,.08);position:relative}
+.wm-watch::before,.wm-watch::after{content:"";position:absolute;right:-5px;width:7px;height:18px;border-radius:3px;background:#2a3142}
+.wm-watch::before{top:38px} .wm-watch::after{bottom:38px}
+.wm-face{width:100%;height:100%;border-radius:50%;background:radial-gradient(circle at 50% 35%,#13283a,#050b12 70%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;text-align:center;box-shadow:inset 0 0 18px rgba(0,0,0,.8)}
+.wm-face b{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:14px;letter-spacing:.03em;color:#b8ffd9;text-shadow:0 0 8px rgba(80,255,170,.55);max-width:110px;line-height:1.2;word-break:break-word}
+.wm-face small{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:10.5px;color:#7fa7b8;letter-spacing:.08em}
+.wm-face.off b{color:#6b7684;text-shadow:none;text-decoration:line-through}
+.wm-face.buzz{animation:wmBuzz .35s ease-in-out}
+@keyframes wmBuzz{0%,100%{transform:translateX(0)}20%{transform:translateX(-3px) rotate(-1deg)}40%{transform:translateX(3px) rotate(1deg)}60%{transform:translateX(-2px)}80%{transform:translateX(2px)}}
+.wm-lead{margin:0 0 10px;font-size:13.5px;color:var(--muted);line-height:1.45}
+.wm-lead .wm-count{color:var(--fg)} .wm-lead .wm-count b{color:var(--sun);font-size:16px}
+.wm-dl{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.wm-tools{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:10px}
+.wm-link{background:none;border:0;padding:0;color:var(--muted);font:inherit;font-size:12.5px;cursor:pointer;text-decoration:underline;text-decoration-color:rgba(255,255,255,.25);text-underline-offset:3px}
+.wm-link:hover{color:var(--fg)}
+.wm-add{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin:0 0 12px}
+.wm-add .f{flex:1 1 140px;min-width:0;font-size:12px}
+.wm-add .f:first-child{flex:0 1 90px}
+.wm-rows{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:2px 18px}
+.wm-row{display:grid;grid-template-columns:34px 58px minmax(0,1fr) 54px;gap:8px;align-items:center;padding:3px 6px;border-radius:8px;font-variant-numeric:tabular-nums}
+.wm-row:hover,.wm-row.pick{background:rgba(255,255,255,.05)}
+.wm-row.pick{box-shadow:inset 3px 0 0 var(--sun)}
+.wm-km input,.wm-msg input{background:transparent;border:1px solid transparent;border-radius:6px;padding:3px 6px;min-height:28px;height:28px;width:100%;color:var(--fg)}
+.wm-km input:hover,.wm-msg input:hover{border-color:rgba(255,255,255,.14)}
+.wm-km input:focus,.wm-msg input:focus{border-color:var(--sun);background:rgba(0,0,0,.25);outline:none}
+.wm-km input{font-size:12.5px;color:var(--muted);-moz-appearance:textfield}
+.wm-km input::-webkit-inner-spin-button,.wm-km input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.wm-msg{position:relative;min-width:0}
+.wm-msg input{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13.5px;letter-spacing:.02em;font-weight:600}
+.wm-n{position:absolute;right:6px;top:50%;transform:translateY(-50%);font-size:10.5px;color:var(--muted);pointer-events:none;opacity:0}
+.wm-msg:focus-within .wm-n{opacity:1}
+.wm-t{font-size:12.5px;text-align:right;line-height:1.15}
+.wm-t small{display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.wm-row.key .wm-msg input{color:var(--sun)}
+.wm-row.off .wm-msg input,.wm-row.off .wm-km,.wm-row.off .wm-t{opacity:.4;text-decoration:line-through}
+/* The on/off switch: a checkbox drawn as a small pill (appearance:none removes the browser's box). */
+.wm-keep input{appearance:none;-webkit-appearance:none;width:30px;height:17px;border-radius:999px;background:rgba(255,255,255,.18);position:relative;cursor:pointer;transition:background .2s;margin:0}
+.wm-keep input::after{content:"";position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:#fff;transition:transform .25s cubic-bezier(.34,1.56,.64,1)}
+.wm-keep input:checked{background:var(--accent)}
+.wm-keep input:checked::after{transform:translateX(13px)}
+.wm-keep input:focus-visible{outline:2px solid var(--sun);outline-offset:2px}
+.wm-del{background:none;border:0;color:var(--muted);cursor:pointer;font-size:13px;width:30px}
+@media (max-width:640px){
+  .wm-hero{grid-template-columns:104px minmax(0,1fr);gap:12px}
+  .wm-watch{width:104px;height:104px;padding:6px}
+  .wm-watch::before{top:24px} .wm-watch::after{bottom:24px}
+  .wm-face b{font-size:11.5px;max-width:78px}
+  .wm-face small{font-size:9px}
+  .wm-lead{font-size:12.5px}
+  .wm-rows{grid-template-columns:1fr}
+  .wm-row{grid-template-columns:32px 50px minmax(0,1fr) 46px;gap:6px;padding:3px 2px}
+}
+@media (prefers-reduced-motion:reduce){.wm-face.buzz{animation:none}}
+
+/* References line (ui/refs.js): discreet optional text under the file drops of every mode, no
+   box and no border (owner's rule). The values are typed straight into the sentence; a faint
+   dotted line under each says it can be typed in. It wraps on phones. In Prep my run the target
+   time comes first and the level picker follows. */
+.refs-strip{grid-column:1 / -1;display:flex;flex-wrap:wrap;align-items:center;gap:2px 10px;padding:0 4px;font-size:11px;color:rgba(255,255,255,.45);text-shadow:0 1px 2px rgba(0,0,0,.5)}
+.rf-lead{white-space:nowrap}
+.rf-f{display:flex;align-items:center;gap:4px;font-size:11px;color:inherit;white-space:nowrap}
+.rf-f input{width:44px;height:18px;min-height:0;padding:0 1px;font-size:11px;font-weight:600;color:rgba(255,255,255,.85);background:transparent;border:0;border-bottom:1px dotted rgba(255,255,255,.18);border-radius:0;box-shadow:none;text-shadow:inherit}
+.rf-f input:focus{outline:0;border-bottom:1px solid var(--sun)}
+.rf-f input::placeholder{color:rgba(255,255,255,.22);font-weight:400}
+.rf-f input.bad{border-bottom:1px solid #ff5a5a;color:#ff8a8a}
+#prepLevel:empty{display:none}
+/* Level picker, 1 to 5 (ui/refs.js levelPickerHtml): a gauge whose fill grows green to red up to
+   the level, a round knob that slides there with a bounce (a cubic-bezier above 1 overshoots,
+   then settles), and the level's name and meaning. --i (0 to 4) places the knob; data-lvl picks
+   the knob's colour and its icon's animation. */
+.lvl{display:flex;align-items:center;gap:6px;font-size:11px}
+.lvl-track{position:relative;display:grid;grid-template-columns:repeat(5,1fr);width:90px;height:18px}
+.lvl-track::before{content:"";position:absolute;left:10%;right:10%;top:50%;height:2px;margin-top:-1px;border-radius:1px;background:rgba(255,255,255,.12)}
+.lvl-fill{position:absolute;left:10%;top:50%;height:2px;margin-top:-1px;width:calc(var(--i) * 20%);border-radius:1px;opacity:.8;background:linear-gradient(90deg,#2fbf63,#ffd23f 45%,#ff8a1f 70%,#ff2e4d) 0 0 / 72px 100%;transition:width .5s cubic-bezier(.34,1.56,.64,1)}
+.lvl-track button{position:relative;z-index:1;background:none;border:0;padding:0;cursor:pointer;display:grid;place-items:center}
+.lvl-track button::before{content:"";width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,.35)}
+.lvl-track button:hover::before{background:#fff}
+.lvl-track button:focus-visible{outline:2px solid var(--sun);outline-offset:-2px;border-radius:50%}
+.lvl-knob{position:absolute;z-index:2;top:50%;left:calc((var(--i) + .5) * 20%);width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-radius:50%;display:grid;place-items:center;pointer-events:none;transition:left .5s cubic-bezier(.34,1.7,.5,1),background .3s,box-shadow .3s}
+.lvl-ic{display:none}
+.lvl-name{font-weight:600;font-size:11px;color:rgba(255,255,255,.7);min-width:60px;cursor:help}
+.lvl[data-lvl="recovery"] .lvl-knob{background:#3fae75}
+.lvl[data-lvl="easy"] .lvl-knob{background:#2fbf63}
+.lvl[data-lvl="steady"] .lvl-knob{background:#ffc21f}
+.lvl[data-lvl="marathon"] .lvl-knob{background:#ff8a1f}
+.lvl[data-lvl="race"] .lvl-knob{background:#ff2e4d}
+@media (prefers-reduced-motion:reduce){.lvl-knob,.lvl-fill{transition:none}}
+/* The Add GPX buttons sit at the bottom of their box, so in a row of boxes (same height, grid
+   stretch) they line up, whatever the text above them. The file status sits above the buttons. */
+.drop .drop-act{margin-top:auto;padding-top:4px}
 
 /* ---------- Links to the profile from the page (data-open-profile, opened by account.js) ---------- */
 /* .to-profile: a link-looking button; .to-profile-line: the line that holds one (under Your runs,

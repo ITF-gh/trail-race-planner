@@ -1,14 +1,20 @@
 // cloud.js: the online account, talking to Supabase with plain fetch() calls (no library, like
-// the rest of the app). Three parts of Supabase are used, each through its HTTP API:
+// the rest of the app). Two parts of Supabase are used, each through its HTTP API:
 //   Auth      /auth/v1/...       sign in with a one-time email link, refresh the session
-//   REST      /rest/v1/<table>   read and write the user's rows (Row Level Security in the
-//                                database makes sure a token only reaches its own rows)
-//   Functions /functions/v1/...  server code for what the browser must not do itself: paying out
-//                                AI tokens, spending one on an AI analysis, deleting the account
+//   REST      /rest/v1/<table>   READ the user's rows only (Row Level Security in the database
+//                                makes sure a token only reaches its own rows)
+// The server functions (/functions/v1/...: paying out AI tokens, an AI analysis, deleting the
+// account) all write, so the app does not call them.
 //
-// The whole online part stays OFF while CLOUD.url is empty or CLOUD.open is false: the app then
-// works exactly as before, with the run log on this device only, and sends nothing (no sign-in,
-// no run, no token). The database has its own lock too (writes_open() in the migration).
+// Two states, set in CLOUD below:
+//   off        (url empty, or connect false): the app works exactly as before, with the run log
+//              on this device only, and sends nothing (no sign-in, no run, no token).
+//   read-only  (connect: true): sign-in works for accounts that already exist (no new account is
+//              made) and the account's data can be read. Nothing can be written: this file has no
+//              write call at all (they wait in supabase/app-writes-later.js), and clFetch refuses
+//              any request other than a GET outside the sign-in API.
+// The database has its own lock too (writes_open() in the migration), so even a hand-made
+// request writes nothing.
 //
 // The AI tokens are called "edelweiss" on screen; the database tables and the server functions
 // still say "cairn" (cairn_ledger, claim-cairns), which only the code sees.
@@ -27,19 +33,30 @@
 // Every request carries two headers: apikey (the public project key) and Authorization:
 // "Bearer <token>" (the user's access token, or the public key when signed out).
 
-import { recordClean } from "../core/history.js";
 
 export const CLOUD = {
   url: "", // e.g. "https://abcdefghijkl.supabase.co" (Project settings > API)
   anonKey: "", // the "anon public" key: safe to publish, Row Level Security does the protecting
-  open: false, // writes not open yet: set to true only when the account opens (supabase/SETUP.md)
+  connect: false, // true = read-only: sign in and read, never write (supabase/SETUP.md, step 6)
 };
+
+/** The message every write call throws while the account is read-only (account.js shows it). */
+export const CL_READONLY = "The online account is read-only for now: nothing is saved to it yet.";
 
 // localStorage key of the saved session.
 const CL_SESSION = "trp.session";
 
-/** True when the online account is configured and open: every other call needs this. */
-export const cloudOn = () => Boolean(CLOUD.url && CLOUD.anonKey && CLOUD.open);
+/** True when the online account is configured and connected (read-only or open): every other call needs this. */
+export const cloudOn = () => Boolean(CLOUD.url && CLOUD.anonKey && CLOUD.connect);
+/** Writes are not part of this app yet: always false (account.js asks before any write step). */
+export const cloudWritable = () => false;
+// What account.js calls for a write: always refused here, nothing is sent.
+const clNoWrite = async () => { throw new Error(CL_READONLY); };
+export const cloudPutRuns = clNoWrite;
+export const cloudDeleteRuns = clNoWrite;
+export const cloudClaim = clNoWrite;
+export const cloudAnalyse = clNoWrite;
+export const cloudDeleteAccount = clNoWrite;
 
 /**
  * Read and write the saved session in localStorage, as JSON text. Session shape:
@@ -83,12 +100,13 @@ export async function cloudFromUrl() {
 
 /**
  * Ask Supabase to email a one-time sign-in link that brings the user back to this page.
- * create_user: true makes the account on first sign-in. encodeURIComponent escapes the return
+ * No account is ever created from here (create_user: false). encodeURIComponent escapes the return
  * address so its ":" and "/" survive inside the query string.
  */
 export async function cloudSendLink(email) {
   const back = location.origin + location.pathname;
-  await clFetch(`/auth/v1/otp?redirect_to=${encodeURIComponent(back)}`, { method: "POST", body: { email, create_user: true } });
+  // create_user false: a link goes only to an account that already exists, none is made.
+  await clFetch(`/auth/v1/otp?redirect_to=${encodeURIComponent(back)}`, { method: "POST", body: { email, create_user: false } });
 }
 
 /**
@@ -126,6 +144,8 @@ async function clToken() {
  * message when it gives one, and the status number in err.status.
  */
 async function clFetch(path, { method = "GET", body, token, headers = {} } = {}) {
+  // Read-only app: only reads, plus the sign-in API (send link, refresh, sign out) may go out.
+  if (method !== "GET" && !path.startsWith("/auth/v1/")) throw new Error(CL_READONLY);
   const res = await fetch(CLOUD.url + path, {
     method,
     // ...(body ? {...} : {}) adds the Content-Type header only when there is a body; ...headers
@@ -146,28 +166,13 @@ const clAuthed = async (path, opts = {}) => clFetch(path, { ...opts, token: awai
 
 // The data calls. REST paths use Supabase's query syntax (PostgREST): select=... picks the
 // columns, column=eq.value filters (equals), order=column.desc sorts newest first, limit=N caps.
+// No write call exists in this file (Boss's rule, 2026-10-17): no upload of runs, no token
+// claim, no AI job, no delete. They are kept for later in supabase/app-writes-later.js.
+// clFetch also refuses any request that is not a GET outside the sign-in API (/auth/v1/).
 /** The run summaries stored in the account. */
 export async function cloudRuns() {
   // Each row holds one summary in its `rec` column: return the list of summaries.
   return ((await clAuthed("/rest/v1/runs?select=rec")) || []).map((r) => r.rec);
-}
-/**
- * Add or update run summaries (an "upsert": same id = same row).
- * on_conflict=user_id,id names the columns that identify a row; the Prefer header asks to merge
- * on such a conflict and to send nothing back.
- */
-export async function cloudPutRuns(recs) {
-  if (!recs.length) return;
-  const user = cloudUser();
-  await clAuthed("/rest/v1/runs?on_conflict=user_id,id", {
-    method: "POST",
-    body: recs.map(recordClean).map((rec) => ({ user_id: user.id, id: rec.id, rec, updated_at: new Date().toISOString() })),
-    headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
-  });
-}
-/** Delete every run of the signed-in user from the account. */
-export async function cloudDeleteRuns() {
-  await clAuthed(`/rest/v1/runs?user_id=eq.${cloudUser().id}`, { method: "DELETE" });
 }
 /**
  * The token ledger, newest first: [{ delta, reason, created_at }]. Each line is one movement:
@@ -177,15 +182,6 @@ export async function cloudDeleteRuns() {
 export async function cloudLedger() {
   return (await clAuthed("/rest/v1/cairn_ledger?select=delta,reason,created_at&order=created_at.desc")) || [];
 }
-/** Ask the server to pay out the tokens of the achievements reached. */
-export const cloudClaim = () => clAuthed("/functions/v1/claim-cairns", { method: "POST", body: {} });
-/**
- * Spend a token on an AI analysis of the runs `ask` selects; answers { job } at once, the result
- * comes later (cloudJob). `athlete` is { hrMax, hrRest, weight } (null when not set); `ask` is
- * { ids } or { from, to } (ms), plus focus (an AI_FOCUS code) and question (text); the Prep my
- * race window also sends mode, goal, risk, targetSec, notes and forced (read by the server later).
- */
-export const cloudAnalyse = (athlete, ask) => clAuthed("/functions/v1/ai-analyse", { method: "POST", body: { athlete, ask } });
 /** One analysis job by id: { id, status ("running", "done" or "failed"), result, error, created_at }. */
 export async function cloudJob(id) {
   const rows = await clAuthed(`/rest/v1/ai_jobs?id=eq.${encodeURIComponent(id)}&select=id,status,result,error,created_at`);
@@ -194,10 +190,4 @@ export async function cloudJob(id) {
 /** The past analyses that finished well, newest first, at most 10. */
 export async function cloudJobs() {
   return (await clAuthed("/rest/v1/ai_jobs?status=eq.done&select=id,result,created_at&order=created_at.desc&limit=10")) || [];
-}
-/** Delete the account on the server (a server function), then forget the session here. */
-export async function cloudDeleteAccount() {
-  await clAuthed("/functions/v1/delete-account", { method: "POST", body: {} });
-  clSession = null;
-  clWrite(null);
 }

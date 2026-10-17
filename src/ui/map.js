@@ -106,7 +106,9 @@ const TILES = {
  *   marks   [{km, kind: "aid"|"km"|"gel", label}] markers along the course
  * Returns a controller: setRunner(km) moves the runner dot, highlight(cur) makes the section you
  * are on ({fromKm, toKm}, or null) glow, show(fromKm, toKm) zooms on a stretch, focus(fromKm, toKm)
- * zooms on it and dims the rest of the route (focus(null) undoes it), follow(on), fit(), destroy().
+ * zooms on it and dims the rest of the route (focus(null) undoes it), focus(fromKm, toKm, {zoom: false})
+ * only dims the rest, at your zoom, and slides the map if the stretch is out of view (the cockpit's
+ * section bar and moments), follow(on), fit(), destroy().
  * Leaflet loads in the background, so the controller works before the map is ready.
  *
  * Side effects: empties `el`, adds the "map" class, shows "Loading map…" until an engine is ready.
@@ -126,7 +128,7 @@ export function courseMap(el, opts) {
     setRunner(km) { ctl.km = km; if (ctl.impl) ctl.impl.setRunner(km); },
     highlight(cur) { ctl.hl = [cur]; if (ctl.impl) ctl.impl.highlight(cur); },
     show(fromKm, toKm) { if (ctl.impl) ctl.impl.show(fromKm, toKm); },
-    focus(fromKm, toKm) { ctl.fc = fromKm === null || fromKm === undefined ? null : [fromKm, toKm]; if (ctl.impl) ctl.impl.focus(ctl.fc); },
+    focus(fromKm, toKm, { zoom = true } = {}) { ctl.fc = fromKm === null || fromKm === undefined ? null : [fromKm, toKm, zoom]; if (ctl.impl) ctl.impl.focus(ctl.fc); },
     follow(on) { ctl.following = on; if (ctl.impl) ctl.impl.follow(on); },
     fit() { if (ctl.impl) ctl.impl.fit(); },
     destroy() { ctl.dead = true; if (ctl.impl) ctl.impl.destroy(); },
@@ -342,10 +344,20 @@ function leafletMap(L, el, { route, totalKm, paint = [], marks = [] }) {
       // 40 px margin, and never closer than zoom 14 (a short stretch would fill the screen).
       map.fitBounds(L.latLngBounds(pts), { padding: [40, 40], maxZoom: 14 });
     },
-    /** Zoom on [fromKm, toKm] and dim the rest of the route; null brings the whole route back. */
+    /**
+     * Dim the route outside [fromKm, toKm, zoom] and zoom on the stretch; null brings the whole
+     * route back. With zoom false the zoom level stays yours: the map only slides (panTo, no zoom
+     * change) when the stretch is not already in view, and not at all while it follows the runner,
+     * which is already on that stretch.
+     */
     focus(fc) {
       drawFocus(fc ? fc[0] : null, fc ? fc[1] : null);
-      if (fc) this.show(fc[0], fc[1]);
+      if (!fc) return;
+      if (fc[2] !== false) { this.show(fc[0], fc[1]); return; }
+      const pts = slice(route, totalKm, fc[0], fc[1]);
+      if (pts.length < 2 || (following && !free)) return;
+      const b = L.latLngBounds(pts);
+      if (!map.getBounds().contains(b)) map.panTo(b.getCenter());
     },
     /** Make the section `cur` ({fromKm, toKm}) glow; null clears the glow. */
     highlight(cur) {

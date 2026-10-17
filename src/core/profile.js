@@ -13,6 +13,8 @@
 //   profileBests        the best time on each distance, from the run log
 //   PROFILE_LIMITS      the size limits (characters and counts)
 
+import { refsClean, REF_LEVELS } from "./refs.js";
+
 export const PROFILE_DISTANCES = [
   { code: "5k", label: "5K", km: 5 },
   { code: "10k", label: "10K", km: 10 },
@@ -67,7 +69,8 @@ export function flagEmoji(code) {
 
 /**
  * Any profile (saved, typed, or nothing at all) made safe and complete:
- *   { name, flag ("FR" or ""), about, tags: [codes], goals: { "5k": { goal, best } ... } }
+ *   { name, flag ("FR" or ""), about, tags: [codes], goals: { "5k": { goal, best } ... },
+ *     refs: { k10, half, easy }, level }
  * Texts are cut to their limits and turned into one line (except `about`, which keeps line
  * breaks), unknown flags and badges are dropped, times are whole seconds between 1 minute and
  * 7 days, or null. Anything else (like the "My data" lines of older versions, removed on
@@ -95,6 +98,10 @@ export function profileClean(raw) {
     // [...new Set(list)] drops duplicates; filter keeps known badges only.
     tags: Array.isArray(r.tags) ? [...new Set(r.tags)].filter((t) => tagCodes.has(t)).slice(0, L.tags) : [],
     goals,
+    // Your references for the engine (refs.js): 10K, half, easy pace, and the level of the next
+    // run in Prep my run (REF_LEVELS, 1 Recovery to 5 Race).
+    refs: refsClean(r.refs),
+    level: REF_LEVELS.includes(r.level) ? r.level : "easy",
   };
 }
 

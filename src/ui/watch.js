@@ -49,21 +49,30 @@ export function pimpBadge(href, sub = "Put this plan on your watch →") {
 }
 
 /**
- * The panel's HTML: an explanation, the list (filled by mountWatch) and the add row.
- * Returns an HTML string; `plan` gives the course length (the highest km you can type).
+ * The panel's HTML (design review of Prep my run: lighter and cooler). On top, a watch face that
+ * previews the message you pick, beside it the count, the download buttons and the small tools;
+ * under it, the messages as slim rows (two columns on wide screens): an on/off switch, the km,
+ * the message in the watch's own monospace letters and the arrival time. The add row stays
+ * folded until "+ Add yours" is pressed. Returns an HTML string.
+ * `plan` gives the course length (the highest km you can type); `dl` is the caller's download
+ * buttons and status (HTML), placed under the count.
  */
-export function watchPanelHtml(plan) {
+export function watchPanelHtml(plan, dl = "") {
   return `<div class="panel wm">
-    <p class="note" style="margin-top:0">What your watch will show along the course: one message each time the strategy changes, one at every key zone (marked "!"). Check them, rewrite any (${POINT_NAME_MAX} characters, the watch cuts the rest), move any to another km (it stays at least 200 m and 1 minute after the one before), untick the ones you do not want, add your own. Your version goes into the course files and is saved in this browser.</p>
-    <div class="wm-tools"><span class="wm-count" aria-live="polite"></span><button class="btn ghost sm" type="button" data-keep-all="1">Keep all</button><button class="btn ghost sm" type="button" data-keep-all="0">Keep none</button></div>
-    <div class="wm-row wm-head"><span>Km</span><span>Arrive</span><span>Message on the watch</span><span>Keep</span></div>
-    <div class="wm-rows"></div>
-    <div class="wm-add">
+    <div class="wm-hero">
+      <div class="wm-watch" aria-hidden="true"><div class="wm-face"><small class="wm-fkm"></small><b class="wm-ftext"></b><small class="wm-ft"></small></div></div>
+      <div class="wm-side">
+        <p class="wm-lead"><span class="wm-count" aria-live="polite"></span> One message each time the strategy changes, one at every key zone ("!"). Tap one to see it on the watch, rewrite it (${POINT_NAME_MAX} characters), move its km, switch it off.</p>
+        <div class="wm-dl">${dl}</div>
+        <div class="wm-tools"><button class="wm-link" type="button" data-keep-all="1">Keep all</button><button class="wm-link" type="button" data-keep-all="0">Keep none</button><button class="wm-link wm-reset" type="button">Back to the planner's</button><button class="wm-link wm-open" type="button">+ Add yours</button></div>
+      </div>
+    </div>
+    <div class="wm-add" hidden>
       <label class="f">At km<input type="number" class="wm-addkm" step="0.1" min="0" max="${plan.course.totalKm.toFixed(1)}" placeholder="12.5"></label>
       <label class="f">Your message<input type="text" class="wm-addname" maxlength="${POINT_NAME_MAX}" placeholder="CALL HOME"></label>
-      <button class="btn ghost wm-addbtn" type="button">Add</button>
-      <button class="btn ghost wm-reset" type="button">Back to the planner's messages</button>
+      <button class="btn ghost sm wm-addbtn" type="button">Add</button>
     </div>
+    <div class="wm-rows"></div>
   </div>`;
 }
 
@@ -78,6 +87,27 @@ export function watchPanelHtml(plan) {
  */
 export function mountWatch(root, { plan, sid, key, say = () => {} }) {
   const q = (s) => root.querySelector(s);
+  // The watch face: the message of `row` in the watch's letters, its km and arrival time. `buzz`
+  // replays a short shake (the CSS animation wm-buzz), like a watch vibrating on a message.
+  let shown = "";
+  const face = q(".wm-face");
+  const preview = (row, buzz = true) => {
+    if (!row) { face.hidden = true; return; }
+    face.hidden = false;
+    const changed = shown !== row.dataset.id;
+    shown = row.dataset.id;
+    q(".wm-ftext").textContent = row.querySelector(".wm-msg input").value || "…";
+    q(".wm-fkm").textContent = `KM ${row.querySelector(".wm-km input").value}`;
+    q(".wm-ft").textContent = row.dataset.t;
+    face.classList.toggle("off", row.classList.contains("off"));
+    box().querySelectorAll(".wm-row.pick").forEach((r) => r.classList.remove("pick"));
+    row.classList.add("pick");
+    // Reading offsetWidth makes the browser apply the removed class first, so the shake restarts.
+    if (buzz && changed) { face.classList.remove("buzz"); void face.offsetWidth; face.classList.add("buzz"); }
+  };
+  const box = () => q(".wm-rows");
+  // "+ Add yours" unfolds the add row and puts the cursor in its km box.
+  q(".wm-open").addEventListener("click", () => { const a = q(".wm-add"); a.hidden = !a.hidden; if (!a.hidden) q(".wm-addkm").focus(); });
   /** Rebuild the list of messages from the plan and the stored edits, and wire each row. */
   const draw = () => {
     const ed = wmGet(key);
@@ -89,14 +119,20 @@ export function mountWatch(root, { plan, sid, key, say = () => {} }) {
     // One row per message: km, arrival clock time (with the kind: "Yours", "Key zone" for ids
     // like "k1" (regex ^k\d: a "k" then a digit at the start), or the word from WM_KIND), the
     // editable text with a character counter, and a Keep box (or a remove button for your own).
-    box.innerHTML = all.map((p) => `<div class="wm-row${on.has(p.id) ? "" : " off"}${p.name.startsWith("!") ? " key" : ""}" data-id="${wmEsc(p.id)}">
+    // One slim row per message: on/off switch (or a remove button for your own), km, the editable
+    // text with its character counter (shown while typing), and the arrival time with its kind
+    // ("Yours", "Key zone" for ids like "k1": regex ^k\d, or the word from WM_KIND).
+    box.innerHTML = all.map((p) => `<div class="wm-row${on.has(p.id) ? "" : " off"}${p.name.startsWith("!") ? " key" : ""}" data-id="${wmEsc(p.id)}" data-t="${clock(plan.startSec, secAtKm(plan, sid, p.km))}">
+      <span class="wm-keep">${p.added ? `<button class="wm-del" type="button" data-del="1" aria-label="Remove" title="Remove">✕</button>` : `<input type="checkbox" role="switch" ${on.has(p.id) ? "checked" : ""} aria-label="Send this message" title="Send this message">`}</span>
       <span class="wm-km"><input type="number" step="0.1" min="0" max="${plan.course.totalKm.toFixed(1)}" value="${p.km.toFixed(1)}" aria-label="Km of this message" title="Move this message: type the km where you want it"></span>
-      <span class="wm-t">${clock(plan.startSec, secAtKm(plan, sid, p.km))}<small>${p.added ? "Yours" : /^k\d/.test(p.id) ? "Key zone" : WM_KIND[p.type] || ""}</small></span>
       <span class="wm-msg"><input type="text" maxlength="${POINT_NAME_MAX}" value="${wmEsc(p.name)}" aria-label="Message at km ${p.km.toFixed(1)}" title="${wmEsc(p.text)}"><small class="wm-n">${p.name.length}/${POINT_NAME_MAX}</small></span>
-      <span class="wm-keep">${p.added ? `<button class="btn ghost sm" type="button" data-del="1" aria-label="Remove">✕</button>` : `<input type="checkbox" ${on.has(p.id) ? "checked" : ""} aria-label="Keep this message">`}</span>
+      <span class="wm-t">${clock(plan.startSec, secAtKm(plan, sid, p.km))}<small>${p.added ? "Yours" : /^k\d/.test(p.id) ? "Key zone" : WM_KIND[p.type] || ""}</small></span>
     </div>`).join("");
     // How many messages go to the watch, out of all those listed.
-    q(".wm-count").innerHTML = `<b>${all.filter((p) => on.has(p.id)).length}</b> of ${all.length} messages kept`;
+    q(".wm-count").innerHTML = `<b>${all.filter((p) => on.has(p.id)).length}</b> of ${all.length} messages on your watch.`;
+    // The watch face shows the message picked (the last one touched), else the first one sent.
+    const pick = box.querySelector(`.wm-row[data-id="${CSS.escape(shown || "")}"]`) || box.querySelector(".wm-row:not(.off)") || box.querySelector(".wm-row");
+    preview(pick, false);
     // Wire each row. `id` is kept by each listener (a closure), so it knows which row it serves.
     box.querySelectorAll(".wm-row").forEach((row) => {
       const id = row.dataset.id;
@@ -113,8 +149,10 @@ export function mountWatch(root, { plan, sid, key, say = () => {} }) {
         else { e.kms = { ...(e.kms || {}) }; if (v === null) delete e.kms[id]; else e.kms[id] = v; }
         wmSet(key, e); trackEvent("watch-msg", "move"); draw();
       });
-      // While typing ("input" event): update the character counter only.
-      inp.addEventListener("input", () => { row.querySelector(".wm-n").textContent = `${inp.value.length}/${POINT_NAME_MAX}`; });
+      // Touching a row shows it on the watch face; typing updates the counter and the face live.
+      row.addEventListener("focusin", () => preview(row));
+      row.addEventListener("pointerdown", () => preview(row));
+      inp.addEventListener("input", () => { row.querySelector(".wm-n").textContent = `${inp.value.length}/${POINT_NAME_MAX}`; preview(row, false); });
       // When the text box is left ("change" event): save. An added message is edited in place in
       // `extra`; a planner message gets an entry in `names`. { ...(e.names || {}), [id]: text }
       // copies the existing names and adds or replaces this one.

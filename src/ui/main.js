@@ -54,7 +54,8 @@ import { mountReplay, stopReplay } from "./replay.js";
 import { initRunMode, pauseRun, currentRun } from "./review.js";
 import { initPrint, P4_EXPORTS } from "./print.js";
 import { initHelp } from "./help.js";
-import { siteFooter } from "../site/site.js";
+import { siteFooter, SITE } from "../site/site.js";
+import { refsCardHtml, refsCalibNow, initRefs } from "./refs.js";
 import { initAccount, acctSaveRun, acctSaveGpx, acctOpenAsk, acctAiBadge } from "./account.js";
 import { arUse, arState, arBarHtml } from "./airace.js";
 import { startAnalytics, trackEvent, trackOnce, analyticsOn, analyticsName } from "./analytics.js";
@@ -116,6 +117,8 @@ const state = {
 // PEAK: the small mountain logo, as inline SVG text, reused in the hero, the top bar and prep mode.
 /* ---------- skeleton ---------- */
 const PEAK = `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M2 27 12 9l5 8 4-5 9 15z" fill="currentColor"/><path d="m12 9 2.6 4.6L12 12l-2 2.2z" fill="#fff" opacity=".85"/></svg>`;
+// The logo, the name and the short line beside it, the same in every mode (the line is the site's tagline).
+const BRAND = `${PEAK}Prep my race <span class="brand-desc">${SITE.tagline.replace("&", "&amp;")}</span>`;
 // Photos come from Pexels (free licence: use and edit allowed, credit appreciated). The files sit
 // in src/ui/photos and are copied next to index.html at build; style.css points the slots at them.
 // Plan mode keeps the nature and adventure look; "Review a run" mode gets sport shots. No face is
@@ -195,10 +198,10 @@ $("#app").innerHTML = `
   ${credit("hero", "plan-only")}${credit("heroRun", "prep-only")}${credit("heroRewind", "review-only")}
   <div class="hero-in">
     ${MODE_SEG}
-    ${prepHeroHtml(PEAK)}
+    ${prepHeroHtml(BRAND)}
     <div class="hero-row review-only">
       <div>
-        <div class="brand">${PEAK}Prep my race <span class="brand-desc">Prep &amp; go</span></div>
+        <div class="brand">${BRAND}</div>
         <h1 style="margin-top:14px">Relive the run.<br><em>Learn from it.</em></h1>
         <p class="lead">Drop the run you just did and watch it again at your real pace. See where you flew, where it cost you and what to change next time. Your file never leaves this page.</p>
       </div>
@@ -208,13 +211,14 @@ $("#app").innerHTML = `
       <div class="drop" id="dropRun">
         <h3><span class="tag">▶</span>Your run</h3>
         <p>The GPX your watch recorded (export it from Garmin Connect, Strava, Suunto, Coros...). Cadence is a bonus; heart rate in the file is ignored.</p>
-        <div class="actions"><label class="btn ghost" for="fileRun">Choose GPX</label><input type="file" id="fileRun" accept=".gpx,application/gpx+xml,text/xml"></div>
         <div class="status" id="stRun" aria-live="polite"></div>
+        <div class="actions drop-act"><label class="btn ghost" for="fileRun">Add GPX</label><input type="file" id="fileRun" accept=".gpx,application/gpx+xml,text/xml"></div>
       </div>
+      ${refsCardHtml("run")}
     </div>
     <div class="hero-row plan-only">
       <div>
-        <div class="brand">${PEAK}Prep my race <span class="brand-desc">Prep &amp; go</span></div>
+        <div class="brand">${BRAND}</div>
         <h1 style="margin-top:14px">Know the course.<br><em>Own the day.</em></h1>
         <p class="lead">Drop a few of your runs and the race GPX: you get a race-day plan built on how you really move, with pace, hikes, gels and aid stations. Rehearse it, put it on your watch, and start the day already knowing it. Your files never leave this page.</p>
       </div>
@@ -224,15 +228,16 @@ $("#app").innerHTML = `
       <div class="drop" id="dropEffort">
         <h3><span class="tag">01</span>Your runs</h3>
         <p>One or more recorded runs of 1.5 h or more at a steady effort, with some climbs. Recent runs count more. Cadence is a bonus; heart rate in the file is ignored.</p>
-        <div class="actions"><label class="btn ghost" for="fileEffort">Add GPX</label><input type="file" id="fileEffort" multiple accept=".gpx,application/gpx+xml,text/xml"><button class="btn ghost" id="clearRuns" type="button" hidden>Clear</button></div>
         <div class="status" id="stEffort" aria-live="polite"></div>
+        <div class="actions drop-act"><label class="btn ghost" for="fileEffort">Add GPX</label><input type="file" id="fileEffort" multiple accept=".gpx,application/gpx+xml,text/xml"><button class="btn ghost" id="clearRuns" type="button" hidden>Clear</button></div>
       </div>
       <div class="drop" id="dropRace">
         <h3><span class="tag">02</span>The race</h3>
         <p>The official course GPX, with elevation. Drop it here or choose it.</p>
-        <div><label class="btn ghost" for="fileRace">Choose GPX</label><input type="file" id="fileRace" accept=".gpx,application/gpx+xml,text/xml"></div>
         <div class="status" id="stRace" aria-live="polite"></div>
+        <div class="actions drop-act"><label class="btn ghost" for="fileRace">Add GPX</label><input type="file" id="fileRace" accept=".gpx,application/gpx+xml,text/xml"></div>
       </div>
+      ${refsCardHtml("race")}
     </div>
   </div>
 </header>
@@ -473,7 +478,7 @@ function setRuns(runs, bad = []) {
 }
 
 /**
- * Make a drop box accept files, both by drag and drop and by its "Choose GPX" button.
+ * Make a drop box accept files, both by drag and drop and by its "Add GPX" button.
  * boxId / inputId: CSS selectors of the box and of its <input type="file">.
  * loader: called with [{xml, label}] once every file has been read as text.
  * Files are read in the browser (File.text()), nothing is uploaded. Promise.all waits for all
@@ -542,7 +547,9 @@ function compute() {
   $("#planErr").innerHTML = "";
   if (state.race && state.effort) {
     try {
-      state.plan = buildPlan(state.race.parsed, state.effort.runs.map((r) => r.parsed), { ...state.settings, ...profileHeart() });
+      // calib: your references (My references card) set the level at race effort; your runs
+      // keep the shape (how you slow down on each gradient). null without references.
+      state.plan = buildPlan(state.race.parsed, state.effort.runs.map((r) => r.parsed), { ...state.settings, ...profileHeart(), calib: refsCalibNow("race") });
       // The regex /\(made up\)$/ matches "(made up)" at the end of the name: the demo's label.
       // Once per visit: did this visitor get a plan, from the demo or from their own files?
       trackOnce("plan-built", /\(made up\)$/.test(state.race.name) ? "demo" : "own");
@@ -1148,8 +1155,8 @@ function renderDday() {
   if (state.race && state.race.route) ddayMap = courseMap($("#ddayMap"), { route: state.race.route, totalKm: plan.course.totalKm, ...mapStyle(brief, parseAidStations(state.settings.aidStations).filter((a) => a.km <= plan.course.totalKm), plan.keyZones) });
   else $("#ddayMap").remove();
   // Key zone chips: one open at a time (state.kz, the index, or null). Opening one writes its card
-  // under the chips, shades its band on the profile (class "on") and zooms the map on it with the
-  // rest of the route dimmed; a second click on the same chip closes it.
+  // under the chips, shades its band on the profile (class "on") and lights it on the map with the
+  // rest of the route dimmed, without zooming; a second click on the same chip closes it.
   const openZone = (i) => {
     if (i !== null && !plan.keyZones[i]) i = null;
     state.kz = i;
@@ -1158,7 +1165,7 @@ function renderDday() {
     out.querySelectorAll(".prof-wrap rect.zone").forEach((rc) => rc.classList.toggle("on", !!z && +rc.dataset.z === z.n));
     const msg = $("#kzMsg");
     if (msg) msg.innerHTML = z ? `${zoneList([z])}<p class="note kz-note">${ZONE_NOTE}</p>` : "";
-    if (ddayMap) { if (z) ddayMap.focus(z.fromKm, z.toKm); else { ddayMap.focus(null); ddayMap.fit(); } }
+    if (ddayMap) { if (z) ddayMap.focus(z.fromKm, z.toKm, { zoom: false }); else ddayMap.focus(null); }
   };
   out.querySelectorAll(".kz-chip").forEach((b) => b.addEventListener("click", () => {
     const i = +b.dataset.z;
@@ -1183,16 +1190,7 @@ function renderPimp() {
   const sid = plan.scenarios[state.scenario] ? state.scenario : "central";
   box.innerHTML = `
   <p class="note" style="margin-top:0">Timed on your <b>${esc(plan.scenarios[sid].label.toLowerCase())}</b> scenario (change it in 03 Your plan).</p>
-  <div class="sub-h" id="d-watch">Watch messages</div>
-  <div id="dWatch">${watchPanelHtml(plan)}</div>
-
-  <div class="sub-h" id="d-pimp">Your pimped GPX</div>
-  <div class="actions">
-    <button class="btn primary" id="dlFit" type="button">Garmin course (.fit)</button>
-    <button class="btn" id="dlGpx" type="button">GPX with messages</button>
-    <span class="status" id="pimpStat" aria-live="polite"></span>
-  </div>
-  <p class="note">The course files carry this scenario's plan and your watch messages above: for example "HIKE 5.5k +726" (hike the next 5.5 km, 726 m up) or "!POWER HIKE 2.3k" at a key zone. Messages are at least 200 m and 1 minute apart. Import the .fit in Garmin Connect (Courses, Import) or copy it to the watch's GARMIN/NewFiles folder, then follow the course. The GPX works with other brands too.</p>`;
+  <div id="dWatch">${watchPanelHtml(plan, `<button class="btn primary sm" id="dlFit" type="button" title="Import it in Garmin Connect (Courses, Import) or copy it to the watch's GARMIN/NewFiles folder">Garmin .fit</button><button class="btn sm" id="dlGpx" type="button" title="For other brands of watch">.gpx</button><span class="status" id="pimpStat" aria-live="polite"></span>`)}</div>`;
   const say = (t) => { $("#pimpStat").textContent = t; };
   mountWatch($("#dWatch"), { plan, sid, key: watchKey(plan, sid), say });
   $("#dlFit").addEventListener("click", () => exportCourse("fit", plan, sid, say));
@@ -1505,10 +1503,13 @@ document.querySelectorAll("[data-a4go]").forEach((b) => b.addEventListener("clic
 }));
 // The profile's heart rates changed (account window): redraw the plan, its heart-rate guide uses them.
 document.addEventListener("trp-profile", () => { if (state.race) compute(); });
+// Your references changed (My references card, ui/refs.js): plan again at the new level.
+document.addEventListener("trp-refs", () => { if (state.race) compute(); });
 
 // Start-up, in order: draw the empty sections, start Prep my run (it can reuse your reference
 // runs and settings, and draws its own cockpit through mountCockpit), apply the mode from the
 // address (?mode=...), then start anonymous analytics and the account menu.
+initRefs();
 compute();
 prepCtl = initPrepRun({ getRuns: () => (state.effort ? state.effort.runs.map((r) => r.parsed) : []), getSettings: () => state.settings, onLoaded: () => renderNav(), cockpit: (box, plan, key) => mountCockpit(box, plan, "central", key, "Run") });
 setMode(new URLSearchParams(window.location.search).get("mode"), false);
