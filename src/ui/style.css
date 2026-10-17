@@ -1154,6 +1154,9 @@ html[data-theme="sky"] .brand-desc{color:#fff;opacity:.92;border-color:rgba(255,
 .acct-links button{font-size:13px;padding:5px 10px}
 .acct-bests .acct-row{font-size:16px;padding:8px 0;border-bottom:1px solid var(--acct-sep)}
 .acct-bests .acct-row small{font-weight:400;color:var(--acct-muted);margin-left:6px}
+/* The extra bests under the goals table (profile.js): labels wrap instead of being cut on phones. */
+.pf-more .acct-row{align-items:baseline}
+.pf-more .acct-row span{white-space:normal;overflow:visible}
 .acct-kicker svg{width:16px;height:16px;vertical-align:-2px}
 .acct-chips{display:flex;flex-wrap:wrap;gap:8px}
 .acct-chips.small{gap:6px;margin-top:8px}
@@ -1200,7 +1203,7 @@ html[data-theme="sky"] .brand-desc{color:#fff;opacity:.92;border-color:rgba(255,
 .acct-ask-block:empty{display:none}
 .acct-kicker{display:flex;align-items:center;gap:6px}
 
-/* ---------- Account window (profile.js): presentation, goals and bests, heart, own data ---------- */
+/* ---------- Account window (profile.js): presentation, goals and bests, heart ---------- */
 .acct-who .acct-prof{padding:6px 14px;font-size:14px;flex:none}
 .acct-profile .pf-card{display:flex;align-items:center;gap:16px;margin:10px 0 4px}
 .pf-avatar{flex:none;display:grid;place-items:center;width:64px;height:64px;border-radius:50%;border:2px solid var(--sun);font-size:34px;line-height:1;font-family:var(--f-display);font-weight:800;color:var(--acct-ink);background:rgba(255,255,255,.06)}
@@ -1223,9 +1226,6 @@ html[data-theme="sky"] .brand-desc{color:#fff;opacity:.92;border-color:rgba(255,
 .pf-goals td small{display:block;margin-top:3px;font-size:11px;color:var(--acct-muted)}
 .pf-goals .pf-gap{padding-top:11px;white-space:nowrap;color:var(--acct-ink)}
 .pf-ok{color:var(--sun);font-weight:700}
-.pf-extras{display:flex;flex-direction:column;gap:8px}
-.pf-extra{display:grid;grid-template-columns:1fr 1.4fr 36px;gap:8px;align-items:center}
-.pf-extra .pf-del{position:static;width:32px;height:32px;font-size:18px}
 @media (max-width:560px){
   .pf-grid,.pf-grid.three{grid-template-columns:1fr}
   .pf-avatar{width:52px;height:52px;font-size:28px}
