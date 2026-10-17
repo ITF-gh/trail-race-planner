@@ -17,7 +17,6 @@
 //   acctSaveRun/Gpx            store one run summary (and send it to the account when signed in)
 //   AC_TOKEN, AC_SPARK         the token's name and its edelweiss logo (an SVG built in code)
 //   acTokensHtml, acMenuHtml   build the menu's HTML from historySummary()
-//   acBestsHtml                the All-time bests pop-up
 //   acAsk... functions         the "Ask the AI" window: which runs, which axis, which question
 //   acRender                   redraw the menu
 //   acClaim, acSync            talk to the account (tokens, two-way sync of runs)
@@ -39,7 +38,7 @@ import { historySummary, aiSelect, recordClean, AI_QUESTION_MAX } from "../core/
 import { aiRaceChecks, aiRunChecks, AI_GOALS, AI_RISKS, AI_NOTES_MAX } from "../core/aichecks.js";
 import { runRecord } from "../core/runrecord.js";
 import { demoRecords, DEMO_USER } from "../core/demorecords.js";
-import { mmss, hms, hm, parseDuration } from "../core/format.js";
+import { hm, parseDuration } from "../core/format.js";
 import { trackEvent } from "./analytics.js";
 import { profileHtml, profileInput, profileAction, profileAthlete, profileWho } from "./profile.js";
 import { aiLocalProbe, aiLocalRun, aiLocalHtml } from "./ailocal.js";
@@ -108,12 +107,18 @@ async function acAll() {
  * (runRecord; a run that cannot be summarised is skipped), 2. replace any copy with the same id
  * in the cache and the database, 3. redraw the menu, 4. when signed in, send it to the account
  * and claim any token it earned (offline: it goes with the next sync).
+ * Returns what the page can tell the runner: { isNew, count (runs stored), bests (the names of
+ * the all-time bests this run beats, [] when none or on the very first run) }, or null when the
+ * run could not be summarised.
  */
 export async function acctSaveRun(run, name) {
   let rec;
-  try { rec = runRecord(run, name); } catch (e) { return; }
+  try { rec = runRecord(run, name); } catch (e) { return null; }
   const list = await acAll();
   const isNew = !list.some((r) => r.id === rec.id);
+  // The bests before and after: a best whose run is now this one, and was not before, is new.
+  const before = historySummary(list).bests, after = historySummary(list.filter((r) => r.id !== rec.id).concat(rec)).bests;
+  const bests = list.length ? AC_BEST_NAMES.filter(([k]) => after[k] && after[k].run.id === rec.id && !(before[k] && before[k].run.id === rec.id)).map(([, label]) => label) : [];
   // put() adds the record, or replaces the one with the same id.
   acCache = list.filter((r) => r.id !== rec.id).concat(rec);
   await acTx("readwrite", (s) => s.put(rec));
@@ -124,6 +129,23 @@ export async function acctSaveRun(run, name) {
     try { await cloudPutRuns([rec]); await acClaim(); } catch (e) { /* offline: the next sync sends it */ }
     acRender();
   }
+  return { isNew, count: acCache.length, bests };
+}
+// The all-time bests a new run can beat, with the short name the page shows ("new 5 km best").
+const AC_BEST_NAMES = [["best1k", "1 km"], ["best5k", "5 km"], ["best10k", "10 km"], ["vam", "climbing speed"], ["longest", "longest run"]];
+
+/**
+ * Open the Account window from anywhere in the page (closing the menu), scrolled to one of its
+ * parts when `part` names one: "bests" or "heart" (their data-pf-sec in profile.js). Any element
+ * with data-open-profile="part" does this on click (one listener in initAccount).
+ */
+export function acctOpenProfile(part = "") {
+  if (!acPanel) return;
+  acMenu.classList.remove("open");
+  acProfile();
+  const el = part ? acPanel.querySelector(`[data-pf-sec="${part}"]`) : null;
+  if (el) el.scrollIntoView({ block: "start" });
+  trackEvent("profile-open", part || "link");
 }
 /** Same, from a GPX file (used for the runs added in Prep my race). Files that are not runs are skipped. */
 export function acctSaveGpx(xml, name) {
@@ -138,7 +160,7 @@ const acNum = (x) => Math.round(x).toLocaleString("en-US");
 // only (the database and the server still call it a "cairn" internally, which nobody sees).
 const AC_TOKEN = { one: "edelweiss", many: "edelweiss" }; // the same word in the singular and the plural
 // "3 edelweiss": a count with the right word (AC_TOKEN keeps the door open for a word whose
-// plural differs).
+// plural differs). Unused while earning edelweiss with achievements is closed.
 const acTok = (n) => `${n} ${n === 1 ? AC_TOKEN.one : AC_TOKEN.many}`;
 // The token logo: a shiny edelweiss. Eight woolly star petals (long and short in turn), a yellow
 // heart of small florets, and a glint. Built once as an SVG string; no gradients, so the many
@@ -177,6 +199,25 @@ const acBalance = () => (ac.ledger ? ac.ledger.reduce((s, r) => s + r.delta, 0) 
 // acList: the run summaries the menu and the AI window work on; acDemo: true when they are the
 // demo profile's made-up runs.
 let acList = [], acDemo = false; // the runs the menu shows (yours, or User1's)
+// The achievements as last drawn in the menu (for the caption line), sorted reached first.
+let acMedals = [];
+/**
+ * The caption under the achievement icons. `a` is one achievement, or null for the default line.
+ * The edelweiss an achievement may earn are not shown: earning them opens later (owner's rule).
+ */
+function acMedalCap(a) {
+  if (!a) return "Tap an icon to see what it is.";
+  return a.done
+    ? `<b>✓ ${acEsc(a.label)}</b> · ${acEsc(a.hint)}`
+    : `<b>${acEsc(a.label)}</b> · ${acEsc(a.hint)} · <span>${Math.floor(a.progress * 100)}% done</span>`;
+}
+/** Show achievement `code` in the caption and mark its icon as the one picked. */
+function acMedalShow(code) {
+  const cap = acMenu.querySelector(".acct-medal-cap");
+  if (!cap) return;
+  cap.innerHTML = acMedalCap(acMedals.find((m) => m.code === code) || null);
+  acMenu.querySelectorAll("[data-acct^='medal:']").forEach((b) => b.classList.toggle("pick", b.dataset.acct === `medal:${code}`));
+}
 
 /**
  * HTML of the tokens section of the menu ("AI edelweiss"). `S` is the summary from
@@ -200,9 +241,14 @@ function acTokensHtml(S) {
         <label for="acEmail">Sign in to collect them</label>
         <div><input id="acEmail" type="email" required autocomplete="email" placeholder="you@example.com"><button class="btn ghost" type="submit"${ac.busy ? " disabled" : ""}>Send link</button></div>
       </form>` : "";
+  // The Ask the AI button opens the window of the mode on screen (data-mode on <html>, read at
+  // each redraw, and the menu is redrawn each time it opens): the race plan in Prep my race, the
+  // coach in Prep my run, none in Rewind my run (a pure run detail, no AI there).
+  const mode = document.documentElement.dataset.mode;
+  const ask = mode === "run" ? "" : `<button class="btn primary" type="button" data-acct="${mode === "prep" ? "ai-run-ask" : "ai"}"${ac.job ? " disabled" : ""}>${ac.job ? "Analysing…" : `${AC_SPARK}${mode === "prep" ? "Ask the AI coach" : "Ask the AI"}`}</button>`;
   // data-acct="..." on a button names the action a click runs (see acAction).
   return `<section><h4>AI ${AC_TOKEN.many}</h4>
-      <div class="acct-cairns"><b>${AC_SPARK}${n}</b><button class="btn primary" type="button" data-acct="ai"${ac.job ? " disabled" : ""}>${ac.job ? "Analysing…" : `${AC_SPARK}Ask the AI`}</button></div>
+      <div class="acct-cairns"><b>${AC_SPARK}${n}</b>${ask}</div>
       <p class="acct-note">${note}</p>${signin}
       ${signedIn && ac.jobs.length ? `<button class="acct-linkbtn" type="button" data-acct="last">See my last analysis (${acDate(Date.parse(ac.jobs[0].created_at))})</button>` : ""}
     </section>`;
@@ -225,7 +271,7 @@ function acMenuHtml(S, demo = false) {
   const who = `<section class="acct-who"><div><b>${me.flag ? `${me.flag} ` : ""}${acEsc(me.name || (demo ? DEMO_USER : "My account"))}</b><small>${where}</small></div><button class="btn ghost acct-prof" type="button" data-acct="profile">Account</button></section>`;
   // The links at the bottom: bests (when there are runs), export and delete (own runs only),
   // sign out and delete account (signed in only).
-  const links = `<section class="acct-links">${S.count ? `<button type="button" data-acct="bests">All-time bests</button>` : ""}${S.count && !demo ? `<button type="button" data-acct="export">Export</button><button type="button" data-acct="clear">Delete runs</button>` : ""}${user ? `<button type="button" data-acct="signout">Sign out</button><button type="button" data-acct="delete">Delete account</button>` : ""}</section>`;
+  const links = `<section class="acct-links">${S.count ? `<button type="button" data-acct="bests">Bests</button>` : ""}${S.count && !demo ? `<button type="button" data-acct="export">Export</button><button type="button" data-acct="clear">Delete runs</button>` : ""}${user ? `<button type="button" data-acct="signout">Sign out</button><button type="button" data-acct="delete">Delete account</button>` : ""}</section>`;
   if (!S.count) {
     return `${who}
     <section><p class="acct-empty">Open one of your runs in <b>Rewind my run</b>, or add it to <b>Your runs</b> in Prep my race: its numbers are kept here${user ? "" : ", on this device only"}, and your stats, records and achievements build up run after run.</p></section>
@@ -235,9 +281,11 @@ function acMenuHtml(S, demo = false) {
   const gainK = S.year.gain >= 10000 ? `${(S.year.gain / 1000).toFixed(1)}k` : acNum(S.year.gain);
   // Achievements reached first, then the closest to being reached. The sort compares `done`
   // (true counts as 1, false as 0), then `progress` (0 to 1) when `done` is equal. [...x] copies
-  // the array first, so the summary's own list is not reordered. Each medal is an icon; its name,
-  // hint, progress (locked ones) and the tokens it earns are in the tooltip (title attribute).
+  // the array first, so the summary's own list is not reordered. Each medal is a button: lit when
+  // reached, grey with a progress bar when not. A tap (phone), hover or keyboard focus writes its
+  // name, how to earn it and its progress in the caption line under the icons (acMedalCap).
   const medals = [...S.achievements].sort((a, b) => b.done - a.done || b.progress - a.progress);
+  acMedals = medals;
   return `${who}
     <section><h4>Last 12 months</h4>
       <div class="acct-kpis"><div><b>${acNum(S.year.km)}</b><small>km</small></div><div><b>${gainK}</b><small>m D+</small></div><div><b>${acNum(S.year.movingSec / 3600)} h</b><small>moving</small></div></div>
@@ -246,30 +294,12 @@ function acMenuHtml(S, demo = false) {
       ${S.last.map((r) => `<div class="acct-row"><span>${acDate(r.date)} · ${acEsc(r.name)}</span><b>${r.km.toFixed(1)} km · ${acNum(r.gain)} m</b></div>`).join("")}
     </section>
     <section><h4>Achievements · ${S.unlocked} / ${S.achievements.length}</h4>
-      <div class="acct-medals mini">${medals.map((a) => `<span class="${a.done ? "" : "lock"}" title="${acEsc(a.label)}: ${acEsc(a.hint)}${a.done ? "" : ` (${Math.floor(a.progress * 100)}%)`}${a.cairns ? ` · +${acTok(a.cairns)}` : ""}">${a.icon}</span>`).join("")}</div>
+      <div class="acct-medals mini">${medals.map((a) => `<button type="button" class="${a.done ? "on" : "lock"}" data-acct="medal:${a.code}" aria-label="${acEsc(a.label)}${a.done ? ", reached" : `, ${Math.floor(a.progress * 100)}%`}"><span aria-hidden="true">${a.icon}</span>${a.done ? "" : `<i style="width:${Math.round(a.progress * 100)}%"></i>`}</button>`).join("")}</div>
+      <p class="acct-medal-cap" aria-live="polite">${acMedalCap(null)}</p>
     </section>
     ${acDocsHtml(ac.docs)}
     ${acTokensHtml(S)}
     ${links}`;
-}
-
-/**
- * All-time bests, in the pop-up (they used to make the menu too long).
- * `S.bests` holds { best1k, best5k, best10k, vam, longest }, each { value, run } or missing:
- * times in seconds, climbing speed in m/h, longest in km. Each line shows the date of the run.
- */
-function acBestsHtml(S) {
-  const B = S.bests;
-  // One line of the table, or "" when that best is missing; f formats the value.
-  const row = (label, b, f) => (b ? `<div class="acct-row"><span>${label}</span><b>${f(b.value, b.run)} <small>${acDate(b.run.date)}</small></b></div>` : "");
-  return `<p class="acct-kicker">${acEsc(profileWho().name || (acDemo ? DEMO_USER : "My account"))}</p><h3>All-time bests</h3>
-    <div class="acct-bests">
-      ${row("Fastest 1 km", B.best1k, (v) => mmss(v))}
-      ${row("Fastest 5 km", B.best5k, (v) => mmss(v))}
-      ${row("Fastest 10 km", B.best10k, (v) => (v < 3600 ? mmss(v) : hms(v)))}
-      ${row("Best climbing speed", B.vam, (v) => `${acNum(v)} m/h`)}
-      ${row("Longest run", B.longest, (v, r) => `${v.toFixed(1)} km · ${acNum(r.gain)} m`)}
-    </div>`;
 }
 
 // The AI window, Prep my race version: the runner sees the target race (from the race GPX), picks
@@ -559,7 +589,7 @@ async function acSync() {
 }
 
 /**
- * The see-through pop-up panel: the Ask the AI window, the AI answer or the all-time bests.
+ * The see-through pop-up panel: the Ask the AI window, the AI answer or the Account window.
  * `html` is the content, `label` the name screen readers announce. A close button is added and
  * gets the keyboard focus, so the Escape and Enter keys work at once.
  */
@@ -763,7 +793,7 @@ function acProfile(keep = false) {
  *   go          run the code checks (aichecks.js): all clear starts the analysis, otherwise the
  *               window shows the checks; fix = hide them and go to the first field to fix;
  *               force = start anyway with the warnings (never with a hard stop)
- *   bests       open the all-time bests pop-up
+ *   bests       open the Account window on the bests
  *   profile     open the Account window (profile.js); pf:X are its own buttons
  *   last        show the last result; close = hide the pop-up
  * "mode:" and "range:" redraw the window; "goal:" and "risk:" only move the highlight. What is
@@ -858,8 +888,11 @@ async function acAction(what) {
     trackEvent("profile-open");
   } else if (what.startsWith("pf:")) {
     if (profileAction(what.slice(3))) acProfile(true);
+  } else if (what.startsWith("medal:")) {
+    acMedalShow(what.slice(6));
   } else if (what === "bests") {
-    acShowPanel(acBestsHtml(historySummary(acList)), "All-time bests");
+    // The bests live in the Account window: open it on them.
+    acctOpenProfile("bests");
   } else if (what === "go" || what === "fake") {
     // Local test only: "fake" asks for the answer made by code instead of the AI.
     if (acLocal) acLocal.fake = what === "fake";
@@ -964,7 +997,11 @@ export async function initAccount(opts = {}) {
   // menu on any outside click) does not see it.
   btn.addEventListener("click", (e) => { e.stopPropagation(); set(!acMenu.classList.contains("open")); });
   // The Account window replaces the menu on screen: the menu closes when it opens.
-  acEl.addEventListener("click", (e) => { const b = e.target.closest("[data-acct]"); if (!b) return; if (b.dataset.acct === "profile") set(false); acAction(b.dataset.acct); });
+  acEl.addEventListener("click", (e) => { const b = e.target.closest("[data-acct]"); if (!b) return; if (b.dataset.acct === "profile" || b.dataset.acct === "bests") set(false); acAction(b.dataset.acct); });
+  // Hovering or tabbing onto an achievement icon shows it in the caption too (a tap is a click).
+  const medalOver = (e) => { const b = e.target.closest && e.target.closest("[data-acct^='medal:']"); if (b) acMedalShow(b.dataset.acct.slice(6)); };
+  acMenu.addEventListener("mouseover", medalOver);
+  acMenu.addEventListener("focusin", medalOver);
   // The sign-in form: preventDefault() stops the browser from submitting it as a page load.
   acEl.addEventListener("submit", (e) => { const f = e.target.closest("[data-acct-form=signin]"); if (f) { e.preventDefault(); acSignIn(f); } });
   // A click on the dimmed backdrop itself (not on the panel's content) closes the pop-up.
@@ -980,10 +1017,13 @@ export async function initAccount(opts = {}) {
   // The redraw waits a moment (setTimeout 0): a Tab press fires "change" before the focus moves
   // to the next field, and redrawing at once would lose where the focus is going.
   acPanel.addEventListener("change", (e) => { if (e.target.dataset && e.target.dataset.pf && profileInput(e.target, true)) setTimeout(() => acProfile(true), 0); });
-  // The edelweiss stickers of the modes (acctAiBadge) open their Ask the AI window.
+  // The edelweiss stickers of the modes (acctAiBadge) open their Ask the AI window, and the
+  // profile links of the page (data-open-profile) the Account window.
   document.addEventListener("click", (e) => {
     const b = e.target.closest && e.target.closest("[data-ai-ask]");
     if (b) acAction(b.dataset.aiAsk === "run" ? "ai-run-ask" : "ai");
+    const pl = e.target.closest && e.target.closest("[data-open-profile]");
+    if (pl) { e.preventDefault(); acctOpenProfile(pl.dataset.openProfile); }
   });
   // Any click outside the account element closes the menu.
   document.addEventListener("click", (e) => { if (!acEl.contains(e.target)) set(false); });

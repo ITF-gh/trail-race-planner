@@ -1,6 +1,6 @@
 // profile.js: the Account window, a see-through pop-up of its own, opened from the account menu
 // ("My profile"). It holds the runner's presentation (name, flag, a few words, badges), their
-// goals and bests from 5K to 100K, their heart rates and weight, and lines of their own data.
+// goals and bests from 5K to 100K, and their heart rates and weight.
 //
 // Storage: everything stays in this browser (localStorage), the profile under "trp.profile", the
 // heart rates and weight under "trp.athlete" (the athlete settings also used by the deep dive,
@@ -22,6 +22,7 @@
 
 import { PROFILE_DISTANCES, PROFILE_COUNTRIES, PROFILE_TAGS, PROFILE_LIMITS, flagEmoji, profileClean, profileBests } from "../core/profile.js";
 import { mmss, hms, parseDuration } from "../core/format.js";
+import { historySummary } from "../core/history.js";
 
 const PF_KEY = "trp.profile", PF_ATHLETE = "trp.athlete";
 // Escape text for HTML (& < > " become entities), so a typed name can never be read as HTML.
@@ -36,8 +37,7 @@ const pfDate = (ms) => new Date(ms).toLocaleDateString(undefined, { day: "numeri
 // The profile in memory, read once (cleaned, so it is always complete).
 let pf = null;
 const pfGet = () => (pf || (pf = profileClean(pfRead(PF_KEY))));
-// Saved cleaned (limits applied, empty lines of own data dropped); the copy in memory keeps the
-// lines just added and still empty, so they stay on screen while being filled in.
+// Saved cleaned (limits applied).
 const pfSave = () => pfWrite(PF_KEY, profileClean(pf));
 
 /** The heart rates for the plan: { maxHr, restHr }, each null when not set in the profile. */
@@ -59,12 +59,11 @@ export function profileWho() {
 /**
  * The Account window. `records` are the run summaries the menu shows (for the bests), `demo`
  * true when they are the demo profile's made-up runs, `fallbackName` the name to show when none
- * is typed ("User1" or "My account"). Five parts:
+ * is typed ("User1" or "My account"). Four parts:
  *   1. the card: flag (or the first letter of the name), name, badges and the few words
  *   2. Presentation: name, country, about, badges to pick (at most 5)
  *   3. Goals and bests: one row per distance: goal, best (typed, or else from the runs), to go
  *   4. Heart and body: max and resting heart rate, weight (the only heart data the app uses)
- *   5. My data: lines of label and value, added and removed freely
  * Every input carries data-pf="..." naming what it changes (see profileInput).
  */
 export function profileHtml(records, demo, fallbackName) {
@@ -89,7 +88,15 @@ export function profileHtml(records, demo, fallbackName) {
       <td><input data-pf="best:${d.code}" inputmode="numeric" autocomplete="off" placeholder="${lb ? pfTime(lb.sec) : ph}" value="${g.best ? pfTime(g.best) : ""}">${from}</td>
       <td class="pf-gap">${gap}</td></tr>`;
   };
-  const extraRow = (x, i) => `<div class="pf-extra"><input data-pf="xl:${i}" maxlength="${L.label}" placeholder="VO2max" value="${pfEsc(x.label)}"><input data-pf="xv:${i}" maxlength="${L.value}" placeholder="54" value="${pfEsc(x.value)}"><button type="button" class="acct-x pf-del" data-acct="pf:del:${i}" aria-label="Remove this line">×</button></div>`;
+  // The other all-time bests found in the runs (the menu's "Bests" link opens the window here):
+  // fastest 1 km, best climbing speed and longest run, each with its date. The 5K and 10K bests
+  // are already in the table above (the same values).
+  const B = historySummary(records || []).bests;
+  const bestRow = (label, b, f) => (b ? `<div class="acct-row"><span>${label}</span><b>${f(b.value, b.run)} <small>${new Date(b.run.date).toLocaleDateString(undefined, { day: "numeric", month: "short" })}${demo ? " (demo)" : ""}</small></b></div>` : "");
+  const more = bestRow("Fastest 1 km", B.best1k, (v) => mmss(v))
+    + bestRow("Best climbing speed", B.vam, (v) => `${Math.round(v).toLocaleString("en-US")} m/h`)
+    + bestRow("Longest run", B.longest, (v, r) => `${v.toFixed(1)} km · ${Math.round(r.gain).toLocaleString("en-US")} m`);
+  const moreBests = more ? `<div class="acct-bests pf-more" data-pf-sec="bests">${more}</div>` : "";
   return `<p class="acct-kicker">Account</p>
     <div class="pf-card">
       <span class="pf-avatar" aria-hidden="true">${flag || pfEsc((name[0] || "?").toUpperCase())}</span>
@@ -108,16 +115,14 @@ export function profileHtml(records, demo, fallbackName) {
     <h4>Goals and bests</h4>
     <table class="pf-goals"><thead><tr><th></th><th>Goal</th><th>Best</th><th>To go</th></tr></thead><tbody>${PROFILE_DISTANCES.map(goalRow).join("")}</tbody></table>
     <p class="acct-note">Type a best to replace the one found in your runs. 5K and 10K read as mm:ss, longer ones as h:mm (or h:mm:ss everywhere).</p>
-    <h4>Heart and body</h4>
+    ${moreBests}
+    <h4 data-pf-sec="heart">Heart and body</h4>
     <div class="pf-grid three">
       <label>Max heart rate<span class="pf-u"><input type="number" data-pf="hrMax" min="120" max="230" step="1" placeholder="190" value="${a.hrMax || ""}"> bpm</span></label>
       <label>Resting heart rate<span class="pf-u"><input type="number" data-pf="hrRest" min="30" max="100" step="1" placeholder="55" value="${a.hrRest || ""}"> bpm</span></label>
       <label>Weight<span class="pf-u"><input type="number" data-pf="weight" min="30" max="200" step="0.5" placeholder="70" value="${a.weight || ""}"> kg</span></label>
     </div>
     <p class="acct-note">These are the only heart data the app uses: heart rate recorded in a GPX file is never read. They set the plan's heart-rate guide and stay on this device.</p>
-    <h4>My data</h4>
-    <div class="pf-extras">${p.extra.map(extraRow).join("")}</div>
-    ${p.extra.length < L.extra ? `<button type="button" class="acct-linkbtn" data-acct="pf:add">+ Add a line</button>` : ""}
     <div class="acct-actions"><button class="btn ghost" type="button" data-acct="close">Done</button><button class="acct-linkbtn" type="button" data-acct="pf:reset">Reset profile</button></div>`;
 }
 
@@ -133,11 +138,6 @@ export function profileInput(el, final) {
   const [what, code] = k.split(":");
   if (what === "name" || what === "about") { p[what] = el.value; pfSave(); return final; }
   if (what === "flag") { p.flag = el.value; pfSave(); return true; }
-  if (what === "xl" || what === "xv") {
-    const x = p.extra[Number(code)];
-    if (x) { x[what === "xl" ? "label" : "value"] = el.value; pfSave(); }
-    return false;
-  }
   if (!final) return false;
   if (what === "goal" || what === "best") {
     const d = PROFILE_DISTANCES.find((x) => x.code === code);
@@ -162,8 +162,7 @@ export function profileInput(el, final) {
 /**
  * A button of the window, its data-acct without the "pf:" prefix:
  *   tag:CODE  toggle a badge (at most PROFILE_LIMITS.tags)
- *   add       add an empty line of own data; del:I removes line I
- *   reset     forget the presentation, goals and own data (after a confirm; heart rates stay)
+ *   reset     forget the presentation and goals (after a confirm; heart rates stay)
  * Returns true when the window should be redrawn.
  */
 export function profileAction(what) {
@@ -172,12 +171,8 @@ export function profileAction(what) {
     const t = what.slice(4);
     if (p.tags.includes(t)) p.tags = p.tags.filter((x) => x !== t);
     else if (p.tags.length < PROFILE_LIMITS.tags) p.tags = p.tags.concat(t);
-  } else if (what === "add") {
-    if (p.extra.length < PROFILE_LIMITS.extra) p.extra.push({ label: "", value: "" });
-  } else if (what.startsWith("del:")) {
-    p.extra = p.extra.filter((x, i) => i !== Number(what.slice(4)));
   } else if (what === "reset") {
-    if (!window.confirm("Reset your profile? Name, flag, badges, goals, bests and your own data are erased. Heart rates and weight stay.")) return false;
+    if (!window.confirm("Reset your profile? Name, flag, badges, goals and bests are erased. Heart rates and weight stay.")) return false;
     pf = profileClean({});
     pfSave();
     return true;

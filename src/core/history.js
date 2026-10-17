@@ -53,7 +53,7 @@ export const ACHIEVEMENTS = [
     progress: (L) => hiMax(L, (r) => r.km) / 42.195 },
   { code: "ultra", icon: "🧭", label: "First ultra", hint: "One run of 50 km or more", cairns: 2,
     progress: (L) => hiMax(L, (r) => r.km) / 50 },
-  { code: "kilo", icon: "⛰", label: "1,000 m day", hint: "1,000 m of climbing in one run", cairns: 0,
+  { code: "kilo", icon: "⛰\uFE0F", label: "1,000 m day", hint: "1,000 m of climbing in one run", cairns: 0,
     progress: (L) => hiMax(L, (r) => r.gain) / 1000 },
   { code: "everest", icon: "🏔", label: "Everest club", hint: "8,849 m of climbing in one calendar month", cairns: 1,
     progress: (L) => {

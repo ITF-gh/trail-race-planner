@@ -72,9 +72,9 @@ export const GUIDE = [
         how: ["Click a section name to jump there; the red line shows how far down you are.", "<b>Export A4</b> sits at the top of each printable section (Your plan, Your race, Prep my run, Rewind my run, Deep dive): untick the parts you do not want, then print or save as a PDF.", "<b>Sky mode</b> switches to a bright theme, handy outdoors; <b>Night</b> brings the dark one back."],
         tip: "Print the race card and keep it in your pack: checkpoint times, with blank boxes to write your real times." },
       { id: "account", sec: "", num: "◎", name: "Account menu", shot: "account",
-        what: "The round icon at the top right of the header: a log of the runs you loaded on this device, with stats, bests, achievements and cairns.",
+        what: "The round icon at the top right of the header: a log of the runs you loaded on this device, with stats, bests, achievements and your edelweiss.",
         how: ["Your own runs are added automatically (never the demo or sample). Until the first one, it shows a demo profile with made-up runs.", "Export the log as a file, or delete it, from the same menu.", "The online account is not open yet: everything stays in this browser."],
-        tip: "Cairns are earned with achievements and records. Later, one cairn will buy one AI analysis of a run." },
+        tip: "Edelweiss are the AI tokens: one edelweiss, one AI answer (a tailored race plan or a coached session). They come with the online account." },
     ],
   },
 ];
@@ -89,6 +89,6 @@ export const FAQ = [
   ["Why is my heart rate not shown?", "On purpose: heart rate is health data, so the app never reads it from your files. Type your max and resting heart rate in your profile (account icon, then Account): they give the plan its heart-rate guide."],
   ["How do I get the watch messages on my Garmin?", "In Watch (Prep my race) or with the sticker in Prep my run, download the .fit course. In Garmin Connect, open Training, Courses, Import, then send it to your watch. Start it as a course on race day."],
   ["Can I use it offline?", "Once the page is open, it works without network, except the map tiles and the photos. An installable offline version is planned."],
-  ["Is it free?", "Yes, with no account needed. An optional online account is being prepared, with AI analyses paid in cairns earned by running, not with money."],
+  ["Is it free?", "Yes: the planner, the race plan, the replay, the watch files and the run review are free, with no account needed. An optional online account is being prepared for the AI: each AI answer (a tailored race plan or a coached session) will use one edelweiss."],
   ["Something looks wrong. What do I do?", "Write to us (address at the bottom of every page) with the GPX if you can, and the version number shown in the footer."],
 ];
