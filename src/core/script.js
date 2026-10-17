@@ -289,7 +289,7 @@ export function raceLegs(plan, sid) {
     kind: "climb", n: x.n, level: x.level, startKm: x.startKm, endKm: x.endKm,
     title: c.sections.length ? `Climb section ${x.n}` : (c.label || `Climb ${c.n}`), label: LEVELS[x.level], tactic: x.tactic,
     // A section of a split climb remembers its whole climb, so the card can show both.
-    parent: c.sections.length ? { title: c.label || `Climb ${c.n}`, level: c.level, label: LEVELS[c.level] } : null,
+    parent: c.sections.length ? { title: c.label || `Climb ${c.n}`, level: c.level, label: LEVELS[c.level], startKm: c.startKm, endKm: c.endKm } : null,
   })));
   plan.descents.forEach((d) => parts.push({
     kind: "descent", n: d.n, level: d.level, startKm: d.startKm, endKm: d.endKm,
