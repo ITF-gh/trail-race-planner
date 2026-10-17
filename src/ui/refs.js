@@ -24,8 +24,8 @@ import { trackEvent } from "./analytics.js";
 // The boxes: key in the profile, label, placeholder, and how a value is written back.
 const BOXES = [
   { k: "k10", label: "10K", ph: "45:00", show: (s) => (s < 3600 ? mmss(s) : hms(s)) },
-  { k: "half", label: "Half", ph: "1:40:00", show: (s) => hms(s) },
-  { k: "easy", label: "Easy /km", ph: "5:30", show: (s) => mmss(s) },
+  { k: "half", label: "half", ph: "1:40:00", show: (s) => hms(s) },
+  { k: "easy", label: "easy /km", ph: "5:30", show: (s) => mmss(s) },
 ];
 // The five levels (1 to 5): name, icon and what it means, for the picker.
 export const RUN_LEVELS = {
@@ -48,33 +48,29 @@ const readBox = (k, text) => {
   return v === null ? NaN : v;
 };
 
-/** The short line after the boxes: what the references say, or that any one is enough. */
-function summaryHtml() {
+/** What the references say, as plain words for the strip's tooltip (the strip shows no summary). */
+function summaryText() {
   const x = refsRead(profileRefs().refs);
-  if (!x) return `<span class="muted">Optional, any one is enough.</span>`;
-  // Riegel: doubling the distance makes the pace 2^(k-1) times slower (in the tooltip).
-  const own = x.riegel ? `Twice the distance costs you ${((2 ** (x.riegel - 1) - 1) * 100).toFixed(1)}% of pace. ` : "";
-  return `<span title="${own}Easy pace range ${mmss(x.easyRange[0])} to ${mmss(x.easyRange[1])}/km (Daniels).">Easy <b>${mmss(x.easyPace)}</b>/km · marathon ${mmss(x.marathonPace)}/km</span>`;
+  if (!x) return "Optional, any one is enough: your best 10K, your best half marathon or your easy pace. They set the level of the times.";
+  // Riegel: doubling the distance makes the pace 2^(k-1) times slower.
+  const own = x.riegel ? ` Twice the distance costs you ${((2 ** (x.riegel - 1) - 1) * 100).toFixed(1)}% of pace.` : "";
+  return `Easy ${mmss(x.easyPace)}/km (range ${mmss(x.easyRange[0])} to ${mmss(x.easyRange[1])}, Daniels), marathon ${mmss(x.marathonPace)}/km.${own}`;
 }
 
 /**
- * The references strip, for one mode ("race", "prep" or "run"): one thin line under that mode's
- * file drops (owner's rule: it must not take room), with the title, the boxes (label beside the
- * box) and the short summary. In Prep my run it is "Your settings": the target time comes first
- * (it wins over everything), and the level picker follows on its own line (#prepLevel, drawn by
- * preprun.js once a reference is set and no target is typed), all on one line, with no summary
- * (owner's rule: few borders, few elements). The values are the saved ones;
- * data-ref names the box, so one listener (initRefs) serves the three strips.
+ * The references line, for one mode ("race", "prep" or "run"): discreet optional text under that
+ * mode's file drops, no box and no border (owner's rule), with the values typed straight into the
+ * sentence: "Optional references: 10K __ half __ easy __ /km". What they mean is in the tooltip.
+ * In Prep my run the target time comes first ("Target __ or ..."), and the level picker follows
+ * (#prepLevel, drawn by preprun.js once a reference is set and no target is typed). The values
+ * are the saved ones; data-ref names the box, so one listener (initRefs) serves the three lines.
  */
 export function refsCardHtml(mode) {
   const { refs } = profileRefs();
   const prep = mode === "prep";
-  const note = mode === "run" ? "Your run is compared with them." : prep ? "A target time wins over them." : "They set the level of your plan.";
-  return `<div class="refs-card refs-strip${refsAny(refs) ? " done" : ""}" data-refs="${mode}" title="Your best 10K and half marathon, your easy pace. ${note}">
-        <span class="rf-title"><span class="tag">★</span>${prep ? "Your settings" : "My references"}</span>
-        ${prep ? `<label class="rf-f">Target<input type="text" id="prepTarget" inputmode="numeric" autocomplete="off" placeholder="3:30" aria-label="Target time (h:mm)"></label><span class="rf-sep" aria-hidden="true"></span>` : ""}
+  return `<div class="refs-card refs-strip${refsAny(refs) ? " done" : ""}" data-refs="${mode}" title="${summaryText()}">
+        ${prep ? `<label class="rf-f">Target<input type="text" id="prepTarget" inputmode="numeric" autocomplete="off" placeholder="3:30" aria-label="Target time (h:mm)"></label><span class="rf-lead">or optional references:</span>` : `<span class="rf-lead">Optional references:</span>`}
         ${BOXES.map((b) => `<label class="rf-f">${b.label}<input type="text" inputmode="numeric" autocomplete="off" data-ref="${b.k}" placeholder="${b.ph}" value="${refs[b.k] ? b.show(refs[b.k]) : ""}"></label>`).join("")}
-        ${prep ? "" : `<span class="status refs-sum" aria-live="polite">${summaryHtml()}</span>`}
         ${prep ? `<div id="prepLevel"></div>` : ""}
       </div>`;
 }
@@ -135,7 +131,7 @@ export function initRefs() {
     // Let the knob land before the page is drawn again.
     setTimeout(() => profileSetRefs({ level: b.dataset.level }), 380);
   });
-  // Keep the three cards in step: same values, same summary line.
+  // Keep the three lines in step: same values, same tooltip.
   document.addEventListener("trp-refs", () => {
     const { refs } = profileRefs();
     document.querySelectorAll(".refs-card").forEach((card) => {
@@ -145,8 +141,7 @@ export function initRefs() {
         const b = BOXES.find((x) => x.k === inp.dataset.ref);
         inp.value = refs[b.k] ? b.show(refs[b.k]) : "";
       });
-      const sum = card.querySelector(".refs-sum");
-      if (sum) sum.innerHTML = summaryHtml();
+      card.title = summaryText();
     });
   });
 }

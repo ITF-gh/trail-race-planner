@@ -1619,23 +1619,18 @@ html[data-theme="sky"] .rs-chip{background:rgba(31,111,209,.05)}
 }
 @media (prefers-reduced-motion:reduce){.wm-face.buzz{animation:none}}
 
-/* References strip (ui/refs.js): one thin line under the file drops of every mode, spanning the
-   whole row: title, small boxes with their label beside them, the short summary. It wraps on
-   phones. In Prep my run it is "Your settings", with the target time first and the level picker
-   on its own line. */
-.refs-strip{grid-column:1 / -1;display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;padding:6px 14px;border-radius:var(--r);background:rgba(6,16,31,.45);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
-.rf-title{font-family:var(--f-display);font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:13px;display:flex;align-items:center;gap:6px;white-space:nowrap}
-.rf-title .tag{color:var(--sun);font-size:12px}
-.rf-f{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);font-weight:600;white-space:nowrap}
-/* Boxes without a frame: a thin underline only, brighter when typing in it. */
-.rf-f input{width:60px;height:24px;min-height:0;padding:2px 2px;font-size:13px;font-weight:700;color:inherit;background:transparent;border:0;border-bottom:1px solid rgba(255,255,255,.3);border-radius:0;box-shadow:none}
-.rf-f input:focus{outline:0;border-bottom-color:var(--sun)}
-.rf-f input::placeholder{color:rgba(255,255,255,.3);font-weight:400}
-.rf-f input.bad{border-bottom-color:#ff5a5a;color:#ff8a8a}
-.rf-sep{width:1px;height:18px;background:rgba(255,255,255,.18)}
-.refs-strip .refs-sum{font-size:12px;min-height:0;color:var(--on-pine-muted)} .refs-strip .refs-sum b{color:var(--sun)}
+/* References line (ui/refs.js): discreet optional text under the file drops of every mode, no
+   box and no border (owner's rule). The values are typed straight into the sentence; a faint
+   dotted line under each says it can be typed in. It wraps on phones. In Prep my run the target
+   time comes first and the level picker follows. */
+.refs-strip{grid-column:1 / -1;display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;padding:0 4px;font-size:12px;color:var(--muted);text-shadow:0 1px 3px rgba(0,0,0,.6)}
+.rf-lead{white-space:nowrap}
+.rf-f{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);white-space:nowrap}
+.rf-f input{width:54px;height:22px;min-height:0;padding:0 2px;font-size:12px;font-weight:700;color:#fff;background:transparent;border:0;border-bottom:1px dotted rgba(255,255,255,.28);border-radius:0;box-shadow:none;text-shadow:inherit}
+.rf-f input:focus{outline:0;border-bottom:1px solid var(--sun)}
+.rf-f input::placeholder{color:rgba(255,255,255,.28);font-weight:400}
+.rf-f input.bad{border-bottom:1px solid #ff5a5a;color:#ff8a8a}
 #prepLevel:empty{display:none}
-html[data-theme="sky"] .refs-strip{background:rgba(255,255,255,.22)}
 /* Level picker, 1 to 5 (ui/refs.js levelPickerHtml): a gauge whose fill grows green to red up to
    the level, a round knob that slides there with a bounce (a cubic-bezier above 1 overshoots,
    then settles), and the level's name and meaning. --i (0 to 4) places the knob; data-lvl picks
