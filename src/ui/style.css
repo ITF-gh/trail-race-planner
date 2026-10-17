@@ -1497,3 +1497,17 @@ svg .pcur,svg .psel{pointer-events:none}
 .chip.st.dsc{gap:2px}
 .chip.st.dsc svg,.p4-shoes svg,.note .chip.st.dsc svg{width:22px;height:10px;fill:currentColor;display:inline-block;vertical-align:-1px}
 .chip.st.dsc.d3{color:var(--e-bar)} .chip.st.dsc.d2{color:var(--h-bar)} .chip.st.dsc.d1{color:var(--c-bar)}
+/* Section of a split climb (design review 2): the whole climb's title and stars stay, the
+   section's own title and stars follow, smaller and faded because it is only a part. */
+.rp-leg-t .rp-sub{display:inline-flex;align-items:center;gap:4px;opacity:.55}
+.rp-leg-t .rp-sub>b{font-family:var(--f-display);font-weight:700;font-style:italic;text-transform:uppercase;font-size:13px;letter-spacing:.02em}
+.rp-leg-t .rp-sub .chip.st{font-size:.85em}
+.rp-leg-t .rp-sub-row{display:flex;align-items:center;gap:6px;flex-basis:100%;white-space:nowrap}
+.rp-cockpit .rp-leg-t.has-sub{flex:1 1 0;min-width:0;flex-wrap:wrap;row-gap:2px}
+.rp-leg-t.has-sub .rp-sub-row{min-width:0;overflow:hidden}
+@media (max-width:560px){.rp-leg-t .rp-sub>b{font-size:11px}.rp-leg-t .rp-sub i{display:none}}
+.rp-leg-t .rp-sub>b{font-size:12px}.rp-leg-t .rp-sub i{display:none}.rp-leg-t .rp-sub .chip.st{padding:0;background:none;border:0}
+.rp-leg-t.has-sub .rp-leg-len{font-size:11px;padding:0 6px}
+.rp-leg-t .rp-sub .chip.st{font-size:11px}
+/* phones: the section length is already on the tactic line just below */
+@media (max-width:560px){.rp-leg-t.has-sub .rp-leg-len{display:none}}

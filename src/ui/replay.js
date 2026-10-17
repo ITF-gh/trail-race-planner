@@ -409,12 +409,12 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
       els.leg.innerHTML = `
         <div class="rp-leg-h"><span class="rp-leg-n"><small>Section</small><b>${l.i}</b><small>/ ${legs.length}</small></span>
           <span class="rp-leg-pct" aria-live="off"><b id="rpLegPct"></b><small>done</small></span>
-          <span class="rp-leg-t"><b>${escR(l.title)}</b>${legChip(l)}<span class="rp-leg-len">${(l.endKm - l.startKm).toFixed(1)} km</span>${l.keyZone ? ` <span class="chip keyc">★ Key zone ${l.keyZone.n}</span>` : ""}
+          <span class="rp-leg-t${l.parent ? " has-sub" : ""}">${l.parent ? `<b>${escR(l.parent.title)}</b>${legChip({ kind: "climb", ...l.parent })}<span class="rp-sub-row"><span class="rp-sub"><b>${escR(l.title.replace(/^Climb section /, "Section "))}</b>${legChip(l)}</span><span class="rp-leg-len">${(l.endKm - l.startKm).toFixed(1)} km</span></span>` : `<b>${escR(l.title)}</b>${legChip(l)}<span class="rp-leg-len">${(l.endKm - l.startKm).toFixed(1)} km</span>`}${l.keyZone ? ` <span class="chip keyc">★ Key zone ${l.keyZone.n}</span>` : ""}
           </span></div>
         <div class="rp-leg-info">
           <p class="k-${l.kind}"><span class="ic">${ICON[l.kind] || "➜"}</span><b title="${escR(l.tactic)}">${escR(l.tactic)}</b><span class="d">${legData(l)}</span></p>
           ${l.ai && l.ai.effort ? `<p class="rp-ai-note"><span class="ic">${ICON.ai}</span><b>Effort ${l.ai.effort}/5</b><span>${escR(l.ai.mode || "")}</span></p>` : ""}
-          <p class="nx ${n ? `k-${n.kind}` : ""}"><span class="lab">Next</span>${n ? `<span class="ic">${ICON[n.kind] || "➜"}</span><b>${n.i}. ${escR(n.title)}</b><span class="d">${legData(n)}</span>` : `<span class="ic">${ICON.finish}</span><b>Finish</b>`}</p>
+          <p class="nx ${n ? `k-${n.kind}` : ""}"><span class="lab">Next</span>${n ? `<span class="ic">${ICON[n.kind] || "➜"}</span><b>${n.i}. ${escR(n.parent ? `${n.parent.title} · ${n.title.replace(/^Climb section/, "section")}` : n.title)}</b><span class="d">${legData(n)}</span>` : `<span class="ic">${ICON.finish}</span><b>Finish</b>`}</p>
         </div>
         <table class="rp-tg">
           <thead><tr><th></th><th>Target</th><th class="now">Now</th></tr></thead>
