@@ -1,18 +1,21 @@
 # Online accounts and the AI analysis: setup
 
-The online part (sign-in, run log in the account, edelweiss, AI analysis) has three states,
-set in `CLOUD` in `src/ui/cloud.js`:
+The online part has two states in the app, set in `CLOUD` in `src/ui/cloud.js`:
 
 | State | `CLOUD` | What works |
 |---|---|---|
-| Off | `url` empty, or `connect` and `open` both `false` | Nothing is sent: the run log stays on the device |
-| Read-only (now) | `url` + `anonKey` filled, `connect: true`, `open: false` | Sign-in for accounts that already exist (no new account is made), reading the account's runs and edelweiss. Every write call stops in the browser before sending anything |
-| Open (later) | `open: true` | Sign-ups, sync up, edelweiss claims, AI, account deletion |
+| Off | `url` empty, or `connect: false` | Nothing is sent: the run log stays on the device |
+| Read-only (now) | `url` + `anonKey` filled, `connect: true` | Sign-in for accounts that already exist (no new account is made), reading the account's runs and edelweiss |
+
+**The app has no write code at all** (Boss's rule, 2026-10-17: "no risk about writing, do not
+connect any writing function"). Uploading runs, claiming edelweiss, the AI analysis and deleting
+were taken out of `src/ui/cloud.js`; they wait in `supabase/app-writes-later.js`, which is not
+part of the build. `cloud.js` also refuses any request other than a read (GET) outside the
+sign-in API.
 
 **Writes are closed** on two levels until the account opens (see "Opening the account"):
 
-- the app: `CLOUD.open: false` means no write call leaves the browser (no sync up, no cairn,
-  no AI call, no delete), even when `connect: true` lets you sign in and read;
+- the app: no write call exists in it (see above);
 - the database: a trigger refuses every insert or update on `runs`, `cairn_ledger` and
   `ai_jobs` while `writes_open()` returns false. It also stops the server functions, so even a
   hand-made request stores nothing.
@@ -79,7 +82,7 @@ supabase functions deploy delete-account
 
 Project settings > API: copy the Project URL and the `anon` public key into `CLOUD` in
 `src/ui/cloud.js` (the anon key is meant to be public: Row Level Security protects the data).
-Set `connect: true` and leave `open: false`. Push to `main`: the account menu shows the
+Set `connect: true`. Push to `main`: the account menu shows the
 sign-in form, and a signed-in account is marked "account read-only". Never put the database
 password or the `service_role` key in the app.
 
@@ -88,9 +91,11 @@ password or the `service_role` key in the app.
 1. SQL editor:
    `create or replace function public.writes_open() returns boolean language sql stable as $$ select true $$;`
 2. Authentication > Sign In / Providers: turn ON "Allow new users to sign up".
-3. `CLOUD.open: true` in `src/ui/cloud.js`, push to `main` (deploy the functions of step 5 first).
+3. Put the write functions of `supabase/app-writes-later.js` back into `src/ui/cloud.js` (in
+   place of the `clNoWrite` stubs), make `cloudWritable()` true, remove the GET-only guard in
+   `clFetch`, deploy the functions of step 5, push to `main`. Only on Boss's go.
 
-To close again: the same three steps with `false` / OFF.
+To close again: the same steps the other way round.
 
 ## Giving cairns for an event
 
