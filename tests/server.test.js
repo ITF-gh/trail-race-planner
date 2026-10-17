@@ -165,7 +165,7 @@ test("no heart data from runs: summaries, demo runs, the AI table and the databa
 
 test("profile: cleaned, limited, and bests found in the run log", () => {
   const p = profileClean({ name: "  Ann\nTrail  ", flag: "FR", about: "Line 1\nLine 2", tags: ["ultra", "ultra", "nope", "sky", "trail", "road", "night", "snow"],
-    goals: { "5k": { goal: 1200, best: 30 }, "50k": { goal: 6 * 3600 } }, extra: [{ label: "VO2max", value: "54" }, { label: "", value: "" }] });
+    goals: { "5k": { goal: 1200, best: 30 }, "50k": { goal: 6 * 3600 } }, extra: [{ label: "VO2max", value: "54" }] });
   assert.equal(p.name, "Ann Trail");
   assert.equal(p.about, "Line 1\nLine 2");
   assert.equal(p.flag, "FR");
@@ -174,7 +174,7 @@ test("profile: cleaned, limited, and bests found in the run log", () => {
   assert.deepEqual(p.tags, ["ultra", "sky", "trail", "road", "night"], "known badges, no duplicates, 5 at most");
   assert.deepEqual(p.goals["5k"], { goal: 1200, best: null }, "a best under a minute is dropped");
   assert.deepEqual(p.goals["100k"], { goal: null, best: null });
-  assert.equal(p.extra.length, 1);
+  assert.equal(p.extra, undefined, "the old My data lines are dropped");
   // Bests: 5K from the fastest 5 km inside a run; 50K from a whole run of 46.5 to 55 km.
   const runs = [run(1, { best5k: 1300 }), run(2, { best5k: 1250 }), run(3, { km: 52, elapsedSec: 7 * 3600 }), run(4, { km: 60, elapsedSec: 6 * 3600 })];
   const b = profileBests(runs);

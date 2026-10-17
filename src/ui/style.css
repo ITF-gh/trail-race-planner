@@ -1116,7 +1116,16 @@ html[data-theme="sky"] .brand-desc{color:#fff;opacity:.92;border-color:rgba(255,
 .acct-row{font-size:13.5px;padding:2px 0}
 .acct-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .acct-medals.mini{gap:6px}
-.acct-medals.mini span{font-size:17px;line-height:1;padding:5px 7px;border-radius:10px}
+/* Achievements: reached = lit, gold edge and a warm tint; not yet = grey, faded, with a thin bar
+   of progress at the bottom. "pick" marks the one shown in the caption line under them. */
+.acct-medals.mini button{position:relative;overflow:hidden;font:inherit;font-size:19px;line-height:1;padding:6px 8px;border-radius:10px;border:1px solid var(--acct-line);background:none;cursor:pointer;color:inherit}
+.acct-medals.mini button.on{border-color:#ffc928;background:rgba(255,201,40,.14)}
+.acct-medals.mini button span{border:0;padding:0;border-radius:0;font-size:inherit}
+.acct-medals.mini button.lock span{filter:grayscale(1);opacity:.38}
+.acct-medals.mini button i{position:absolute;left:0;bottom:0;height:3px;background:#ffc928;opacity:.8}
+.acct-medals.mini button.pick{outline:2px solid currentColor;outline-offset:1px}
+.acct-medal-cap{margin:8px 0 0;font-size:13px;line-height:1.4;opacity:.85;min-height:2.8em}
+.acct-medal-cap span{color:#ffc928}
 .acct-cairns b{font-size:26px}
 .acct-cairns .btn svg,.acct-actions .btn svg{width:16px;height:16px;margin-right:6px;vertical-align:-2px}
 .acct-cairns .acct-note,.acct-menu .acct-note{margin-top:4px}
@@ -1124,6 +1133,9 @@ html[data-theme="sky"] .brand-desc{color:#fff;opacity:.92;border-color:rgba(255,
 .acct-links button{font-size:13px;padding:5px 10px}
 .acct-bests .acct-row{font-size:16px;padding:8px 0;border-bottom:1px solid var(--acct-sep)}
 .acct-bests .acct-row small{font-weight:400;color:var(--acct-muted);margin-left:6px}
+/* The extra bests under the goals table (profile.js): labels wrap instead of being cut on phones. */
+.pf-more .acct-row{align-items:baseline}
+.pf-more .acct-row span{white-space:normal;overflow:visible}
 .acct-kicker svg{width:16px;height:16px;vertical-align:-2px}
 .acct-chips{display:flex;flex-wrap:wrap;gap:8px}
 .acct-chips.small{gap:6px;margin-top:8px}
@@ -1170,7 +1182,7 @@ html[data-theme="sky"] .brand-desc{color:#fff;opacity:.92;border-color:rgba(255,
 .acct-ask-block:empty{display:none}
 .acct-kicker{display:flex;align-items:center;gap:6px}
 
-/* ---------- Account window (profile.js): presentation, goals and bests, heart, own data ---------- */
+/* ---------- Account window (profile.js): presentation, goals and bests, heart ---------- */
 .acct-who .acct-prof{padding:6px 14px;font-size:14px;flex:none}
 .acct-profile .pf-card{display:flex;align-items:center;gap:16px;margin:10px 0 4px}
 .pf-avatar{flex:none;display:grid;place-items:center;width:64px;height:64px;border-radius:50%;border:2px solid var(--sun);font-size:34px;line-height:1;font-family:var(--f-display);font-weight:800;color:var(--acct-ink);background:rgba(255,255,255,.06)}
@@ -1193,9 +1205,6 @@ html[data-theme="sky"] .brand-desc{color:#fff;opacity:.92;border-color:rgba(255,
 .pf-goals td small{display:block;margin-top:3px;font-size:11px;color:var(--acct-muted)}
 .pf-goals .pf-gap{padding-top:11px;white-space:nowrap;color:var(--acct-ink)}
 .pf-ok{color:var(--sun);font-weight:700}
-.pf-extras{display:flex;flex-direction:column;gap:8px}
-.pf-extra{display:grid;grid-template-columns:1fr 1.4fr 36px;gap:8px;align-items:center}
-.pf-extra .pf-del{position:static;width:32px;height:32px;font-size:18px}
 @media (max-width:560px){
   .pf-grid,.pf-grid.three{grid-template-columns:1fr}
   .pf-avatar{width:52px;height:52px;font-size:28px}
@@ -1655,3 +1664,12 @@ html[data-theme="sky"] .rs-chip{background:rgba(31,111,209,.05)}
 /* The Add GPX buttons sit at the bottom of their box, so in a row of boxes (same height, grid
    stretch) they line up, whatever the text above them. The file status sits above the buttons. */
 .drop .drop-act{margin-top:auto;padding-top:4px}
+
+/* ---------- Links to the profile from the page (data-open-profile, opened by account.js) ---------- */
+/* .to-profile: a link-looking button; .to-profile-line: the line that holds one (under Your runs,
+   at the top of Rewind my run's review). A run that beats an all-time best gets a gold edge. */
+.to-profile{white-space:nowrap;padding:0;border:0;background:none;color:var(--sun);font:inherit;font-weight:600;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.to-profile-line{margin-top:6px;font-size:14px;color:var(--muted)}
+#s5body > .to-profile-line{margin:0 0 12px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2)}
+#s5body > .to-profile-line.best{border-color:var(--sun);color:var(--fg)}
+#s5body > .to-profile-line .to-profile{margin-left:6px}

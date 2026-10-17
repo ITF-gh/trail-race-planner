@@ -1,5 +1,5 @@
 // profile.js: the runner's profile behind the Account window: a presentation (name, country
-// flag, a few words, badges), goals and bests on 5 distances, and lines of their own data.
+// flag, a few words, badges) and goals and bests on 5 distances.
 //
 // Pure functions only: storing the profile (localStorage in the browser) and drawing the window
 // is src/ui/profile.js's job. The heart rates and the weight are not here: they stay in the
@@ -23,7 +23,7 @@ export const PROFILE_DISTANCES = [
   { code: "100k", label: "100K", km: 100 },
 ];
 
-export const PROFILE_LIMITS = { name: 40, about: 280, tags: 5, extra: 12, label: 30, value: 60 };
+export const PROFILE_LIMITS = { name: 40, about: 280, tags: 5 };
 
 // The countries for the flag: [ISO 3166 code, name]. A short list of trail-running countries
 // first, the rest alphabetical; easy to extend.
@@ -70,10 +70,11 @@ export function flagEmoji(code) {
 /**
  * Any profile (saved, typed, or nothing at all) made safe and complete:
  *   { name, flag ("FR" or ""), about, tags: [codes], goals: { "5k": { goal, best } ... },
- *     refs: { k10, half, easy }, level, extra: [{ label, value }] }
+ *     refs: { k10, half, easy }, level }
  * Texts are cut to their limits and turned into one line (except `about`, which keeps line
  * breaks), unknown flags and badges are dropped, times are whole seconds between 1 minute and
- * 7 days, or null. Lines of own data with neither label nor value are dropped.
+ * 7 days, or null. Anything else (like the "My data" lines of older versions, removed on
+ * 2026-10-17) is dropped, so it leaves the device's copy at the next save.
  */
 export function profileClean(raw) {
   const r = raw && typeof raw === "object" ? raw : {};
@@ -98,12 +99,9 @@ export function profileClean(raw) {
     tags: Array.isArray(r.tags) ? [...new Set(r.tags)].filter((t) => tagCodes.has(t)).slice(0, L.tags) : [],
     goals,
     // Your references for the engine (refs.js): 10K, half, easy pace, and the level of the next
-    // run in Prep my run ("easy", "steady" or "race").
+    // run in Prep my run (REF_LEVELS, 1 Recovery to 5 Race).
     refs: refsClean(r.refs),
     level: REF_LEVELS.includes(r.level) ? r.level : "easy",
-    extra: Array.isArray(r.extra)
-      ? r.extra.map((x) => ({ label: str(x && x.label, L.label), value: str(x && x.value, L.value) })).filter((x) => x.label || x.value).slice(0, L.extra)
-      : [],
   };
 }
 

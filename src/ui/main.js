@@ -103,6 +103,7 @@ const store = {
 const state = {
   race: null, // {name, parsed, course, profile}
   effort: null, // {runs: [{name, parsed}], info}
+  ownRuns: false, // true once one of your own GPX is in Your runs (not only the demo): the status then points to the profile
   settings: { ...PLAN_DEFAULTS, ...(store.get("trp.settings") || {}) },
   scenario: store.get("trp.scenario") || "central",
   tab: "c", // D-day list: climbs or descents
@@ -470,7 +471,9 @@ function setRuns(runs, bad = []) {
   }
   // One status line per run: name, date, distance, and its weight in % when there are several.
   const list = state.effort ? state.effort.info.runs.map((r, i) => `<span class="ok">✓ ${esc(runs[i].name)}</span> · ${r.date} · ${r.distKm.toFixed(1)} km${runs.length > 1 ? ` · weight ${Math.round(r.weight * 100)}%` : ""}`).join("<br>") : "";
-  setStatus("effort", list + bad.map((b) => `<div class="err">${esc(b)}</div>`).join(""), Boolean(state.effort));
+  // Your own runs are also kept in the profile (account.js): a line says so, with a link to it.
+  const kept = state.effort && state.ownRuns ? `<div class="to-profile-line">Also kept in your <button class="to-profile" type="button" data-open-profile="bests">profile</button>: bests and achievements.</div>` : "";
+  setStatus("effort", list + bad.map((b) => `<div class="err">${esc(b)}</div>`).join("") + kept, Boolean(state.effort));
   compute();
 }
 
@@ -504,8 +507,8 @@ function wireDrop(boxId, inputId, loader) {
 // The race box takes one file (the first one if several are dropped).
 wireDrop("#dropRace", "#fileRace", (files) => loadRace(files[0].xml, files[0].label));
 // Your own runs also go into the run log behind the account menu (on this device only).
-wireDrop("#dropEffort", "#fileEffort", (files) => { loadEfforts(files); files.forEach((f) => acctSaveGpx(f.xml, f.label)); });
-$("#clearRuns").addEventListener("click", () => { trackEvent("runs-clear"); setRuns([]); });
+wireDrop("#dropEffort", "#fileEffort", (files) => { state.ownRuns = true; loadEfforts(files); files.forEach((f) => acctSaveGpx(f.xml, f.label)); });
+$("#clearRuns").addEventListener("click", () => { trackEvent("runs-clear"); state.ownRuns = false; setRuns([]); });
 
 // "Try the demo": load made-up runs and a made-up race from src/demo.js, as if they were dropped.
 $("#demo").addEventListener("click", () => {
@@ -514,6 +517,7 @@ $("#demo").addEventListener("click", () => {
   // mountain long runs six weeks apart, so the weighting shows. Aid stations and start time
   // are filled in unless you typed your own.
   state.effort = null;
+  state.ownRuns = false;
   loadEfforts([
     { xml: makeDemoEffortGpx({ profile: DEMO_LONG_RUN_PROFILE, startIso: "2026-10-11T07:00:00Z" }), label: "Demo mountain long run (made up)" },
     { xml: makeDemoEffortGpx({ profile: DEMO_LONG_RUN_PROFILE, fatigue: 0.3, startIso: "2026-08-30T07:00:00Z" }), label: "Demo older long run (made up)" },
@@ -1028,7 +1032,7 @@ function renderDday() {
   // GEL_WHERE: how to describe where a gel was moved to, by the `where` code plan.js gives it.
   const GEL_WHERE = { top: "top of climb", bottom: "foot of descent", section: "end of a climb section", "before descent": "before the descent", "on the climb": "on the climb, walking" };
   const gelList = sc.gels.map((g) => `<li><span>km ${g.km.toFixed(1)}${g.at ? ` · ${esc(g.at)}` : g.where ? ` · ${GEL_WHERE[g.where]}` : ""}</span><b>${clock(st, g.sec)}</b></li>`).join("") || `<li><span>No gel needed for this length</span><b></b></li>`;
-  const hrList = plan.hrGuide ? plan.hrGuide.map((h) => `<li><span>km ${h.fromKm.toFixed(0)} to ${h.toKm.toFixed(0)}</span><b>${esc(h.text)}</b></li>`).join("") : `<li><span>Add your max heart rate in your profile (account icon) for a heart-rate guide</span><b></b></li>`;
+  const hrList = plan.hrGuide ? plan.hrGuide.map((h) => `<li><span>km ${h.fromKm.toFixed(0)} to ${h.toKm.toFixed(0)}</span><b>${esc(h.text)}</b></li>`).join("") : `<li><span>Add your max heart rate in your profile for a heart-rate guide</span><b><button class="to-profile" type="button" data-open-profile="heart">Add it</button></b></li>`;
   // The climbs (and climb sections) to hike: those whose tactic starts with "Hike".
   // The regex /^Hike/ matches "Hike" at the start of the text; /steep part/ anywhere in it.
   const hikes = plan.climbs.flatMap((c) => [c, ...c.sections]).filter((c) => /^Hike/.test(c.tactic));
@@ -1450,9 +1454,18 @@ function setMode(mode, track = true) {
 // Every button with data-mode (the switch on top and the shortcuts in the bar) switches mode.
 document.querySelectorAll("button[data-mode]").forEach((b) => b.addEventListener("click", () => { setMode(b.dataset.mode); window.scrollTo({ top: 0 }); }));
 // Rewind my run mode (ui/review.js). When a run is loaded: save it in the run log (not the
-// sample), and put a button with its distance and duration in the top bar.
+// sample) and say so at the top of the review, with a link to the profile and any all-time best
+// it beats; then put a button with its distance and duration in the top bar.
 initRunMode({ onLoaded: (run, { sample, name } = {}) => {
-  if (!sample) acctSaveRun(run, name);
+  if (!sample) {
+    acctSaveRun(run, name).then((r) => {
+      const body = $("#s5body");
+      if (!r || !body) return;
+      const what = r.count === 1 ? "your first run there" : r.bests.length ? `new best: ${r.bests.join(", ")}!` : `${r.count} runs`;
+      body.querySelectorAll(".to-profile-line").forEach((el) => el.remove());
+      body.insertAdjacentHTML("afterbegin", `<div class="to-profile-line${r.bests.length ? " best" : ""}">Saved to your profile · ${esc(what)} <button class="to-profile" type="button" data-open-profile="bests">See my profile</button></div>`);
+    });
+  }
   $("#tnRun").innerHTML = `<a class="btn primary sm" href="#rvCockpit">▶ ${run.totalKm.toFixed(1)} km · ${hm(run.elapsedSec)}</a>`;
   renderNav();
 } });
