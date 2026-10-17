@@ -408,13 +408,13 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
       // The section card: number, title, chips, tactic, what comes next, and the target table.
       els.leg.innerHTML = `
         <div class="rp-leg-h"><span class="rp-leg-n"><small>Section</small><b>${l.i}</b><small>/ ${legs.length}</small></span>
-          <span class="rp-leg-pct" aria-live="off"><b id="rpLegPct"></b><small>done</small></span>
-          <span class="rp-leg-t"><b>${escR(l.title)}</b>${legChip(l)}<span class="rp-leg-len">${(l.endKm - l.startKm).toFixed(1)} km</span>${l.keyZone ? ` <span class="chip keyc">★ Key zone ${l.keyZone.n}</span>` : ""}
+          <span class="rp-leg-pct" aria-live="off"><b id="rpLegPct"></b><small>${l.parent ? "of climb" : "done"}</small></span>
+          <span class="rp-leg-t${l.parent ? " has-sub" : ""}">${l.parent ? `<b>${escR(l.parent.title)}</b>${legChip({ kind: "climb", ...l.parent })}<span class="rp-sub-row"><span class="rp-sub"><b>${escR(l.title.replace(/^Climb section /, "Section "))}</b>${legChip(l)}</span><span class="rp-leg-len">${(l.endKm - l.startKm).toFixed(1)} km</span></span>` : `<b>${escR(l.title)}</b>${legChip(l)}<span class="rp-leg-len">${(l.endKm - l.startKm).toFixed(1)} km</span>`}${l.keyZone ? ` <span class="chip keyc">★ Key zone ${l.keyZone.n}</span>` : ""}
           </span></div>
         <div class="rp-leg-info">
           <p class="k-${l.kind}"><span class="ic">${ICON[l.kind] || "➜"}</span><b title="${escR(l.tactic)}">${escR(l.tactic)}</b><span class="d">${legData(l)}</span></p>
           ${l.ai && l.ai.effort ? `<p class="rp-ai-note"><span class="ic">${ICON.ai}</span><b>Effort ${l.ai.effort}/5</b><span>${escR(l.ai.mode || "")}</span></p>` : ""}
-          <p class="nx ${n ? `k-${n.kind}` : ""}"><span class="lab">Next</span>${n ? `<span class="ic">${ICON[n.kind] || "➜"}</span><b>${n.i}. ${escR(n.title)}</b><span class="d">${legData(n)}</span>` : `<span class="ic">${ICON.finish}</span><b>Finish</b>`}</p>
+          <p class="nx ${n ? `k-${n.kind}` : ""}"><span class="lab">Next</span>${n ? `<span class="ic">${ICON[n.kind] || "➜"}</span><b>${n.i}. ${escR(n.parent ? `${n.parent.title} · ${n.title.replace(/^Climb section/, "section")}` : n.title)}</b><span class="d">${legData(n)}</span>` : `<span class="ic">${ICON.finish}</span><b>Finish</b>`}</p>
         </div>
         <table class="rp-tg">
           <thead><tr><th></th><th>Target</th><th class="now">Now</th></tr></thead>
@@ -453,7 +453,10 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     // inside draw() only.)
     const pct = l.km > 0 ? Math.round((Math.min(l.km, Math.max(0, s.km - l.startKm)) / l.km) * 100) : 100;
     els.tn.Pct.innerHTML = `${pct}% <small>${leftKm.toFixed(1)} km left</small>`;
-    els.legPct.textContent = `${pct}%`;
+    // The big % in the card header: on a section of a split climb it is the share of the WHOLE
+    // climb done (design review 2), the table row above keeps the section's own share.
+    const pa = l.parent;
+    els.legPct.textContent = pa ? `${Math.round((Math.min(pa.endKm, Math.max(pa.startKm, s.km)) - pa.startKm) / (pa.endKm - pa.startKm) * 100)}%` : `${pct}%`;
     els.tn.Time.innerHTML = `${inMin} min <small>${leftSec >= 3600 ? hm(leftSec) : `${Math.round(leftSec / 60)} min`} left</small>`;
     // The play button's label: Pause while playing, Replay at the finish, Resume part way, Play at 0.
     // (a ? b : c ? d : e is a chain of "if a then b, else if c then d, else e".)
