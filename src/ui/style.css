@@ -583,8 +583,6 @@ html:not([data-mode="prep"]) .prep-only{display:none!important}
 /* Prep my run: course summary above the watch messages */
 .prep-facts{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:baseline;font-variant-numeric:tabular-nums}
 .prep-facts>b:first-child{font-size:18px;margin-right:6px}
-.prep-opts{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px}
-.prep-opts .f{flex:0 1 180px}
 .mode-seg{align-self:flex-start}
 .mode-seg button{min-height:40px;font-size:14px;padding:6px 16px}
 #s5{--band:var(--band-2)}
@@ -1610,3 +1608,7 @@ html[data-theme="sky"] .rs-chip{background:rgba(31,111,209,.05)}
 @keyframes lvlFlick{0%{transform:scale(1,1) rotate(-4deg)}100%{transform:scale(1.12,1.22) rotate(5deg)}}
 @keyframes lvlGlow{to{box-shadow:0 0 26px rgba(255,80,40,.9)}}
 @media (prefers-reduced-motion:reduce){.lvl-knob{transition:none;animation:none!important}.lvl-ic{animation:none!important}}
+/* Prep my run: Your settings card (target time, references, level picker), next to the GPX drop. */
+.prep-set .prep-tgt{max-width:170px;font-size:12px;gap:3px}
+.prep-set .prep-tgt input.bad{border-color:#ff5a5a;box-shadow:0 0 0 2px rgba(255,90,90,.25)}
+#prepLevel:empty{display:none}

@@ -57,17 +57,31 @@ function summaryHtml() {
 }
 
 /**
- * The card, for one mode ("race", "prep" or "run"), placed in that mode's drops. The values are
+ * The card, for one mode ("race", "prep" or "run"), placed in that mode's drops (in Prep my run
+ * it is "Your settings", with the target time too). The values are
  * the saved ones; data-ref names the box, so one listener (initRefs) serves the three cards.
  */
 export function refsCardHtml(mode) {
   const { refs } = profileRefs();
+  const boxes = `<div class="refs-boxes">${BOXES.map((b) => `<label class="f">${b.label}<input type="text" inputmode="numeric" autocomplete="off" data-ref="${b.k}" placeholder="${b.ph}" value="${refs[b.k] ? b.show(refs[b.k]) : ""}"></label>`).join("")}</div>
+        <div class="status refs-sum" aria-live="polite">${summaryHtml()}</div>`;
+  // Prep my run: every input of the run sits here, next to its GPX drop (owner's rule): the
+  // target time first (it wins over everything), then the references, then the level picker,
+  // which preprun.js draws into #prepLevel once a reference is set and no target is typed.
+  if (mode === "prep") {
+    return `<div class="drop refs-card prep-set${refsAny(refs) ? " done" : ""}" data-refs="prep">
+        <h3><span class="tag">★</span>Your settings</h3>
+        <p>Optional. A target time, or your references: your best 10K and half marathon, your easy pace.</p>
+        <label class="f prep-tgt">Target time (h:mm)<input type="text" id="prepTarget" inputmode="numeric" autocomplete="off" placeholder="3:30"></label>
+        ${boxes}
+        <div id="prepLevel"></div>
+      </div>`;
+  }
   const note = mode === "run" ? "your run is compared with them." : "they set the level of your plan.";
   return `<div class="drop refs-card${refsAny(refs) ? " done" : ""}" data-refs="${mode}">
         <h3><span class="tag">★</span>My references</h3>
         <p>Optional. Your best 10K and half marathon, your easy pace: ${note}</p>
-        <div class="refs-boxes">${BOXES.map((b) => `<label class="f">${b.label}<input type="text" inputmode="numeric" autocomplete="off" data-ref="${b.k}" placeholder="${b.ph}" value="${refs[b.k] ? b.show(refs[b.k]) : ""}"></label>`).join("")}</div>
-        <div class="status refs-sum" aria-live="polite">${summaryHtml()}</div>
+        ${boxes}
       </div>`;
 }
 

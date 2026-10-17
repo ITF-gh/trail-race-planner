@@ -82,13 +82,12 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
   //   parsed     the parsed GPX of the run to come ({ name, points, ... }), null before a drop
   //   name       the name shown (file name, or the GPX's own name)
   //   targetSec  target time typed by the runner, in seconds (0 = none)
-  //   startTime  start time typed here ("HH:MM"), null = use the planner's setting
   //   plan       the last plan built, key its localStorage key for the watch messages,
   //   source     where its times came from ("target", "runs" or "estimate", see SOURCE)
   //   aiOn       the AI coach's session is shown (when there is one for this run)
   let aiOn = false;
   try { aiOn = localStorage.getItem("trp.ai.run.on") === "true"; } catch (e) { /* blocked: off */ }
-  const st = { parsed: null, name: "", targetSec: 0, startTime: null, plan: null, key: "", source: "" };
+  const st = { parsed: null, name: "", targetSec: 0, plan: null, key: "", source: "" };
   const $p = (s) => document.querySelector(s);
   // The cockpit (section bar, map, profile, run script) is the race-day one from main.js. Only one
   // can play at a time, so it is built when this mode is on screen and emptied when you leave it.
@@ -131,6 +130,15 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
   document.addEventListener("trp-theme", showCockpit); // redraw so the map takes the new tiles
   // Your references or the level changed (ui/refs.js): plan the run again.
   document.addEventListener("trp-refs", () => { if (st.parsed) render(); });
+  // Target time typed as h:mm in Your settings. parseDuration returns seconds, or null when it
+  // cannot read it (the box turns red). An empty box clears the target (0).
+  $p("#prepTarget").addEventListener("change", (ev) => {
+    const v = ev.target.value.trim();
+    const t = v ? parseDuration(v, false) : 0;
+    ev.target.classList.toggle("bad", t === null);
+    if (t === null) return;
+    st.targetSec = t; trackEvent("prep-target", v ? "set" : "clear"); render();
+  });
 
   /**
    * Read a GPX (its text `xml`), keep it, and draw the mode. `label` is the name to show.
@@ -162,7 +170,8 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
     const runs = getRuns();
     const settings = getSettings();
     // a || b || c takes the first value that is not empty (null, undefined or "" count as empty).
-    const startTime = st.startTime || settings.startTime || "09:00";
+    // The start time is the planner's (Your route settings); Prep my run has no box for it.
+    const startTime = settings.startTime || "09:00";
     // Your references at the level picked (Easy / Steady / Race), or null without references.
     const calib = refsCalibNow(profileRefs().level);
     if (!st.targetSec && runs.length) {
@@ -199,12 +208,7 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
   <div class="panel prep-sum prep-ready">
     <div class="side-stack">${pimpBadge("#prep-pimp", "Your run on your watch →")}${acctAiBadge("run")}</div>
     <div class="prep-facts"><b>${prEsc(st.name)}</b><span>${plan.course.totalKm.toFixed(1)} km</span><span>+${Math.round(plan.course.gain)} m</span><span>-${Math.round(plan.course.loss)} m</span><span>${plan.climbs.filter((c) => !c.bump).length} climbs</span><span>${(plan.keyZones || []).length} key zones</span><span>about <b>${hm(finish)}</b></span></div>
-    <p class="note">Times come from ${prEsc(from)}.</p>
-    <div class="prep-opts">
-      <label class="f">Target time (h:mm)<input type="text" id="prepTarget" inputmode="numeric" placeholder="${hm(finish).replace("h", ":")}" value="${st.targetSec ? hm(st.targetSec).replace("h", ":") : ""}"></label>
-      <label class="f">Start time<input type="time" id="prepStart" value="${prEsc(st.startTime || getSettings().startTime || "09:00")}"></label>
-      ${calib && !st.targetSec ? levelPickerHtml(calib.level) : ""}
-    </div>
+    <p class="note">Times come from ${prEsc(from)}. Change them in Your settings, next to your GPX.</p>
   </div>
 
   <div class="sub-h">Your run, section by section</div>
@@ -227,15 +231,10 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
     st.plan = plan; st.key = key; st.source = source;
     showCockpit();
     $p("#sPrepBody .pimp-link").addEventListener("click", () => trackEvent("nav", "pimp-badge-prep"));
-    // Target time typed as h:mm. parseDuration returns seconds, or null when it cannot read it.
-    // An empty box clears the target (0).
-    $p("#prepTarget").addEventListener("change", (ev) => {
-      const v = ev.target.value.trim();
-      const t = v ? parseDuration(v, false) : 0;
-      if (t === null) { say("Type the target as h:mm, for example 3:30."); return; }
-      st.targetSec = t; trackEvent("prep-target", v ? "set" : "clear"); render();
-    });
-    $p("#prepStart").addEventListener("change", (ev) => { st.startTime = ev.target.value || null; render(); });
+    // Your settings card (next to the GPX drop): the target box hints the current estimate
+    // ("3h05" -> "3:05"), and the level picker shows once a reference is set and no target.
+    $p("#prepTarget").placeholder = hm(finish).replace("h", ":");
+    $p("#prepLevel").innerHTML = calib && !st.targetSec ? levelPickerHtml(calib.level) : "";
     // Build and download the course file with the (possibly edited) watch messages. suffix ""
     // keeps the scenario name out of the file name. Errors are shown, not thrown.
     const save = (kind) => {
