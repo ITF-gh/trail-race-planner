@@ -1043,9 +1043,6 @@ html[data-theme="sky"] .acct-panel-in h4,html[data-theme="sky"] .acct-kicker{col
    else is hidden and only it shows, on A4 pages: black on white for ink, colours only where they
    mean something. Sizes are in mm and pt, the units of paper. */
 #printDoc{display:none}
-.tn-print{flex:none;white-space:nowrap}
-.tn-print[disabled]{opacity:.45;cursor:not-allowed}
-@media (max-width:640px){ .tn-print{padding:4px 9px;font-size:12px} .tn-print .tn-pl{display:none} }
 @media print{
   @page{size:A4 portrait;margin:11mm 11mm 13mm;
     @bottom-right{content:"Page " counter(page) " of " counter(pages);font-family:Barlow,Arial,sans-serif;font-size:8pt;color:#6b7383}}
@@ -1365,3 +1362,130 @@ html[data-theme="sky"] .tn-links a.tn-star{color:transparent;filter:drop-shadow(
 .wm-tools{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:8px}
 .wm-tools .wm-count{margin-right:auto;font-size:14px;color:var(--muted)}
 .wm-tools .wm-count b{color:var(--fg);font-size:16px}
+
+/* ---------- Design review 2 (v2.3): star difficulty chips, thinner section sparklines ---------- */
+/* A climb's difficulty as 1 to 4 stars in its level colour; the unlit stars (<i>) are dimmed. */
+.chip.st{background:none;padding:0 2px;gap:0;letter-spacing:.04em;font-size:14px;line-height:1}
+.chip.st::before{display:none}
+.chip.st i{font-style:normal;opacity:.18}
+.chip.st.l1{color:var(--e-bar)} .chip.st.l2{color:var(--m-bar)} .chip.st.l3{color:var(--h-bar)} .chip.st.l4{color:var(--c-bar)}
+html[data-theme="sky"] .chip.st{background:none}
+html[data-theme="sky"] .chip.st.l1{color:var(--e-bar)} html[data-theme="sky"] .chip.st.l2{color:var(--m-bar)} html[data-theme="sky"] .chip.st.l3{color:var(--h-bar)} html[data-theme="sky"] .chip.st.l4{color:var(--c-bar)}
+.rows.tbl .row .diff .chip.st{font-size:13px;padding:0}
+/* Section rows: a smaller, thinner mini profile than the climb they belong to. */
+.rows.tbl .row.sec .sp svg{width:56px;height:14px;margin-left:12px}
+.rows.tbl .row.sec .sp path{stroke-width:1.1}
+.legend .chip.st{font-size:13px}
+@media (max-width:640px){ .rows.tbl .row .diff .chip.st{font-size:10px} }
+/* The average gradient in bold on the middle of the mini profile (no separate Average column).
+   Column order: #, Km, mini profile + average, then the figures, then the stars. */
+.rows.tbl .sp{position:relative}
+.rows.tbl .sp b{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;font-size:11.5px;font-weight:800;color:var(--fg);text-shadow:0 0 3px var(--bg),0 0 3px var(--bg),0 0 6px var(--bg);pointer-events:none}
+.rows.tbl .row.sec .sp b{font-size:10.5px;padding-left:12px}
+.rows.tbl.t-route .row{grid-template-columns:34px minmax(48px,.6fr) 88px repeat(3,minmax(60px,.8fr)) minmax(80px,auto)}
+.rows.tbl.t-plan .row{grid-template-columns:34px minmax(48px,.5fr) 88px repeat(3,minmax(54px,.7fr)) minmax(150px,2.6fr) minmax(80px,auto)}
+@media (max-width:760px){
+  .rows.tbl .sp{display:block}
+  .rows.tbl .sp svg{width:60px;height:18px}
+  .rows.tbl .row.sec .sp svg{width:44px;height:12px;margin-left:8px}
+  .rows.tbl .sp b{font-size:10px}
+  .rows.tbl .row.sec .sp b{font-size:9px;padding-left:8px}
+  .rows.tbl.t-route .row{grid-template-columns:24px minmax(30px,.6fr) 62px repeat(3,minmax(34px,.8fr)) auto}
+  .rows.tbl.t-plan .row{grid-template-columns:24px minmax(30px,.6fr) 62px repeat(3,minmax(34px,.8fr)) auto}
+  .rows.tbl .rh .sph{font-size:0} .rows.tbl .rh .sph::after{content:"Avg";font-size:9px}
+}
+/* Your route: map and profile on one screen (shorter map, the profile right under it). */
+.b-map{height:clamp(220px,calc(100svh - 470px),440px)}
+.b-prof{margin-top:8px;position:relative}
+.b-prof .prof-tools{margin-bottom:2px}
+.b-prof .legend{margin-top:4px!important}
+/* Climb numbers on the route profile, and the pop-up window they open. */
+svg .clab{cursor:pointer}
+svg .clab rect{fill:var(--bg);stroke:var(--fg);stroke-width:1.2;opacity:.92}
+svg .clab text{fill:var(--fg);font-size:11px;font-weight:800;font-family:var(--f-display)}
+svg .clab.sub rect{stroke:var(--muted)} svg .clab.sub text{font-size:10px;fill:var(--muted)}
+svg path.cl[data-tip]{cursor:pointer}
+.prof-pop{position:absolute;z-index:5;display:flex;flex-wrap:wrap;align-items:center;gap:2px 10px;max-width:260px;padding:7px 10px;border-radius:10px;background:var(--bg);border:1px solid var(--line);box-shadow:0 6px 18px rgba(0,0,0,.35);font-size:12px;color:var(--muted);pointer-events:none}
+.prof-pop>b:first-child{color:var(--fg);font-size:13px}
+.prof-pop span b{color:var(--fg)}
+/* Your plan: the key zones as a row of star chips; the picked one opens its card below. */
+.kz-bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:10px 0 6px}
+.kz-h{font-family:var(--f-display);font-weight:800;font-style:italic;text-transform:uppercase;letter-spacing:.06em;color:var(--sun);font-size:14px;margin-right:4px}
+.kz-chip{display:inline-flex;align-items:baseline;gap:6px;padding:4px 12px;border-radius:999px;border:1px solid rgba(255,201,40,.5);background:rgba(255,201,40,.08);color:var(--sun);font-family:var(--f-display);font-weight:800;font-style:italic;font-size:17px;cursor:pointer}
+.kz-chip small{font-style:normal;font-weight:700;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.kz-chip:hover{background:rgba(255,201,40,.18)}
+.kz-chip[aria-pressed="true"]{background:var(--sun);color:#1a1300;border-color:var(--sun)} .kz-chip[aria-pressed="true"] small{color:#1a1300}
+.kz-hint{color:var(--muted);font-size:12.5px}
+#kzMsg .zones{margin-bottom:4px} .kz-note{font-size:12px;margin:4px 0 10px}
+svg rect.zone.on{opacity:.4}
+/* Engine: fresh, tired and fade in three fixed columns, so every row's values line up
+   (no grid lines, no headings: the bars on the left already say which is which). */
+.pace .num{display:grid;grid-template-columns:5ch 4.6ch 5.4ch;justify-content:end;gap:0 12px;align-items:baseline}
+.pace .num .pf,.pace .num .pt{text-align:right;min-width:0}
+.pace .num .pfade{justify-self:end;min-width:0;width:100%;box-sizing:border-box}
+/* Map focus (profile zoom, a race-script moment or a key zone): the route outside the stretch
+   fades, the stretch itself is redrawn on top at full strength (.rt-f, see map.js focus). */
+.map-dim .leaflet-overlay-pane path:not(.rt-f){stroke-opacity:.2;transition:stroke-opacity .25s}
+.map-dim .leaflet-overlay-pane path.rt-casing{stroke-opacity:.15}
+.rt-f.rt-line{stroke-width:5}
+svg .pcur,svg .psel{pointer-events:none}
+/* Cockpit (design review 2): the profile on top, the section bar right under it, then map and panel. */
+.rp-cockpit{grid-template-areas:"tot tot" "prof prof" "bar bar" "map hud" "ctl ctl"}
+.rp-cockpit.nomap{grid-template-areas:"tot tot" "prof prof" "bar bar" "hud hud" "ctl ctl"}
+.rp-cockpit .rp-legs{margin-top:2px}
+@media (max-width:900px){
+  .rp-cockpit{grid-template-areas:"tot" "prof" "bar" "map" "hud" "ctl"}
+  .rp-cockpit.nomap{grid-template-areas:"tot" "prof" "bar" "hud" "ctl"}
+  .rp-cockpit .rp-legs{margin-top:2px}
+}
+/* Race script, compact: one line per moment (the cue cut to one line, the open moment shows it
+   all), so the map top down to at least three moments fits one screen. */
+#rp-script{margin-top:10px;margin-bottom:6px}
+.rp-script button{grid-template-columns:auto minmax(150px,240px) 1fr;padding:3px 8px;gap:4px 12px}
+.rp-script .ic{width:22px;height:22px;font-size:11px}
+.rp-script .t{display:flex;align-items:baseline;gap:8px;min-width:0}
+.rp-script .t b{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rp-script .t small{white-space:nowrap;font-size:11.5px}
+.rp-script .cue{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rp-script li.on .cue{white-space:normal}
+@media (max-width:900px){
+  .rp-script button{grid-template-columns:auto 1fr}
+  .rp-script .t{flex-wrap:wrap;row-gap:0}
+}
+/* With the taller profile, the panel gets a little less room on laptop screens: the D+, km and
+   clock figures sit side by side on one line next to the clock, the table rows tighten, and the
+   panel scrolls rather than cut anything if a long section text still does not fit. */
+@media (min-width:901px) and (max-height:960px){
+  .rp-cockpit .rp-top{align-items:center}
+  .rp-cockpit .rp-run{display:grid;grid-template-columns:auto auto;column-gap:12px;justify-items:end;font-size:12.5px}
+  .rp-cockpit .rp-run b{font-size:16px}
+  .rp-cockpit #rpElapsed{grid-column:1 / -1}
+  .rp-cockpit .rp-clock b{font-size:30px}
+  .rp-cockpit .rp-tg th,.rp-cockpit .rp-tg td{padding-top:1px;padding-bottom:1px;line-height:1.2}
+  .rp-cockpit .rp-tg tbody tr:nth-child(-n+2) td.now{font-size:18px}
+}
+.rp-cockpit>.rp-hud{overflow-y:auto;scrollbar-width:thin}
+@media (min-width:901px) and (max-height:800px){
+  /* small laptop screens: title, chip and length on one line; the next-section line goes (the
+     section bar already shows what comes next) */
+  .rp-cockpit .rp-leg-t{flex-wrap:nowrap;white-space:nowrap;overflow:hidden}
+  .rp-cockpit .rp-leg-len{font-size:11px;padding:0 6px}
+  .rp-cockpit .rp-leg-next{display:none!important}
+}
+@media (min-width:901px) and (max-height:800px){
+  .rp-cockpit .rp-leg{padding:6px 10px}
+  .rp-cockpit .rp-leg-h{margin-bottom:2px}
+  .rp-cockpit .rp-tg td{font-size:13px} .rp-cockpit .rp-tg tbody tr:nth-child(-n+2) td.now{font-size:16px}
+}
+@media (min-width:901px) and (max-height:800px){ .rp-cockpit>.rp-hud{padding:6px 10px;gap:3px} }
+.rp-run #rpKm b.pct{color:var(--sun)}
+/* One Export A4 box per printable section (design review 2), folded by default. */
+.a4x{margin:4px 0 12px}
+.a4x>summary{display:inline-flex;align-items:center;gap:6px;cursor:pointer;list-style:none;font-family:var(--f-display);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:12.5px;color:var(--muted);padding:4px 12px;border:1px solid var(--line);border-radius:999px}
+.a4x>summary::-webkit-details-marker{display:none}
+.a4x>summary:hover,.a4x[open]>summary{color:var(--fg);border-color:var(--muted)}
+.a4x-body{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;margin-top:8px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.a4x-h{flex:1 1 100%;color:var(--muted);font-size:13px}
+.a4x .chk{font-size:13.5px}
+.a4x-msg{color:var(--sun);font-size:13px}
+@media print{ .a4x{display:none!important} }

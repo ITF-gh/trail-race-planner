@@ -2,6 +2,15 @@
 // technical detail). The first entry is the current version: the footer shows it on every page.
 
 export const CHANGELOG = [
+  { v: "2.4", date: "2026-10-17", items: [
+    "Design review, part 2. A climb now gains at least 10% of the race's D+ (any rise of 100 m or more counts): smaller rises are bumps, not counted but still in your plan, race script and watch messages. Long climbs split where the gradient clearly changes, each section at least 15% of the climb.",
+    "Difficulty shows as 1 to 4 stars, green, yellow, orange and red, everywhere. Key zones say how many minutes there are to gain.",
+    "Climbs and descents tables: the start km, a mini profile with the average gradient on it, length, gain, steepest 100 m, then the stars.",
+    "Your route: the map and the profile fit one screen, each climb has its number with a small window of figures, and zooming the profile zooms the map and dims the rest of the route. The key zones moved to Your plan, as star chips that open their message and show the zone on the profile and the map.",
+    "Smoother pace: it now blends between gradient bands instead of jumping at each band edge.",
+    "Your race: the profile is on top, taller, with the section bar under it; the % of the race joins the km line; the race script is compact, and a click on a moment zooms the map on it.",
+    "Export A4 moved from the top bar into each printable section, with tick boxes to leave parts out. Your engine's pace chart lines up in three columns.",
+  ] },
   { v: "2.3", date: "2026-10-17", items: [
     "Design review, part 1. A shorter line next to the logo (Prep & go) and new, livelier intro texts in the three modes.",
     "Your engine: key figures about how you move (flat pace, cadence, pace on gentle and steep climbs, best climb rate); the Your runs block is gone (each run and its weight shows under the drop box); the pace chart is lower and its values easier to read.",

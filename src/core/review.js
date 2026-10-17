@@ -214,7 +214,7 @@ export function analyseRun(parsed, opts = {}) {
   const parts = [];
   brief.climbs.forEach((c) => (c.sections.length ? c.sections : [c]).forEach((x) => parts.push({
     kind: "climb", n: x.n, level: x.level, startKm: x.startKm, endKm: x.endKm, label: LEVELS[x.level],
-    title: `${c.sections.length ? "Climb section" : "Climb"} ${x.n}`,
+    title: c.sections.length ? `Climb section ${x.n}` : (c.label || `Climb ${c.n}`),
   })));
   brief.descents.forEach((d) => parts.push({ kind: "descent", n: d.n, level: d.level, startKm: d.startKm, endKm: d.endKm, label: DESCENT_LABELS[d.level], title: `Descent ${d.n}` }));
   parts.sort((a, b) => a.startKm - b.startKm);

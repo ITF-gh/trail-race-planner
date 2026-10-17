@@ -129,24 +129,33 @@ test("buildPlan: the heart-rate guide comes from the profile's heart rates only"
   assert.ok(k.hrGuide.every((h, i) => i === 0 || h.bpm >= k.hrGuide[i - 1].bpm), "ceilings rise along the race");
 });
 
-test("splitClimb cuts where the gradient changes and respects the minimum length", () => {
+test("splitClimb cuts where the gradient changes, each piece at least 15% of the climb", () => {
   // 2 km at 3% then 1.5 km at 12%, on a 10 m grid.
   const ele = [0];
   for (let i = 0; i < 350; i++) ele.push(ele[i] + (i < 200 ? 0.3 : 1.2));
-  assert.deepEqual(splitClimb(ele, 0, 350, 10, 1500), [[0, 200], [200, 350]]);
-  assert.deepEqual(splitClimb(ele, 0, 290, 10, 1500), [[0, 290]], "under 3 km: one piece");
-  const four = splitClimb(ele.concat(ele.slice(1).map((e) => e + ele[350])), 0, 700, 10, 1500);
+  assert.deepEqual(splitClimb(ele, 0, 350, 10), [[0, 200], [200, 350]]);
+  assert.deepEqual(splitClimb(ele, 0, 290, 10), [[0, 290]], "under 3 km: one piece");
+  const four = splitClimb(ele.concat(ele.slice(1).map((e) => e + ele[350])), 0, 700, 10);
   assert.equal(four.length, 4);
-  assert.ok(four.every(([a, b]) => (b - a) * 10 >= 1500));
+  assert.ok(four.every(([a, b]) => (b - a) >= 0.15 * 700));
+  // A short wall of 600 m (under the old 1.5 km minimum) on a 4 km climb now gets its own section.
+  const wall = [0];
+  for (let i = 0; i < 400; i++) wall.push(wall[i] + (i >= 200 && i < 260 ? 1.8 : 0.5));
+  assert.deepEqual(splitClimb(wall, 0, 400, 10), [[0, 200], [200, 260], [260, 400]]);
+  // An even climb with a tiny gradient change stays one piece.
+  const even = [0];
+  for (let i = 0; i < 400; i++) even.push(even[i] + (i < 200 ? 0.7 : 0.8));
+  assert.deepEqual(splitClimb(even, 0, 400, 10), [[0, 400]]);
   for (let i = 1; i < four.length; i++) assert.equal(four[i][0], four[i - 1][1], "sections are contiguous");
 });
 
 test("buildPlan splits climbs of 3 km or more and 100 m gain or more into sections", () => {
   const plan = buildPlan(race, effort);
   for (const c of plan.climbs) {
-    if (c.lenM < 3000 || c.gain < 100) { assert.equal(c.sections.length, 0); continue; }
+    if (c.lenM < 3000 || c.gain < 100 || c.bump) { assert.equal(c.sections.length, 0); continue; }
+    if (!c.sections.length) continue; // an even climb stays whole
     assert.ok(c.sections.length >= 2, `climb ${c.n} is split`);
-    assert.ok(c.sections.every((s) => s.lenM >= 1500 && s.tactic));
+    assert.ok(c.sections.every((s) => s.lenM >= 0.15 * c.lenM - 10 && s.tactic));
     for (const s of c.sections) {
       assert.equal(s.score, climbScore({ ...s, delta: s.gain }, plan.course.totalKm), `section ${s.n} is scored like a climb`);
       assert.equal(s.level, climbLevel(s.score));
@@ -160,7 +169,17 @@ test("buildPlan splits climbs of 3 km or more and 100 m gain or more into sectio
   assert.ok(plan.climbs.some((c) => c.sections.length), "the demo course has a long climb");
   const drag = buildPlan(parseGpx(makeDemoRaceGpx([[500, 0], [4000, 2], [500, -8], [500, 0]])), effort);
   assert.ok(drag.climbs.some((c) => c.lenM >= 3000 && c.gain < 100 && !c.sections.length), "a long flat-ish climb stays whole");
-  assert.match(planToMarkdown(plan), /\| 5\.1 \|/);
+  assert.match(planToMarkdown(plan), /\| 2\.1 \|/);
+});
+
+test("a rise counts as a climb from 10% of the total D+ or 100 m; smaller ones are numbered bumps", () => {
+  const plan = buildPlan(race, effort);
+  const min = Math.min(0.1 * plan.course.gain, 100);
+  for (const c of plan.climbs) assert.equal(c.bump, c.gain < min, `${c.label}: ${Math.round(c.gain)} m`);
+  const big = plan.climbs.filter((c) => !c.bump);
+  assert.deepEqual(big.map((c) => c.n), big.map((_, i) => i + 1), "climbs are numbered 1, 2, 3... without the bumps");
+  assert.ok(plan.climbs.filter((c) => c.bump).every((c, i) => c.n === `b${i + 1}` && c.label === `Bump ${i + 1}` && c.tactic), "bumps keep their tactic");
+  assert.equal(plan.course.climbCount, big.length);
 });
 
 test("hiking threshold: the gradient that best separates run and hike, not an average", () => {

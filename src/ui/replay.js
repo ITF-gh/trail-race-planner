@@ -254,7 +254,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     </div>
     <div class="rp-legfoot">
       <div class="rp-legnow" id="rpLegNow" aria-live="polite"></div>
-      <div class="rp-legend" aria-label="Legend"><span><i class="sw l1"></i>Easy</span><span><i class="sw l2"></i>Moderate</span><span><i class="sw l3"></i>Hard</span><span><i class="sw l4"></i>Crux</span><span><i class="sw fl"></i>Runnable</span><span><i class="sw ds"></i>Descent</span><span><i class="sw ds4"></i>Brake</span><span><i class="sw kz"></i>Key zone</span><span><i class="sw ad"></i>Aid</span><span><i class="sw rv-pl-sw"></i>Pace</span></div>
+      <div class="rp-legend" aria-label="Legend">${[1, 2, 3, 4].map((l) => `<span class="chip st l${l}" title="${["", "Easy", "Moderate", "Hard", "Crux"][l]}">${"★".repeat(l)}<i>${"★".repeat(4 - l)}</i></span>`).join("")}<span><i class="sw fl"></i>Runnable</span><span><i class="sw ds"></i>Descent</span><span><i class="sw ds4"></i>Brake</span><span><i class="sw kz"></i>Key zone</span><span><i class="sw ad"></i>Aid</span><span><i class="sw rv-pl-sw"></i>Pace</span></div>
     </div>
   </div>
     ${hasMap ? `<div class="rp-map" id="rpMap"></div>` : ""}
@@ -359,7 +359,8 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
   // Average gradient with its sign, e.g. "+7.4%" or "-3.0%".
   const gradeTxt = (l) => `${l.avg > 0 ? "+" : ""}${l.avg.toFixed(1)}%`;
   // A runnable stretch says so in its title already: no chip repeating it.
-  const legChip = (l) => (l.kind === "flat" ? "" : `<span class="chip l${l.level}">${escR(l.label)}</span>`);
+  // Climbs show their difficulty as 1 to 4 stars (the word stays in the tooltip); descents keep their word.
+  const legChip = (l) => (l.kind === "flat" ? "" : l.kind === "climb" ? `<span class="chip st l${l.level}" title="${escR(l.label)}">${"★".repeat(l.level)}<i>${"★".repeat(4 - l.level)}</i></span>` : `<span class="chip l${l.level}">${escR(l.label)}</span>`);
   // The scrolling box around the profile (used by drawLeg above: it runs only later, after this
   // line has set the value).
   const profScroll = $r("#rpProf .prof-scroll");
@@ -380,8 +381,9 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     // Under the clock, what matters most first: the climbing done, then the distance, then the
     // time of day. gainLoss adds up every rise of the profile from the start to the runner.
     els.up.innerHTML = `<b>+${Math.round(gainLoss(P, 0, s.km).up)}</b> / ${Math.round(tot.gain)} m D+`;
-    els.km.innerHTML = `<b>${s.km.toFixed(1)}</b> / ${plan.course.totalKm.toFixed(1)} km`;
-    els.el.textContent = `clock ${clock(st, s.sec)} · ${Math.round(s.frac * 100)}% of the ${noun.toLowerCase()}`;
+    // Share of the race done first, then km done / total, on one line (design review 2).
+    els.km.innerHTML = `<b class="pct">${Math.round(s.frac * 100)}%</b> · <b>${s.km.toFixed(1)}</b> / ${plan.course.totalKm.toFixed(1)} km`;
+    els.el.textContent = `clock ${clock(st, s.sec)}`;
     els.bar.style.width = `${(s.frac * 100).toFixed(2)}%`;
     els.seek.value = Math.round(s.sec);
     // The section you are on: lit up everywhere when it changes, its countdown on every frame.
@@ -399,7 +401,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
       // The section card: number, title, chips, tactic, what comes next, and the target table.
       els.leg.innerHTML = `
         <div class="rp-leg-h"><span class="rp-leg-n"><small>Section</small><b>${l.i}</b><small>/ ${legs.length}</small></span>
-          <span class="rp-leg-pct" aria-live="off"><b id="rpLegPct"></b><small>done</small><b class="tot" id="rpRacePct"></b><small>of the ${noun.toLowerCase()}</small></span>
+          <span class="rp-leg-pct" aria-live="off"><b id="rpLegPct"></b><small>done</small></span>
           <span class="rp-leg-t"><b>${escR(l.title)}</b>${legChip(l)}<span class="rp-leg-len">${(l.endKm - l.startKm).toFixed(1)} km</span>${l.keyZone ? ` <span class="chip keyc">★ Key zone ${l.keyZone.n}</span>` : ""}
           </span></div>
         <div class="rp-leg-info">
@@ -424,7 +426,6 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
       els.tn = Object.fromEntries(["Pace", "Grade", "Ele", "Pct", "Time"].map((k) => [k, els.leg.querySelector(`#tn${k}`)]));
       // Where you are, always on top of the box: % of this section done and % of the whole course.
       els.legPct = els.leg.querySelector("#rpLegPct");
-      els.racePct = els.leg.querySelector("#rpRacePct");
       lastNextHtml = ""; // the card changed height: fit the list below it again
     }
     // Every frame: what is left in this section, in km and seconds (never below 0).
@@ -446,7 +447,6 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     const pct = l.km > 0 ? Math.round((Math.min(l.km, Math.max(0, s.km - l.startKm)) / l.km) * 100) : 100;
     els.tn.Pct.innerHTML = `${pct}% <small>${leftKm.toFixed(1)} km left</small>`;
     els.legPct.textContent = `${pct}%`;
-    els.racePct.textContent = `${Math.round(s.frac * 100)}%`;
     els.tn.Time.innerHTML = `${inMin} min <small>${leftSec >= 3600 ? hm(leftSec) : `${Math.round(leftSec / 60)} min`} left</small>`;
     // The play button's label: Pause while playing, Replay at the finish, Resume part way, Play at 0.
     // (a ? b : c ? d : e is a chain of "if a then b, else if c then d, else e".)
@@ -539,6 +539,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     rp.playing = true;
     rp.last = 0;
     els.cue.classList.remove("pulse");
+    if (rp.map) rp.map.focus(null); // the whole route again
     if (rp.map && rp.follow) rp.map.follow(true);
     rp.raf = requestAnimationFrame(frame);
     draw();
@@ -597,14 +598,19 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     seek(l.startSec + 1);
     // Show that section and the next one on the map; following stops until Play or Recenter.
     // legs[l.i] is the NEXT section: l.i counts from 1 while the array index counts from 0.
-    if (rp.map) { const n = legs[l.i] || l; rp.map.show(l.startKm, n.endKm); }
+    // The rest of the route is dimmed until Play.
+    if (rp.map) { const n = legs[l.i] || l; rp.map.focus(l.startKm, n.endKm); }
   }));
   // A click on a moment in the script list: go there and scroll the cockpit back into view.
   els.list.querySelectorAll("li button").forEach((b) => b.addEventListener("click", () => {
     // Which kind of moment was opened: a key zone, a climb, an aid station, a gel...
     trackEvent("replay-moment", script[Number(b.parentElement.dataset.i)].kind);
     pause();
-    seek(script[Number(b.parentElement.dataset.i)].sec + 1);
+    const m = script[Number(b.parentElement.dataset.i)];
+    seek(m.sec + 1);
+    // The map zooms on the section of that moment, the rest of the route dimmed (until Play).
+    const l = legs.find((x) => m.km >= x.startKm && m.km < x.endKm) || legs[legs.length - 1];
+    if (rp.map && l) rp.map.focus(l.startKm, l.endKm);
     $r(".rp-cockpit").scrollIntoView({ behavior: "smooth", block: "start" });
   }));
   // Click or drag on the profile to move the runner there.

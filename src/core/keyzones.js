@@ -262,36 +262,37 @@ function describe(z, n, aid, profile) {
     // `whole` is true when the zone covers every section of the climb (or the climb has none).
     const whole = parts.length === ((c.sections || []).length || 1);
     const avg = (gain / ((z.toKm - z.fromKm) * 1000)) * 100;
-    const label = whole ? `Climb ${c.n}` : parts.length > 1 ? `Climb ${c.n}, sections ${parts[0].n}–${parts[parts.length - 1].n}` : `Climb ${c.n}, section ${parts[0].n}`;
+    const name = (c.label || `Climb ${c.n}`);
+    const label = whole ? name : parts.length > 1 ? `${name}, sections ${parts[0].n}–${parts[parts.length - 1].n}` : `${name}, section ${parts[0].n}`;
     title = `${z.last ? "Last big climb · " : ""}${label} · ${Math.round(gain)} m`;
-    why = `${when}, ${Math.round(gain)} m at ${avg.toFixed(0)}% over ${lenKm} km${whole ? "" : ` of the ${Math.round(c.gain)} m climb`}: about ${dur} min where ${stake} min are in play.${z.last ? " The last big climb: races are often decided here." : ""}`;
+    why = `${when}, ${Math.round(gain)} m at ${avg.toFixed(0)}% over ${lenKm} km${whole ? "" : ` of the ${Math.round(c.gain)} m climb`}: about ${dur} min, with up to ${stake} min to gain.${z.last ? " The last big climb: races are often decided here." : ""}`;
     // 14% or steeper: power-hike advice; gentler: run with a short stride.
     how = avg >= 14
       ? "Strong power-hike: hands on knees, short steps, steady breathing. Push the effort here, not on the easier ground before."
       : "Run it with a short stride, or alternate 1 min run and 1 min hike. Steady effort from the bottom; let others surge.";
   } else if (z.kind === "start") {
     title = `The start · first ${lenKm} km`;
-    why = `Fresh legs, adrenaline and the crowd make the first ${lenKm} km feel easy. Every minute gained here by going out too fast is paid back with interest at the end: ${stake} min in play.`;
+    why = `Fresh legs, adrenaline and the crowd make the first ${lenKm} km feel easy. Every minute gained here by going out too fast is paid back with interest at the end: up to ${stake} min to gain.`;
     how = "Start slower than feels right: you should be able to talk. Let the crowd go, settle your breathing, drink early.";
   } else if (z.kind === "approach") {
     const c = z.climb;
-    title = `Before climb ${c.n} · ${lenKm} km to prepare`;
-    why = `${when}, the ${lenKm} km of easy ground before ${Math.round(c.gain)} m of climbing${z.last ? " (the last big one)" : ""}. How you arrive decides how you climb: ${stake} min in play.`;
+    title = `Before ${(c.label || `Climb ${c.n}`).toLowerCase()} · ${lenKm} km to prepare`;
+    why = `${when}, the ${lenKm} km of easy ground before ${Math.round(c.gain)} m of climbing${z.last ? " (the last big one)" : ""}. How you arrive decides how you climb: up to ${stake} min to gain.`;
     how = "Ease off a little, eat and drink now, let your heart rate drop. Walk any short bump. Arrive at the foot fresh, ready to push.";
   } else if (z.kind === "wall") {
-    title = `Wall on climb ${z.climb.n} · 400 m at ${z.grade.toFixed(0)}%`;
-    why = `${when}, the steepest part of climb ${z.climb.n}. Fighting it burns more than it gains and can cost the rest of the climb: ${stake} min in play.`;
+    title = `Wall on ${(z.climb.label || `Climb ${z.climb.n}`).toLowerCase()} · 400 m at ${z.grade.toFixed(0)}%`;
+    why = `${when}, the steepest part of ${(z.climb.label || `Climb ${z.climb.n}`).toLowerCase()}. Fighting it burns more than it gains and can cost the rest of the climb: up to ${stake} min to gain.`;
     how = "Hike from the first step, hands on knees, short steps, long breaths out. Keep your heart rate in the guide: you will go faster after it.";
   } else if (z.kind === "restart") {
     title = `Restart after descent ${z.desc.n} · ${lenKm} km`;
-    why = `${when}, the first ${lenKm} km of runnable ground after ${Math.round(z.desc.loss)} m of descent. The legs feel heavy and want to walk; runners who start running again here pull away: ${stake} min in play.`;
+    why = `${when}, the first ${lenKm} km of runnable ground after ${Math.round(z.desc.loss)} m of descent. The legs feel heavy and want to walk; runners who start running again here pull away: up to ${stake} min to gain.`;
     how = "Shorten the stride and raise the cadence. Run the first kilometre, even slowly: the legs come back after a few minutes.";
   } else if (z.kind === "descent") {
     const d = z.desc;
     title = `Descent ${d.n}${z.whole ? "" : ", steep part"} · ${lenKm} km at ${z.grade.toFixed(0)}%`;
     why = z.mode === "attack"
-      ? `${when}, the steepest ${lenKm} km of a ${Math.round(d.loss)} m descent, on tired legs: ${stake} min in play for those whose quads still hold.`
-      : `${when}, the steepest ${lenKm} km of a ${Math.round(d.loss)} m descent. Racing it now costs your quads for the rest of the day: ${stake} min in play later.`;
+      ? `${when}, the steepest ${lenKm} km of a ${Math.round(d.loss)} m descent, on tired legs: up to ${stake} min to gain for those whose quads still hold.`
+      : `${when}, the steepest ${lenKm} km of a ${Math.round(d.loss)} m descent. Racing it now costs your quads for the rest of the day: up to ${stake} min to lose later.`;
     how = z.mode === "attack"
       ? "Quick light feet, relax the upper body, use the whole trail. Do not brake on what you can run."
       : "Protect your quads: short quick steps, brake early and smoothly, no big impacts. You need these legs later.";

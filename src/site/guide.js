@@ -69,7 +69,7 @@ export const GUIDE = [
     sections: [
       { id: "top-bar", sec: "", num: "≡", name: "Top bar", shot: "top-bar",
         what: "The bar that stays on top while you scroll: jump to a section, see where you are, export, switch the look.",
-        how: ["Click a section name to jump there; the red line shows how far down you are.", "<b>Export A4</b> prints the current mode as clean A4 pages, or saves them as a PDF.", "<b>Sky mode</b> switches to a bright theme, handy outdoors; <b>Night</b> brings the dark one back."],
+        how: ["Click a section name to jump there; the red line shows how far down you are.", "<b>Export A4</b> sits at the top of each printable section (Your plan, Your race, Prep my run, Rewind my run, Deep dive): untick the parts you do not want, then print or save as a PDF.", "<b>Sky mode</b> switches to a bright theme, handy outdoors; <b>Night</b> brings the dark one back."],
         tip: "Print the race card and keep it in your pack: checkpoint times, with blank boxes to write your real times." },
       { id: "account", sec: "", num: "◎", name: "Account menu", shot: "account",
         what: "The round icon at the top right of the header: a log of the runs you loaded on this device, with stats, bests, achievements and cairns.",

@@ -413,7 +413,7 @@ function aipRace(out, plan, input, D, T, ai, why, fixes) {
   out.climbs = plan.climbs.map((c) => ({ ...c, ...timing(c), sections: c.sections.map((x) => ({ ...x, ...timing(x) })) }));
   out.descents = plan.descents.map((d) => ({ ...d, ...timing(d) }));
   const geo = new Map(input.race.legs.map((l) => [l.id, l]));
-  const name = (l) => (l.kind === "flat" ? "Runnable stretch" : `${l.kind === "climb" ? "Climb" : "Descent"} ${l.n}`);
+  const name = (l) => (l.kind === "flat" ? "Runnable stretch" : /^b\d+$/.test(String(l.n)) ? `Bump ${String(l.n).slice(1)}` : `${l.kind === "climb" ? "Climb" : "Descent"} ${l.n}`);
   // Where in a leg an intake or a moment sits, in km.
   const kmIn = (l, at) => {
     if (at === "start") return l.startKm;

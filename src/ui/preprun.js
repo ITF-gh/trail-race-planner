@@ -187,7 +187,7 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
     body.innerHTML = `
   <div class="panel prep-sum prep-ready">
     <div class="side-stack">${pimpBadge("#prep-pimp", "Your run on your watch →")}${acctAiBadge("run")}</div>
-    <div class="prep-facts"><b>${prEsc(st.name)}</b><span>${plan.course.totalKm.toFixed(1)} km</span><span>+${Math.round(plan.course.gain)} m</span><span>-${Math.round(plan.course.loss)} m</span><span>${plan.climbs.length} climbs</span><span>${(plan.keyZones || []).length} key zones</span><span>about <b>${hm(finish)}</b></span></div>
+    <div class="prep-facts"><b>${prEsc(st.name)}</b><span>${plan.course.totalKm.toFixed(1)} km</span><span>+${Math.round(plan.course.gain)} m</span><span>-${Math.round(plan.course.loss)} m</span><span>${plan.climbs.filter((c) => !c.bump).length} climbs</span><span>${(plan.keyZones || []).length} key zones</span><span>about <b>${hm(finish)}</b></span></div>
     <p class="note">Times come from ${SOURCE[source]}.</p>
     <div class="prep-opts">
       <label class="f">Target time (h:mm)<input type="text" id="prepTarget" inputmode="numeric" placeholder="${hm(finish).replace("h", ":")}" value="${st.targetSec ? hm(st.targetSec).replace("h", ":") : ""}"></label>
