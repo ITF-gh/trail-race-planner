@@ -77,6 +77,8 @@ function eleOn(P, km) {
 // Length and climb of a section, written out under its title.
 const legData = (l) => `${(l.endKm - l.startKm).toFixed(1)} km · +${Math.round(l.up)} / −${Math.round(l.down)} m`;
 // The symbol shown for each kind of moment or section (the "kind" field from core/script.js).
+// Names of the moment kinds, in the order of the script list's filter buttons.
+const KIND_NAME = { start: "Start", climb: "Climbs", top: "Tops", descent: "Descents", gel: "Gels", aid: "Aid", key: "Key zones", phase: "Race phases", ai: "AI", finish: "Finish" };
 const ICON = { start: "▶", climb: "▲", top: "⛰", descent: "▼", gel: "G", aid: "⛺", phase: "◐", key: "★", ai: "✦", finish: "🏁" };
 
 // Survives re-renders (a scenario switch, a settings change), so the replay keeps its place.
@@ -90,7 +92,7 @@ const ICON = { start: "▶", climb: "▲", top: "⛰", descent: "▼", gel: "G",
 //   raf      id of the pending requestAnimationFrame, to cancel it
 //   map      the map controller from map.js, or null
 // Set later: last (timestamp of the previous frame, ms) and onKey (the keyboard listener).
-const rp = { key: "", sec: 0, playing: false, speed: 360, pauseAt: false, follow: false, raf: 0, map: null };
+const rp = { key: "", sec: 0, playing: false, speed: 360, pauseAt: false, follow: false, raf: 0, map: null, hideKinds: new Set() };
 
 /**
  * Mount the replay in `box`. `prof` draws the profile: {html, x(km), y(ele)} in SVG units of a
@@ -235,6 +237,12 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
   // One of the four target tiles: a key, a big value and an optional small line under it.
   const totTile = (k, v, sub, cls = "") => `<div class="rp-tot ${cls}"><span class="k">${k}</span><b>${v}</b>${sub ? `<small>${sub}</small>` : ""}</div>`;
 
+  // The kinds of moment in this script, in a fixed order, for the filter buttons of the list.
+  const kinds = Object.keys(KIND_NAME).filter((k) => script.some((e) => e.kind === k));
+  // Script list: which moments have their card open (indexes in `script`). Like the key zone
+  // chips, the first one is open by default; the others are icons until clicked.
+  const open = new Set(script.length ? [0] : []);
+
   // 2. HTML, written once.
   // Everything you need while it plays sits in one screen-high "cockpit": race targets, the
   // section bar, the map, the panel (clock, target vs now, cue), the profile and the controls.
@@ -268,7 +276,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
       <div class="rp-prog" aria-hidden="true"><i id="rpBar"></i></div>
       <div class="rp-leg" id="rpLeg"></div>
       <div class="rp-now" id="rpNow" hidden></div>
-      <p class="rp-cue-line" id="rpCue" aria-live="polite"></p>
+      <ol class="rp-notifs" id="rpCue" aria-live="polite" aria-label="Latest moments"></ol>
       ${plan.ai ? `<div class="rp-ai-box" id="rpAi" aria-live="polite"></div>` : ""}
       <ul class="kv rp-next" id="rpNext"></ul>
     </div>
@@ -284,7 +292,9 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
   </div>
   </div>
   <div class="sub-h" id="rp-script">${noun} script · ${script.length} moments</div>
-  <ol class="rp-script" id="rpScript">${script.map((e, i) => `<li data-i="${i}" class="k-${e.kind} lv${e.level}"><button type="button"><span class="ic">${ICON[e.kind] || "•"}</span><span class="t"><b>${escR(e.title)}</b><small>km ${e.km.toFixed(1)} · ${clock(st, e.sec)}</small></span><span class="cue">${escR(e.cue)}</span></button></li>`).join("")}</ol>`;
+  <div class="rs-filt" role="group" aria-label="Moment types">${kinds.map((k) => `<button type="button" class="rs-f k-${k}" data-k="${k}" aria-pressed="${!rp.hideKinds.has(k)}" title="Show or hide ${KIND_NAME[k].toLowerCase()}"><span class="ic">${ICON[k] || "•"}</span>${KIND_NAME[k]}<small>${script.filter((e) => e.kind === k).length}</small></button>`).join("")}<button type="button" class="rs-all" id="rsAll"></button></div>
+  <div class="rs-chips" id="rpScript" role="group" aria-label="${noun} script moments">${script.map((e, i) => `<button type="button" class="rs-chip k-${e.kind} lv${e.level}" data-i="${i}" data-k="${e.kind}" title="${escR(e.title)} · km ${e.km.toFixed(1)} · ${clock(st, e.sec)}" aria-label="${escR(e.title)}"><span class="ic">${ICON[e.kind] || "•"}</span><small>${e.km.toFixed(0)}</small></button>`).join("")}</div>
+  <div class="rs-cards" id="rsCards"></div>`;
 
   // 3. Find the elements once and keep them in `els`, so each frame does not search the page.
   // $r(selector) is a short name for "the first element in this box matching the CSS selector".
@@ -426,9 +436,6 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
             ${row("Section time", hm(l.durSec), "tnTime")}
           </tbody>
         </table>`;
-      // The latest moment (a key zone, a climb, an aid station...) is written first under the title.
-      // prepend() moves the existing cue element (it is not copied) to the top of the card.
-      els.leg.querySelector(".rp-leg-info").prepend(els.cue);
       // The five Now cells, found once per section: { Pace: td, Grade: td, Ele: td, Pct: td, Time: td }.
       els.tn = Object.fromEntries(["Pace", "Grade", "Ele", "Pct", "Time"].map((k) => [k, els.leg.querySelector(`#tn${k}`)]));
       // Where you are, always on top of the box: % of this section done and % of the whole course.
@@ -498,14 +505,21 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
       els.ai.innerHTML = lines.length ? `<span class="ic">${ICON.ai}</span><div>${lines.map((x) => `<p>${x}</p>`).join("")}</div>` : `<span class="ic">${ICON.ai}</span><div><p class="muted">No AI message on this section.</p></div>`;
     }
     if (ci !== lastCue) {
+      // The moments as notifications under the section box, like text messages: the latest on
+      // top, the older ones pushed down and fading. At least the last 3, and every moment that
+      // falls at the same time as the latest one (two moments at the same km are both seen).
+      // Only moments reached while moving forward slide in; a jump back just redraws.
+      const shown = [];
+      for (let i = ci; i >= 0 && (shown.length < 3 || script[i].sec >= script[ci].sec - 1); i--) shown.push(i);
+      const fwd = ci > lastCue;
+      els.cue.innerHTML = shown.map((i, n) => {
+        const e = script[i];
+        const same = e.sec >= script[ci].sec - 1;
+        return `<li class="k-${e.kind} lv${e.level} o${same ? 0 : n}${fwd && i > lastCue ? " new" : ""}" title="${escR(e.cue)}"><span class="ic">${ICON[e.kind] || "•"}</span><b>${escR(e.title)}</b><span class="d">km ${e.km.toFixed(1)} · ${hm(e.sec)}</span></li>`;
+      }).join("");
       lastCue = ci;
-      // Before the first moment, show the first one anyway (Math.max avoids index -1).
-      const e = script[Math.max(0, ci)];
-      els.cue.className = `rp-cue-line k-${e.kind} lv${e.level}`;
-      els.cue.title = e.cue;
-      els.cue.innerHTML = `<span class="ic">${ICON[e.kind] || "•"}</span><b>${escR(e.title)}</b><span class="d">km ${e.km.toFixed(1)} · ${hm(e.sec)}</span>`;
       // In the script list below: mark the current moment and grey the past ones.
-      els.list.querySelectorAll("li").forEach((li) => { li.classList.toggle("on", Number(li.dataset.i) === ci); li.classList.toggle("past", Number(li.dataset.i) < ci); });
+      els.list.querySelectorAll(".rs-chip").forEach((b) => { b.classList.toggle("on", Number(b.dataset.i) === ci); b.classList.toggle("past", Number(b.dataset.i) < ci); });
     }
     // The pace line: the whole current section lit, the dot and the live pace at the runner.
     if (pace) pace.draw(s.km, l, s.sec, s.aid ? "stopped" : "");
@@ -611,18 +625,58 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     // The rest of the route is dimmed until Play.
     if (rp.map) { const n = legs[l.i] || l; rp.map.focus(l.startKm, n.endKm); }
   }));
-  // A click on a moment in the script list: go there and scroll the cockpit back into view.
-  els.list.querySelectorAll("li button").forEach((b) => b.addEventListener("click", () => {
-    // Which kind of moment was opened: a key zone, a climb, an aid station, a gel...
-    trackEvent("replay-moment", script[Number(b.parentElement.dataset.i)].kind);
+  // The script list: filter buttons by kind, one icon chip per moment, and the cards of the open
+  // moments below (several can be open). A card's "Go there" moves the replay to that moment.
+  const cards = $r("#rsCards");
+  const allBtn = $r("#rsAll");
+  const visible = (i) => !rp.hideKinds.has(script[i].kind);
+  const drawList = () => {
+    els.list.querySelectorAll(".rs-chip").forEach((b) => {
+      const i = Number(b.dataset.i);
+      b.hidden = !visible(i);
+      b.setAttribute("aria-pressed", String(open.has(i)));
+    });
+    box.querySelectorAll(".rs-f").forEach((b) => b.setAttribute("aria-pressed", String(!rp.hideKinds.has(b.dataset.k))));
+    const ids = [...open].filter(visible).sort((a, b) => a - b);
+    cards.innerHTML = ids.map((i) => {
+      const e = script[i];
+      return `<article class="rs-card k-${e.kind} lv${e.level}" data-i="${i}"><span class="ic">${ICON[e.kind] || "•"}</span><div class="t"><b>${escR(e.title)}</b><small>km ${e.km.toFixed(1)} · ${clock(st, e.sec)} · ${hm(e.sec)} on course</small><p>${escR(e.cue)}</p></div><button type="button" class="btn rs-go" data-go="${i}">Go there</button><button type="button" class="rs-x" data-x="${i}" aria-label="Close">×</button></article>`;
+    }).join("");
+    const any = script.some((e, i) => visible(i) && !open.has(i));
+    allBtn.textContent = any ? "Open all" : "Close all";
+  };
+  els.list.querySelectorAll(".rs-chip").forEach((b) => b.addEventListener("click", () => {
+    const i = Number(b.dataset.i);
+    if (open.has(i)) open.delete(i);
+    else { open.add(i); trackEvent("replay-moment", script[i].kind); }
+    drawList();
+  }));
+  box.querySelectorAll(".rs-f").forEach((b) => b.addEventListener("click", () => {
+    const k = b.dataset.k;
+    if (rp.hideKinds.has(k)) rp.hideKinds.delete(k); else rp.hideKinds.add(k);
+    trackEvent("replay-filter", k);
+    drawList();
+  }));
+  allBtn.addEventListener("click", () => {
+    const ids = script.map((e, i) => i).filter(visible);
+    if (allBtn.textContent === "Open all") ids.forEach((i) => open.add(i)); else ids.forEach((i) => open.delete(i));
+    drawList();
+  });
+  cards.addEventListener("click", (ev) => {
+    const x = ev.target.closest("[data-x]");
+    if (x) { open.delete(Number(x.dataset.x)); drawList(); return; }
+    const g = ev.target.closest("[data-go]");
+    if (!g) return;
+    const m = script[Number(g.dataset.go)];
+    trackEvent("replay-moment-go", m.kind);
     pause();
-    const m = script[Number(b.parentElement.dataset.i)];
     seek(m.sec + 1);
     // The map zooms on the section of that moment, the rest of the route dimmed (until Play).
-    const l = legs.find((x) => m.km >= x.startKm && m.km < x.endKm) || legs[legs.length - 1];
+    const l = legs.find((y) => m.km >= y.startKm && m.km < y.endKm) || legs[legs.length - 1];
     if (rp.map && l) rp.map.focus(l.startKm, l.endKm);
     $r(".rp-cockpit").scrollIntoView({ behavior: "smooth", block: "start" });
-  }));
+  });
+  drawList();
   // Click or drag on the profile to move the runner there.
   const svg = $r("#rpProf svg");
   if (svg) {

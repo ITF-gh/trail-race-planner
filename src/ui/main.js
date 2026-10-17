@@ -105,7 +105,7 @@ const state = {
   settings: { ...PLAN_DEFAULTS, ...(store.get("trp.settings") || {}) },
   scenario: store.get("trp.scenario") || "central",
   tab: "c", // D-day list: climbs or descents
-  kz: null, // Your plan: the open key zone chip (index in plan.keyZones), or null
+  kz: 0, // Your plan: the open key zone chip (index in plan.keyZones), or null; key zone 1 opens by default
   btab: "c", // briefing list: climbs or descents
   bwin: null, // briefing profile zoom window [fromKm, toKm], null = whole course
   plan: null,
@@ -1161,7 +1161,7 @@ function renderDday() {
     if (state.kz !== i) trackEvent("key-zone", String(plan.keyZones[i].n));
     openZone(state.kz === i ? null : i);
   }));
-  if (state.kz !== null && state.kz !== undefined) openZone(state.kz);
+  if (state.kz !== null && state.kz !== undefined && plan.keyZones[state.kz]) openZone(state.kz);
   // The "Pimp my GPX" sticker drawn by pimpBadge() above links to section 05.
   $("#s3body .pimp-link").addEventListener("click", () => trackEvent("nav", "pimp-badge"));
 }
