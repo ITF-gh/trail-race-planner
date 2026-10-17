@@ -1511,3 +1511,62 @@ svg .pcur,svg .psel{pointer-events:none}
 .rp-leg-t .rp-sub .chip.st{font-size:11px}
 /* phones: the section length is already on the tactic line just below */
 @media (max-width:560px){.rp-leg-t.has-sub .rp-leg-len{display:none}}
+
+/* Design review 2, round 3: the section box is the main thing in the cockpit; the race script
+   moments come under it as small text-message notifications. The latest one slides in on top,
+   older ones are pushed down and fade; moments at the same time all stay bright. */
+.rp-notifs{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:4px;min-width:0}
+.rp-notifs li{display:flex;align-items:center;gap:7px;min-width:0;max-width:100%;align-self:flex-start;padding:3px 11px 3px 4px;border-radius:14px 14px 14px 4px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);font-size:12.5px;white-space:nowrap;transition:opacity .5s}
+.rp-notifs .ic{flex:none;display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--gold,#ffbe28);color:#1a1300;font-size:10.5px;font-weight:800}
+.rp-notifs b{min-width:0;overflow:hidden;text-overflow:ellipsis;font-weight:700}
+.rp-notifs .d{flex:none;color:var(--muted);font-size:11.5px}
+.rp-notifs li.o1{opacity:.6}.rp-notifs li.o2{opacity:.35}.rp-notifs li.o3,.rp-notifs li.o4,.rp-notifs li.o5{opacity:.2}
+.rp-notifs li.new{animation:rpNotifIn .45s ease-out both}
+@keyframes rpNotifIn{from{opacity:0;transform:translateY(-10px) scale(.96)}}
+.rp-notifs.pulse li:first-child{animation:kzglow 1.2s ease-in-out 2}
+.rp-notifs li.k-key .ic{background:var(--sun)}
+.rp-notifs li.k-climb .ic,.rp-notifs li.k-top .ic{background:#ff7a3d}
+.rp-notifs li.k-descent .ic{background:#3fcf6a}
+.rp-notifs li.k-gel .ic{background:#b98cff}
+.rp-notifs li.k-aid .ic{background:#4fb3ff}
+@media (min-width:901px) and (max-height:800px){.rp-cockpit .rp-notifs li:nth-child(n+3):not(.o0){display:none}}
+@media (max-width:640px){.rp-cockpit .rp-notifs li{font-size:11.5px}.rp-cockpit .rp-notifs li:nth-child(n+3):not(.o0){display:none}}
+html[data-theme="sky"] .rp-notifs li{background:rgba(31,111,209,.06);border-color:var(--line)}
+
+/* The script list: filter buttons by kind, one icon chip per moment, open cards under them. */
+.rs-filt{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0 8px}
+.rs-f{display:inline-flex;align-items:center;gap:6px;padding:3px 10px 3px 4px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--fg);font:inherit;font-size:12.5px;cursor:pointer}
+.rs-f .ic{display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--gold,#ffbe28);color:#1a1300;font-size:10px;font-weight:800}
+.rs-f small{color:var(--muted);font-size:11px}
+.rs-f[aria-pressed="false"]{opacity:.4;text-decoration:line-through}
+.rs-all{margin-left:auto;background:none;border:0;color:var(--sun);font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;text-decoration:underline}
+.rs-chips{display:flex;flex-wrap:wrap;gap:6px}
+.rs-chip{display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:4px 3px 2px;min-width:34px;border-radius:10px;border:1px solid transparent;background:rgba(255,255,255,.05);color:var(--fg);font:inherit;cursor:pointer}
+.rs-chip .ic{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--gold,#ffbe28);color:#1a1300;font-size:11.5px;font-weight:800}
+.rs-chip small{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
+.rs-chip:hover{background:rgba(255,255,255,.1)}
+.rs-chip[aria-pressed="true"]{border-color:var(--sun);background:rgba(255,201,40,.14)}
+.rs-chip.past .ic{opacity:.55}
+.rs-chip.on{box-shadow:0 0 0 2px var(--sun)}
+.rs-chip.k-key .ic,.rs-f.k-key .ic,.rs-card.k-key .ic{background:var(--sun)}
+.rs-chip.k-climb .ic,.rs-chip.k-top .ic,.rs-f.k-climb .ic,.rs-f.k-top .ic,.rs-card.k-climb .ic,.rs-card.k-top .ic{background:#ff7a3d}
+.rs-chip.k-descent .ic,.rs-f.k-descent .ic,.rs-card.k-descent .ic{background:#3fcf6a}
+.rs-chip.k-gel .ic,.rs-f.k-gel .ic,.rs-card.k-gel .ic{background:#b98cff}
+.rs-chip.k-aid .ic,.rs-f.k-aid .ic,.rs-card.k-aid .ic{background:#4fb3ff}
+.rs-cards{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.rs-card{display:grid;grid-template-columns:auto 1fr auto auto;gap:4px 12px;align-items:start;padding:8px 10px;border-left:3px solid var(--sun);background:rgba(255,201,40,.06);border-radius:0 10px 10px 0}
+.rs-card .ic{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--gold,#ffbe28);color:#1a1300;font-size:13px;font-weight:800}
+.rs-card .t b{display:block;font-family:var(--f-display);font-weight:700;font-size:15px;letter-spacing:.02em}
+.rs-card .t small{color:var(--muted);font-size:11.5px}
+.rs-card .t p{margin:4px 0 0;font-size:13.5px;color:var(--fg)}
+.rs-go{padding:4px 12px;font-size:12.5px;align-self:center}
+.rs-x{background:none;border:0;color:var(--muted);font-size:20px;line-height:1;cursor:pointer;padding:0 4px}
+@media (max-width:640px){.rs-card{grid-template-columns:auto 1fr auto}.rs-go{grid-column:2;justify-self:start}.rs-x{grid-row:1;grid-column:3}}
+html[data-theme="sky"] .rs-chip{background:rgba(31,111,209,.05)}
+/* Short laptop screens: the notifications sit side by side on one line (latest on the left),
+   so the panel never scrolls; moments at the same time share the line. */
+@media (min-width:901px) and (max-height:800px){
+  .rp-cockpit .rp-notifs{flex-direction:row;flex-wrap:nowrap;overflow:hidden;margin-top:4px}
+  .rp-cockpit .rp-notifs li{flex:0 1 auto;min-width:0;max-width:60%}
+  .rp-cockpit .rp-notifs li:nth-child(n+3):not(.o0){display:flex}
+}
