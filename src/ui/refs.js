@@ -62,7 +62,8 @@ function summaryHtml() {
  * file drops (owner's rule: it must not take room), with the title, the boxes (label beside the
  * box) and the short summary. In Prep my run it is "Your settings": the target time comes first
  * (it wins over everything), and the level picker follows on its own line (#prepLevel, drawn by
- * preprun.js once a reference is set and no target is typed). The values are the saved ones;
+ * preprun.js once a reference is set and no target is typed), all on one line, with no summary
+ * (owner's rule: few borders, few elements). The values are the saved ones;
  * data-ref names the box, so one listener (initRefs) serves the three strips.
  */
 export function refsCardHtml(mode) {
@@ -71,27 +72,26 @@ export function refsCardHtml(mode) {
   const note = mode === "run" ? "Your run is compared with them." : prep ? "A target time wins over them." : "They set the level of your plan.";
   return `<div class="refs-card refs-strip${refsAny(refs) ? " done" : ""}" data-refs="${mode}" title="Your best 10K and half marathon, your easy pace. ${note}">
         <span class="rf-title"><span class="tag">★</span>${prep ? "Your settings" : "My references"}</span>
-        ${prep ? `<label class="rf-f">Target<input type="text" id="prepTarget" inputmode="numeric" autocomplete="off" placeholder="3:30" aria-label="Target time (h:mm)"></label><span class="rf-or">or</span>` : ""}
+        ${prep ? `<label class="rf-f">Target<input type="text" id="prepTarget" inputmode="numeric" autocomplete="off" placeholder="3:30" aria-label="Target time (h:mm)"></label><span class="rf-sep" aria-hidden="true"></span>` : ""}
         ${BOXES.map((b) => `<label class="rf-f">${b.label}<input type="text" inputmode="numeric" autocomplete="off" data-ref="${b.k}" placeholder="${b.ph}" value="${refs[b.k] ? b.show(refs[b.k]) : ""}"></label>`).join("")}
-        <span class="status refs-sum" aria-live="polite">${summaryHtml()}</span>
+        ${prep ? "" : `<span class="status refs-sum" aria-live="polite">${summaryHtml()}</span>`}
         ${prep ? `<div id="prepLevel"></div>` : ""}
       </div>`;
 }
 
 /**
- * The level picker of Prep my run, levels 1 to 5, with `level` selected: a gauge whose coloured
- * fill grows from green to red, a round knob carrying the level's moving icon, and the level's
- * name and meaning beside it.
+ * The level picker of Prep my run, levels 1 to 5, with `level` selected: a thin line whose
+ * coloured fill grows from green to red, five dots to tap, a round knob carrying the level's
+ * moving icon, and the level's name (its meaning in the tooltip).
  */
 export function levelPickerHtml(level) {
   const i = Math.max(0, REF_LEVELS.indexOf(level));
   const L = RUN_LEVELS[REF_LEVELS[i]];
   return `<div class="lvl" role="radiogroup" aria-label="How hard you run it" style="--i:${i}" data-lvl="${REF_LEVELS[i]}">
-      <span class="lvl-k">How hard?</span>
       <div class="lvl-track"><i class="lvl-fill" aria-hidden="true"></i><span class="lvl-knob" aria-hidden="true"><span class="lvl-ic">${L.ic}</span></span>
-        ${REF_LEVELS.map((l, n) => `<button type="button" role="radio" aria-checked="${n === i}" data-level="${l}" title="${n + 1}. ${RUN_LEVELS[l].name}: ${RUN_LEVELS[l].tip}" aria-label="${RUN_LEVELS[l].name}">${n + 1}</button>`).join("")}
+        ${REF_LEVELS.map((l, n) => `<button type="button" role="radio" aria-checked="${n === i}" data-level="${l}" title="${n + 1}. ${RUN_LEVELS[l].name}: ${RUN_LEVELS[l].tip}" aria-label="${RUN_LEVELS[l].name}"></button>`).join("")}
       </div>
-      <span class="lvl-name"><b>${L.name}</b> <small>${L.tip}</small></span>
+      <span class="lvl-name" title="${L.tip}">${L.name}</span>
     </div>`;
 }
 
@@ -127,7 +127,9 @@ export function initRefs() {
     box.dataset.lvl = b.dataset.level;
     const L = RUN_LEVELS[b.dataset.level];
     box.querySelector(".lvl-ic").textContent = L.ic;
-    box.querySelector(".lvl-name").innerHTML = `<b>${L.name}</b> <small>${L.tip}</small>`;
+    const nm = box.querySelector(".lvl-name");
+    nm.textContent = L.name;
+    nm.title = L.tip;
     box.querySelectorAll("[data-level]").forEach((x) => x.setAttribute("aria-checked", String(x === b)));
     trackEvent("refs-level", b.dataset.level);
     // Let the knob land before the page is drawn again.
@@ -143,7 +145,8 @@ export function initRefs() {
         const b = BOXES.find((x) => x.k === inp.dataset.ref);
         inp.value = refs[b.k] ? b.show(refs[b.k]) : "";
       });
-      card.querySelector(".refs-sum").innerHTML = summaryHtml();
+      const sum = card.querySelector(".refs-sum");
+      if (sum) sum.innerHTML = summaryHtml();
     });
   });
 }

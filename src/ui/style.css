@@ -1623,32 +1623,34 @@ html[data-theme="sky"] .rs-chip{background:rgba(31,111,209,.05)}
    whole row: title, small boxes with their label beside them, the short summary. It wraps on
    phones. In Prep my run it is "Your settings", with the target time first and the level picker
    on its own line. */
-.refs-strip{grid-column:1 / -1;display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:8px 14px;border:1.5px dashed rgba(255,255,255,.3);border-radius:var(--r);background:rgba(6,16,31,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
-.refs-strip.done{border-style:solid;border-color:rgba(255,255,255,.18)}
+.refs-strip{grid-column:1 / -1;display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;padding:6px 14px;border-radius:var(--r);background:rgba(6,16,31,.45);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .rf-title{font-family:var(--f-display);font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:13px;display:flex;align-items:center;gap:6px;white-space:nowrap}
 .rf-title .tag{color:var(--sun);font-size:12px}
 .rf-f{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);font-weight:600;white-space:nowrap}
-.rf-f input{width:68px;height:28px;min-height:0;padding:3px 7px;font-size:13px}
-.rf-f input.bad{border-color:#ff5a5a;box-shadow:0 0 0 2px rgba(255,90,90,.25)}
-.rf-or{font-size:12px;color:var(--muted);font-style:italic}
+/* Boxes without a frame: a thin underline only, brighter when typing in it. */
+.rf-f input{width:60px;height:24px;min-height:0;padding:2px 2px;font-size:13px;font-weight:700;color:inherit;background:transparent;border:0;border-bottom:1px solid rgba(255,255,255,.3);border-radius:0;box-shadow:none}
+.rf-f input:focus{outline:0;border-bottom-color:var(--sun)}
+.rf-f input::placeholder{color:rgba(255,255,255,.3);font-weight:400}
+.rf-f input.bad{border-bottom-color:#ff5a5a;color:#ff8a8a}
+.rf-sep{width:1px;height:18px;background:rgba(255,255,255,.18)}
 .refs-strip .refs-sum{font-size:12px;min-height:0;color:var(--on-pine-muted)} .refs-strip .refs-sum b{color:var(--sun)}
-#prepLevel{flex-basis:100%} #prepLevel:empty{display:none}
-html[data-theme="sky"] .refs-strip{background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.7)}
+#prepLevel:empty{display:none}
+html[data-theme="sky"] .refs-strip{background:rgba(255,255,255,.22)}
 /* Level picker, 1 to 5 (ui/refs.js levelPickerHtml): a gauge whose fill grows green to red up to
    the level, a round knob that slides there with a bounce (a cubic-bezier above 1 overshoots,
    then settles), and the level's name and meaning. --i (0 to 4) places the knob; data-lvl picks
    the knob's colour and its icon's animation. */
-.lvl{display:flex;align-items:center;flex-wrap:wrap;gap:6px 12px;font-size:12px}
-.lvl-k{color:var(--muted);font-weight:600}
-.lvl-track{position:relative;display:grid;grid-template-columns:repeat(5,1fr);width:220px;height:26px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14)}
-.lvl-fill{position:absolute;left:0;top:0;bottom:0;width:calc((var(--i) + .5) * 20%);border-radius:999px;background:linear-gradient(90deg,#2fbf63,#ffd23f 45%,#ff8a1f 70%,#ff2e4d) 0 0 / 220px 100%;opacity:.55;transition:width .5s cubic-bezier(.34,1.56,.64,1)}
-.lvl-track button{position:relative;z-index:1;background:none;border:0;color:rgba(255,255,255,.7);font:inherit;font-weight:800;font-size:12px;cursor:pointer;border-radius:999px}
-.lvl-track button[aria-checked="true"]{color:transparent}
-.lvl-track button:focus-visible{outline:2px solid var(--sun);outline-offset:1px}
-.lvl-knob{position:absolute;z-index:2;top:50%;left:calc((var(--i) + .5) * 20%);width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;display:grid;place-items:center;pointer-events:none;border:2px solid rgba(255,255,255,.85);transition:left .5s cubic-bezier(.34,1.7,.5,1),background .3s,box-shadow .3s}
-.lvl-ic{display:inline-block;font-size:16px;line-height:1}
-.lvl-name b{font-family:var(--f-display);font-size:14px;text-transform:uppercase;letter-spacing:.05em}
-.lvl-name small{color:var(--muted);font-size:12px}
+.lvl{display:flex;align-items:center;gap:12px;font-size:12px}
+.lvl-track{position:relative;display:grid;grid-template-columns:repeat(5,1fr);width:150px;height:26px}
+.lvl-track::before{content:"";position:absolute;left:10%;right:10%;top:50%;height:3px;margin-top:-1.5px;border-radius:2px;background:rgba(255,255,255,.15)}
+.lvl-fill{position:absolute;left:10%;top:50%;height:3px;margin-top:-1.5px;width:calc(var(--i) * 20%);border-radius:2px;background:linear-gradient(90deg,#2fbf63,#ffd23f 45%,#ff8a1f 70%,#ff2e4d) 0 0 / 120px 100%;transition:width .5s cubic-bezier(.34,1.56,.64,1)}
+.lvl-track button{position:relative;z-index:1;background:none;border:0;padding:0;cursor:pointer;display:grid;place-items:center}
+.lvl-track button::before{content:"";width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.45)}
+.lvl-track button:hover::before{background:#fff}
+.lvl-track button:focus-visible{outline:2px solid var(--sun);outline-offset:-2px;border-radius:50%}
+.lvl-knob{position:absolute;z-index:2;top:50%;left:calc((var(--i) + .5) * 20%);width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;display:grid;place-items:center;pointer-events:none;transition:left .5s cubic-bezier(.34,1.7,.5,1),background .3s,box-shadow .3s}
+.lvl-ic{display:inline-block;font-size:14px;line-height:1}
+.lvl-name{font-family:var(--f-display);font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.05em;min-width:76px;cursor:help}
 .lvl[data-lvl="recovery"] .lvl-knob{background:radial-gradient(circle at 35% 30%,#b8f5d0,#3fae75);box-shadow:0 0 10px rgba(63,174,117,.5)}
 .lvl[data-lvl="easy"] .lvl-knob{background:radial-gradient(circle at 35% 30%,#a8ffc6,#2fbf63);box-shadow:0 0 12px rgba(47,191,99,.6)}
 .lvl[data-lvl="steady"] .lvl-knob{background:radial-gradient(circle at 35% 30%,#fff0a8,#ffc21f);box-shadow:0 0 12px rgba(255,194,31,.6)}
