@@ -1612,3 +1612,15 @@ html[data-theme="sky"] .rs-chip{background:rgba(31,111,209,.05)}
 .prep-set .prep-tgt{max-width:170px;font-size:12px;gap:3px}
 .prep-set .prep-tgt input.bad{border-color:#ff5a5a;box-shadow:0 0 0 2px rgba(255,90,90,.25)}
 #prepLevel:empty{display:none}
+/* My references, slim (Prep my race, Rewind my run): one line per box, label left, small input
+   right, in the same row as the file drops (a third, narrower column on laptops). */
+.refs-mini{padding:12px 14px;gap:6px}
+.refs-mini h3{font-size:14px;gap:6px}
+.refs-mini .refs-boxes{grid-template-columns:1fr;gap:4px}
+.refs-mini .refs-boxes .f{flex-direction:row;align-items:center;justify-content:space-between;gap:8px;font-size:12px}
+.refs-mini .refs-boxes input{width:78px;flex:none;padding:4px 8px;font-size:13px;min-height:0;height:28px}
+.refs-mini .refs-sum{font-size:11.5px;line-height:1.35;min-height:0}
+@media (min-width:900px){
+  .drops:has(> .refs-mini){grid-template-columns:minmax(0,1fr) 196px}
+  .drops:has(> .refs-mini):has(> .drop:nth-child(3)){grid-template-columns:minmax(0,1fr) minmax(0,1fr) 196px}
+}

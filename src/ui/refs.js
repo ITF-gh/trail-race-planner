@@ -46,10 +46,11 @@ const readBox = (k, text) => {
 };
 
 /** The line under the boxes: what the references say, or how to use them. */
-function summaryHtml() {
+function summaryHtml(mini = false) {
   const { refs } = profileRefs();
   const x = refsRead(refs);
-  if (!x) return `<span class="muted">Any one is enough. They set your level in the plan.</span>`;
+  if (!x) return `<span class="muted">${mini ? "Any one is enough." : "Any one is enough. They set your level in the plan."}</span>`;
+  if (mini) return `Easy <b>${mmss(x.easyPace)}</b>/km · marathon ${mmss(x.marathonPace)}/km`;
   const easy = refs.easy ? `Easy pace <b>${mmss(x.easyPace)}</b>/km` : `Easy pace <b>${mmss(x.easyPace)}</b>/km <span class="muted">(${mmss(x.easyRange[0])} to ${mmss(x.easyRange[1])})</span>`;
   // Riegel: doubling the distance makes the pace 2^(k-1) times slower.
   const own = x.riegel ? ` · twice the distance costs you ${((2 ** (x.riegel - 1) - 1) * 100).toFixed(1)}% of pace` : "";
@@ -63,8 +64,9 @@ function summaryHtml() {
  */
 export function refsCardHtml(mode) {
   const { refs } = profileRefs();
+  const mini = mode !== "prep";
   const boxes = `<div class="refs-boxes">${BOXES.map((b) => `<label class="f">${b.label}<input type="text" inputmode="numeric" autocomplete="off" data-ref="${b.k}" placeholder="${b.ph}" value="${refs[b.k] ? b.show(refs[b.k]) : ""}"></label>`).join("")}</div>
-        <div class="status refs-sum" aria-live="polite">${summaryHtml()}</div>`;
+        <div class="status refs-sum" aria-live="polite">${summaryHtml(mini)}</div>`;
   // Prep my run: every input of the run sits here, next to its GPX drop (owner's rule): the
   // target time first (it wins over everything), then the references, then the level picker,
   // which preprun.js draws into #prepLevel once a reference is set and no target is typed.
@@ -77,10 +79,12 @@ export function refsCardHtml(mode) {
         <div id="prepLevel"></div>
       </div>`;
   }
-  const note = mode === "run" ? "your run is compared with them." : "they set the level of your plan.";
-  return `<div class="drop refs-card${refsAny(refs) ? " done" : ""}" data-refs="${mode}">
+  // Prep my race and Rewind my run: a slim card in the same row as the drops (owner's rule: not
+  // bigger than needed). One line per reference, label on the left; the explanation is the
+  // card's tooltip, and the summary keeps only the easy and marathon paces.
+  const note = mode === "run" ? "Your run is compared with them." : "They set the level of your plan.";
+  return `<div class="drop refs-card refs-mini${refsAny(refs) ? " done" : ""}" data-refs="${mode}" title="Optional. Your best 10K and half marathon, your easy pace. ${note}">
         <h3><span class="tag">★</span>My references</h3>
-        <p>Optional. Your best 10K and half marathon, your easy pace: ${note}</p>
         ${boxes}
       </div>`;
 }
@@ -143,7 +147,7 @@ export function initRefs() {
         const b = BOXES.find((x) => x.k === inp.dataset.ref);
         inp.value = refs[b.k] ? b.show(refs[b.k]) : "";
       });
-      card.querySelector(".refs-sum").innerHTML = summaryHtml();
+      card.querySelector(".refs-sum").innerHTML = summaryHtml(card.classList.contains("refs-mini"));
     });
   });
 }
