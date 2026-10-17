@@ -1493,6 +1493,7 @@ svg .pcur,svg .psel{pointer-events:none}
    of day line is gone, design review 2). */
 .rp-cockpit .rp-run{display:flex!important;flex-direction:column!important;align-items:flex-end;text-align:right;margin-left:auto}
 .rp-cockpit .rp-top{justify-content:space-between}
-/* Descent risk as ▼ icons: green Let it run, orange Control, red Brake. */
-.chip.st.dsc{font-size:11px;letter-spacing:.08em}
-.chip.st.dsc.d1{color:var(--e-bar)} .chip.st.dsc.d2{color:var(--h-bar)} .chip.st.dsc.d3{color:var(--c-bar)}
+/* Descent risk as running shoes: 3 green Let it run, 2 orange Control, 1 red Brake. */
+.chip.st.dsc{gap:2px}
+.chip.st.dsc svg,.p4-shoes svg,.note .chip.st.dsc svg{width:17px;height:10px;fill:currentColor;display:inline-block;vertical-align:-1px}
+.chip.st.dsc.d3{color:var(--e-bar)} .chip.st.dsc.d2{color:var(--h-bar)} .chip.st.dsc.d1{color:var(--c-bar)}

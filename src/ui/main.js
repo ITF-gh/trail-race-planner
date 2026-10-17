@@ -565,8 +565,10 @@ const tile = (k, v, s = "", cls = "") => `<div class="tile ${cls}"><div class="k
 const cell = (k, v, cls = "") => `<div class="c ${cls}"><span class="k">${k}</span><b>${v}</b></div>`;
 const len = (m) => (m >= 1000 ? `${(m / 1000).toFixed(2)} km` : `${Math.round(m)} m`);
 const kmRange = (x) => x.startKm.toFixed(1); // the start km only: the length column gives the rest
-// descChip(level): a descent's risk as ▼ icons (▼ Let it run, ▼▼ Control, ▼▼▼ Brake), the word in the tooltip.
-const descChip = (l) => { const k = l >= 4 ? 3 : l >= 2 ? 2 : 1; return `<span class="chip st dsc d${k}" title="${DESCENT_LABELS[l]}" aria-label="${DESCENT_LABELS[l]}">${"▼".repeat(k)}</span>`; };
+// descChip(level): a descent's risk as running shoes (Boss, design review 2): 3 shoes Let it run,
+// 2 Control, 1 Brake (fewer shoes = less running), coloured green, orange, red; the word in the tooltip.
+const SHOE_SVG = `<svg viewBox="0 0 24 14" aria-hidden="true"><path d="M1.5 10.2C1.5 8.4 2.4 6.6 4.4 6.4L8.2 6l2.1-3.1c.7-1 2-1.1 2.8-.2l2.2 2.6c2 1.3 4.6 1.6 6.6 2.4 1 .4 1.4 1.6.9 2.6l-.4.8H2.4c-.5 0-.9-.4-.9-.9z"/><path d="M1.6 12.3h20.6" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg>`;
+const descChip = (l) => { const k = l >= 4 ? 1 : l >= 2 ? 2 : 3; return `<span class="chip st dsc d${k}" title="${DESCENT_LABELS[l]}" aria-label="${DESCENT_LABELS[l]}">${SHOE_SVG.repeat(k)}</span>`; };
 // starChip(l): a climb's difficulty as 1 to 4 stars in its level colour (the unlit ones dimmed),
 // with the word (Easy...Crux) kept for screen readers and the hover tooltip.
 const starChip = (l) => `<span class="chip st l${l}" title="${LEVELS[l]}" aria-label="${l} of 4 stars, ${LEVELS[l]}">${STARS[l]}<i>${"★".repeat(4 - l)}</i></span>`;
@@ -740,8 +742,6 @@ function profileView(P, brief, race, zones = [], { flat = false, win = null, inn
   return { ...g, html: `<div class="prof-scroll"><svg viewBox="0 0 1000 ${H}" role="img" aria-label="Elevation profile with climbs coloured by difficulty">${s}</svg></div>` };
 }
 
-// LEGEND: the colour key under the profile (difficulty levels 1 to 4 and braking descents).
-const LEGEND = `<div class="legend" style="margin-top:10px">${[1, 2, 3, 4].map((l) => starChip(l)).join("")}<span class="note" style="margin:0 0 0 4px">Each stretch is coloured by its average gradient. Dashed red: descent to brake on.</span></div>`;
 
 /* ---------- 01 your engine ---------- */
 /**
@@ -883,7 +883,7 @@ function renderBriefing() {
     <div class="tiles">${tiles}</div>
     <div class="sub-h" id="b-map">Map and profile</div>
     <div class="b-map" id="briefMap"></div>
-    <div class="prof-wrap b-prof" id="briefProf"><div class="prof-tools"><span class="note" style="margin:0">Drag across the profile to zoom: the map follows. Each climb shows whole, its badge gives its average gradient; hover or tap it for the figures.</span><button type="button" class="btn sm" id="profReset" hidden>Reset zoom</button></div><div id="briefProfSvg"></div><div class="prof-pop" id="profPop" hidden></div>${LEGEND}</div>
+    <div class="prof-wrap b-prof" id="briefProf"><div class="prof-tools"><span class="note" style="margin:0">Drag across the profile to zoom: the map follows. Each climb shows whole, its badge gives its average gradient; hover or tap it for the figures.</span><button type="button" class="btn sm" id="profReset" hidden>Reset zoom</button></div><div id="briefProfSvg"></div><div class="prof-pop" id="profPop" hidden></div></div>
     <p class="note">Map and profile share their colours: climbs by difficulty, dashed red for descents to brake on, a yellow glow on the key zones (the details are in Your plan). Triangles are aid stations, numbers are km. Hover the profile to see where you are on the map.</p>
     <div class="sub-h" id="b-list">Climbs and descents</div>
     <div class="tabs" role="tablist" aria-label="Segments">
@@ -895,7 +895,7 @@ function renderBriefing() {
     ${climbs ? rowsTable("t-route", ["Length", "Gain", "Steepest 100 m"], climbs) : empty(`No climb of ${Math.round(brief.minClimb)} m or more.`)}
     </div>
     <div ${state.btab === "d" ? "" : "hidden"}>
-    <p class="note" style="margin:-4px 0 12px">▼▼▼ Brake: a 100 m stretch of 20% or more, or 12% on average. ▼▼ Control: 6% on average, or a 15% stretch. ▼ Let it run: everything else.</p>
+    <p class="note" style="margin:-4px 0 12px">${descChip(4)} Brake: a 100 m stretch of 20% or more, or 12% on average. ${descChip(2)} Control: 6% on average, or a 15% stretch. ${descChip(1)} Let it run: everything else.</p>
     ${descents ? rowsTable("t-route", ["Length", "Loss", "Steepest 100 m"], descents) : empty("No descents over 10 m.")}
     </div>`;
   // Tabs: a click selects one tab and shows its list without redrawing the whole section.

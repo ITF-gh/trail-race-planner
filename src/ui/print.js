@@ -254,6 +254,8 @@ function p4Script(plan, sid, st, title) {
   return `${p4H(title, `${script.length} moments, in order`)}${p4Table(["#Km", "#Clock", "Moment", "What to do"], rows, "p4-script")}`;
 }
 
+// A running shoe (descent risk: 3 shoes Let it run, 2 Control, 1 Brake), filled with currentColor.
+const P4_SHOE = `<svg viewBox="0 0 24 14" aria-hidden="true"><path d="M1.5 10.2C1.5 8.4 2.4 6.6 4.4 6.4L8.2 6l2.1-3.1c.7-1 2-1.1 2.8-.2l2.2 2.6c2 1.3 4.6 1.6 6.6 2.4 1 .4 1.4 1.6.9 2.6l-.4.8H2.4c-.5 0-.9-.4-.9-.9z"/><path d="M1.6 12.3h20.6" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg>`;
 /**
  * Every climb (with its sections) and descent: the numbers, when you get there, the tactic.
  * `row(x, sec, isClimb)` writes one line: x is a climb, a climb section (sec = true, indented by
@@ -262,7 +264,7 @@ function p4Script(plan, sid, st, title) {
  * headers with "Gain" renamed "Loss".
  */
 function p4ClimbTable(plan, sid, st) {
-  const row = (x, sec, isClimb) => `<tr class="${sec ? "p4-sec" : ""}"><td class="p4-n"><i style="background:${isClimb ? P4_LEVEL[x.level] : x.level === 4 ? P4_LEVEL[4] : "#5b6577"}"></i>${x.n}</td><td>${x.startKm.toFixed(1)}</td><td class="r"><b>${Math.abs(x.avg).toFixed(1)}%</b></td><td class="r">${p4Len(x.lenM)}</td><td class="r">${isClimb ? `+${Math.round(x.gain)}` : `−${Math.round(x.loss)}`} m</td><td class="r">${Math.abs(Math.round(x.steep))}%</td><td>${isClimb ? `<b style="color:${P4_LEVEL[x.level]}">${STARS[x.level]}</b>` : `<b style="color:${x.level >= 4 ? P4_LEVEL[4] : x.level >= 2 ? P4_LEVEL[3] : P4_LEVEL[1]}">${"▼".repeat(x.level >= 4 ? 3 : x.level >= 2 ? 2 : 1)}</b> ${DESCENT_LABELS[x.level]}`}</td><td class="r">${x.start ? clock(st, x.start[sid]) : "–"}</td><td class="r">${x.dur ? p4Dur(x.dur[sid]) : "–"}</td><td>${p4Esc(x.tactic || "")}</td></tr>`;
+  const row = (x, sec, isClimb) => `<tr class="${sec ? "p4-sec" : ""}"><td class="p4-n"><i style="background:${isClimb ? P4_LEVEL[x.level] : x.level === 4 ? P4_LEVEL[4] : "#5b6577"}"></i>${x.n}</td><td>${x.startKm.toFixed(1)}</td><td class="r"><b>${Math.abs(x.avg).toFixed(1)}%</b></td><td class="r">${p4Len(x.lenM)}</td><td class="r">${isClimb ? `+${Math.round(x.gain)}` : `−${Math.round(x.loss)}`} m</td><td class="r">${Math.abs(Math.round(x.steep))}%</td><td>${isClimb ? `<b style="color:${P4_LEVEL[x.level]}">${STARS[x.level]}</b>` : `<b class="p4-shoes" style="color:${x.level >= 4 ? P4_LEVEL[4] : x.level >= 2 ? P4_LEVEL[3] : P4_LEVEL[1]}">${P4_SHOE.repeat(x.level >= 4 ? 1 : x.level >= 2 ? 2 : 3)}</b> ${DESCENT_LABELS[x.level]}`}</td><td class="r">${x.start ? clock(st, x.start[sid]) : "–"}</td><td class="r">${x.dur ? p4Dur(x.dur[sid]) : "–"}</td><td>${p4Esc(x.tactic || "")}</td></tr>`;
   const head = ["#", "Km", "#Average", "#Length", "#Gain", "#Steepest 100 m", "Difficulty", "#Arrive", "#Time on it", "Tactic"];
   const climbs = plan.climbs.flatMap((c) => [row(c, false, true), ...c.sections.map((x) => row(x, true, true))]);
   const descents = plan.descents.map((d) => row(d, false, false));

@@ -209,6 +209,8 @@ function mountPaceLine(svg, cur, prof, pl) {
  * All the small functions below are closures: they are created inside mountReplay and keep
  * access to its local variables (plan, legs, els...) for as long as the page uses them.
  */
+// A running shoe icon (descent risk: 3 shoes Let it run, 2 Control, 1 Brake), filled with currentColor.
+const RP_SHOE = `<svg viewBox="0 0 24 14" aria-hidden="true"><path d="M1.5 10.2C1.5 8.4 2.4 6.6 4.4 6.4L8.2 6l2.1-3.1c.7-1 2-1.1 2.8-.2l2.2 2.6c2 1.3 4.6 1.6 6.6 2.4 1 .4 1.4 1.6.9 2.6l-.4.8H2.4c-.5 0-.9-.4-.9-.9z"/><path d="M1.6 12.3h20.6" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg>`;
 export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, noun = "Race" }) {
   // 1. Data. Stop any replay already running, and restart from 0 on a different course.
   stopReplay();
@@ -360,10 +362,10 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
   const gradeTxt = (l) => `${l.avg > 0 ? "+" : ""}${l.avg.toFixed(1)}%`;
   // A runnable stretch says so in its title already: no chip repeating it.
   // Every section shows its rating as 1 to 4 stars (the word stays in the tooltip): climbs by
-  // difficulty, a runnable stretch 1 star; descents show ▼ icons by risk instead.
+  // difficulty, a runnable stretch 1 star; descents show running shoes by risk instead.
   const legChip = (l) => {
-    // Descents: ▼ icons instead of stars (▼ Let it run, ▼▼ Control, ▼▼▼ Brake).
-    if (l.kind === "descent") { const k = l.level >= 4 ? 3 : l.level >= 2 ? 2 : 1; return `<span class="chip st dsc d${k}" title="${escR(l.label)}">${"▼".repeat(k)}</span>`; }
+    // Descents: running shoes instead of stars (3 Let it run, 2 Control, 1 Brake).
+    if (l.kind === "descent") { const k = l.level >= 4 ? 1 : l.level >= 2 ? 2 : 3; return `<span class="chip st dsc d${k}" title="${escR(l.label)}">${RP_SHOE.repeat(k)}</span>`; }
     const n = l.kind === "flat" ? 1 : Math.max(1, Math.min(4, l.level || 1));
     return `<span class="chip st l${n}" title="${escR(l.label)}">${"★".repeat(n)}<i>${"★".repeat(4 - n)}</i></span>`;
   };
