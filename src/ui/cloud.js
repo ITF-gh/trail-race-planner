@@ -16,8 +16,9 @@
 // The database has its own lock too (writes_open() in the migration), so even a hand-made
 // request writes nothing.
 //
-// The AI tokens are called "edelweiss" on screen; the database tables and the server functions
-// still say "cairn" (cairn_ledger, claim-cairns), which only the code sees.
+// The AI tokens are called "edelweiss" on screen; the database tables
+// say "edelweiss" too (edelweiss_ledger); only the server function names still say "cairn"
+// (claim-cairns), which only the code sees.
 //
 // Where it sits: only account.js calls this file. It holds no page code: every function here
 // sends HTTP requests and returns data (or throws an Error with a readable message).
@@ -35,9 +36,10 @@
 
 
 export const CLOUD = {
-  url: "", // e.g. "https://abcdefghijkl.supabase.co" (Project settings > API)
-  anonKey: "", // the "anon public" key: safe to publish, Row Level Security does the protecting
-  connect: false, // true = read-only: sign in and read, never write (supabase/SETUP.md, step 6)
+  url: "https://vjhzcuvxucpldhsjpqrl.supabase.co", // the project address (Project settings > API)
+  anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZqaHpjdXZ4dWNwbGRoc2pwcXJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIzMTk4OTUsImV4cCI6MjEwNzg5NTg5NX0.I6XJP6XyZmxwFOsosDkEP2HvDirC8tUA7XkNPfrPhxk",
+  // the "anon public" key: safe to publish, Row Level Security does the protecting
+  connect: true, // true = read-only: sign in and read, never write (supabase/SETUP.md, step 6)
 };
 
 /** The message every write call throws while the account is read-only (account.js shows it). */
@@ -180,7 +182,7 @@ export async function cloudRuns() {
  * +1 "refund" when an analysis failed.
  */
 export async function cloudLedger() {
-  return (await clAuthed("/rest/v1/cairn_ledger?select=delta,reason,created_at&order=created_at.desc")) || [];
+  return (await clAuthed("/rest/v1/edelweiss_ledger?select=delta,reason,created_at&order=created_at.desc")) || [];
 }
 /** One analysis job by id: { id, status ("running", "done" or "failed"), result, error, created_at }. */
 export async function cloudJob(id) {

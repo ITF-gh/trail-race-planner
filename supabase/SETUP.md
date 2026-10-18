@@ -16,7 +16,7 @@ sign-in API.
 **Writes are closed** on two levels until the account opens (see "Opening the account"):
 
 - the app: no write call exists in it (see above);
-- the database: a trigger refuses every insert or update on `runs`, `cairn_ledger` and
+- the database: a trigger refuses every insert or update on `runs`, `edelweiss_ledger` and
   `ai_jobs` while `writes_open()` returns false. It also stops the server functions, so even a
   hand-made request stores nothing.
 
@@ -104,7 +104,7 @@ Achievement cairns are paid by the server (`claim-cairns`), once per achievement
 event once per account (only once writes are open):
 
 ```sql
-insert into cairn_ledger (user_id, delta, reason)
+insert into edelweiss_ledger (user_id, delta, reason)
 select id, 1, 'event:launch-2026' from auth.users;   -- everyone
 -- or one person: values ('<user uuid>', 1, 'event:launch-2026')
 ```
@@ -112,7 +112,7 @@ select id, 1, 'event:launch-2026' from auth.users;   -- everyone
 ## Useful queries
 
 ```sql
-select user_id, sum(delta) as cairns from cairn_ledger group by 1;              -- balances
+select user_id, sum(delta) as cairns from edelweiss_ledger group by 1;              -- balances
 select status, count(*), sum(input_tokens), sum(output_tokens) from ai_jobs group by 1;  -- usage
 ```
 
@@ -120,4 +120,4 @@ select status, count(*), sum(input_tokens), sum(output_tokens) from ai_jobs grou
 
 `npm test` covers the server logic (with a fake database and a fake Claude). The SQL rules were
 checked on a local Postgres 16 with stub `auth` schema and roles: a user reads and writes only
-their own runs, cannot write the ledger, and `spend_cairn` never goes below zero.
+their own runs, cannot write the ledger, and `spend_edelweiss` never goes below zero.

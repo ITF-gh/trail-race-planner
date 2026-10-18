@@ -69,8 +69,8 @@ export async function userOf(req: Request, sb: SupabaseClient): Promise<string |
 
 /**
  * The `db` interface that cairns.js expects, on top of the Supabase client `sb`.
- * Every method is a query on one of the three tables (runs, cairn_ledger, ai_jobs) or a call to
- * the spend_cairn database function, restricted to one user id (finishJob uses the job id,
+ * Every method is a query on one of the three tables (runs, edelweiss_ledger, ai_jobs) or a call to
+ * the spend_edelweiss database function, restricted to one user id (finishJob uses the job id,
  * a random uuid created for that user's job).
  * Each Supabase call returns { data, error } instead of throwing; `must` turns an error into a
  * thrown exception (so the caller's try/catch sees it) and returns the data, or [] when empty.
@@ -85,7 +85,7 @@ export function makeDb(sb: SupabaseClient) {
     },
     // Every movement of the user's cairn ledger.
     async listLedger(userId: string) {
-      return must(await sb.from("cairn_ledger").select("delta, reason, ref").eq("user_id", userId));
+      return must(await sb.from("edelweiss_ledger").select("delta, reason, ref").eq("user_id", userId));
     },
     // One row at a time: a row already there (an achievement paid before) is skipped, not an error.
     // 23505 is PostgreSQL's error code for "unique violation" (the unique indexes on the ledger).
@@ -93,15 +93,15 @@ export function makeDb(sb: SupabaseClient) {
     async addLedger(rows: Array<Record<string, unknown>>) {
       const added = [];
       for (const row of rows) {
-        const { error } = await sb.from("cairn_ledger").insert(row);
+        const { error } = await sb.from("edelweiss_ledger").insert(row);
         if (!error) added.push(row);
         else if ((error as { code?: string }).code !== "23505") throw error;
       }
       return added;
     },
-    // Calls the database function spend_cairn (an RPC, "remote procedure call"); true = spent.
+    // Calls the database function spend_edelweiss (an RPC, "remote procedure call"); true = spent.
     async spendCairn(userId: string, jobId: string) {
-      return must(await sb.rpc("spend_cairn", { p_user: userId, p_job: jobId })) === true;
+      return must(await sb.rpc("spend_edelweiss", { p_user: userId, p_job: jobId })) === true;
     },
     // Is there a job of this user with status "running" created at or after sinceMs (gte =
     // greater than or equal)? limit(1): one row is enough to answer yes.

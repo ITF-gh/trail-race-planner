@@ -952,7 +952,7 @@ async function acSignIn(form) {
   if (!email) return;
   ac.busy = true;
   acRender();
-  try { await cloudSendLink(email); ac.msg = `Link sent to ${email}: open it on this device to sign in.`; trackEvent("signin-link"); } catch (e) { ac.msg = `Could not send the link: ${e.message}`; }
+  try { await cloudSendLink(email); ac.msg = `Link sent to ${email}: open it on this device to sign in.`; trackEvent("signin-link"); } catch (e) { ac.msg = /signups? not allowed/i.test(e.message) ? "Online accounts are not open yet: only invited testers can sign in for now." : `Could not send the link: ${e.message}`; }
   ac.busy = false;
   acRender();
 }
