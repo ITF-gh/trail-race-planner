@@ -971,6 +971,15 @@ html[data-theme="sky"] .acct-menu h4{color:#ffd24a}
   .acct-menu{max-height:calc(100vh - 180px)}
 }
 /* sign-in form, link-like buttons */
+.savex{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:8px 0 0}
+.savex-msg{font-size:13px;color:var(--muted)}
+.acct-panel-in .acct-saved{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.acct-saved li{display:flex;gap:6px;align-items:stretch}
+.acct-saved-open{flex:1;min-width:0;text-align:left;display:flex;flex-direction:column;gap:2px;padding:8px 12px;border-radius:12px;border:1px solid var(--acct-line);background:rgba(255,255,255,.05);color:var(--acct-ink);font:inherit;cursor:pointer}
+.acct-saved-open small{color:var(--acct-muted);font-size:12px}
+.acct-saved-del{width:36px;border-radius:12px;border:1px solid var(--acct-line);background:transparent;color:var(--acct-muted);font-size:18px;cursor:pointer}
+.acct-saved-t{width:100%;border-collapse:collapse;font-size:13px;margin:10px 0}
+.acct-saved-t th,.acct-saved-t td{padding:4px 6px;border-bottom:1px solid var(--acct-line);text-align:left}
 .acct-signin{margin-top:10px;display:flex;flex-direction:column;gap:6px}
 .acct-signin label{font-size:13px;color:var(--acct-muted)}
 .acct-signin div{display:flex;gap:8px}

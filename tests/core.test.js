@@ -592,3 +592,17 @@ test("run log: a run becomes a small summary, and the log adds up", () => {
   assert.equal(old.year.runs, 0);
   assert.equal(old.bests.longest.value, 55);
 });
+
+test("Save to my account: a plan summary is small, complete and has no heart data", async () => {
+  const { planSummary, savedCheck } = await import("../src/core/saved.js");
+  const plan = buildPlan(race, [effort], { maxHr: 190, restHr: 50 });
+  const d = planSummary(plan, { name: "Demo race", targetSec: 4 * 3600 });
+  assert.equal(d.name, "Demo race");
+  assert.ok(d.km > 0 && d.gain > 0 && d.finish.central > 0 && d.targetSec === 14400);
+  assert.ok(d.sections.length > 1 && d.sections.at(-1).b === d.km, "sections run to the finish");
+  assert.equal(d.sections.at(-1).s, d.finish.central, "the last section ends at the finish time");
+  assert.equal(savedCheck({ kind: "plan", title: "Demo race", data: d }), "");
+  assert.ok(new TextEncoder().encode(JSON.stringify(d)).length < 16384);
+  assert.match(savedCheck({ kind: "plan", title: "x", data: { hrMax: 180 } }), /Heart rate/);
+  assert.match(savedCheck({ kind: "nope", title: "x", data: {} }), /Unknown/);
+});

@@ -116,14 +116,19 @@ test("online writes are closed until the account opens", async () => {
   for (const t of ["runs", "edelweiss_ledger", "ai_jobs"]) assert.match(sql, new RegExp(`before insert or update on public\\.${t} for each row execute function public\\.refuse_closed_writes`));
 });
 
-test("the profile is the only table the app may write, without heart data", () => {
+test("the profile and saved items are the only tables the app may write, without heart data", () => {
   const sql = readFileSync(new URL("../supabase/migrations/20261018160000_profiles.sql", import.meta.url), "utf8");
   assert.match(sql, /enable row level security/);
   for (const op of ["select using", "insert with check", "update using"]) assert.match(sql, new RegExp(`on public\\.profiles for ${op} \\(user_id = auth\\.uid\\(\\)\\)`));
   assert.match(sql, /profiles_no_body check/);
   const js = readFileSync(new URL("../src/ui/cloud.js", import.meta.url), "utf8");
-  // 4 sign-in calls (password, link, sign-out, refresh) and the profile save: nothing else writes.
-  assert.equal([...js.matchAll(/method: "(POST|PATCH|PUT|DELETE)"/g)].length, 5);
+  // 4 sign-in calls (password, link, sign-out, refresh), the profile save, and saving or deleting
+  // a saved item: nothing else writes.
+  assert.equal([...js.matchAll(/method: "(POST|PATCH|PUT|DELETE)"/g)].length, 7);
+  const sv = readFileSync(new URL("../supabase/migrations/20261018170000_saved_items.sql", import.meta.url), "utf8");
+  for (const op of ["select using", "insert with check", "delete using"]) assert.match(sv, new RegExp(`on public\\.saved_items for ${op} \\(user_id = auth\\.uid\\(\\)\\)`));
+  assert.doesNotMatch(sv, /for update/, "a saved item is never changed, only added or deleted");
+  assert.match(sv, /saved_no_body check/);
   assert.match(js, /CL_PROFILE_WRITE = "\/rest\/v1\/profiles\?on_conflict=user_id"/);
 });
 

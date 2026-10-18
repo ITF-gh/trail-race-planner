@@ -52,11 +52,13 @@ import { secAtKm, raceLegs } from "../core/script.js";
 import { courseMap } from "./map.js";
 import { mountReplay, stopReplay } from "./replay.js";
 import { initRunMode, pauseRun, currentRun } from "./review.js";
+import { planSummary } from "../core/saved.js";
+import { runRecord } from "../core/runrecord.js";
 import { initPrint, P4_EXPORTS } from "./print.js";
 import { initHelp } from "./help.js";
 import { siteFooter, SITE } from "../site/site.js";
 import { refsCardHtml, refsCalibNow, initRefs } from "./refs.js";
-import { initAccount, acctSaveRun, acctSaveGpx, acctOpenAsk, acctAiBadge } from "./account.js";
+import { initAccount, acctSaveRun, acctSaveGpx, acctOpenAsk, acctAiBadge, acctSaveItem } from "./account.js";
 import { arUse, arState, arBarHtml } from "./airace.js";
 import { startAnalytics, trackEvent, trackOnce, analyticsOn, analyticsName } from "./analytics.js";
 import { makeDemoRaceGpx, makeDemoEffortGpx, DEMO_ULTRA_PROFILE, DEMO_ULTRA_AID, DEMO_LONG_RUN_PROFILE } from "../demo.js";
@@ -132,6 +134,11 @@ const THEME_KEY = "trp.theme";
  * part of the sheet (P4_EXPORTS in ui/print.js; unticked parts are not printed) and the button that
  * opens the print dialog (print, or Save as PDF). `key` is the entry of P4_EXPORTS.
  */
+/**
+ * "Save to my account" (Boss, 2026-10-18): keeps the computed summary of what is on screen in the
+ * online account, only when the runner presses it. `kind` is plan, session or run (core/saved.js).
+ */
+const saveBox = (kind) => `<div class="savex"><button class="btn sm ghost" type="button" data-save="${kind}">☁ Save to my account</button><span class="savex-msg" role="status"></span></div>`;
 function a4Box(key) {
   const ex = P4_EXPORTS[key];
   return `<details class="a4x" data-a4="${key}"><summary><span aria-hidden="true">⎙</span> Export A4</summary>
@@ -290,6 +297,7 @@ $("#app").innerHTML = `
   ${head("03", "Clock times, pace, gels, where to walk", "Your plan")}
   <p class="sec-intro">What the planner computes from your engine and the route settings: finish time, clock time at every checkpoint, the pace strategy for each climb and descent, when to eat.</p>
   ${a4Box("plan")}
+  ${saveBox("plan")}
   <div id="planErr"></div>
   <div id="s3body" style="margin-top:22px"></div>
 </section>
@@ -312,6 +320,7 @@ $("#app").innerHTML = `
   ${head("◆", "Before the run", "Prep my run", "s4")}
   <p class="sec-intro">The run you are about to do, read like a race course: every climb and descent, with the GPX given back carrying those details for your watch.</p>
   ${a4Box("prep")}
+  ${saveBox("session")}
   <div id="sPrepBody"><div class="empty">Drop the GPX of your next run above, or try the sample run.</div></div>
 </section>
 
@@ -319,6 +328,7 @@ $("#app").innerHTML = `
   ${head("▶", "After the run", "Rewind my run", "s5")}
   <p class="sec-intro">Your run played back at its real pace. The bar, the map and the profile are coloured by how you ran each stretch compared with your own average on the same kind of ground; each key moment stops the replay and says what it means. Add the time or pace you were aiming for, and the review shows how far you were, where the time went and where to change your effort to reach it.</p>
   ${a4Box("run")}
+  ${saveBox("run")}
   <div id="s5body"></div>
 </section>
 
@@ -1469,6 +1479,35 @@ initRunMode({ onLoaded: (run, { sample, name } = {}) => {
   $("#tnRun").innerHTML = `<a class="btn primary sm" href="#rvCockpit">▶ ${run.totalKm.toFixed(1)} km · ${hm(run.elapsedSec)}</a>`;
   renderNav();
 } });
+
+/* ---------- Save to my account: the computed summary of the mode on screen ---------- */
+// What each kind keeps: the plan summary (race or run session), or the run summary of the log.
+function saveItem(kind) {
+  if (kind === "plan") {
+    if (!state.plan) return null;
+    const name = (state.race && state.race.name) || "Race";
+    return { kind, title: name, data: planSummary(state.plan, { name, targetSec: parseDuration(state.settings.targetTime) }) };
+  }
+  if (kind === "session") {
+    const c = prepCtl && prepCtl.current();
+    return c ? { kind, title: c.name || "Run", data: planSummary(c.plan, { name: c.name }) } : null;
+  }
+  const r = currentRun();
+  if (!r) return null;
+  const rec = runRecord(r.run, r.name);
+  return { kind, title: rec.name, data: rec };
+}
+document.querySelectorAll("[data-save]").forEach((b) => b.addEventListener("click", async () => {
+  const msg = b.parentElement.querySelector(".savex-msg");
+  let item = null;
+  try { item = saveItem(b.dataset.save); } catch (e) { item = null; }
+  if (!item) { msg.textContent = "Nothing to save yet: load a GPX first."; return; }
+  b.disabled = true;
+  msg.textContent = "Saving…";
+  const r = await acctSaveItem(item);
+  b.disabled = false;
+  msg.textContent = r.msg;
+}));
 
 /* ---------- export A4 (ui/print.js): the mode on screen, laid out for paper ---------- */
 // prepCtl: the controller returned by initPrepRun below; null until then.
