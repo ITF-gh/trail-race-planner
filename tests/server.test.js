@@ -102,10 +102,13 @@ test("the AI request is built from the digest and asks for the app's JSON shape"
 
 test("online writes are closed until the account opens", async () => {
   const { CLOUD, cloudOn, cloudWritable } = await import("../src/ui/cloud.js");
-  assert.equal(CLOUD.connect, false);
+  const { cloudPutRuns, CL_READONLY } = await import("../src/ui/cloud.js");
   assert.equal(cloudWritable(), false, "the app has no write call");
+  await assert.rejects(cloudPutRuns([]), { message: CL_READONLY });
+  assert.doesNotMatch(CLOUD.anonKey, /service_role/, "only the public anon key may sit in the app");
+  assert.equal(JSON.parse(Buffer.from(CLOUD.anonKey.split(".")[1], "base64url")).role, "anon");
   const saved = { ...CLOUD };
-  Object.assign(CLOUD, { url: "https://x.supabase.co", anonKey: "k" });
+  Object.assign(CLOUD, { connect: false });
   assert.equal(cloudOn(), false, "a filled URL alone must not switch the online part on");
   Object.assign(CLOUD, saved);
   const sql = readFileSync(new URL("../supabase/migrations/20261015220000_accounts.sql", import.meta.url), "utf8");

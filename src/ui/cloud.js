@@ -36,9 +36,10 @@
 
 
 export const CLOUD = {
-  url: "", // e.g. "https://abcdefghijkl.supabase.co" (Project settings > API)
-  anonKey: "", // the "anon public" key: safe to publish, Row Level Security does the protecting
-  connect: false, // true = read-only: sign in and read, never write (supabase/SETUP.md, step 6)
+  url: "https://vjhzcuvxucpldhsjpqrl.supabase.co", // the project address (Project settings > API)
+  anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZqaHpjdXZ4dWNwbGRoc2pwcXJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIzMTk4OTUsImV4cCI6MjEwNzg5NTg5NX0.I6XJP6XyZmxwFOsosDkEP2HvDirC8tUA7XkNPfrPhxk",
+  // the "anon public" key: safe to publish, Row Level Security does the protecting
+  connect: true, // true = read-only: sign in and read, never write (supabase/SETUP.md, step 6)
 };
 
 /** The message every write call throws while the account is read-only (account.js shows it). */
