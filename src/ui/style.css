@@ -877,6 +877,19 @@ html[data-theme="sky"] .in-wrap{--rv-pace:#1f86d6}
 .in-band rect{fill:var(--muted);opacity:.65} .in-band.up rect{fill:var(--h-bar)} .in-band.down rect{fill:var(--rv-pace)}
 .in-band:hover rect,.in-hist:hover rect{opacity:1}
 .in-hist rect{fill:var(--rv-pace);opacity:.7}
+.in-wrap{--hm-grey:#4e5562} html[data-theme="sky"] .in-wrap{--hm-grey:#b8bfca}
+.in-hm{display:grid;grid-template-columns:auto repeat(var(--hm-cols),minmax(0,1fr)) auto;gap:3px;align-items:center;font-variant-numeric:tabular-nums}
+.in-hm>span{color:var(--muted);font-size:11.5px;text-align:center}
+.in-hm-g{text-align:right;font-size:13px;padding-right:6px;white-space:nowrap}
+.in-hm>i{position:relative;display:grid;place-items:center;height:56px;border-radius:6px;background:color-mix(in srgb,var(--fg) 5%,transparent)}
+.in-hm>i[data-sec]{cursor:pointer} .in-hm>i[data-sec]:hover{outline:2px solid var(--gold)}
+.in-hm>i s{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);border-radius:5px}
+.in-hm>i em{position:relative;font-style:normal;font-weight:700;font-size:12.5px;color:var(--fg);text-shadow:0 0 3px var(--bg),0 0 2px var(--bg)}
+.in-hm>i small{position:absolute;left:0;right:0;bottom:2px;text-align:center;font-size:9.5px;color:var(--fg);opacity:.8;text-shadow:0 0 2px var(--bg)}
+.in-hm .in-hm-avg{color:var(--fg);font-size:12.5px;padding-left:6px}
+.in-hm-lg{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px}
+.in-hm-lg span{width:140px;height:10px;border-radius:5px;background:linear-gradient(90deg,var(--gold),var(--hm-grey))}
+@media (max-width:640px){.in-hm>i{height:46px}.in-hm>i em{font-size:11px}.in-hm>i small{display:none}.in-hm-g{font-size:11px;padding-right:3px}}
 .in-dot{cursor:pointer;stroke:rgba(0,0,0,.25);stroke-width:.5;opacity:.85} .in-dot:hover{stroke:var(--fg);stroke-width:2;opacity:1}
 .in-dot.q1,.in-dot-l.q1{fill:#6fd0ff;background:#6fd0ff} .in-dot.q2,.in-dot-l.q2{fill:#3fd06a;background:#3fd06a} .in-dot.q3,.in-dot-l.q3{fill:#ffc928;background:#ffc928}
 .in-dot.q4,.in-dot-l.q4{fill:#ff8a2a;background:#ff8a2a} .in-dot.q5,.in-dot-l.q5{fill:#ff3048;background:#ff3048}

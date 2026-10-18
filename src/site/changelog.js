@@ -2,6 +2,9 @@
 // technical detail). The first entry is the current version: the footer shows it on every page.
 
 export const CHANGELOG = [
+  { v: "2.10", date: "2026-10-18", items: [
+    "Rewind my run, Deep dive: a new pace heat map. One row per gradient, one column per 10% of the run, each box sized by the distance run there and coloured from gold (faster than your other moments on that gradient) to grey (slower). Tap a box to replay that moment.",
+  ] },
   { v: "2.9", date: "2026-10-18", items: [
     "Save to my account (signed-in testers): one button per mode keeps your race plan, run session or run in your online account, only when you press it. Reopen it later from your Account window exactly as you left it, then change the target or settings and everything is computed again. Heart rate is never kept. Up to 30 saves.",
   ] },

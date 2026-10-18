@@ -19,7 +19,7 @@
 //   - On a phone (640 px wide or less) the charts are drawn 440 units wide instead of 1000, so their
 //     text is not shrunk too much; matchMedia tells when the width crosses that line.
 
-import { bestEffort, bestCurve, gradeBands, runChunks, paceHistogram, fitLine, runKpis, climbTable } from "../core/insights.js";
+import { bestEffort, bestCurve, gradeBands, runChunks, paceHistogram, paceHeatmap, fitLine, runKpis, climbTable } from "../core/insights.js";
 import { mmss, hm } from "../core/format.js";
 import { trackEvent } from "./analytics.js";
 
@@ -258,6 +258,31 @@ function inBands(run) {
 }
 
 /**
+ * The "Pace heat map" card: one row per gradient band (steepest climb on top), one column per 10%
+ * of the run (20% on a phone). Each cell shows the pace held there; its box grows with the distance
+ * run there (area, so a cell with 4x the distance is twice as wide), and its colour goes from gold
+ * (faster than your other moments on that gradient) to grey (slower). color-mix() blends the two
+ * theme colours in CSS. A click on a box replays the run there.
+ */
+function inHeat(run, list) {
+  const cols = inW() < 1000 ? 5 : 10;
+  const h = paceHeatmap(run, cols, list);
+  const step = 100 / cols;
+  const head = Array.from({ length: cols }, (_, k) => `<span>${Math.round(k * step)}${inW() < 1000 ? "" : `–${Math.round(k * step + step)}`}%</span>`).join("");
+  const rows = [...h.bands].reverse().filter((b) => b.m > 0).map((b) => `<b class="in-hm-g">${b.label}</b>${b.cells.map((c) => {
+    if (!c) return `<i></i>`;
+    // Size: the share of the biggest cell's distance, square-rooted (area), never under 30% so the pace stays readable.
+    const f = Math.max(0.3, Math.sqrt(c.m / h.maxM));
+    // Gold share: 100% at 15% faster than the band's average, 0% at 15% slower.
+    const g = Math.round(Math.max(0, Math.min(1, (1.15 - c.ratio) / 0.3)) * 100);
+    return `<i data-sec="${Math.round(c.startSec)}" title="${b.label}: ${mmss(c.pace)}/km over ${(c.m / 1000).toFixed(1)} km (your average there ${mmss(b.pace)}/km)"><s style="width:${Math.round(f * 100)}%;height:${Math.round(f * 100)}%;background:color-mix(in srgb,var(--gold) ${g}%,var(--hm-grey))"></s><em>${mmss(c.pace)}</em><small>${(c.m / 1000).toFixed(1)} km</small></i>`;
+  }).join("")}<span class="in-hm-avg">${mmss(b.pace)}</span>`).join("");
+  return `<div class="in-hm" style="--hm-cols:${cols}"><span></span>${head}<span>Avg</span>${rows}</div>
+    <div class="in-hm-lg">faster<span></span>slower than your other moments on that gradient</div>
+    <p class="note">Columns = % of the run. Box size = distance run there. Tap a box to replay that moment.</p>`;
+}
+
+/**
  * The "Pace distribution" card: a histogram of the paces of the 100 m chunks (`list`, from
  * runChunks): each bin is inState.bin seconds per km wide, its height the share of moving time at
  * that pace. A vertical line marks the average moving pace.
@@ -386,6 +411,7 @@ export function mountInsights(box, run, { onSeek } = {}) {
     ${inCard("inKpi", "Key numbers", "tap or hover a number for what it means", `<div id="inKpiBody">${inKpis(run)}</div><details class="in-more"><summary>Your settings: weight</summary>${inSettings()}</details>`, true)}
     ${inCard("inBest", "Best efforts", "your fastest stretch for any distance", `${(() => { const b = inBest(run); return `${inBestCtl(run)}<div id="inBestBody">${b}</div>`; })()}<p class="note">Each point is your fastest stretch of that length on the clock (a stop inside it counts). Faster is higher. The curve always falls: the longer the effort, the slower the best pace.</p>`)}
     ${inCard("inBandC", "Pace by gradient", "where your time went, and how fast you were there", `<div id="inBandBody">${inBands(run)}</div>`)}
+    ${inCard("inHeatC", "Pace heat map", "pace on each gradient, all along the run", `<div id="inHeatBody">${inHeat(run, list)}</div>`, true)}
     ${inCard("inHistC", "Pace distribution", "how much time at each pace", `<div id="inHistBody">${inHist(run, list)}</div>`)}
     ${inCard("inScat", "Explorer", "pick any two measures and see how they move together", `<div id="inScatBody">${inScatter(run, list)}</div>`, true)}
     ${inCard("inClimb", "Climbs and descents", "every one, with its numbers", inClimbs(run), true)}
@@ -431,7 +457,7 @@ export function mountInsights(box, run, { onSeek } = {}) {
   const mountId = (box.dataset.inMount = String(Number(box.dataset.inMount || 0) + 1));
   if (IN_NARROW) IN_NARROW.addEventListener("change", () => {
     if (box.dataset.inMount !== mountId || !$i("#inBestBody")) return; // a newer run took this box
-    redraw("#inBestBody", inBest(run)); redraw("#inBandBody", inBands(run)); redraw("#inHistBody", inHist(run, list)); redraw("#inScatBody", inScatter(run, list));
+    redraw("#inBestBody", inBest(run)); redraw("#inBandBody", inBands(run)); redraw("#inHeatBody", inHeat(run, list)); redraw("#inHistBody", inHist(run, list)); redraw("#inScatBody", inScatter(run, list));
     wireAll();
   });
   // On a phone the explanations are hidden: a tap on a number shows its own.
