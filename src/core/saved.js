@@ -9,12 +9,15 @@
 // A plan or session keeps per section: start and end km, climbing, the time to get there, so a
 // later version can put a run next to the plan it followed (after the feature freeze).
 //
-// No heart rate and no weight (the database refuses them too). Each summary stays far under the
-// 16 KB the database accepts: 60 sections at about 80 bytes each is under 5 KB.
+// No heart rate and no weight (the database refuses them too). A summary is a few KB; the item
+// also carries the packed points to reopen the mode (core/snapshot.js), up to SAVED_MAX_BYTES.
 //
-// Main exports: planSummary, savedCheck, SAVED_KINDS.
+// Main exports: planSummary, savedCheck, SAVED_KINDS, SAVED_MAX_BYTES.
 
 import { raceLegs } from "./script.js";
+
+/** The largest saved item, in bytes (the database refuses more): a long ultra with its runs fits. */
+export const SAVED_MAX_BYTES = 3 * 1024 * 1024;
 
 /** The kinds of saved item and how the account window names them. */
 export const SAVED_KINDS = { plan: "Race plan", session: "Run session", run: "Run" };
@@ -62,7 +65,7 @@ export function savedCheck(item) {
   if (!item.title || item.title.length > 80) return "A title of 1 to 80 characters is needed";
   const text = JSON.stringify(item.data || null);
   if (!item.data || typeof item.data !== "object" || Array.isArray(item.data)) return "No data to save";
-  if (new TextEncoder().encode(text).length > 16384) return "Too big to save (over 16 KB)";
+  if (new TextEncoder().encode(text).length > SAVED_MAX_BYTES) return "Too big to save (over 3 MB)";
   if (/"(hr|heart|weight)/i.test(text)) return "Heart rate and weight are never saved online";
   return "";
 }

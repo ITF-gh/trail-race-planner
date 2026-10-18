@@ -1,6 +1,8 @@
 -- What a signed-in runner chooses to keep: "Save to my account" on a race plan (Prep my race),
 -- a run session (Prep my run) or a run (Rewind my run). Never automatic (Boss, 2026-10-18).
--- Only the COMPUTED summary is kept (distances, climbing, times, sections), never the GPX file.
+-- An item keeps a summary (for the list) and what the mode needs to be reopened and computed
+-- again: the points it read, packed and gzipped, and its settings. Never the GPX file itself,
+-- never heart rate or weight.
 -- Readable, addable and deletable by its owner only (Row Level Security). No update: an item
 -- is saved again as a new one.
 create table if not exists public.saved_items (
@@ -10,7 +12,7 @@ create table if not exists public.saved_items (
   title text not null check (char_length(title) between 1 and 80),
   data jsonb not null,
   created_at timestamptz not null default now(),
-  constraint saved_small check (octet_length(data::text) <= 16384),
+  constraint saved_small check (octet_length(data::text) <= 3145728),
   constraint saved_is_object check (jsonb_typeof(data) = 'object'),
   -- Same rule as the profile: no heart or weight data online.
   constraint saved_no_body check (data::text !~* '"(hr|heart|weight)')
@@ -24,11 +26,11 @@ create policy "saved: add own" on public.saved_items for insert with check (user
 drop policy if exists "saved: delete own" on public.saved_items;
 create policy "saved: delete own" on public.saved_items for delete using (user_id = auth.uid());
 
--- At most 200 items per runner, so the free storage cannot be filled by one account.
+-- At most 30 items per runner, so the free storage cannot be filled by one account.
 create or replace function public.saved_items_cap() returns trigger language plpgsql as $body$
 begin
-  if (select count(*) from public.saved_items where user_id = new.user_id) >= 200 then
-    raise exception 'You can keep 200 saved items: delete some to save new ones' using errcode = 'P0001';
+  if (select count(*) from public.saved_items where user_id = new.user_id) >= 30 then
+    raise exception 'You can keep 30 saved items: delete some to save new ones' using errcode = 'P0001';
   end if;
   return new;
 end;

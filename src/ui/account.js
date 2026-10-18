@@ -198,6 +198,10 @@ export const AC_SPARK = (() => {
 const ac = { ledger: null, jobs: [], job: null, msg: "", busy: false, docs: [], saved: null };
 // Opens or closes the account menu (set in initAccount), for callers outside it.
 let acOpenMenu = () => {};
+// Reopens a saved item in its mode (set by main.js through acctOnReopen).
+let acReopen = null;
+/** main.js gives the function that reopens a saved item ({ kind, title, data }). */
+export function acctOnReopen(fn) { acReopen = fn; }
 // Token balance = the sum of all ledger lines (+ earned, - spent). Nothing is read yet: 0.
 const acBalance = () => (ac.ledger ? ac.ledger.reduce((s, r) => s + r.delta, 0) : 0);
 // acList: the run summaries the menu and the AI window work on; acDemo: true when they are the
@@ -635,29 +639,13 @@ function acSavedHtml() {
   if (!cloudOn() || !cloudUser()) return "";
   const list = ac.saved || [];
   const rows = list.map((it) => {
-    const d = it.data || {};
+    const d = (it.data && it.data.summary) || {};
     const facts = it.kind === "run" ? `${d.km} km · +${Math.round(d.gain)} m · ${acDur(d.movingSec)}` : `${d.km} km · +${Math.round(d.gain)} m · ${acDur(d.finish && d.finish.central)}`;
-    return `<li><button type="button" class="acct-saved-open" data-acct="saved:${it.id}"><b>${acEsc(it.title)}</b><small>${SAVED_KINDS[it.kind]} · ${acSavedDate(it.created_at)} · ${facts}</small></button><button type="button" class="acct-saved-del" data-acct="saved-del:${it.id}" aria-label="Delete ${acEsc(it.title)}">×</button></li>`;
+    return `<li><button type="button" class="acct-saved-open" data-acct="saved:${it.id}" title="Reopen it, ready to change"><b>${acEsc(it.title)}</b><small>${SAVED_KINDS[it.kind]} · ${acSavedDate(it.created_at)} · ${facts}</small></button><button type="button" class="acct-saved-del" data-acct="saved-del:${it.id}" aria-label="Delete ${acEsc(it.title)}">×</button></li>`;
   }).join("");
   return `<h4 data-pf-sec="saved">Saved to my account</h4>
-    ${list.length ? `<ul class="acct-saved">${rows}</ul>` : `<p class="acct-note">Nothing saved yet. Use "Save to my account" in Your plan, Prep my run or Rewind my run.</p>`}`;
-}
-
-/** One saved item, opened in the panel: its numbers, and for a plan its sections. */
-function acSavedCard(it) {
-  const d = it.data || {};
-  const back = `<button class="btn ghost sm" type="button" data-acct="profile">← Back to my account</button>`;
-  const head = `<p class="acct-kicker">${SAVED_KINDS[it.kind]} · saved ${acSavedDate(it.created_at)}</p><h3>${acEsc(it.title)}</h3>`;
-  if (it.kind === "run") {
-    const best = [["1 km", d.best1k], ["5 km", d.best5k], ["10 km", d.best10k]].filter(([, v]) => v).map(([k, v]) => `${k} ${acDur(v)}`).join(" · ");
-    return `${head}<div class="acct-kpis"><div><b>${d.km}</b><small>km</small></div><div><b>+${Math.round(d.gain)}</b><small>m D+</small></div><div><b>${acDur(d.movingSec)}</b><small>moving</small></div></div>
-      <p class="acct-note">${d.date ? `Run on ${acSavedDate(d.date)}. ` : ""}${best ? `Best efforts: ${best}.` : ""}${d.vam ? ` Climbing speed ${d.vam} m/h.` : ""}</p>${back}`;
-  }
-  const f = d.finish || {};
-  const rows = (d.sections || []).map((x) => `<tr><td>${acEsc(x.t)}</td><td>${x.a}–${x.b}</td><td>+${x.up}/-${x.down}</td><td>${acDur(x.s)}</td></tr>`).join("");
-  return `${head}<div class="acct-kpis"><div><b>${d.km}</b><small>km</small></div><div><b>+${d.gain}</b><small>m D+</small></div><div><b>${acDur(f.central)}</b><small>predicted</small></div></div>
-    <p class="acct-note">Fast ${acDur(f.best)} · central ${acDur(f.central)} · cautious ${acDur(f.cautious)}${d.targetSec ? ` · your target ${acDur(d.targetSec)}` : ""}.</p>
-    ${rows ? `<table class="acct-saved-t"><thead><tr><th>Section</th><th>km</th><th>m</th><th>Time</th></tr></thead><tbody>${rows}</tbody></table>` : ""}${back}`;
+    ${list.length ? `<ul class="acct-saved">${rows}</ul>` : `<p class="acct-note">Nothing saved yet. Use "Save to my account" in Your plan, Prep my run or Rewind my run.</p>`}
+    ${list.length ? `<p class="acct-note">Tap one to reopen it as you left it: change the target or the settings, everything is computed again.</p>` : ""}`;
 }
 
 /**
@@ -916,7 +904,9 @@ async function acAction(what) {
     acRender();
   } else if (what.startsWith("saved:")) {
     const it = (ac.saved || []).find((x) => x.id === what.slice(6));
-    if (it) acShowPanel(acSavedCard(it), SAVED_KINDS[it.kind], "acct-profile");
+    if (!it || !acReopen) return;
+    acPanel.hidden = true;
+    try { await acReopen(it); } catch (e) { window.alert(`Could not reopen it: ${e.message}`); }
   } else if (what.startsWith("saved-del:")) {
     const id = what.slice(10);
     const it = (ac.saved || []).find((x) => x.id === id);
