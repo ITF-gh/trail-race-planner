@@ -16,8 +16,9 @@
 // The database has its own lock too (writes_open() in the migration), so even a hand-made
 // request writes nothing.
 //
-// The AI tokens are called "edelweiss" on screen; the database tables and the server functions
-// still say "cairn" (cairn_ledger, claim-cairns), which only the code sees.
+// The AI tokens are called "edelweiss" on screen; the database tables
+// say "edelweiss" too (edelweiss_ledger); only the server function names still say "cairn"
+// (claim-cairns), which only the code sees.
 //
 // Where it sits: only account.js calls this file. It holds no page code: every function here
 // sends HTTP requests and returns data (or throws an Error with a readable message).
@@ -180,7 +181,7 @@ export async function cloudRuns() {
  * +1 "refund" when an analysis failed.
  */
 export async function cloudLedger() {
-  return (await clAuthed("/rest/v1/cairn_ledger?select=delta,reason,created_at&order=created_at.desc")) || [];
+  return (await clAuthed("/rest/v1/edelweiss_ledger?select=delta,reason,created_at&order=created_at.desc")) || [];
 }
 /** One analysis job by id: { id, status ("running", "done" or "failed"), result, error, created_at }. */
 export async function cloudJob(id) {

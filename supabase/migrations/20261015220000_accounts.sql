@@ -1,16 +1,16 @@
--- Accounts for the trail race planner: the run log, the cairn ledger and the AI analyses.
+-- Accounts for the trail race planner: the run log, the edelweiss ledger and the AI analyses.
 --
 -- How the security works: the browser talks to these tables directly (Supabase's REST API), with
 -- the signed-in user's token. Row Level Security (RLS) rules below make every row visible and
--- writable only by its owner (auth.uid() is the user id inside that token). Cairns are different:
+-- writable only by its owner (auth.uid() is the user id inside that token). Edelweiss are different:
 -- the browser may READ its ledger but never write it. Only the server functions (which run with
--- the service role, a key that never leaves Supabase) add or spend cairns.
+-- the service role, a key that never leaves Supabase) add or spend edelweiss.
 --
 -- A "migration" is a script that changes the database's structure. Supabase runs the files in
 -- supabase/migrations once each, in the order of the timestamp at the start of their name.
 -- `if not exists` makes most statements safe to run again.
 --
--- Contents: 1. runs, 2. cairn_ledger, 3. ai_jobs (three tables), 4. spend_cairn (a function),
+-- Contents: 1. runs, 2. edelweiss_ledger, 3. ai_jobs (three tables), 4. spend_edelweiss (a function),
 -- 5. a switch that keeps every write closed until the online account opens.
 
 -- 1. Run summaries (about 1 KB each, never GPS points). `rec` is the summary from runRecord().
@@ -42,16 +42,16 @@ create policy "runs: add own" on public.runs for insert with check (user_id = au
 create policy "runs: change own" on public.runs for update using (user_id = auth.uid()) with check (user_id = auth.uid());
 create policy "runs: delete own" on public.runs for delete using (user_id = auth.uid());
 
--- 2. The cairn ledger: one row per movement (+1 earned, -1 spent). The balance is the sum, so
--- every cairn has a reason and nothing can be changed afterwards.
+-- 2. The edelweiss ledger: one row per movement (+1 earned, -1 spent). The balance is the sum, so
+-- every edelweiss has a reason and nothing can be changed afterwards.
 --   reason 'ach:<code>'   an achievement (paid once per account: unique index below)
 --   reason 'event:<name>' a gift for an event or a challenge (added by hand or by a script)
 --   reason 'ai'           one AI analysis (delta -1, ref = the analysis id)
---   reason 'refund'       the analysis failed, the cairn comes back (ref = the analysis id)
+--   reason 'refund'       the analysis failed, the edelweiss comes back (ref = the analysis id)
 -- The checks: delta is between -1 and 10 and never 0; the reason is 'ai', 'refund', or matches
 -- the regular expression (~) "ach:" or "event:" followed by 1 to 40 lowercase letters, digits,
 -- _ or -. `generated always as identity` numbers the rows automatically.
-create table if not exists public.cairn_ledger (
+create table if not exists public.edelweiss_ledger (
   id bigint generated always as identity primary key,
   user_id uuid not null references auth.users (id) on delete cascade,
   delta integer not null check (delta between -1 and 10 and delta <> 0),
@@ -62,13 +62,13 @@ create table if not exists public.cairn_ledger (
 -- "Partial" unique indexes (with `where`): the uniqueness rule applies only to the rows that
 -- match. An achievement or event reason can appear once per user; a job can be refunded once.
 -- A second insert breaks the rule with error 23505, which the server treats as "already paid".
-create unique index if not exists cairn_once_per_reason on public.cairn_ledger (user_id, reason)
+create unique index if not exists edelweiss_once_per_reason on public.edelweiss_ledger (user_id, reason)
   where reason like 'ach:%' or reason like 'event:%';
-create unique index if not exists cairn_one_refund on public.cairn_ledger (user_id, ref) where reason = 'refund';
+create unique index if not exists edelweiss_one_refund on public.edelweiss_ledger (user_id, ref) where reason = 'refund';
 -- A plain index to list a user's movements quickly, newest first.
-create index if not exists cairn_by_user on public.cairn_ledger (user_id, created_at desc);
-alter table public.cairn_ledger enable row level security;
-create policy "cairns: read own" on public.cairn_ledger for select using (user_id = auth.uid());
+create index if not exists edelweiss_by_user on public.edelweiss_ledger (user_id, created_at desc);
+alter table public.edelweiss_ledger enable row level security;
+create policy "edelweiss: read own" on public.edelweiss_ledger for select using (user_id = auth.uid());
 -- (no insert, update or delete policy: only the service role can write)
 
 -- 3. AI analyses: what was asked, what came back, what it cost.
@@ -95,16 +95,16 @@ create index if not exists ai_jobs_by_user on public.ai_jobs (user_id, created_a
 alter table public.ai_jobs enable row level security;
 create policy "ai: read own" on public.ai_jobs for select using (user_id = auth.uid());
 
--- 4. Spend one cairn, atomically. The advisory lock makes two clicks at the same moment wait for
--- each other, so the same cairn can never be spent twice. Returns false when the balance is 0.
--- Step by step: take a lock named after the user (hashtext turns 'cairns:<user id>' into a
+-- 4. Spend one edelweiss, atomically. The advisory lock makes two clicks at the same moment wait for
+-- each other, so the same edelweiss can never be spent twice. Returns false when the balance is 0.
+-- Step by step: take a lock named after the user (hashtext turns 'edelweiss:<user id>' into a
 -- number; the lock is released at the end of the transaction), add up the user's ledger
 -- (coalesce gives 0 when there are no rows), refuse below 1, otherwise insert a -1 'ai' row
 -- that points to the job.
 -- `security definer` runs the function with its owner's rights; `set search_path = public`
 -- makes it use the public tables only. The body between the $$ marks is PL/pgSQL, PostgreSQL's
 -- procedural language.
-create or replace function public.spend_cairn(p_user uuid, p_job uuid)
+create or replace function public.spend_edelweiss(p_user uuid, p_job uuid)
 returns boolean
 language plpgsql
 security definer
@@ -113,19 +113,19 @@ as $$
 declare
   bal integer;
 begin
-  perform pg_advisory_xact_lock(hashtext('cairns:' || p_user::text));
-  select coalesce(sum(delta), 0) into bal from cairn_ledger where user_id = p_user;
+  perform pg_advisory_xact_lock(hashtext('edelweiss:' || p_user::text));
+  select coalesce(sum(delta), 0) into bal from edelweiss_ledger where user_id = p_user;
   if bal < 1 then
     return false;
   end if;
-  insert into cairn_ledger (user_id, delta, reason, ref) values (p_user, -1, 'ai', p_job::text);
+  insert into edelweiss_ledger (user_id, delta, reason, ref) values (p_user, -1, 'ai', p_job::text);
   return true;
 end;
 $$;
 -- Nobody may call it except the service role (the server functions): a browser could otherwise
--- spend cairns without starting an analysis.
-revoke all on function public.spend_cairn(uuid, uuid) from public;
-grant execute on function public.spend_cairn(uuid, uuid) to service_role;
+-- spend edelweiss without starting an analysis.
+revoke all on function public.spend_edelweiss(uuid, uuid) from public;
+grant execute on function public.spend_edelweiss(uuid, uuid) to service_role;
 
 -- 5. Writes are CLOSED until the account opens. Every insert or update on the three tables goes
 -- through this trigger, which refuses it while writes_open() is false. Triggers also apply to the
@@ -147,5 +147,5 @@ end;
 $$;
 -- One trigger per table, run `before` each inserted or updated row (`for each row`).
 create trigger runs_closed before insert or update on public.runs for each row execute function public.refuse_closed_writes();
-create trigger ledger_closed before insert or update on public.cairn_ledger for each row execute function public.refuse_closed_writes();
+create trigger ledger_closed before insert or update on public.edelweiss_ledger for each row execute function public.refuse_closed_writes();
 create trigger ai_jobs_closed before insert or update on public.ai_jobs for each row execute function public.refuse_closed_writes();

@@ -110,7 +110,7 @@ test("online writes are closed until the account opens", async () => {
   Object.assign(CLOUD, saved);
   const sql = readFileSync(new URL("../supabase/migrations/20261015220000_accounts.sql", import.meta.url), "utf8");
   assert.match(sql, /function public\.writes_open\(\)[^;]*select false/);
-  for (const t of ["runs", "cairn_ledger", "ai_jobs"]) assert.match(sql, new RegExp(`before insert or update on public\\.${t} for each row execute function public\\.refuse_closed_writes`));
+  for (const t of ["runs", "edelweiss_ledger", "ai_jobs"]) assert.match(sql, new RegExp(`before insert or update on public\\.${t} for each row execute function public\\.refuse_closed_writes`));
 });
 
 test("demo profile User1: plausible made-up runs that fill every part of the menu", async () => {
