@@ -521,7 +521,7 @@ test("review numbers: sliding-window records and splits that add up", () => {
   assert.ok(line.every((p) => p.v >= 0 && p.v < 10));
 });
 
-import { bestEffort, bestCurve, gradeBands, hrZones, runChunks, paceHistogram, fitLine, runKpis, climbTable } from "../src/core/insights.js";
+import { bestEffort, bestCurve, gradeBands, hrZones, runChunks, paceHistogram, paceHeatmap, fitLine, runKpis, climbTable } from "../src/core/insights.js";
 
 test("deep dive: best efforts, gradient bands and KPIs add up", () => {
   const run = analyseRun(parseGpx(makeDemoRunGpx()));
@@ -546,6 +546,15 @@ test("deep dive: best efforts, gradient bands and KPIs add up", () => {
   const h = paceHistogram(run, 15);
   assert.ok(Math.abs(h.bins.reduce((s, b) => s + b.share, 0) - 1) < 0.01);
   assert.ok(runChunks(run).length >= 270);
+  // Pace heat map: every chunk lands in one cell, and each band's average sits between its cells.
+  const hm = paceHeatmap(run, 10);
+  const cellM = hm.bands.reduce((s, b) => s + b.cells.reduce((t, c) => t + (c ? c.m : 0), 0), 0);
+  assert.equal(cellM, hm.bands.reduce((s, b) => s + b.m, 0));
+  assert.ok(cellM >= 0.95 * runChunks(run).length * 100, "nearly every chunk counted");
+  for (const b of hm.bands) {
+    const r = b.cells.filter(Boolean).map((c) => c.ratio);
+    if (r.length > 1) assert.ok(Math.min(...r) <= 1 && Math.max(...r) >= 1, `${b.label} ratios around 1`);
+  }
   // KPIs: every one has a label, and energy grows with weight.
   const k70 = runKpis(run, { weight: 70, hrMax: 185 }), k90 = runKpis(run, { weight: 90, hrMax: 185 });
   assert.ok(k70.length >= 15 && k70.every((k) => k.label && k.group));

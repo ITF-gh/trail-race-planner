@@ -2,6 +2,9 @@
 // technical detail). The first entry is the current version: the footer shows it on every page.
 
 export const CHANGELOG = [
+  { v: "2.6", date: "2026-10-18", items: [
+    "Rewind my run, Deep dive: a new pace heat map. One row per gradient, one column per 10% of the run, each box sized by the distance run there and coloured from gold (faster than your other moments on that gradient) to grey (slower). Tap a box to replay that moment.",
+  ] },
   { v: "2.5", date: "2026-10-17", items: [
     "Prep my run review. The line next to the logo is back to Trail race & run planner.",
     "Optional references: type your 10K and half-marathon bests or your easy pace (as coaches define it: you can still talk in full sentences) in the small line under the file drops of every mode. They set the level of your plan, while your runs keep the shape of how you climb and descend; in Rewind my run they put your pace in context.",

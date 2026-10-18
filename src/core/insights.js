@@ -17,6 +17,7 @@
 //   hrZones                 time in heart-rate zones Z1..Z5, and the TRIMP training load
 //   runChunks, paceHistogram, fitLine   the 100 m points of the scatter explorer, the pace
 //                           histogram, and a least-squares line with Pearson's r
+//   paceHeatmap             pace per gradient band per slice of the run (the heat map)
 //   runKpis                 the ~20 headline numbers ("Key numbers")
 //   climbTable              one row per climb and descent
 //
@@ -202,6 +203,44 @@ export function paceHistogram(run, binSec = 15, list = runChunks(run)) {
   const out = [];
   for (let k = lo; k <= hi; k++) out.push({ from: k * binSec, to: (k + 1) * binSec, sec: bins.get(k) || 0, share: (bins.get(k) || 0) / total });
   return { bins: out, total };
+}
+
+// The 7 gradient bands of the heat map, steepest descent first (Boss's bands, 2026-10-18).
+export const HEAT_BANDS = [
+  { from: -Infinity, to: -10, label: "< -10%" }, { from: -10, to: -5, label: "-10 to -5%" }, { from: -5, to: -2, label: "-5 to -2%" },
+  { from: -2, to: 2, label: "-2 to +2%" }, { from: 2, to: 5, label: "+2 to +5%" }, { from: 5, to: 10, label: "+5 to +10%" },
+  { from: 10, to: Infinity, label: "> +10%" },
+];
+
+/**
+ * The pace heat map: the run cut into `cols` equal slices of distance (10 = every 10% of the run)
+ * and each 100 m chunk put in its gradient band (HEAT_BANDS) and its slice. A cell holds the
+ * distance and moving time there, so its pace = time / distance.
+ *
+ * `ratio` compares the cell's pace with the band's pace over the whole run: under 1 = faster than
+ * your other moments on that gradient, over 1 = slower. Chunks slower than 30:00/km (a pause
+ * that GPS still saw as moving) are left out.
+ *
+ * Returns {cols, maxM (the biggest cell, in m), bands: [{label, from, to, m, pace, cells: [cell or
+ * null]}]}, cell = {m, sec, pace, ratio, startSec (where the cell's first chunk starts, to replay it)}.
+ */
+export function paceHeatmap(run, cols = 10, list = runChunks(run)) {
+  const total = run.totalKm || 1;
+  const bands = HEAT_BANDS.map((b) => ({ ...b, m: 0, sec: 0, cells: Array.from({ length: cols }, () => null) }));
+  for (const c of list) {
+    if (!c.pace || c.pace > 1800) continue;
+    const b = bands.find((x) => c.grade >= x.from && c.grade < x.to);
+    const k = Math.min(cols - 1, Math.floor((c.km / total) * cols));
+    const sec = c.pace * (IN_CHUNK_M / 1000);
+    const cell = b.cells[k] || (b.cells[k] = { m: 0, sec: 0, startSec: c.startSec });
+    cell.m += IN_CHUNK_M; cell.sec += sec; b.m += IN_CHUNK_M; b.sec += sec;
+  }
+  let maxM = 0;
+  for (const b of bands) {
+    b.pace = b.m > 0 ? (b.sec / b.m) * 1000 : null;
+    for (const c of b.cells) if (c) { c.pace = (c.sec / c.m) * 1000; c.ratio = c.pace / b.pace; maxM = Math.max(maxM, c.m); }
+  }
+  return { cols, maxM, bands };
 }
 
 /**
