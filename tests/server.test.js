@@ -116,6 +116,17 @@ test("online writes are closed until the account opens", async () => {
   for (const t of ["runs", "edelweiss_ledger", "ai_jobs"]) assert.match(sql, new RegExp(`before insert or update on public\\.${t} for each row execute function public\\.refuse_closed_writes`));
 });
 
+test("the profile is the only table the app may write, without heart data", () => {
+  const sql = readFileSync(new URL("../supabase/migrations/20261018160000_profiles.sql", import.meta.url), "utf8");
+  assert.match(sql, /enable row level security/);
+  for (const op of ["select using", "insert with check", "update using"]) assert.match(sql, new RegExp(`on public\\.profiles for ${op} \\(user_id = auth\\.uid\\(\\)\\)`));
+  assert.match(sql, /profiles_no_body check/);
+  const js = readFileSync(new URL("../src/ui/cloud.js", import.meta.url), "utf8");
+  // 4 sign-in calls (password, link, sign-out, refresh) and the profile save: nothing else writes.
+  assert.equal([...js.matchAll(/method: "(POST|PATCH|PUT|DELETE)"/g)].length, 5);
+  assert.match(js, /CL_PROFILE_WRITE = "\/rest\/v1\/profiles\?on_conflict=user_id"/);
+});
+
 test("demo profile User1: plausible made-up runs that fill every part of the menu", async () => {
   const { demoRecords, DEMO_USER } = await import("../src/core/demorecords.js");
   const { historySummary } = await import("../src/core/history.js");
