@@ -101,6 +101,19 @@ export async function cloudFromUrl() {
 }
 
 /**
+ * Sign in with email and password (the password is set on the user in the Supabase dashboard).
+ * Supabase answers with the same tokens as a sign-in link, plus the user. Returns the user
+ * ({ id, email }); throws on a wrong password ("Invalid login credentials").
+ */
+export async function cloudSignInPassword(email, password) {
+  const r = await clFetch("/auth/v1/token?grant_type=password", { method: "POST", body: { email, password } });
+  if (!r || !r.access_token || !r.user) throw new Error("Sign-in failed");
+  clSession = { access: r.access_token, refresh: r.refresh_token, expiresAt: Date.now() + (r.expires_in || 3600) * 1000, userId: r.user.id, email: r.user.email || email };
+  clWrite(clSession);
+  return cloudUser();
+}
+
+/**
  * Ask Supabase to email a one-time sign-in link that brings the user back to this page.
  * No account is ever created from here (create_user: false). encodeURIComponent escapes the return
  * address so its ":" and "/" survive inside the query string.
