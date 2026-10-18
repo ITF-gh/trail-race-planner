@@ -984,9 +984,17 @@ html[data-theme="sky"] .acct-menu h4{color:#ffd24a}
   .acct-menu{max-height:calc(100vh - 180px)}
 }
 /* sign-in form, link-like buttons */
+.savex{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:8px 0 0}
+.savex-msg{font-size:13px;color:var(--muted)}
+.acct-panel-in .acct-saved{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.acct-saved li{display:flex;gap:6px;align-items:stretch}
+.acct-saved-open{flex:1;min-width:0;text-align:left;display:flex;flex-direction:column;gap:2px;padding:8px 12px;border-radius:12px;border:1px solid var(--acct-line);background:rgba(255,255,255,.05);color:var(--acct-ink);font:inherit;cursor:pointer}
+.acct-saved-open small{color:var(--acct-muted);font-size:12px}
+.acct-saved-del{width:36px;border-radius:12px;border:1px solid var(--acct-line);background:transparent;color:var(--acct-muted);font-size:18px;cursor:pointer}
 .acct-signin{margin-top:10px;display:flex;flex-direction:column;gap:6px}
 .acct-signin label{font-size:13px;color:var(--acct-muted)}
 .acct-signin div{display:flex;gap:8px}
+.acct-signin > input{min-height:36px;padding:6px 12px;border-radius:999px;border:1px solid var(--acct-line);background:rgba(255,255,255,.08);color:var(--acct-ink);font:inherit;font-size:14px}
 .acct-signin input{flex:1;min-width:0;min-height:36px;padding:6px 12px;border-radius:999px;border:1px solid var(--acct-line);background:rgba(255,255,255,.08);color:var(--acct-ink);font:inherit;font-size:14px}
 .acct-signin input::placeholder{color:var(--acct-muted)}
 .acct-signin .btn{min-height:36px;font-size:14px;padding:4px 14px}

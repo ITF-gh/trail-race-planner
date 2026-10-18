@@ -2,7 +2,8 @@
 // the rest of the app). Two parts of Supabase are used, each through its HTTP API:
 //   Auth      /auth/v1/...       sign in with a one-time email link, refresh the session
 //   REST      /rest/v1/<table>   READ the user's rows only (Row Level Security in the database
-//                                makes sure a token only reaches its own rows)
+//                                makes sure a token only reaches its own rows), and WRITE the
+//                                user's own profile and saved items (Boss, 2026-10-18)
 // The server functions (/functions/v1/...: paying out AI tokens, an AI analysis, deleting the
 // account) all write, so the app does not call them.
 //
@@ -10,14 +11,16 @@
 //   off        (url empty, or connect false): the app works exactly as before, with the run log
 //              on this device only, and sends nothing (no sign-in, no run, no token).
 //   read-only  (connect: true): sign-in works for accounts that already exist (no new account is
-//              made) and the account's data can be read. Nothing can be written: this file has no
-//              write call at all (they wait in supabase/app-writes-later.js), and clFetch refuses
-//              any request other than a GET outside the sign-in API.
+//              made) and the account's data can be read. The only writes are the user's own
+//              profile (cloudPutProfile) and the items they choose to keep (cloudSave,
+//              cloudSavedDelete); the run log, tokens and AI have no write call (they wait in
+//              supabase/app-writes-later.js), and clFetch refuses any other write (clMayWrite).
 // The database has its own lock too (writes_open() in the migration), so even a hand-made
 // request writes nothing.
 //
-// The AI tokens are called "edelweiss" on screen; the database tables and the server functions
-// still say "cairn" (cairn_ledger, claim-cairns), which only the code sees.
+// The AI tokens are called "edelweiss" on screen; the database tables
+// say "edelweiss" too (edelweiss_ledger); only the server function names still say "cairn"
+// (claim-cairns), which only the code sees.
 //
 // Where it sits: only account.js calls this file. It holds no page code: every function here
 // sends HTTP requests and returns data (or throws an Error with a readable message).
@@ -35,13 +38,20 @@
 
 
 export const CLOUD = {
-  url: "", // e.g. "https://abcdefghijkl.supabase.co" (Project settings > API)
-  anonKey: "", // the "anon public" key: safe to publish, Row Level Security does the protecting
-  connect: false, // true = read-only: sign in and read, never write (supabase/SETUP.md, step 6)
+  url: "https://vjhzcuvxucpldhsjpqrl.supabase.co", // the project address (Project settings > API)
+  anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZqaHpjdXZ4dWNwbGRoc2pwcXJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIzMTk4OTUsImV4cCI6MjEwNzg5NTg5NX0.I6XJP6XyZmxwFOsosDkEP2HvDirC8tUA7XkNPfrPhxk",
+  // the "anon public" key: safe to publish, Row Level Security does the protecting
+  connect: true, // true = read-only: sign in and read, never write (supabase/SETUP.md, step 6)
 };
 
 /** The message every write call throws while the account is read-only (account.js shows it). */
-export const CL_READONLY = "The online account is read-only for now: nothing is saved to it yet.";
+export const CL_READONLY = "Only your profile is saved to the online account for now.";
+
+// The writes the app may make (Boss, 2026-10-18): the user's own profile row, and the items
+// they choose to keep ("Save to my account": add one, delete one). Nothing else is ever written.
+const CL_PROFILE_WRITE = "/rest/v1/profiles?on_conflict=user_id";
+const CL_SAVED = "/rest/v1/saved_items";
+const clMayWrite = (path) => path.startsWith("/auth/v1/") || path === CL_PROFILE_WRITE || path === CL_SAVED || path.startsWith(`${CL_SAVED}?id=eq.`);
 
 // localStorage key of the saved session.
 const CL_SESSION = "trp.session";
@@ -99,6 +109,19 @@ export async function cloudFromUrl() {
 }
 
 /**
+ * Sign in with email and password (the password is set on the user in the Supabase dashboard).
+ * Supabase answers with the same tokens as a sign-in link, plus the user. Returns the user
+ * ({ id, email }); throws on a wrong password ("Invalid login credentials").
+ */
+export async function cloudSignInPassword(email, password) {
+  const r = await clFetch("/auth/v1/token?grant_type=password", { method: "POST", body: { email, password } });
+  if (!r || !r.access_token || !r.user) throw new Error("Sign-in failed");
+  clSession = { access: r.access_token, refresh: r.refresh_token, expiresAt: Date.now() + (r.expires_in || 3600) * 1000, userId: r.user.id, email: r.user.email || email };
+  clWrite(clSession);
+  return cloudUser();
+}
+
+/**
  * Ask Supabase to email a one-time sign-in link that brings the user back to this page.
  * No account is ever created from here (create_user: false). encodeURIComponent escapes the return
  * address so its ":" and "/" survive inside the query string.
@@ -145,7 +168,7 @@ async function clToken() {
  */
 async function clFetch(path, { method = "GET", body, token, headers = {} } = {}) {
   // Read-only app: only reads, plus the sign-in API (send link, refresh, sign out) may go out.
-  if (method !== "GET" && !path.startsWith("/auth/v1/")) throw new Error(CL_READONLY);
+  if (method !== "GET" && !clMayWrite(path)) throw new Error(CL_READONLY);
   const res = await fetch(CLOUD.url + path, {
     method,
     // ...(body ? {...} : {}) adds the Content-Type header only when there is a body; ...headers
@@ -166,9 +189,36 @@ const clAuthed = async (path, opts = {}) => clFetch(path, { ...opts, token: awai
 
 // The data calls. REST paths use Supabase's query syntax (PostgREST): select=... picks the
 // columns, column=eq.value filters (equals), order=column.desc sorts newest first, limit=N caps.
-// No write call exists in this file (Boss's rule, 2026-10-17): no upload of runs, no token
-// claim, no AI job, no delete. They are kept for later in supabase/app-writes-later.js.
+// The only writes are the profile and the saved items (Boss, 2026-10-18); no upload of the run
+// log, no token claim, no AI job. They are kept for later in supabase/app-writes-later.js.
 // clFetch also refuses any request that is not a GET outside the sign-in API (/auth/v1/).
+/** The profile stored in the account (the data of profile.js), or null when there is none yet. */
+export async function cloudProfile() {
+  const rows = await clAuthed("/rest/v1/profiles?select=data");
+  return rows && rows[0] ? rows[0].data : null;
+}
+/**
+ * Save the profile (one row per user): an "upsert", meaning insert the row, or update it when the
+ * user already has one (Prefer: resolution=merge-duplicates, matched on user_id). The database
+ * checks the owner (Row Level Security) and refuses heart or weight data.
+ */
+export async function cloudPutProfile(data) {
+  await clAuthed(CL_PROFILE_WRITE, { method: "POST", body: { user_id: cloudUser().id, data, updated_at: new Date().toISOString() }, headers: { Prefer: "resolution=merge-duplicates,return=minimal" } });
+}
+
+/** The saved items, newest first: [{ id, kind, title, data, created_at }]. */
+export async function cloudSaved() {
+  return (await clAuthed(`${CL_SAVED}?select=id,kind,title,data,created_at&order=created_at.desc`)) || [];
+}
+/** Keep one item ({ kind, title, data }, checked by savedCheck in core/saved.js first). */
+export async function cloudSave(item) {
+  await clAuthed(CL_SAVED, { method: "POST", body: { kind: item.kind, title: item.title, data: item.data }, headers: { Prefer: "return=minimal" } });
+}
+/** Delete one saved item by its id (a uuid; encodeURIComponent keeps the address safe). */
+export async function cloudSavedDelete(id) {
+  await clAuthed(`${CL_SAVED}?id=eq.${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
 /** The run summaries stored in the account. */
 export async function cloudRuns() {
   // Each row holds one summary in its `rec` column: return the list of summaries.
@@ -180,7 +230,7 @@ export async function cloudRuns() {
  * +1 "refund" when an analysis failed.
  */
 export async function cloudLedger() {
-  return (await clAuthed("/rest/v1/cairn_ledger?select=delta,reason,created_at&order=created_at.desc")) || [];
+  return (await clAuthed("/rest/v1/edelweiss_ledger?select=delta,reason,created_at&order=created_at.desc")) || [];
 }
 /** One analysis job by id: { id, status ("running", "done" or "failed"), result, error, created_at }. */
 export async function cloudJob(id) {
