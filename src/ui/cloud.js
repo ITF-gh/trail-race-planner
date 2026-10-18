@@ -2,7 +2,8 @@
 // the rest of the app). Two parts of Supabase are used, each through its HTTP API:
 //   Auth      /auth/v1/...       sign in with a one-time email link, refresh the session
 //   REST      /rest/v1/<table>   READ the user's rows only (Row Level Security in the database
-//                                makes sure a token only reaches its own rows)
+//                                makes sure a token only reaches its own rows), and WRITE one
+//                                row: the user's own profile (Boss, 2026-10-18)
 // The server functions (/functions/v1/...: paying out AI tokens, an AI analysis, deleting the
 // account) all write, so the app does not call them.
 //
@@ -10,9 +11,10 @@
 //   off        (url empty, or connect false): the app works exactly as before, with the run log
 //              on this device only, and sends nothing (no sign-in, no run, no token).
 //   read-only  (connect: true): sign-in works for accounts that already exist (no new account is
-//              made) and the account's data can be read. Nothing can be written: this file has no
-//              write call at all (they wait in supabase/app-writes-later.js), and clFetch refuses
-//              any request other than a GET outside the sign-in API.
+//              made) and the account's data can be read. The only write is the user's own
+//              profile (cloudPutProfile); runs, tokens and AI have no write call (they wait in
+//              supabase/app-writes-later.js), and clFetch refuses any other request than a GET
+//              outside the sign-in API and that profile save.
 // The database has its own lock too (writes_open() in the migration), so even a hand-made
 // request writes nothing.
 //
@@ -43,7 +45,10 @@ export const CLOUD = {
 };
 
 /** The message every write call throws while the account is read-only (account.js shows it). */
-export const CL_READONLY = "The online account is read-only for now: nothing is saved to it yet.";
+export const CL_READONLY = "Only your profile is saved to the online account for now.";
+
+// The one write the app may make (Boss, 2026-10-18): saving the user's own profile row.
+const CL_PROFILE_WRITE = "/rest/v1/profiles?on_conflict=user_id";
 
 // localStorage key of the saved session.
 const CL_SESSION = "trp.session";
@@ -160,7 +165,7 @@ async function clToken() {
  */
 async function clFetch(path, { method = "GET", body, token, headers = {} } = {}) {
   // Read-only app: only reads, plus the sign-in API (send link, refresh, sign out) may go out.
-  if (method !== "GET" && !path.startsWith("/auth/v1/")) throw new Error(CL_READONLY);
+  if (method !== "GET" && !path.startsWith("/auth/v1/") && !path.startsWith(CL_PROFILE_WRITE)) throw new Error(CL_READONLY);
   const res = await fetch(CLOUD.url + path, {
     method,
     // ...(body ? {...} : {}) adds the Content-Type header only when there is a body; ...headers
@@ -181,9 +186,23 @@ const clAuthed = async (path, opts = {}) => clFetch(path, { ...opts, token: awai
 
 // The data calls. REST paths use Supabase's query syntax (PostgREST): select=... picks the
 // columns, column=eq.value filters (equals), order=column.desc sorts newest first, limit=N caps.
-// No write call exists in this file (Boss's rule, 2026-10-17): no upload of runs, no token
-// claim, no AI job, no delete. They are kept for later in supabase/app-writes-later.js.
+// The only write is the profile (Boss, 2026-10-18); no upload of runs, no token claim, no AI
+// job, no delete. They are kept for later in supabase/app-writes-later.js.
 // clFetch also refuses any request that is not a GET outside the sign-in API (/auth/v1/).
+/** The profile stored in the account (the data of profile.js), or null when there is none yet. */
+export async function cloudProfile() {
+  const rows = await clAuthed("/rest/v1/profiles?select=data");
+  return rows && rows[0] ? rows[0].data : null;
+}
+/**
+ * Save the profile (one row per user): an "upsert", meaning insert the row, or update it when the
+ * user already has one (Prefer: resolution=merge-duplicates, matched on user_id). The database
+ * checks the owner (Row Level Security) and refuses heart or weight data.
+ */
+export async function cloudPutProfile(data) {
+  await clAuthed(CL_PROFILE_WRITE, { method: "POST", body: { user_id: cloudUser().id, data, updated_at: new Date().toISOString() }, headers: { Prefer: "resolution=merge-duplicates,return=minimal" } });
+}
+
 /** The run summaries stored in the account. */
 export async function cloudRuns() {
   // Each row holds one summary in its `rec` column: return the list of summaries.

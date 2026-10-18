@@ -40,11 +40,11 @@ import { runRecord } from "../core/runrecord.js";
 import { demoRecords, DEMO_USER } from "../core/demorecords.js";
 import { hm, parseDuration } from "../core/format.js";
 import { trackEvent } from "./analytics.js";
-import { profileHtml, profileInput, profileAction, profileAthlete, profileWho } from "./profile.js";
+import { profileHtml, profileInput, profileAction, profileAthlete, profileWho, profileData, profileReplace } from "./profile.js";
 import { aiLocalProbe, aiLocalRun, aiLocalHtml } from "./ailocal.js";
 import { AI_PREP_MODELS } from "../core/aiprep.js";
 import { aiDocsAll, aiDocsPut, aiDocsGet, aiDocsDelete } from "./aidocs.js";
-import { cloudOn, cloudWritable, CL_READONLY, cloudUser, cloudFromUrl, cloudSendLink, cloudSignInPassword, cloudSignOut, cloudRuns, cloudPutRuns, cloudDeleteRuns, cloudLedger, cloudClaim, cloudAnalyse, cloudJob, cloudJobs, cloudDeleteAccount } from "./cloud.js";
+import { cloudOn, cloudWritable, CL_READONLY, cloudUser, cloudFromUrl, cloudSendLink, cloudSignInPassword, cloudSignOut, cloudProfile, cloudPutProfile, cloudRuns, cloudPutRuns, cloudDeleteRuns, cloudLedger, cloudClaim, cloudAnalyse, cloudJob, cloudJobs, cloudDeleteAccount } from "./cloud.js";
 
 // Database name and its one "object store" (IndexedDB's word for a table) of run summaries.
 const AC_DB = "trp-history", AC_STORE = "runs";
@@ -266,7 +266,7 @@ function acTokensHtml(S) {
 function acMenuHtml(S, demo = false) {
   const user = cloudOn() && cloudUser();
   // The line under the name: demo profile, signed-in email, or runs on this device only.
-  const where = demo ? `Demo profile · ${S.count} sample runs` : user ? `${acEsc(user.email)} · ${S.count} run${S.count === 1 ? "" : "s"}${cloudWritable() ? " synced" : " · account read-only"}` : `${S.count || "No"} run${S.count === 1 ? "" : "s"} on this device`;
+  const where = demo ? `Demo profile · ${S.count} sample runs` : user ? `${acEsc(user.email)} · ${S.count} run${S.count === 1 ? "" : "s"}${cloudWritable() ? " synced" : " · profile synced"}` : `${S.count || "No"} run${S.count === 1 ? "" : "s"} on this device`;
   // The name and flag typed in the Account window, else User1 (demo) or "My account". The
   // "Account" button opens that window (profile.js).
   const me = profileWho();
@@ -570,6 +570,9 @@ async function acClaim() {
 async function acSync() {
   if (!cloudOn() || !cloudUser()) return;
   try {
+    // 0. The profile: the account's copy wins; an account without one takes this browser's.
+    const online = await cloudProfile();
+    if (online) profileReplace(online); else await cloudPutProfile(profileData());
     // 1. Upload: local runs whose id the account does not have.
     const [local, remote] = [await acAll(), await cloudRuns()];
     const have = new Set(remote.map((r) => r.id));
@@ -591,6 +594,28 @@ async function acSync() {
   }
   acRender();
 }
+
+/**
+ * Saving the profile online. Each change in the Account window fires "trp-profile-save"
+ * (profile.js); while signed in, the profile is sent 800 ms after the last change, so typing a
+ * name sends one request, not one per letter. acProfileFlush sends a waiting change at once.
+ */
+let acPfTimer = 0;
+async function acProfilePush() {
+  acPfTimer = 0;
+  if (!cloudOn() || !cloudUser()) return;
+  try { await cloudPutProfile(profileData()); } catch (e) { ac.msg = "Profile saved on this device only: could not reach your account."; acRender(); }
+}
+async function acProfileFlush() {
+  if (!acPfTimer) return;
+  clearTimeout(acPfTimer);
+  await acProfilePush();
+}
+document.addEventListener("trp-profile-save", () => {
+  if (!cloudOn() || !cloudUser()) return;
+  clearTimeout(acPfTimer);
+  acPfTimer = setTimeout(acProfilePush, 800);
+});
 
 /**
  * The see-through pop-up panel: the Ask the AI window, the AI answer or the Account window.
@@ -819,12 +844,16 @@ async function acAction(what) {
     // window.confirm shows the browser's OK / Cancel box and returns true on OK. The last part
     // (signed in only) says that the tokens already earned are kept.
     if (!window.confirm(`Delete all the runs stored ${user ? "on this device and in your account" : "on this device"}? Your stats, records and achievements start again from zero.${user ? ` ${AC_TOKEN.many[0].toUpperCase() + AC_TOKEN.many.slice(1)} you already have stay yours.` : ""}`)) return;
-    if (user) { try { await cloudDeleteRuns(); } catch (e) { ac.msg = e.message === CL_READONLY ? "Runs deleted on this device only: the online account is read-only for now." : "Could not reach your account: runs deleted on this device only."; } }
+    if (user) { try { await cloudDeleteRuns(); } catch (e) { ac.msg = e.message === CL_READONLY ? "Runs deleted on this device only: the online account keeps only your profile for now." : "Could not reach your account: runs deleted on this device only."; } }
     acCache = [];
     await acTx("readwrite", (s) => s.clear());
     trackEvent("history-clear");
     acRender();
   } else if (what === "signout") {
+    // Send a profile change still waiting, then forget the profile here: it is kept in the
+    // account, and the next person signing in on this browser starts from a blank one.
+    await acProfileFlush();
+    profileReplace({});
     await cloudSignOut();
     // Object.assign(target, values) sets several fields of `ac` at once.
     Object.assign(ac, { ledger: null, jobs: [], job: null, msg: "" });

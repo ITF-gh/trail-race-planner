@@ -2,9 +2,10 @@
 // ("My profile"). It holds the runner's presentation (name, flag, a few words, badges), their
 // goals and bests from 5K to 100K, and their heart rates and weight.
 //
-// Storage: everything stays in this browser (localStorage), the profile under "trp.profile", the
-// heart rates and weight under "trp.athlete" (the athlete settings also used by the deep dive,
-// the plan and the AI analysis). Nothing here is sent anywhere.
+// Storage: in this browser (localStorage), the profile under "trp.profile", the heart rates and
+// weight under "trp.athlete" (the athlete settings also used by the deep dive, the plan and the
+// AI analysis). When signed in to the online account, account.js also saves the profile there
+// (profileData); heart rates and weight never leave the browser.
 //
 // Heart data: the max and resting heart rates typed here are the ONLY heart data the app uses
 // (owner's rule, 2026-10-16). Heart rate recorded in a GPX file is never read (core/track.js).
@@ -18,6 +19,7 @@
 //   profileAthlete { hrMax, hrRest, weight } for the AI analysis (null when not set)
 //   profileWho     { name, flag } for the menu's first line
 //   profileRefs, profileSetRefs   your references (10K, half, easy pace) and the run level
+//   profileData, profileReplace   the profile to save online, and loading the online one
 //   profileHtml    the Account window
 //   profileInput, profileAction   what typing and clicking in it do
 
@@ -38,8 +40,17 @@ const pfDate = (ms) => new Date(ms).toLocaleDateString(undefined, { day: "numeri
 // The profile in memory, read once (cleaned, so it is always complete).
 let pf = null;
 const pfGet = () => (pf || (pf = profileClean(pfRead(PF_KEY))));
-// Saved cleaned (limits applied).
-const pfSave = () => pfWrite(PF_KEY, profileClean(pf));
+// Saved cleaned (limits applied); the "trp-profile-save" event lets account.js send it to the
+// online account when one is signed in.
+const pfSave = () => { pfWrite(PF_KEY, profileClean(pf)); document.dispatchEvent(new CustomEvent("trp-profile-save")); };
+
+/** The profile as saved (cleaned): what the online account stores. Heart rates and weight are not in it. */
+export const profileData = () => profileClean(pfGet());
+/** Replace this browser's profile with another one (the online account's, or {} to forget it). */
+export function profileReplace(data) {
+  pf = profileClean(data);
+  pfWrite(PF_KEY, pf);
+}
 
 /** The heart rates for the plan: { maxHr, restHr }, each null when not set in the profile. */
 export function profileHeart() {

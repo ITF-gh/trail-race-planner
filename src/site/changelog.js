@@ -2,6 +2,9 @@
 // technical detail). The first entry is the current version: the footer shows it on every page.
 
 export const CHANGELOG = [
+  { v: "2.8", date: "2026-10-18", items: [
+    "Online account (invited testers): sign in with email and password, or an email link. Your profile (name, flag, a few words, badges, goals and bests) is saved to your account and comes back on any device. Heart rates and weight stay in your browser.",
+  ] },
   { v: "2.5", date: "2026-10-17", items: [
     "Prep my run review. The line next to the logo is back to Trail race & run planner.",
     "Optional references: type your 10K and half-marathon bests or your easy pace (as coaches define it: you can still talk in full sentences) in the small line under the file drops of every mode. They set the level of your plan, while your runs keep the shape of how you climb and descend; in Rewind my run they put your pace in context.",
