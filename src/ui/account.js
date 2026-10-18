@@ -38,13 +38,14 @@ import { historySummary, aiSelect, recordClean, AI_QUESTION_MAX } from "../core/
 import { aiRaceChecks, aiRunChecks, AI_GOALS, AI_RISKS, AI_NOTES_MAX } from "../core/aichecks.js";
 import { runRecord } from "../core/runrecord.js";
 import { demoRecords, DEMO_USER } from "../core/demorecords.js";
-import { hm, parseDuration } from "../core/format.js";
+import { hm, mmss, parseDuration } from "../core/format.js";
+import { SAVED_KINDS, savedCheck } from "../core/saved.js";
 import { trackEvent } from "./analytics.js";
 import { profileHtml, profileInput, profileAction, profileAthlete, profileWho, profileData, profileReplace } from "./profile.js";
 import { aiLocalProbe, aiLocalRun, aiLocalHtml } from "./ailocal.js";
 import { AI_PREP_MODELS } from "../core/aiprep.js";
 import { aiDocsAll, aiDocsPut, aiDocsGet, aiDocsDelete } from "./aidocs.js";
-import { cloudOn, cloudWritable, CL_READONLY, cloudUser, cloudFromUrl, cloudSendLink, cloudSignInPassword, cloudSignOut, cloudProfile, cloudPutProfile, cloudRuns, cloudPutRuns, cloudDeleteRuns, cloudLedger, cloudClaim, cloudAnalyse, cloudJob, cloudJobs, cloudDeleteAccount } from "./cloud.js";
+import { cloudOn, cloudWritable, CL_READONLY, cloudUser, cloudFromUrl, cloudSendLink, cloudSignInPassword, cloudSignOut, cloudProfile, cloudPutProfile, cloudSaved, cloudSave, cloudSavedDelete, cloudRuns, cloudPutRuns, cloudDeleteRuns, cloudLedger, cloudClaim, cloudAnalyse, cloudJob, cloudJobs, cloudDeleteAccount } from "./cloud.js";
 
 // Database name and its one "object store" (IndexedDB's word for a table) of run summaries.
 const AC_DB = "trp-history", AC_STORE = "runs";
@@ -194,7 +195,13 @@ export const AC_SPARK = (() => {
 //   job     id of the analysis running now, null when none
 //   msg     a message to show in the tokens section ("" = none)
 //   busy    true while a sign-in link is being sent (greys out the button)
-const ac = { ledger: null, jobs: [], job: null, msg: "", busy: false, docs: [] };
+const ac = { ledger: null, jobs: [], job: null, msg: "", busy: false, docs: [], saved: null };
+// Opens or closes the account menu (set in initAccount), for callers outside it.
+let acOpenMenu = () => {};
+// Reopens a saved item in its mode (set by main.js through acctOnReopen).
+let acReopen = null;
+/** main.js gives the function that reopens a saved item ({ kind, title, data }). */
+export function acctOnReopen(fn) { acReopen = fn; }
 // Token balance = the sum of all ledger lines (+ earned, - spent). Nothing is read yet: 0.
 const acBalance = () => (ac.ledger ? ac.ledger.reduce((s, r) => s + r.delta, 0) : 0);
 // acList: the run summaries the menu and the AI window work on; acDemo: true when they are the
@@ -573,6 +580,7 @@ async function acSync() {
     // 0. The profile: the account's copy wins; an account without one takes this browser's.
     const online = await cloudProfile();
     if (online) profileReplace(online); else await cloudPutProfile(profileData());
+    ac.saved = await cloudSaved();
     // 1. Upload: local runs whose id the account does not have.
     const [local, remote] = [await acAll(), await cloudRuns()];
     const have = new Set(remote.map((r) => r.id));
@@ -593,6 +601,51 @@ async function acSync() {
     ac.msg = e.message === "Session expired, please sign in again" ? e.message : "Could not reach your account. Your runs are safe on this device.";
   }
   acRender();
+}
+
+/**
+ * "Save to my account" (main.js): keep one item ({ kind, title, data }, core/saved.js) in the
+ * online account. Signed out: opens the menu on the sign-in form instead. Returns { ok, msg },
+ * msg being the short line shown beside the button.
+ */
+export async function acctSaveItem(item) {
+  if (!cloudOn()) return { ok: false, msg: "The online account is not open yet." };
+  if (!cloudUser()) {
+    ac.msg = "Sign in to save plans and runs to your account.";
+    // After this click has finished bubbling, or the "click outside closes the menu" listener
+    // would close it again at once.
+    setTimeout(() => acOpenMenu(true), 0);
+    return { ok: false, msg: "Sign in first (account icon, top right)." };
+  }
+  const bad = savedCheck(item);
+  if (bad) return { ok: false, msg: bad };
+  try {
+    await cloudSave(item);
+    ac.saved = await cloudSaved().catch(() => ac.saved);
+    trackEvent("saved-item", item.kind);
+    return { ok: true, msg: "Saved: find it in your Account window." };
+  } catch (e) {
+    return { ok: false, msg: `Could not save: ${e.message}` };
+  }
+}
+
+// A saved item's date, short ("18 Oct 2026").
+const acSavedDate = (iso) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+// Seconds as "h:mm" (or "mm:ss" under an hour, for best efforts); "–" when missing.
+const acDur = (sec) => (Number.isFinite(sec) ? (sec < 3600 ? mmss(sec) : hm(sec)) : "–");
+
+/** The "Saved" part of the Account window: the items kept online, newest first (signed in only). */
+function acSavedHtml() {
+  if (!cloudOn() || !cloudUser()) return "";
+  const list = ac.saved || [];
+  const rows = list.map((it) => {
+    const d = (it.data && it.data.summary) || {};
+    const facts = it.kind === "run" ? `${d.km} km · +${Math.round(d.gain)} m · ${acDur(d.movingSec)}` : `${d.km} km · +${Math.round(d.gain)} m · ${acDur(d.finish && d.finish.central)}`;
+    return `<li><button type="button" class="acct-saved-open" data-acct="saved:${it.id}" title="Reopen it, ready to change"><b>${acEsc(it.title)}</b><small>${SAVED_KINDS[it.kind]} · ${acSavedDate(it.created_at)} · ${facts}</small></button><button type="button" class="acct-saved-del" data-acct="saved-del:${it.id}" aria-label="Delete ${acEsc(it.title)}">×</button></li>`;
+  }).join("");
+  return `<h4 data-pf-sec="saved">Saved to my account</h4>
+    ${list.length ? `<ul class="acct-saved">${rows}</ul>` : `<p class="acct-note">Nothing saved yet. Use "Save to my account" in Your plan, Prep my run or Rewind my run.</p>`}
+    ${list.length ? `<p class="acct-note">Tap one to reopen it as you left it: change the target or the settings, everything is computed again.</p>` : ""}`;
 }
 
 /**
@@ -800,7 +853,7 @@ function acProfile(keep = false) {
   // The field or button that has the focus (named by its data-pf or data-acct), to give it back.
   const f = keep && document.activeElement && acPanel.contains(document.activeElement) ? document.activeElement : null;
   const sel = f ? (f.dataset.pf ? `[data-pf="${f.dataset.pf}"]` : f.dataset.acct ? `[data-acct="${f.dataset.acct}"]` : "") : "";
-  acShowPanel(profileHtml(acList, acDemo, acDemo ? DEMO_USER : "My account"), "Account", "acct-profile");
+  acShowPanel(profileHtml(acList, acDemo, acDemo ? DEMO_USER : "My account") + acSavedHtml(), "Account", "acct-profile");
   const nb = acPanel.querySelector(".acct-panel-in");
   if (nb) nb.scrollTop = top;
   const again = sel ? acPanel.querySelector(sel) : null;
@@ -849,6 +902,17 @@ async function acAction(what) {
     await acTx("readwrite", (s) => s.clear());
     trackEvent("history-clear");
     acRender();
+  } else if (what.startsWith("saved:")) {
+    const it = (ac.saved || []).find((x) => x.id === what.slice(6));
+    if (!it || !acReopen) return;
+    acPanel.hidden = true;
+    try { await acReopen(it); } catch (e) { window.alert(`Could not reopen it: ${e.message}`); }
+  } else if (what.startsWith("saved-del:")) {
+    const id = what.slice(10);
+    const it = (ac.saved || []).find((x) => x.id === id);
+    if (!it || !window.confirm(`Delete "${it.title}" from your account?`)) return;
+    try { await cloudSavedDelete(id); ac.saved = ac.saved.filter((x) => x.id !== id); } catch (e) { window.alert(`Could not delete it: ${e.message}`); }
+    acProfile(true);
   } else if (what === "signout") {
     // Send a profile change still waiting, then forget the profile here: it is kept in the
     // account, and the next person signing in on this browser starts from a blank one.
@@ -856,7 +920,7 @@ async function acAction(what) {
     profileReplace({});
     await cloudSignOut();
     // Object.assign(target, values) sets several fields of `ac` at once.
-    Object.assign(ac, { ledger: null, jobs: [], job: null, msg: "" });
+    Object.assign(ac, { ledger: null, jobs: [], job: null, msg: "", saved: null });
     acRender();
   } else if (what === "delete") {
     if (!window.confirm(`Delete your account? Your runs, ${AC_TOKEN.many} and AI analyses are erased from the server for good. The runs on this device stay until you delete them too.`)) return;
@@ -1029,10 +1093,12 @@ export async function initAccount(opts = {}) {
   // Open or close the menu. aria-expanded tells screen readers its state. Opening redraws it
   // and, when signed in (and no analysis is running), syncs with the account.
   const set = (open) => {
+    acOpenMenu = set;
     acMenu.classList.toggle("open", open);
     btn.setAttribute("aria-expanded", String(open));
     if (open) { acRender(); trackEvent("account-open"); if (cloudOn() && cloudUser() && !ac.job) acSync(); }
   };
+  acOpenMenu = set;
   // stopPropagation(): the click stops here, so the document listener below (which closes the
   // menu on any outside click) does not see it.
   btn.addEventListener("click", (e) => { e.stopPropagation(); set(!acMenu.classList.contains("open")); });

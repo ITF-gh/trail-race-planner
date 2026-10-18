@@ -264,5 +264,11 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
   });
   // current(): what is on screen, for the A4 export (ui/print.js); null before a GPX is loaded.
   // spots and key: for the Ask the AI coach window (account.js), which files its answer by key.
-  return { rerender: render, current: () => (st.plan ? { plan: st.plan, name: st.name, source: st.source, key: st.key, spots: runSpots(st.plan).filter((x) => x.kind !== "caution").length } : null) };
+  // restore(): reopen a session saved to the account: its target time, then the course as if dropped.
+  const restore = (xml, label, targetSec) => {
+    st.targetSec = targetSec || 0;
+    $p("#prepTarget").value = st.targetSec ? hm(st.targetSec).replace("h", ":") : "";
+    load(xml, label);
+  };
+  return { rerender: render, restore, current: () => (st.plan ? { plan: st.plan, parsed: st.parsed, targetSec: st.targetSec, name: st.name, source: st.source, key: st.key, spots: runSpots(st.plan).filter((x) => x.kind !== "caution").length } : null) };
 }

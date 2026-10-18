@@ -285,7 +285,7 @@ const rvRefsLine = (gap) => {
 };
 // The references changed: refresh the line of the run on screen.
 document.addEventListener("trp-refs", () => document.querySelectorAll(".rv-refs").forEach((e) => { e.textContent = rvRefsLine(Number(e.dataset.gap)); }));
-const rv = { run: null, name: "", target: rvLoadTarget(), sec: 0, playing: false, speed: 180, pauseAt: false, follow: false, raf: 0, map: null, onKey: null };
+const rv = { run: null, parsed: null, name: "", target: rvLoadTarget(), sec: 0, playing: false, speed: 180, pauseAt: false, follow: false, raf: 0, map: null, onKey: null };
 
 /**
  * Seconds since midnight, local time, when the run started (for clock times of day).
@@ -869,7 +869,7 @@ export function mountRun(box, run) {
 
 /** The run on screen, for the A4 export (ui/print.js): {run, name, target}, or null. */
 export function currentRun() {
-  return rv.run ? { run: rv.run, name: rv.name, target: rv.target } : null;
+  return rv.run ? { run: rv.run, parsed: rv.parsed, name: rv.name, target: rv.target } : null;
 }
 
 /**
@@ -912,7 +912,9 @@ export function initRunMode({ onLoaded } = {}) {
   // page.
   const load = (xml, label, sample) => {
     try {
-      const run = analyseRun(parseGpx(xml));
+      const parsed = parseGpx(xml);
+      const run = analyseRun(parsed);
+      rv.parsed = parsed;
       rv.name = label || run.name || "Your run";
       status.innerHTML = `<span class="ok">✓ ${rvEsc(rv.name)}</span> · ${run.totalKm.toFixed(1)} km · ${hm(run.elapsedSec)} · ${Math.round(run.gain)} m D+`;
       drop.classList.add("done");
@@ -948,4 +950,9 @@ export function initRunMode({ onLoaded } = {}) {
     load(makeDemoRunGpx(), "Sample trail run (made up)", true);
   }));
   empty();
+  // Reopen a run saved to the account (main.js): its target first, then the run, as if dropped.
+  rvRestore = (xml, label, target) => { rv.target = target || null; rvSaveTarget(rv.target); load(xml, label, false); };
 }
+let rvRestore = null;
+/** Reopen a saved run (GPX text rebuilt from the saved points, its name and its target). */
+export function restoreRun(xml, label, target) { if (rvRestore) rvRestore(xml, label, target); }

@@ -2,6 +2,9 @@
 // technical detail). The first entry is the current version: the footer shows it on every page.
 
 export const CHANGELOG = [
+  { v: "2.9", date: "2026-10-18", items: [
+    "Save to my account (signed-in testers): one button per mode keeps your race plan, run session or run in your online account, only when you press it. Reopen it later from your Account window exactly as you left it, then change the target or settings and everything is computed again. Heart rate is never kept. Up to 30 saves.",
+  ] },
   { v: "2.8", date: "2026-10-18", items: [
     "Online account (invited testers): sign in with email and password, or an email link. Your profile (name, flag, a few words, badges, goals and bests) is saved to your account and comes back on any device. Heart rates and weight stay in your browser.",
   ] },
