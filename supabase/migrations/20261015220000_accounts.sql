@@ -37,9 +37,13 @@ create table if not exists public.runs (
 -- Turn RLS on, then allow each of the four operations only on the user's own rows.
 -- `using` filters the rows a user can see or touch; `with check` validates the rows they write.
 alter table public.runs enable row level security;
+drop policy if exists "runs: read own" on public.runs;
 create policy "runs: read own" on public.runs for select using (user_id = auth.uid());
+drop policy if exists "runs: add own" on public.runs;
 create policy "runs: add own" on public.runs for insert with check (user_id = auth.uid());
+drop policy if exists "runs: change own" on public.runs;
 create policy "runs: change own" on public.runs for update using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists "runs: delete own" on public.runs;
 create policy "runs: delete own" on public.runs for delete using (user_id = auth.uid());
 
 -- 2. The edelweiss ledger: one row per movement (+1 earned, -1 spent). The balance is the sum, so
@@ -68,6 +72,7 @@ create unique index if not exists edelweiss_one_refund on public.edelweiss_ledge
 -- A plain index to list a user's movements quickly, newest first.
 create index if not exists edelweiss_by_user on public.edelweiss_ledger (user_id, created_at desc);
 alter table public.edelweiss_ledger enable row level security;
+drop policy if exists "edelweiss: read own" on public.edelweiss_ledger;
 create policy "edelweiss: read own" on public.edelweiss_ledger for select using (user_id = auth.uid());
 -- (no insert, update or delete policy: only the service role can write)
 
@@ -93,6 +98,7 @@ create table if not exists public.ai_jobs (
 );
 create index if not exists ai_jobs_by_user on public.ai_jobs (user_id, created_at desc);
 alter table public.ai_jobs enable row level security;
+drop policy if exists "ai: read own" on public.ai_jobs;
 create policy "ai: read own" on public.ai_jobs for select using (user_id = auth.uid());
 
 -- 4. Spend one edelweiss, atomically. The advisory lock makes two clicks at the same moment wait for
@@ -102,14 +108,14 @@ create policy "ai: read own" on public.ai_jobs for select using (user_id = auth.
 -- (coalesce gives 0 when there are no rows), refuse below 1, otherwise insert a -1 'ai' row
 -- that points to the job.
 -- `security definer` runs the function with its owner's rights; `set search_path = public`
--- makes it use the public tables only. The body between the $$ marks is PL/pgSQL, PostgreSQL's
+-- makes it use the public tables only. The body between the two dollar-sign marks is PL/pgSQL, PostgreSQL's
 -- procedural language.
 create or replace function public.spend_edelweiss(p_user uuid, p_job uuid)
 returns boolean
 language plpgsql
 security definer
 set search_path = public
-as $$
+as $body$
 declare
   bal integer;
 begin
@@ -121,7 +127,7 @@ begin
   insert into edelweiss_ledger (user_id, delta, reason, ref) values (p_user, -1, 'ai', p_job::text);
   return true;
 end;
-$$;
+$body$;
 -- Nobody may call it except the service role (the server functions): a browser could otherwise
 -- spend edelweiss without starting an analysis.
 revoke all on function public.spend_edelweiss(uuid, uuid) from public;
@@ -131,21 +137,24 @@ grant execute on function public.spend_edelweiss(uuid, uuid) to service_role;
 -- through this trigger, which refuses it while writes_open() is false. Triggers also apply to the
 -- service role (unlike RLS), so neither the browser nor the server functions can store anything.
 -- To open, run once:  create or replace function public.writes_open() returns boolean
---                     language sql stable as $$ select true $$;
+--                     language sql stable as 'select true';
 -- writes_open: a one-line switch, false for now.
 -- refuse_closed_writes: the trigger function; it raises an error (which cancels the write) while
 -- the switch is false, and otherwise returns `new` (the row about to be written) unchanged.
 -- Deletes are not blocked, so deleting an account still works while writes are closed.
-create or replace function public.writes_open() returns boolean language sql stable as $$ select false $$;
-create or replace function public.refuse_closed_writes() returns trigger language plpgsql as $$
+create or replace function public.writes_open() returns boolean language sql stable as $body$ select false $body$;
+create or replace function public.refuse_closed_writes() returns trigger language plpgsql as $body$
 begin
   if not public.writes_open() then
     raise exception 'The online account is not open yet' using errcode = 'P0001';
   end if;
   return new;
 end;
-$$;
+$body$;
 -- One trigger per table, run `before` each inserted or updated row (`for each row`).
+drop trigger if exists runs_closed on public.runs;
 create trigger runs_closed before insert or update on public.runs for each row execute function public.refuse_closed_writes();
+drop trigger if exists ledger_closed on public.edelweiss_ledger;
 create trigger ledger_closed before insert or update on public.edelweiss_ledger for each row execute function public.refuse_closed_writes();
+drop trigger if exists ai_jobs_closed on public.ai_jobs;
 create trigger ai_jobs_closed before insert or update on public.ai_jobs for each row execute function public.refuse_closed_writes();
