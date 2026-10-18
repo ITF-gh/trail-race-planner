@@ -974,6 +974,7 @@ html[data-theme="sky"] .acct-menu h4{color:#ffd24a}
 .acct-signin{margin-top:10px;display:flex;flex-direction:column;gap:6px}
 .acct-signin label{font-size:13px;color:var(--acct-muted)}
 .acct-signin div{display:flex;gap:8px}
+.acct-signin > input{min-height:36px;padding:6px 12px;border-radius:999px;border:1px solid var(--acct-line);background:rgba(255,255,255,.08);color:var(--acct-ink);font:inherit;font-size:14px}
 .acct-signin input{flex:1;min-width:0;min-height:36px;padding:6px 12px;border-radius:999px;border:1px solid var(--acct-line);background:rgba(255,255,255,.08);color:var(--acct-ink);font:inherit;font-size:14px}
 .acct-signin input::placeholder{color:var(--acct-muted)}
 .acct-signin .btn{min-height:36px;font-size:14px;padding:4px 14px}

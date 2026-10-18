@@ -44,7 +44,7 @@ import { profileHtml, profileInput, profileAction, profileAthlete, profileWho } 
 import { aiLocalProbe, aiLocalRun, aiLocalHtml } from "./ailocal.js";
 import { AI_PREP_MODELS } from "../core/aiprep.js";
 import { aiDocsAll, aiDocsPut, aiDocsGet, aiDocsDelete } from "./aidocs.js";
-import { cloudOn, cloudWritable, CL_READONLY, cloudUser, cloudFromUrl, cloudSendLink, cloudSignOut, cloudRuns, cloudPutRuns, cloudDeleteRuns, cloudLedger, cloudClaim, cloudAnalyse, cloudJob, cloudJobs, cloudDeleteAccount } from "./cloud.js";
+import { cloudOn, cloudWritable, CL_READONLY, cloudUser, cloudFromUrl, cloudSendLink, cloudSignInPassword, cloudSignOut, cloudRuns, cloudPutRuns, cloudDeleteRuns, cloudLedger, cloudClaim, cloudAnalyse, cloudJob, cloudJobs, cloudDeleteAccount } from "./cloud.js";
 
 // Database name and its one "object store" (IndexedDB's word for a table) of run summaries.
 const AC_DB = "trp-history", AC_STORE = "runs";
@@ -234,13 +234,14 @@ function acTokensHtml(S) {
   const signedIn = cloudOn() && cloudUser();
   const n = signedIn ? (ac.ledger ? acBalance() : "…") : S.cairns;
   let note = `Earned with achievements and events. 1 ${AC_TOKEN.one} buys 1 AI-tailored race plan.`;
-  if (signedIn && ac.msg) note = acEsc(ac.msg);
+  if (ac.msg) note = acEsc(ac.msg);
   else if (signedIn && ac.job) note = "The AI is reading your race and runs. It takes about a minute; you can close this menu.";
   // The sign-in form, only when the account exists but nobody is signed in. data-acct-form names
   // it for the submit listener in initAccount.
   const signin = cloudOn() && !signedIn ? `<form class="acct-signin" data-acct-form="signin">
         <label for="acEmail">Sign in to collect them</label>
-        <div><input id="acEmail" type="email" required autocomplete="email" placeholder="you@example.com"><button class="btn ghost" type="submit"${ac.busy ? " disabled" : ""}>Send link</button></div>
+        <input id="acEmail" type="email" required autocomplete="email" placeholder="you@example.com" value="${acEsc(ac.email || "")}">
+        <div><input id="acPass" type="password" autocomplete="current-password" placeholder="Password (empty: email me a link)"><button class="btn ghost" type="submit"${ac.busy ? " disabled" : ""}>Sign in</button></div>
       </form>` : "";
   // The Ask the AI button opens the window of the mode on screen (data-mode on <html>, read at
   // each redraw, and the menu is redrawn each time it opens): the race plan in Prep my race, the
@@ -944,14 +945,21 @@ async function acAction(what) {
 }
 
 /**
- * The sign-in form was sent: ask for a sign-in link for the typed email, with the button greyed
- * out meanwhile (ac.busy), and show the outcome in the tokens section.
+ * The sign-in form was sent: with a password, sign in at once; without one, ask for a sign-in link
+ * for the typed email. The button is greyed out meanwhile (ac.busy) and the outcome shows in the
+ * tokens section.
  */
 async function acSignIn(form) {
-  const email = form.querySelector("input").value.trim();
+  const email = form.querySelector("#acEmail").value.trim(), pass = form.querySelector("#acPass").value;
   if (!email) return;
+  ac.email = email; // kept in the form when it is redrawn
   ac.busy = true;
   acRender();
+  if (pass) {
+    try { await cloudSignInPassword(email, pass); ac.msg = ""; trackEvent("signin"); ac.busy = false; acRender(); acSync(); }
+    catch (e) { ac.busy = false; ac.msg = e.status === 400 ? "Wrong email or password." : `Could not sign in: ${e.message}`; acRender(); }
+    return;
+  }
   try { await cloudSendLink(email); ac.msg = `Link sent to ${email}: open it on this device to sign in.`; trackEvent("signin-link"); } catch (e) { ac.msg = /signups? not allowed/i.test(e.message) ? "Online accounts are not open yet: only invited testers can sign in for now." : `Could not send the link: ${e.message}`; }
   ac.busy = false;
   acRender();
