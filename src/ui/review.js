@@ -132,7 +132,7 @@ function rvTargetHtml(run, t) {
   </form>`;
   // Links to the two planning modes, to prepare the next run or race (review of v2.10). The buttons
   // press the mode switch on top (mountRun wires them).
-  const next = `<p class="rv-tgt-next"><span>Plan the next one:</span><button type="button" class="btn sm" data-go-mode="prep">◆ Prep my run</button><button type="button" class="btn sm" data-go-mode="plan">▲ Prep my race</button></p>`;
+  const next = `<div class="rv-tgt-next"><span>Next step: plan the next one</span><button type="button" class="btn primary" data-go-mode="prep">◆ Prep my run</button><button type="button" class="btn primary" data-go-mode="plan">▲ Prep my race</button></div>`;
   // 2. No target yet: just the form and a line on what it does.
   if (!t) return `<div class="panel rv-tgt">${form}<p class="note">Type the time (or the pace) you were aiming for, then press Compare. Right below this form you get the verdict, how far you were, where the time went and where to change your effort; the section box of the replay above also shows the target and your gap at every moment.</p>${next}</div>`;
   // 3. The verdict. Array destructuring: RV_STATUS[t.status] is [class, heading], so cls and head get

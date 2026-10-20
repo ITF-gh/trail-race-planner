@@ -865,10 +865,6 @@ html[data-theme="sky"] .in-wrap{--rv-pace:#1f86d6}
 .in-ctl select{width:auto;min-height:34px;padding:4px 8px}
 .in-range{flex:1 1 260px;flex-direction:row;align-items:center;gap:10px}
 .in-range input{flex:1;accent-color:var(--rv-pace)}
-/* Best efforts slider (review 2.10): a thin shiny line with a small glowing knob. */
-.in-range input[type=range]{flex:none;width:100%;margin:8px 0;-webkit-appearance:none;appearance:none;height:3px;min-height:0;padding:0;border:0;border-radius:2px;background:linear-gradient(90deg,var(--rv-pace),var(--sun));box-shadow:0 0 8px color-mix(in srgb,var(--sun) 60%,transparent);cursor:pointer}
-.in-range input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--sun);border:0;box-shadow:0 0 10px var(--sun)}
-.in-range input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--sun);border:0;box-shadow:0 0 10px var(--sun)}
 .in-climbs>summary{margin-top:4px}
 .in-range b{min-width:6ch;color:var(--fg)}
 .in-res{margin:0;font-size:14px}
@@ -882,9 +878,9 @@ html[data-theme="sky"] .in-wrap{--rv-pace:#1f86d6}
 .in-pt{fill:var(--bg);stroke:var(--rv-pace);stroke-width:2;cursor:pointer} .in-pt:hover{fill:var(--rv-pace)}
 .in-pt.cur{fill:var(--sun);stroke:var(--sun)}
 .in-cur{stroke:var(--sun);stroke-dasharray:4 4;stroke-width:1.5}
-.in-band{--bc:var(--muted)} .in-band.up{--bc:var(--h-bar)} .in-band.down{--bc:var(--rv-pace)}
+.in-band{--bc:var(--muted)} .in-band.q1{--bc:#6fd0ff} .in-band.q2{--bc:#3fd06a} .in-band.q3{--bc:#ffc928} .in-band.q4{--bc:#ff8a2a} .in-band.q5{--bc:#ff3048}
 .in-band rect{fill:transparent;stroke:var(--bc);stroke-width:2} .in-band:hover rect{fill:color-mix(in srgb,var(--bc) 14%,transparent)}
-.in-svg .in-band .in-bv{fill:var(--bc);font-size:19px} .in-svg .in-band .in-bl{fill:var(--bc);font-weight:600;font-size:16px}
+.in-svg .in-band .in-bv{fill:var(--fg);font-size:19px} .in-svg .in-band .in-bl{font-size:16px}
 @media (max-width:640px){ .in-svg .in-band .in-bv{font-size:13px} .in-svg .in-band .in-bl{font-size:12px} }
 .in-hist:hover rect{opacity:1}
 .in-axis{stroke:var(--line);stroke-width:1.2}
@@ -1723,4 +1719,7 @@ html[data-theme="sky"] .rs-chip{background:rgba(31,111,209,.05)}
 .rv-notifs li.rv-good.top{border-color:rgba(63,208,106,.45)} .rv-notifs li.rv-bad.top{border-color:rgba(255,48,72,.45)}
 html[data-theme="sky"] .rp-notifs li.rv-info .ic,html[data-theme="sky"] .rs-chip.rv-info .ic,html[data-theme="sky"] .rs-f.rv-info .ic,html[data-theme="sky"] .rs-card.rv-info .ic{background:rgba(15,39,71,.15)}
 @media (max-width:640px){ .rv-notifs li.top .c{font-size:11.5px} .rv-notifs li.top .c em{display:none} }
-.rv-tgt-next{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0 0;font-size:13.5px;color:var(--muted)}
+.rv-tgt-next{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin:14px 0 0;padding-top:12px;border-top:1px solid var(--line)}
+.rv-tgt-next span{flex-basis:100%;font-family:var(--f-display);font-weight:700;font-style:italic;text-transform:uppercase;letter-spacing:.06em;color:var(--fg);font-size:15px}
+.rv-tgt-next .btn{min-height:48px;padding:10px 22px;font-size:16px}
+@media (max-width:640px){ .rv-tgt-next .btn{flex:1 1 140px} }
