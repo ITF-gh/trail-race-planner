@@ -1,8 +1,8 @@
 // site-pages.js: the static pages written next to the app by build.js.
 //
 //   guide.html      the user guide (one chapter per mode, a card per section) and the FAQ
-//   about.html      what the planner is, contact, and "How it works" (from docs/HOW_IT_WORKS.md)
-//   privacy.html    what stays on your device, what is counted, what the online account will keep
+//   about.html      what the planner is, contact, and a short "How it works" (the full notes stay in docs/HOW_IT_WORKS.md)
+//   privacy.html    what stays on your device, what is counted, what the online account keeps
 //   changelog.html  "What's new", from src/site/changelog.js
 //   404.html        GitHub Pages serves it for any address that does not exist
 //
@@ -10,7 +10,7 @@
 // same <head> (share preview, icon), the same top bar and footer, and links the stylesheet of the
 // app (style.css, written by build.js) so it looks like the app, in Night or Sky.
 
-import { SITE, siteFooter, extLink, mailLink, SITE_PEAK } from "../src/site/site.js";
+import { SITE, SITE_PHOTOGRAPHERS, siteFooter, extLink, mailLink, SITE_PEAK } from "../src/site/site.js";
 import { GUIDE, FAQ } from "../src/site/guide.js";
 import { CHANGELOG } from "../src/site/changelog.js";
 
@@ -148,9 +148,7 @@ export function markdown(md) {
   return out.join("\n");
 }
 
-function aboutBody(howMd) {
-  // The doc's own title goes, and so does its "ideas for later" list (a to-do, not an explanation).
-  const how = howMd.replace(/^# .*\n/, "").replace(/\n## Ideas for what to build next[\s\S]*?(?=\n## |$)/, "\n");
+function aboutBody() {
   return `${pageHead("About", "About " + esc(SITE.name), `${esc(SITE.tagline)}: turn the race GPX and a few of your own runs into a plan you can trust, rehearse it, put it on your watch, then look back at how it went.`)}
 <div class="sp-cols">
   <section class="sp-block">
@@ -169,19 +167,26 @@ function aboutBody(howMd) {
   </section>
   <section class="sp-block">
     <h2>Credits</h2>
-    <p>Photos from Pexels (free licence), with no recognisable face: ${["Artem Meletov", "Cara Denison", "Hobi Photography", "Elina Volkova", "Jack Davis", "Lorenzo Castellino", "Alin Serban"].join(", ")}. Maps: ${extLink("https://www.openstreetmap.org/copyright", "© OpenStreetMap contributors")}, tiles by OpenStreetMap, ${extLink("https://carto.com/attributions", "CARTO")} and ${extLink("https://opentopomap.org", "OpenTopoMap")} (CC-BY-SA), drawn with ${extLink("https://leafletjs.com", "Leaflet")} (BSD-2). Fonts: Barlow and Barlow Condensed (Open Font License). The uphill cost of running comes from Minetti et al. (2002), walking times from Tobler's hiking function.</p>
+    <p>Photos from Pexels (free licence), with no recognisable face: ${SITE_PHOTOGRAPHERS.map(([n]) => n).join(", ")}. Maps: ${extLink("https://www.openstreetmap.org/copyright", "© OpenStreetMap contributors")}, tiles by OpenStreetMap, ${extLink("https://carto.com/attributions", "CARTO")} and ${extLink("https://opentopomap.org", "OpenTopoMap")} (CC-BY-SA), drawn with ${extLink("https://leafletjs.com", "Leaflet")} (BSD-2). Fonts: Barlow and Barlow Condensed (Open Font License). The uphill cost of running comes from Minetti et al. (2002), walking times from Tobler's hiking function.</p>
   </section>
 </div>
-<section class="sp-block md" id="how">
+<section class="sp-block" id="how">
   <h2>How it works</h2>
-  <p class="lead">The ideas behind the planner, in the order the data flows through the code. File names point to the source for the curious.</p>
-  ${markdown(how)}
+  <ol class="sp-steps">
+    <li><b>Clean the tracks.</b> Your runs and the race GPX are resampled every 10 m and the GPS elevation is smoothed, so noise does not invent fake climbs.</li>
+    <li><b>Learn how you move.</b> From your own runs the app measures your pace on every gradient, fresh and tired, and the gradient where you start to hike. Recent runs count more.</li>
+    <li><b>Predict the race.</b> Every 10 m of the course gets the pace of its gradient, sliding from fresh to tired, adjusted for terrain and race length. Adding them up gives your finish time and a clock time everywhere, with a best and a cautious case.</li>
+    <li><b>Build the plan.</b> Climbs and descents are found, rated and given a tactic (run, hike, brake), long climbs are cut into sections, and gels and aid stations are placed on the clock.</li>
+    <li><b>Rehearse and take it with you.</b> Replay the race at your predicted pace, then send the key messages to your watch.</li>
+    <li><b>Look back.</b> Rewind my run replays a run you did and shows where you gained or lost time, without comparing it to a plan.</li>
+  </ol>
+  <p class="note">Estimates, usually within 5 to 10%. The model cannot see mud, heat or a bad day. The full technical notes are in the source code (docs/HOW_IT_WORKS.md).</p>
 </section>`;
 }
 
 /* ---------- privacy ---------- */
 function privacyBody(counter) {
-  return `${pageHead("Privacy", "Your data stays with you", "Short version: the planner runs in your browser, your GPX files are never uploaded, and there is no cookie and no account needed.")}
+  return `${pageHead("Privacy", "Your data stays with you", "Short version: the planner runs in your browser, your GPX files are never uploaded as files, there is no cookie, and no account is needed.")}
 <div class="sp-cols">
   <section class="sp-block">
     <h2>On your device only</h2>
@@ -206,18 +211,18 @@ function privacyBody(counter) {
     </ul>
   </section>
   <section class="sp-block">
-    <h2>Online account (not open yet)</h2>
-    <p>An optional online account is being prepared. It is <b>switched off</b>: today nothing is sent. When it opens, this page will be updated before anything is collected, and:</p>
+    <h2>Online account (invited testers only)</h2>
+    <p>An optional online account is open to a few invited testers; sign-ups are closed. Without an account nothing is sent. With one:</p>
     <ul>
-      <li>data would be stored in the EU (Supabase, Frankfurt), with your email address for sign-in links and the summaries of the runs you choose to sync;</li>
-      <li>no heart rate from your runs is ever kept; the max and resting heart rate of your profile are health data under the GDPR (article 9) and would only be synced with your explicit consent, which you can withdraw;</li>
-      <li>an AI analysis, when you ask for one, would send that run's summary to the AI provider (Anthropic) to write the analysis;</li>
-      <li>you could export your data and delete your account at any time, from the account menu.</li>
+      <li>data is stored in the EU (Supabase, Frankfurt): your email address for signing in, your profile (name, flag, a few words, badges, goals and bests), and the plans, sessions or runs you choose to save with the Save button (track points, settings and target, up to 30 saves);</li>
+      <li>heart rate is never kept online, and neither are the max and resting heart rate or the weight of your profile: they stay in your browser;</li>
+      <li>the AI is not switched on yet. When it is, an AI answer you ask for will send that plan or run's summary to the AI provider (OpenAI) to write it, and this page will say so first;</li>
+      <li>you can ask for your data or the deletion of your account at any time by email.</li>
     </ul>
   </section>
   <section class="sp-block">
     <h2>Your rights and contact</h2>
-    <p>Under the GDPR you can ask what is kept about you, have it corrected or erased, and object to its use. Today there is nothing about you on our side, as everything stays in your browser. For any question: ${mailLink()}.</p>
+    <p>Under the GDPR you can ask what is kept about you, have it corrected or erased, and object to its use. Without an online account there is nothing about you on our side, as everything stays in your browser. For any question: ${mailLink()}.</p>
     <p class="note">Last updated ${CHANGELOG[0].date}.</p>
   </section>
 </div>`;
@@ -231,11 +236,11 @@ const changelogBody = () => `${pageHead("What's new", "What's new", `Every versi
 const notFoundBody = () => `<div class="nf">${SITE_PEAK}<div class="sec-kicker">Error 404</div><h1>Off course.</h1><p class="lead">This page does not exist, or has moved. No panic: the trail is right here.</p><p><a class="btn primary" href="./">Back to the planner</a> <a class="btn ghost" href="guide.html">Read the guide</a></p></div>`;
 
 /** Every page as [file name, html]. `counter` = {name, tag} when visits are counted. */
-export function sitePages({ fonts, counter, howMd }) {
+export function sitePages({ fonts, counter }) {
   const p = (file, o) => [file, shell({ fonts, counter, ...o })];
   return [
     p("guide.html", { title: `User guide · ${SITE.name}`, description: `How to use ${SITE.name}: the three modes and every section, with screenshots, tips and an FAQ.`, active: "guide", body: guideBody() }),
-    p("about.html", { title: `About · ${SITE.name}`, active: "about", body: aboutBody(howMd) }),
+    p("about.html", { title: `About · ${SITE.name}`, active: "about", body: aboutBody() }),
     p("privacy.html", { title: `Privacy · ${SITE.name}`, description: `What ${SITE.name} keeps, where, and why: your GPX files never leave your browser.`, body: privacyBody(counter) }),
     p("changelog.html", { title: `What's new · ${SITE.name}`, active: "changelog", body: changelogBody() }),
     // The 404 page can be served at any depth (/trail-race-planner/a/b/c): <base> makes its

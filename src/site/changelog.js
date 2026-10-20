@@ -2,6 +2,10 @@
 // technical detail). The first entry is the current version: the footer shows it on every page.
 
 export const CHANGELOG = [
+  { v: "2.12", date: "2026-10-20", items: [
+    "Privacy page brought up to date: the online account is open to invited testers (what it keeps, heart rate and weight never online), and the AI provider is OpenAI (the AI is still off).",
+    "About: How it works is now six short steps; photo credits complete. Guide and FAQ say the account is open to invited testers.",
+  ] },
   { v: "2.11", date: "2026-10-20", items: [
     "Rewind my run review. The key moments now pop up under the section box like text messages, the latest one with its comment, and the list below the replay is a run script of icon chips you can filter (went well, cost you, worth knowing), each opening a card with Go there.",
     "Against your target: two big cards, like each mode's front page, to plan the next one in Prep my run or Prep my race.",
