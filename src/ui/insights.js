@@ -187,7 +187,7 @@ function inBest(run) {
   if (!inState.effortM || inState.effortM > maxM) inState.effortM = Math.min(3000, Math.round(maxM / 2 / 100) * 100);
   const cur = bestEffort(run, inState.effortM);
   // Plot box in SVG units: W x H, with margins l (left), r (right), t (top) and b (bottom).
-  const W = inW(), H = 220, l = 60, r = 16, t = 14, b = 34;
+  const W = inW(), H = 220, l = 24, r = 24, t = 26, b = 34;
   // Distance to x on a log scale: log(m) is placed between log(shortest distance) and log(whole run).
   const lx = (m) => l + ((Math.log(m) - Math.log(curve[0].m)) / Math.max(1e-6, Math.log(maxM) - Math.log(curve[0].m))) * (W - l - r);
   // The pace range, with 3% of room above and below. Pace to y: a smaller (faster) pace sits nearer the
@@ -195,31 +195,27 @@ function inBest(run) {
   const ps = curve.map((c) => c.pace).concat(cur ? [cur.pace] : []);
   const pLo = Math.min(...ps) * 0.97, pHi = Math.max(...ps) * 1.03;
   const y = (p) => t + ((p - pLo) / Math.max(1e-6, pHi - pLo)) * (H - t - b); // faster = higher up
-  let s = "";
-  // Horizontal grid lines with their pace labels.
-  inPaceTicks(pLo, pHi).forEach((p) => { s += `<line class="in-grid" x1="${l}" x2="${W - r}" y1="${y(p).toFixed(1)}" y2="${y(p).toFixed(1)}"/><text x="${l - 6}" y="${(y(p) + 4).toFixed(1)}" text-anchor="end">${mmss(p)}</text>`; });
+  // No grid and no pace axis (review of v2.10): the x axis, and each point's pace written over it.
+  let s = `<line class="in-axis" x1="${l}" x2="${W - r}" y1="${H - b + 6}" y2="${H - b + 6}"/>`;
   let lastX = -1e9;
-  // Distance labels: skip one that would sit on top of its neighbour (the whole run's always shows).
+  // Distance labels and the pace over the same points: skip a point that would sit on top of its
+  // neighbour (the whole run's always shows).
   const endC = curve[curve.length - 1], endX = lx(endC.m);
-  curve.forEach((c) => { const cx = lx(c.m); if (c !== endC && (cx - lastX < 30 || endX - cx < 30)) return; lastX = cx; s += `<text x="${cx.toFixed(1)}" y="${H - 12}" text-anchor="middle">${c.m >= 1000 ? `${+(c.m / 1000).toFixed(c.m % 1000 ? 1 : 0)}k` : c.m}</text>`; });
+  curve.forEach((c) => {
+    const cx = lx(c.m);
+    if (c !== endC && (cx - lastX < 30 || endX - cx < 30)) return;
+    lastX = cx;
+    s += `<text x="${cx.toFixed(1)}" y="${H - 12}" text-anchor="middle">${c.m >= 1000 ? `${+(c.m / 1000).toFixed(c.m % 1000 ? 1 : 0)}k` : c.m}</text>`;
+    s += `<text class="in-pv" x="${cx.toFixed(1)}" y="${(y(c.pace) - 10).toFixed(1)}" text-anchor="middle">${mmss(c.pace)}</text>`;
+  });
   // The curve, then a dot per distance (with a tooltip; data-sec makes it clickable), then the slider's
   // distance as a vertical line and a bigger dot.
   s += `<path class="in-line" d="${curve.map((c, i) => `${i ? "L" : "M"}${lx(c.m).toFixed(1)},${y(c.pace).toFixed(1)}`).join("")}"/>`;
-  curve.forEach((c) => { s += `<circle class="in-pt" data-sec="${Math.round(c.startSec)}" cx="${lx(c.m).toFixed(1)}" cy="${y(c.pace).toFixed(1)}" r="5"><title>Best ${c.m >= 1000 ? `${(c.m / 1000).toFixed(c.m % 1000 ? 1 : 0)} km` : `${c.m} m`}: ${mmss(c.sec)} (${mmss(c.pace)}/km), km ${c.km.toFixed(1)}</title></circle>`; });
-  if (cur) s += `<line class="in-cur" x1="${lx(cur.m).toFixed(1)}" x2="${lx(cur.m).toFixed(1)}" y1="${t}" y2="${H - b}"/><circle class="in-pt cur" data-sec="${Math.round(cur.startSec)}" cx="${lx(cur.m).toFixed(1)}" cy="${y(cur.pace).toFixed(1)}" r="7"/>`;
+  curve.forEach((c) => { s += `<circle class="in-pt" data-m="${c.m}" cx="${lx(c.m).toFixed(1)}" cy="${y(c.pace).toFixed(1)}" r="5"><title>Best ${c.m >= 1000 ? `${(c.m / 1000).toFixed(c.m % 1000 ? 1 : 0)} km` : `${c.m} m`}: ${mmss(c.sec)} (${mmss(c.pace)}/km), km ${c.km.toFixed(1)}</title></circle>`; });
+  if (cur) s += `<line class="in-cur" x1="${lx(cur.m).toFixed(1)}" x2="${lx(cur.m).toFixed(1)}" y1="${t}" y2="${H - b}"/><circle class="in-pt cur" data-m="${cur.m}" cx="${lx(cur.m).toFixed(1)}" cy="${y(cur.pace).toFixed(1)}" r="7"/>`;
   const label = inDist;
-  return `${cur ? `<p class="in-res">Best <b>${label(cur.m)}</b>: <b>${mmss(cur.sec)}</b> at <b>${mmss(cur.pace)}/km</b>, from km ${cur.km.toFixed(1)} to ${cur.toKm.toFixed(1)}. <button type="button" class="btn sm" data-sec="${Math.round(cur.startSec)}">▶ Replay it</button></p>` : ""}
+  return `${cur ? `<p class="in-res">Best <b>${label(cur.m)}</b>: <b>${mmss(cur.sec)}</b> at <b>${mmss(cur.pace)}/km</b>, from km ${cur.km.toFixed(1)} to ${cur.toKm.toFixed(1)}.</p>` : ""}
     <svg viewBox="0 0 ${W} ${H}" class="in-svg" role="img" aria-label="Best pace for each distance">${s}</svg>`;
-}
-
-/**
- * The distance slider of the best-efforts card (drawn once, so a drag is never interrupted).
- * It goes from 100 m to the run length in 100 m steps. Only the chart under it is re-drawn when it
- * moves: re-drawing the slider itself would cut the drag short.
- */
-function inBestCtl(run) {
-  const maxM = (run.n - 1) * run.step;
-  return `<div class="in-ctl"><label class="f in-range">Distance <b id="inEffLab">${inDist(inState.effortM)}</b><input type="range" id="inEff" min="100" max="${Math.floor(maxM / 100) * 100}" step="100" value="${inState.effortM}"></label></div>`;
 }
 
 /**
@@ -239,12 +235,17 @@ function inBands(run) {
   bands.forEach((x, k) => {
     const h = (x.share / maxS) * (H - t - b);
     const xx = l + k * bw;
-    const cls = x.mid >= inState.band ? "up" : x.mid <= -inState.band ? "down" : "flat";
-    s += `<g class="in-band ${cls}"><rect x="${(xx + 2).toFixed(1)}" y="${(H - b - h).toFixed(1)}" width="${Math.max(1, bw - 4).toFixed(1)}" height="${h.toFixed(1)}"/><title>${x.from.toFixed(1)} to ${x.to.toFixed(1)}%: ${x.km.toFixed(1)} km, ${hm(x.sec)} (${Math.round(x.share * 100)}%), pace ${x.pace ? mmss(x.pace) : "–"}/km</title></g>`;
-    // The pace is written on a bar only when the bar is wide enough; the band label goes under every
-    // bar, or every other one when they are narrow.
-    if (bw > 26) s += `<text class="in-bv" x="${(xx + bw / 2).toFixed(1)}" y="${(H - b - h - 5).toFixed(1)}" text-anchor="middle">${x.pace ? mmss(x.pace) : ""}</text>`;
-    if (bw >= 22 || k % 2 === 0) s += `<text x="${(xx + bw / 2).toFixed(1)}" y="${H - 12}" text-anchor="middle">${x.mid > 0 ? "+" : ""}${x.mid}</text>`;
+    // The border says WHEN in the run that gradient was run, on average: the 5 shades of the
+    // Explorer, from start (blue) to end (red). Labels stay plain (review of v2.10).
+    const q = x.when === null ? 3 : Math.min(5, Math.floor(x.when * 5) + 1);
+    // The bar is an outline (no fill); the pace sits in its middle, or just above it when the bar is
+    // too short to hold it.
+    s += `<g class="in-band q${q}"><rect x="${(xx + 2).toFixed(1)}" y="${(H - b - h).toFixed(1)}" width="${Math.max(1, bw - 4).toFixed(1)}" height="${h.toFixed(1)}" rx="3"/><title>${x.from.toFixed(1)} to ${x.to.toFixed(1)}%: ${x.km.toFixed(1)} km, ${hm(x.sec)} (${Math.round(x.share * 100)}%), pace ${x.pace ? mmss(x.pace) : "–"}/km, on average ${Math.round((x.when || 0) * 100)}% into the run</title>`;
+    // The pace is written only when the bar is wide enough; the band label goes under every bar, or
+    // every other one when they are narrow.
+    if (bw > 26 && x.pace) s += h >= 20 ? `<text class="in-bv" x="${(xx + bw / 2).toFixed(1)}" y="${(H - b - h / 2 + 4).toFixed(1)}" text-anchor="middle">${mmss(x.pace)}</text>` : `<text class="in-bv" x="${(xx + bw / 2).toFixed(1)}" y="${(H - b - h - 5).toFixed(1)}" text-anchor="middle">${mmss(x.pace)}</text>`;
+    if (bw >= 22 || k % 2 === 0) s += `<text class="in-bl" x="${(xx + bw / 2).toFixed(1)}" y="${H - 12}" text-anchor="middle">${x.mid > 0 ? "+" : ""}${x.mid}</text>`;
+    s += "</g>";
   });
   s += `<text x="${l - 6}" y="${H - 12}" text-anchor="end">%</text>`;
   // One table row per band. Climbing bands show VAM (vertical metres per hour going up), descending
@@ -252,7 +253,8 @@ function inBands(run) {
   const row = (x) => `<tr><th>${x.from > 0 ? "+" : ""}${x.from.toFixed(1)} to ${x.to > 0 ? "+" : ""}${x.to.toFixed(1)}%</th><td>${x.km.toFixed(1)} km</td><td>${hm(x.sec)} <small>${Math.round(x.share * 100)}%</small></td><td>${x.pace ? mmss(x.pace) : "–"}</td><td>${x.gap ? mmss(x.gap) : "–"}</td>${run.hasHr ? `<td>${x.hr ? Math.round(x.hr) : "–"}</td>` : ""}${run.hasCad ? `<td>${x.cad ? Math.round(x.cad) : "–"}${x.hikeShare > 0.05 ? ` <small>${Math.round(x.hikeShare * 100)}% hiked</small>` : ""}</td>` : ""}<td>${x.vam ? `${Math.round(x.vam)} m/h ↑` : x.descentRate ? `${Math.round(x.descentRate)} m/h ↓` : "–"}</td></tr>`;
   return `<div class="in-ctl"><label class="f inline">Band width<select id="inBand">${[2, 3, 5, 10].map((w) => `<option value="${w}" ${w === inState.band ? "selected" : ""}>${w}%</option>`).join("")}</select></label></div>
     <svg viewBox="0 0 ${W} ${H}" class="in-svg" role="img" aria-label="Time spent on each gradient band">${s}</svg>
-    <p class="note">Bar height = share of your moving time on that gradient; the number on top = your pace there.</p>
+    <div class="in-legend"><span>Border = when in the run:</span><span><i class="in-dot-l q1"></i>start</span><span><i class="in-dot-l q2"></i></span><span><i class="in-dot-l q3"></i>middle</span><span><i class="in-dot-l q4"></i></span><span><i class="in-dot-l q5"></i>end</span></div>
+    <p class="note">Bar height = share of your moving time on that gradient; the number in it = your pace there.</p>
     <details class="in-more"><summary>The table: pace, grade-adjusted pace${run.hasHr ? ", heart rate" : ""}${run.hasCad ? ", cadence" : ""} and climbing speed per band</summary>
     <div class="in-tw"><table class="rp-tg in-t"><thead><tr><th>Gradient</th><th>Distance</th><th>Time</th><th>Pace</th><th>Grade-adj.</th>${run.hasHr ? "<th>HR</th>" : ""}${run.hasCad ? "<th>Cadence</th>" : ""}<th>Vertical</th></tr></thead><tbody>${bands.map(row).join("")}</tbody></table></div></details>`;
 }
@@ -389,9 +391,11 @@ function inScatter(run, list) {
 function inClimbs(run) {
   const list = climbTable(run);
   if (!list.length) return `<p class="note">No climb or descent in this run.</p>`;
-  return `<div class="in-tw"><table class="rp-tg in-t in-ct"><thead><tr><th>Section</th><th>Km</th><th>Vertical</th><th>Gradient</th><th>Time</th><th>Speed</th>${run.hasHr ? "<th>HR</th>" : ""}${run.hasCad ? "<th>Hiked</th>" : ""}<th>Verdict</th></tr></thead><tbody>
+  const nUp = list.filter((c) => c.kind === "climb").length;
+  // Folded at first (review of v2.10): one line, opened on a click.
+  return `<details class="in-more in-climbs"><summary>Show the ${nUp} climb${nUp === 1 ? "" : "s"} and ${list.length - nUp} descent${list.length - nUp === 1 ? "" : "s"}</summary><div class="in-tw"><table class="rp-tg in-t in-ct"><thead><tr><th>Section</th><th>Km</th><th>Vertical</th><th>Gradient</th><th>Time</th><th>Speed</th>${run.hasHr ? "<th>HR</th>" : ""}${run.hasCad ? "<th>Hiked</th>" : ""}<th>Verdict</th></tr></thead><tbody>
     ${list.map((c) => `<tr class="in-row" data-sec="${Math.round(c.startSec)}" tabindex="0"><th>${c.kind === "climb" ? "▲" : "▼"} ${c.i}. ${inEsc(c.title)} <small>${inEsc(c.label || "")}</small></th><td>${c.startKm.toFixed(1)} → ${c.endKm.toFixed(1)}</td><td>${c.kind === "climb" ? `+${Math.round(c.up)}` : `−${Math.round(c.down)}`} m</td><td>${c.avg > 0 ? "+" : ""}${c.avg.toFixed(1)}%</td><td>${hm(c.movSec)}</td><td>${c.vam ? `${Math.round(c.vam)} m/h` : c.rate ? `${Math.round(c.rate)} m/h · ${c.pace ? mmss(c.pace) : "–"}/km` : "–"}</td>${run.hasHr ? `<td>${c.hr ? Math.round(c.hr) : "–"}</td>` : ""}${run.hasCad ? `<td>${c.hikeShare !== null ? `${Math.round(c.hikeShare * 100)}%` : "–"}</td>` : ""}<td><span class="chip rv-${c.tone}">${c.verdict}${c.vsPct ? ` ${c.vsPct > 0 ? "+" : ""}${c.vsPct}%` : ""}</span></td></tr>`).join("")}
-    </tbody></table></div><p class="note">Climbing speed in vertical metres per hour (VAM); on descents, vertical metres per hour down and the pace. Click a row to replay it.</p>`;
+    </tbody></table></div><p class="note">Climbing speed in vertical metres per hour (VAM); on descents, vertical metres per hour down and the pace. Click a row to replay it.</p></details>`;
 }
 
 /**
@@ -409,7 +413,7 @@ export function mountInsights(box, run, { onSeek } = {}) {
   // then put the slider above it.
   box.innerHTML = `<div class="in-wrap">
     ${inCard("inKpi", "Key numbers", "tap or hover a number for what it means", `<div id="inKpiBody">${inKpis(run)}</div><details class="in-more"><summary>Your settings: weight</summary>${inSettings()}</details>`, true)}
-    ${inCard("inBest", "Best efforts", "your fastest stretch for any distance", `${(() => { const b = inBest(run); return `${inBestCtl(run)}<div id="inBestBody">${b}</div>`; })()}<p class="note">Each point is your fastest stretch of that length on the clock (a stop inside it counts). Faster is higher. The curve always falls: the longer the effort, the slower the best pace.</p>`)}
+    ${inCard("inBest", "Best efforts", "your fastest stretch for any distance", `<div id="inBestBody">${inBest(run)}</div><p class="note">Each point is your fastest stretch of that length on the clock (a stop inside it counts). Faster is higher. Tap a point to see that distance.</p>`)}
     ${inCard("inBandC", "Pace by gradient", "where your time went, and how fast you were there", `<div id="inBandBody">${inBands(run)}</div>`)}
     ${inCard("inHeatC", "Pace heat map", "pace on each gradient, all along the run", `<div id="inHeatBody">${inHeat(run, list)}</div>`, true)}
     ${inCard("inHistC", "Pace distribution", "how much time at each pace", `<div id="inHistBody">${inHist(run, list)}</div>`)}
@@ -427,12 +431,17 @@ export function mountInsights(box, run, { onSeek } = {}) {
   });
   const redraw = (id, html) => { const el = $i(id); el.innerHTML = html; seekable(el); return el; };
   seekable(box);
-  // 4. Best effort: the slider re-draws the chart under it as you drag.
-  const eff = $i("#inEff");
-  if (eff) {
-    eff.addEventListener("input", () => { inState.effortM = Number(eff.value); $i("#inEffLab").textContent = inDist(inState.effortM); redraw("#inBestBody", inBest(run)); });
-    eff.addEventListener("change", () => trackEvent("insight-effort", String(inState.effortM)));
-  }
+  // 4. Best efforts (no slider since the review of v2.10): a tap on a point picks that distance and
+  // re-draws the card; its Replay button then plays it. One listener on the card body, which
+  // survives the re-draws.
+  const bestBody = $i("#inBestBody");
+  bestBody.addEventListener("click", (e) => {
+    const pt = e.target.closest("[data-m]");
+    if (!pt) return;
+    inState.effortM = Number(pt.dataset.m);
+    trackEvent("insight-effort", String(inState.effortM));
+    redraw("#inBestBody", inBest(run));
+  });
   // A settings menu: on change, store the new value in inState (x and y are names, the rest numbers),
   // re-draw that card, then wire again (the re-draw replaced the menu inside it). data-wired marks a
   // menu that already has its listener, so it never gets two.

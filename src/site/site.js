@@ -44,6 +44,7 @@ export const SITE_PHOTOGRAPHERS = [
   ["Jack Davis", "https://www.pexels.com/photo/back-view-of-a-woman-running-up-the-mountain-trail-8949023/"],
   ["Lorenzo Castellino", "https://www.pexels.com/photo/man-walking-at-a-river-in-mountains-14989443/"],
   ["Alin Serban", "https://www.pexels.com/photo/trail-runner-in-green-mountain-landscape-30932860/"],
+  ["Kelly", "https://www.pexels.com/photo/black-digital-smartwatch-3999644/"],
 ];
 
 export const SITE_PEAK = `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M2 27 12 9l5 8 4-5 9 15z" fill="currentColor"/><path d="m12 9 2.6 4.6L12 12l-2 2.2z" fill="#fff" opacity=".85"/></svg>`;
@@ -54,7 +55,10 @@ export const SITE_PEAK = `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M
  */
 export function siteFooter({ pre = "", analytics = "" } = {}) {
   const p = (f) => pre + f;
+  // A trail profile along the top edge: the footer rises into a ridge, with its line in the brand
+  // colours (decoration only, stretched to the page width).
   return `<footer class="site-foot" id="site-foot">
+  <svg class="sf-ridge" viewBox="0 0 1200 40" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="sfRidgeG" x1="0" x2="1"><stop offset="0" style="stop-color:var(--accent)"/><stop offset="1" style="stop-color:var(--sun)"/></linearGradient></defs><path class="sf-ridge-fill" d="M0,40 L0,30 L40,27 L80,22 L120,24 L170,12 L200,9 L230,15 L270,25 L310,28 L350,20 L400,6 L430,3 L460,10 L500,22 L540,26 L590,24 L630,14 L660,11 L700,19 L740,27 L790,29 L840,18 L880,8 L910,5 L950,13 L1000,24 L1040,29 L1080,26 L1120,17 L1160,21 L1200,28 L1200,40 Z"/><path class="sf-ridge-line" d="M0,30 L40,27 L80,22 L120,24 L170,12 L200,9 L230,15 L270,25 L310,28 L350,20 L400,6 L430,3 L460,10 L500,22 L540,26 L590,24 L630,14 L660,11 L700,19 L740,27 L790,29 L840,18 L880,8 L910,5 L950,13 L1000,24 L1040,29 L1080,26 L1120,17 L1160,21 L1200,28" stroke="url(#sfRidgeG)"/></svg>
   <div class="sf-in">
     <div class="sf-brand">
       <a class="sf-logo" href="${p("./")}">${SITE_PEAK}<b>${SITE.name}</b></a>

@@ -68,6 +68,12 @@ const rvLegData = (l) => `${(l.endKm - l.startKm).toFixed(1)} km · +${Math.roun
 const RV_ICON = { start: "▶", finish: "🏁", climb: "▲", descent: "▼", flat: "➜", stop: "❚❚", fade: "↘", even: "=", "finish-strong": "↗", "finish-weak": "↘", drift: "♥", hr: "♥", walk: "⋯" };
 // The three tones of a key moment, as the words shown with it.
 const RV_TONE = { good: "Went well", bad: "Cost you", info: "Worth knowing" };
+// The symbol of each tone, on the run script's filter buttons.
+// The two "plan the next one" cards, styled like the front page of each mode: [mode, title, line].
+const RV_NEXT = [["prep", "Prep my run", "Prep it up, get it done."], ["plan", "Prep my race", "Know the course. Own the day."]];
+// The mountain logo of the brand (same drawing as PEAK in main.js).
+const RV_PEAK = `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M2 27 12 9l5 8 4-5 9 15z" fill="currentColor"/><path d="m12 9 2.6 4.6L12 12l-2 2.2z" fill="#fff" opacity=".85"/></svg>`;
+const RV_TONE_IC = { good: "+", bad: "−", info: "i" };
 // Words for the form level 1 to 5 of a stretch (index 0 is unused): how you ran it against your own
 // average. Used as the tooltip of the coloured route on the map.
 const RV_FORM = ["", "Much weaker", "Weaker", "Your average", "Stronger", "Much stronger"];
@@ -128,8 +134,11 @@ function rvTargetHtml(run, t) {
     ${rv.target ? `<button class="btn" type="button" id="rvTgtClear">Clear</button>` : ""}
     <span class="rv-tgt-err" id="rvTgtErr" role="alert"></span>
   </form>`;
+  // Links to the two planning modes, to prepare the next run or race (review of v2.10). The buttons
+  // press the mode switch on top (mountRun wires them).
+  const next = `<div class="rv-tgt-next"><span>Next step: plan the next one</span>${RV_NEXT.map(([m, title, line]) => `<button type="button" class="rv-next-card m-${m}" data-go-mode="${m}"><span class="brand">${RV_PEAK}Prep my race</span><b>${title}</b><em>${line}</em><i aria-hidden="true">→</i></button>`).join("")}</div>`;
   // 2. No target yet: just the form and a line on what it does.
-  if (!t) return `<div class="panel rv-tgt">${form}<p class="note">Type the time (or the pace) you were aiming for. The review then shows how far you were from it, where the time went, and how to spread your effort to get there next time.</p></div>`;
+  if (!t) return `<div class="panel rv-tgt">${form}<p class="note">Type the time (or the pace) you were aiming for, then press Compare. Right below this form you get the verdict, how far you were, where the time went and where to change your effort; the section box of the replay above also shows the target and your gap at every moment.</p>${next}</div>`;
   // 3. The verdict. Array destructuring: RV_STATUS[t.status] is [class, heading], so cls and head get
   // its two items.
   const [cls, head] = RV_STATUS[t.status];
@@ -178,6 +187,7 @@ function rvTargetHtml(run, t) {
       </tbody></table>
       <p class="note">The target spreads one even effort over the whole run: each section gets the time it takes at your own average for its kind of ground, scaled so the total hits the target (stops: 1 min per hour allowed). Moving time only; stops are in the Stops tile.</p>
     </details>
+    ${next}
   </div>`;
 }
 
@@ -285,7 +295,7 @@ const rvRefsLine = (gap) => {
 };
 // The references changed: refresh the line of the run on screen.
 document.addEventListener("trp-refs", () => document.querySelectorAll(".rv-refs").forEach((e) => { e.textContent = rvRefsLine(Number(e.dataset.gap)); }));
-const rv = { run: null, parsed: null, name: "", target: rvLoadTarget(), sec: 0, playing: false, speed: 180, pauseAt: false, follow: false, raf: 0, map: null, onKey: null };
+const rv = { run: null, parsed: null, name: "", target: rvLoadTarget(), sec: 0, playing: false, speed: 180, pauseAt: false, follow: false, raf: 0, map: null, onKey: null, sliding: false, hideTones: new Set() };
 
 /**
  * Seconds since midnight, local time, when the run started (for clock times of day).
@@ -448,6 +458,10 @@ export function mountRun(box, run) {
   const tile = (k, v, sub) => `<div class="rp-tot"><span class="k">${k}</span><b>${v}</b>${sub ? `<small>${sub}</small>` : ""}</div>`;
   const KIND = { climb: "climbs", descent: "descents", flat: "runnable stretches" };
   const legChip = (l) => `<span class="chip rv-${l.tone}">${l.verdict}${l.vsPct ? ` ${l.vsPct > 0 ? "+" : ""}${l.vsPct}%` : ""}</span>`;
+  // The run script, as in the race script: filter buttons by tone, one icon chip per moment, and the
+  // cards of the open moments (the first one open at first).
+  const tones = ["good", "bad", "info"].filter((t) => moments.some((m) => m.tone === t));
+  const open = new Set(moments.length ? [0] : []);
 
   // 2. The whole cockpit as one HTML string. Each block of the section bar is a <button> placed with
   // left and width in % of the run, so its width is its share of the course; its data-i is the
@@ -480,7 +494,7 @@ export function mountRun(box, run) {
       <div class="rp-prog" aria-hidden="true"><i id="rvBar"></i></div>
       <div class="rp-leg" id="rvLeg"></div>
       <div class="rp-now" id="rvNow" hidden></div>
-      <div class="rp-cue" id="rvCue" aria-live="polite"></div>
+      <ol class="rp-notifs rv-notifs" id="rvCue" aria-live="polite" aria-label="Latest moments"></ol>
       <ul class="kv rp-next" id="rvNext"></ul>
     </div>
   <div class="prof-wrap rp-prof" id="rvProf">${prof.html}</div>
@@ -498,8 +512,10 @@ export function mountRun(box, run) {
   ${rvStatsHtml(run, st)}
   <div class="sub-h" id="rv-target">Against your target</div>
   <div id="rvTgt">${rvTargetHtml(run, tgt)}</div>
-  <div class="sub-h" id="rv-moments">Key moments · ${good.length} went well · ${bad.length} cost you</div>
-  <ol class="rp-script rv-script" id="rvScript">${moments.map((m) => `<li data-i="${m.i}" class="rv-${m.tone}"><button type="button"><span class="ic">${RV_ICON[m.kind] || "•"}</span><span class="t"><b>${rvEsc(m.title)}</b><small>km ${m.km.toFixed(1)} · ${clock(st, m.sec)} · ${RV_TONE[m.tone]}</small></span><span class="cue">${rvEsc(m.text)}${m.tip ? `<em>${rvEsc(m.tip)}</em>` : ""}</span></button></li>`).join("")}</ol>
+  <div class="sub-h" id="rv-moments">Run script · ${moments.length} moments · ${good.length} went well · ${bad.length} cost you</div>
+  <div class="rs-filt" role="group" aria-label="Moment types">${tones.map((t) => `<button type="button" class="rs-f rv-${t}" data-k="${t}" aria-pressed="${!rv.hideTones.has(t)}" title="Show or hide: ${RV_TONE[t].toLowerCase()}"><span class="ic">${RV_TONE_IC[t]}</span>${RV_TONE[t]}<small>${moments.filter((m) => m.tone === t).length}</small></button>`).join("")}<button type="button" class="rs-all" id="rvAll"></button></div>
+  <div class="rs-chips" id="rvScript" role="group" aria-label="Run script moments">${moments.map((m, i) => `<button type="button" class="rs-chip rv-${m.tone}" data-i="${i}" data-k="${m.tone}" title="${rvEsc(m.title)} · km ${m.km.toFixed(1)} · ${clock(st, m.sec)}" aria-label="${rvEsc(m.title)}"><span class="ic">${RV_ICON[m.kind] || "•"}</span><small>${m.km.toFixed(0)}</small></button>`).join("")}</div>
+  <div class="rs-cards" id="rvCards"></div>
   <div class="sub-h">How to read it</div>
   <p class="note rv-how">Every section is compared with <b>your own average on the same kind of ground</b> that day: climbs with your climbs, descents with your descents, runnable stretches with your runnable stretches. The yardstick is grade-adjusted pace (GAP): your pace converted to the flat pace that would have cost the same energy, from the energy cost of running on a slope measured by Minetti and colleagues (2002). +10% on a climb = you climbed 10% faster than your average climb, for its steepness. Stops are any moment slower than 0.3 m/s; they count in the clock but not in the paces. Your file never leaves this page.</p>`;
 
@@ -669,13 +685,22 @@ export function mountRun(box, run) {
     // the earlier ones (past) in the list below.
     let ci = -1;
     for (let i = 0; i < moments.length && moments[i].sec <= s.sec + 0.5; i++) ci = i;
-    if (ci !== lastCue) {
+    if (ci !== lastCue && !rv.sliding) {
+      // The moments as notifications under the section box, as in the race script: the latest on
+      // top with its comment, the older ones pushed down and fading (at least the last 3, and every
+      // moment at the same time as the latest). Only moments reached going forward slide in.
+      const top = Math.max(0, ci);
+      const shown = [];
+      for (let i = top; i >= 0 && (shown.length < 3 || moments[i].sec >= moments[top].sec - 1); i--) shown.push(i);
+      const fwd = ci > lastCue;
+      els.cue.innerHTML = shown.map((i, n) => {
+        const e = moments[i];
+        const same = e.sec >= moments[top].sec - 1;
+        const c = n === 0 ? `<span class="c">${rvEsc(e.text)}${e.tip ? ` <em>${rvEsc(e.tip)}</em>` : ""}</span>` : "";
+        return `<li class="rv-${e.tone} o${same ? 0 : n}${n === 0 ? " top" : ""}${fwd && i > lastCue ? " new" : ""}" title="${rvEsc(e.text)}${e.tip ? ` ${rvEsc(e.tip)}` : ""}"><span class="ic">${RV_ICON[e.kind] || "•"}</span><b>${rvEsc(e.title)}</b><span class="d">km ${e.km.toFixed(1)} · ${hm(e.sec)}</span>${c}</li>`;
+      }).join("");
       lastCue = ci;
-      const e = moments[Math.max(0, ci)];
-      els.cue.className = `rp-cue rv-cue rv-${e.tone}`;
-      els.cue.title = `${e.text}${e.tip ? ` ${e.tip}` : ""}`;
-      els.cue.innerHTML = `<span class="ic">${RV_ICON[e.kind] || "•"}</span><div><div class="rp-cue-h"><b>${rvEsc(e.title)}</b><small>km ${e.km.toFixed(1)} · ${hm(e.sec)}</small></div><p>${rvEsc(e.text)}${e.tip ? ` <em>${rvEsc(e.tip)}</em>` : ""}</p></div>`;
-      els.list.querySelectorAll("li").forEach((x) => { x.classList.toggle("on", Number(x.dataset.i) === ci); x.classList.toggle("past", Number(x.dataset.i) < ci); });
+      els.list.querySelectorAll(".rs-chip").forEach((x) => { x.classList.toggle("on", Number(x.dataset.i) === ci); x.classList.toggle("past", Number(x.dataset.i) < ci); });
     }
     // The pace line: move the three clip rectangles (past, current section, ahead) and the dot, and
     // write the live pace next to the dot (on its left near the right edge, so it stays inside).
@@ -784,25 +809,65 @@ export function mountRun(box, run) {
   // section bar and the profile are in km, the progress bar under the clock in time.
   let wasPlaying = false, slidLeg = -1;
   const slideOpts = (toSec, light = false) => ({
-    onStart: () => { wasPlaying = rv.playing; slidLeg = -1; if (rv.playing) pause(); trackEvent("review-slide"); },
+    onStart: () => { wasPlaying = rv.playing; slidLeg = -1; rv.sliding = true; if (rv.playing) pause(); trackEvent("review-slide"); },
     onSlide: (f) => {
       seek(toSec(f));
       const i = runLegAt(legs, runStateAt(run, rv.sec).km);
       if (light && i !== slidLeg) { slidLeg = i; lightLeg(legs[i]); }
     },
-    onEnd: () => { if (wasPlaying) play(); },
+    onEnd: () => { rv.sliding = false; draw(); if (wasPlaying) play(); },
   });
   slidable($v("#rvLegs"), slideOpts((f) => runSecAtKm(run, f * TOT), true));
   slidable(els.bar.parentElement, slideOpts((f) => f * run.elapsedSec));
   if (svgEl) slidable(svgEl, slideOpts((f) => runSecAtKm(run, prof.km(f * 1000))));
-  // A click on a key moment in the list jumps there and scrolls the cockpit into view.
-  els.list.querySelectorAll("li button").forEach((b) => b.addEventListener("click", () => {
-    const e = moments[Number(b.parentElement.dataset.i)];
-    trackEvent("review-moment", e.tone);
+  // The run script: a chip opens or closes its card, a filter button hides or shows a tone, and a
+  // card's "Go there" moves the replay to that moment, its section lit on the map at your zoom.
+  const cards = $v("#rvCards");
+  const allBtn = $v("#rvAll");
+  const visible = (i) => !rv.hideTones.has(moments[i].tone);
+  const drawList = () => {
+    els.list.querySelectorAll(".rs-chip").forEach((b) => {
+      const i = Number(b.dataset.i);
+      b.hidden = !visible(i);
+      b.setAttribute("aria-pressed", String(open.has(i)));
+    });
+    box.querySelectorAll(".rs-f").forEach((b) => b.setAttribute("aria-pressed", String(!rv.hideTones.has(b.dataset.k))));
+    cards.innerHTML = [...open].filter(visible).sort((a, b) => a - b).map((i) => {
+      const e = moments[i];
+      return `<article class="rs-card rv-${e.tone}" data-i="${i}"><span class="ic">${RV_ICON[e.kind] || "•"}</span><div class="t"><b>${rvEsc(e.title)}</b><small>km ${e.km.toFixed(1)} · ${clock(st, e.sec)} · ${hm(e.sec)} into the run · ${RV_TONE[e.tone]}</small><p>${rvEsc(e.text)}${e.tip ? `<em>${rvEsc(e.tip)}</em>` : ""}</p></div><button type="button" class="btn rs-go" data-go="${i}">Go there</button><button type="button" class="rs-x" data-x="${i}" aria-label="Close">×</button></article>`;
+    }).join("");
+    allBtn.textContent = moments.some((e, i) => visible(i) && !open.has(i)) ? "Open all" : "Close all";
+  };
+  els.list.querySelectorAll(".rs-chip").forEach((b) => b.addEventListener("click", () => {
+    const i = Number(b.dataset.i);
+    if (open.has(i)) open.delete(i);
+    else { open.add(i); trackEvent("review-moment", moments[i].tone); }
+    drawList();
+  }));
+  box.querySelectorAll(".rs-f").forEach((b) => b.addEventListener("click", () => {
+    const k = b.dataset.k;
+    if (rv.hideTones.has(k)) rv.hideTones.delete(k); else rv.hideTones.add(k);
+    trackEvent("review-filter", k);
+    drawList();
+  }));
+  allBtn.addEventListener("click", () => {
+    const ids = moments.map((e, i) => i).filter(visible);
+    if (allBtn.textContent === "Open all") ids.forEach((i) => open.add(i)); else ids.forEach((i) => open.delete(i));
+    drawList();
+  });
+  cards.addEventListener("click", (ev) => {
+    const x = ev.target.closest("[data-x]");
+    if (x) { open.delete(Number(x.dataset.x)); drawList(); return; }
+    const g = ev.target.closest("[data-go]");
+    if (!g) return;
+    const e = moments[Number(g.dataset.go)];
+    trackEvent("review-moment-go", e.tone);
     pause();
     seek(e.sec + 1);
+    lightLeg(legs[runLegAt(legs, e.km)]);
     $v("#rvCockpit").scrollIntoView({ behavior: "smooth", block: "start" });
-  }));
+  });
+  drawList();
   // A tap on the profile jumps the replay to that km. A pointer that moved 8 px or more between down
   // and up was a drag (scrolling the profile), not a tap. Pointer events cover mouse, pen and touch.
   // The tap's x is turned into SVG units (0 to 1000), then into a km, then into the run second at that
@@ -863,6 +928,12 @@ export function mountRun(box, run) {
     const clr = $v("#rvTgtClear");
     if (clr) clr.addEventListener("click", () => { rv.target = null; rvSaveTarget(null); trackEvent("review-target", "clear"); mountRun(box, run); });
   }
+  // "Plan the next one": press the matching button of the mode switch on top.
+  box.querySelectorAll("[data-go-mode]").forEach((b) => b.addEventListener("click", () => {
+    trackEvent("review-next-mode", b.dataset.goMode);
+    const m = document.querySelector(`.mode-seg button[data-mode="${b.dataset.goMode}"]`);
+    if (m) { m.click(); window.scrollTo({ top: 0, behavior: "smooth" }); }
+  }));
   // First draw, at the saved position.
   draw();
 }

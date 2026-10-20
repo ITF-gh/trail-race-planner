@@ -80,7 +80,8 @@ export function bestCurve(run) {
  *
  * Returns one object per band that has data, steepest descent first: {from, to, mid (%), km,
  * sec, share (of moving time), pace, gap (s/km), hr, cad, hikeShare (0..1), vam (m/h on
- * climbing bands), descentRate (m/h on descending bands)}.
+ * climbing bands), descentRate (m/h on descending bands), when (0..1: how far into the run the
+ * time on that band was spent, on average, weighted by moving time)}.
  */
 export function gradeBands(run, width = 5) {
   const bands = new Map();
@@ -93,9 +94,10 @@ export function gradeBands(run, width = 5) {
     const k = Math.round(Math.max(-45, Math.min(45, s.g)) / width);
     // First sample in this band: create its running sums and store them in the Map.
     let b = bands.get(k);
-    if (!b) { b = { k, from: (k - 0.5) * width, to: (k + 0.5) * width, m: 0, sec: 0, eq: 0, hrSec: 0, hrSum: 0, cadSec: 0, cadSum: 0, hikeSec: 0, up: 0, down: 0 }; bands.set(k, b); }
+    if (!b) { b = { k, from: (k - 0.5) * width, to: (k + 0.5) * width, m: 0, sec: 0, eq: 0, hrSec: 0, hrSum: 0, cadSec: 0, cadSum: 0, hikeSec: 0, up: 0, down: 0, tSum: 0 }; bands.set(k, b); }
     b.m += run.step;
     b.sec += s.mv;
+    b.tSum += s.mv * (run.T[i] / (run.elapsedSec || 1));
     b.eq += run.step * effortFactor(s.g);
     if (s.hr) { b.hrSec += s.mv; b.hrSum += s.hr * s.mv; }
     if (s.cad) { b.cadSec += s.mv; b.cadSum += s.cad * s.mv; if (s.cad < IN_HIKE_CAD) b.hikeSec += s.mv; }
@@ -111,6 +113,7 @@ export function gradeBands(run, width = 5) {
     hr: b.hrSec > 0 ? b.hrSum / b.hrSec : null, cad: b.cadSec > 0 ? b.cadSum / b.cadSec : null,
     hikeShare: b.cadSec > 0 ? b.hikeSec / b.cadSec : null,
     vam: b.up > 0 && b.k > 0 ? (b.up / b.sec) * 3600 : null, descentRate: b.down > 0 && b.k < 0 ? (b.down / b.sec) * 3600 : null,
+    when: b.sec > 0 ? b.tSum / b.sec : null,
   }));
 }
 
@@ -208,7 +211,7 @@ export function paceHistogram(run, binSec = 15, list = runChunks(run)) {
 // The 7 gradient bands of the heat map, steepest descent first (Boss's bands, 2026-10-18).
 export const HEAT_BANDS = [
   { from: -Infinity, to: -10, label: "< -10%" }, { from: -10, to: -5, label: "-10 to -5%" }, { from: -5, to: -2, label: "-5 to -2%" },
-  { from: -2, to: 2, label: "-2 to +2%" }, { from: 2, to: 5, label: "+2 to +5%" }, { from: 5, to: 10, label: "+5 to +10%" },
+  { from: -2, to: 2, label: "Flat" }, { from: 2, to: 5, label: "+2 to +5%" }, { from: 5, to: 10, label: "+5 to +10%" },
   { from: 10, to: Infinity, label: "> +10%" },
 ];
 
