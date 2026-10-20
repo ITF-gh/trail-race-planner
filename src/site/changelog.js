@@ -2,6 +2,11 @@
 // technical detail). The first entry is the current version: the footer shows it on every page.
 
 export const CHANGELOG = [
+  { v: "2.11", date: "2026-10-20", items: [
+    "Rewind my run review. The key moments now pop up under the section box like text messages, the latest one with its comment, and the list below the replay is a run script of icon chips you can filter (went well, cost you, worth knowing), each opening a card with Go there.",
+    "Against your target: two buttons to plan the next one in Prep my run or Prep my race.",
+    "Deep dive: a new banner photo; key numbers without boxes; best efforts with a thin slider and the pace written on the curve; pace by gradient as coloured outlines with the pace inside; the heat map's middle row is called Flat; the pace distribution runs from slow to fast; the climbs and descents table starts folded.",
+  ] },
   { v: "2.10", date: "2026-10-18", items: [
     "Rewind my run, Deep dive: a new pace heat map. One row per gradient, one column per 10% of the run, each box sized by the distance run there and coloured from gold (faster than your other moments on that gradient) to grey (slower). Tap a box to replay that moment.",
   ] },

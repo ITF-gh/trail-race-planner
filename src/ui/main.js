@@ -166,7 +166,7 @@ applyTheme(initialTheme());
 
 // PHOTOS: who took each banner photo and its Pexels page, used for the credit links.
 // Keys: hero / heroRun / heroRewind (top banner in Prep my race / Prep my run / Rewind my run),
-// s1..s5 (section banners).
+// s1..s6 (section banners).
 const PHOTOS = {
   hero: { by: "Artem Meletov", url: "https://www.pexels.com/photo/person-standing-on-mountain-peak-above-clouds-8910505/" },
   heroRun: { by: "Cara Denison", url: "https://www.pexels.com/photo/silhouette-of-jogger-at-sunset-in-park-34730429/" },
@@ -176,6 +176,7 @@ const PHOTOS = {
   s3: { by: "Jack Davis", url: "https://www.pexels.com/photo/back-view-of-a-woman-running-up-the-mountain-trail-8949023/" },
   s4: { by: "Lorenzo Castellino", url: "https://www.pexels.com/photo/man-walking-at-a-river-in-mountains-14989443/" },
   s5: { by: "Alin Serban", url: "https://www.pexels.com/photo/trail-runner-in-green-mountain-landscape-30932860/" },
+  s6: { by: "Kelly", url: "https://www.pexels.com/photo/black-digital-smartwatch-3999644/" },
 };
 /** credit(key, cls): the small "Photo: name / Pexels" link for one photo, as HTML text. */
 const credit = (key, cls = "") => `<a class="photo-credit${cls ? " " + cls : ""}" href="${PHOTOS[key].url}" target="_blank" rel="noopener">Photo: ${PHOTOS[key].by} / Pexels</a>`;

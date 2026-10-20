@@ -208,7 +208,7 @@ export function paceHistogram(run, binSec = 15, list = runChunks(run)) {
 // The 7 gradient bands of the heat map, steepest descent first (Boss's bands, 2026-10-18).
 export const HEAT_BANDS = [
   { from: -Infinity, to: -10, label: "< -10%" }, { from: -10, to: -5, label: "-10 to -5%" }, { from: -5, to: -2, label: "-5 to -2%" },
-  { from: -2, to: 2, label: "-2 to +2%" }, { from: 2, to: 5, label: "+2 to +5%" }, { from: 5, to: 10, label: "+5 to +10%" },
+  { from: -2, to: 2, label: "Flat" }, { from: 2, to: 5, label: "+2 to +5%" }, { from: 5, to: 10, label: "+5 to +10%" },
   { from: 10, to: Infinity, label: "> +10%" },
 ];
 

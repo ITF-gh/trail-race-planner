@@ -44,6 +44,7 @@ export const SITE_PHOTOGRAPHERS = [
   ["Jack Davis", "https://www.pexels.com/photo/back-view-of-a-woman-running-up-the-mountain-trail-8949023/"],
   ["Lorenzo Castellino", "https://www.pexels.com/photo/man-walking-at-a-river-in-mountains-14989443/"],
   ["Alin Serban", "https://www.pexels.com/photo/trail-runner-in-green-mountain-landscape-30932860/"],
+  ["Kelly", "https://www.pexels.com/photo/black-digital-smartwatch-3999644/"],
 ];
 
 export const SITE_PEAK = `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M2 27 12 9l5 8 4-5 9 15z" fill="currentColor"/><path d="m12 9 2.6 4.6L12 12l-2 2.2z" fill="#fff" opacity=".85"/></svg>`;
