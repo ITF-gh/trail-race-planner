@@ -4,8 +4,8 @@
 export const CHANGELOG = [
   { v: "2.11", date: "2026-10-20", items: [
     "Rewind my run review. The key moments now pop up under the section box like text messages, the latest one with its comment, and the list below the replay is a run script of icon chips you can filter (went well, cost you, worth knowing), each opening a card with Go there.",
-    "Against your target: two big buttons to plan the next one in Prep my run or Prep my race.",
-    "Deep dive: a new banner photo; key numbers without boxes; best efforts with the pace written on the curve, tap a point to pick a distance; pace by gradient as outlined bars with the pace inside, the border colour telling when in the run you were on that gradient; the heat map's middle row is called Flat; the climbs and descents table starts folded.",
+    "Against your target: two big cards, like each mode's front page, to plan the next one in Prep my run or Prep my race.",
+    "Deep dive: a new banner photo; key numbers without boxes; best efforts with the pace written on the curve, tap a point to pick a distance, no buttons; pace by gradient as outlined bars with the pace inside, the border colour telling when in the run you were on that gradient; the heat map's middle row is called Flat; the climbs and descents table starts folded.",
     "Site pages: the footer now opens with a trail profile line.",
   ] },
   { v: "2.10", date: "2026-10-18", items: [

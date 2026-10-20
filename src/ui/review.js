@@ -69,6 +69,10 @@ const RV_ICON = { start: "▶", finish: "🏁", climb: "▲", descent: "▼", fl
 // The three tones of a key moment, as the words shown with it.
 const RV_TONE = { good: "Went well", bad: "Cost you", info: "Worth knowing" };
 // The symbol of each tone, on the run script's filter buttons.
+// The two "plan the next one" cards, styled like the front page of each mode: [mode, title, line].
+const RV_NEXT = [["prep", "Prep my run", "Prep it up, get it done."], ["plan", "Prep my race", "Know the course. Own the day."]];
+// The mountain logo of the brand (same drawing as PEAK in main.js).
+const RV_PEAK = `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M2 27 12 9l5 8 4-5 9 15z" fill="currentColor"/><path d="m12 9 2.6 4.6L12 12l-2 2.2z" fill="#fff" opacity=".85"/></svg>`;
 const RV_TONE_IC = { good: "+", bad: "−", info: "i" };
 // Words for the form level 1 to 5 of a stretch (index 0 is unused): how you ran it against your own
 // average. Used as the tooltip of the coloured route on the map.
@@ -132,7 +136,7 @@ function rvTargetHtml(run, t) {
   </form>`;
   // Links to the two planning modes, to prepare the next run or race (review of v2.10). The buttons
   // press the mode switch on top (mountRun wires them).
-  const next = `<div class="rv-tgt-next"><span>Next step: plan the next one</span><button type="button" class="btn primary" data-go-mode="prep">◆ Prep my run</button><button type="button" class="btn primary" data-go-mode="plan">▲ Prep my race</button></div>`;
+  const next = `<div class="rv-tgt-next"><span>Next step: plan the next one</span>${RV_NEXT.map(([m, title, line]) => `<button type="button" class="rv-next-card m-${m}" data-go-mode="${m}"><span class="brand">${RV_PEAK}Prep my race</span><b>${title}</b><em>${line}</em><i aria-hidden="true">→</i></button>`).join("")}</div>`;
   // 2. No target yet: just the form and a line on what it does.
   if (!t) return `<div class="panel rv-tgt">${form}<p class="note">Type the time (or the pace) you were aiming for, then press Compare. Right below this form you get the verdict, how far you were, where the time went and where to change your effort; the section box of the replay above also shows the target and your gap at every moment.</p>${next}</div>`;
   // 3. The verdict. Array destructuring: RV_STATUS[t.status] is [class, heading], so cls and head get
@@ -928,7 +932,7 @@ export function mountRun(box, run) {
   box.querySelectorAll("[data-go-mode]").forEach((b) => b.addEventListener("click", () => {
     trackEvent("review-next-mode", b.dataset.goMode);
     const m = document.querySelector(`.mode-seg button[data-mode="${b.dataset.goMode}"]`);
-    if (m) m.click();
+    if (m) { m.click(); window.scrollTo({ top: 0, behavior: "smooth" }); }
   }));
   // First draw, at the saved position.
   draw();

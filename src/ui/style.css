@@ -1720,6 +1720,18 @@ html[data-theme="sky"] .rs-chip{background:rgba(31,111,209,.05)}
 html[data-theme="sky"] .rp-notifs li.rv-info .ic,html[data-theme="sky"] .rs-chip.rv-info .ic,html[data-theme="sky"] .rs-f.rv-info .ic,html[data-theme="sky"] .rs-card.rv-info .ic{background:rgba(15,39,71,.15)}
 @media (max-width:640px){ .rv-notifs li.top .c{font-size:11.5px} .rv-notifs li.top .c em{display:none} }
 .rv-tgt-next{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin:14px 0 0;padding-top:12px;border-top:1px solid var(--line)}
-.rv-tgt-next span{flex-basis:100%;font-family:var(--f-display);font-weight:700;font-style:italic;text-transform:uppercase;letter-spacing:.06em;color:var(--fg);font-size:15px}
-.rv-tgt-next .btn{min-height:48px;padding:10px 22px;font-size:16px}
-@media (max-width:640px){ .rv-tgt-next .btn{flex:1 1 140px} }
+.rv-tgt-next>span{flex-basis:100%;font-family:var(--f-display);font-weight:700;font-style:italic;text-transform:uppercase;letter-spacing:.06em;color:var(--fg);font-size:15px}
+/* Next-step cards: a small copy of each mode's front page (photo, mountain logo, big title). */
+.rv-next-card{position:relative;flex:1 1 300px;display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-height:180px;padding:22px 24px;border:0;border-radius:var(--r);cursor:pointer;text-align:left;color:#fff;overflow:hidden;
+  background:linear-gradient(100deg,rgba(6,16,31,.9) 0%,rgba(6,16,31,.55) 55%,rgba(6,16,31,.15) 100%),var(--nc-photo) var(--nc-pos,50% 50%)/cover no-repeat,var(--pine);
+  box-shadow:0 8px 28px rgba(0,0,0,.25);transition:transform .15s,box-shadow .15s}
+.rv-next-card.m-prep{--nc-photo:url("photos/hero-run.webp");--nc-pos:50% 60%}
+.rv-next-card.m-plan{--nc-photo:url("photos/hero.webp");--nc-pos:50% 30%}
+.rv-next-card:hover,.rv-next-card:focus-visible{transform:translateY(-3px);box-shadow:0 14px 34px rgba(0,0,0,.35)}
+.rv-next-card .brand{font-size:12px}
+.rv-next-card .brand svg{width:22px;height:22px}
+.rv-next-card b{font-family:var(--f-display);font-weight:800;font-style:italic;text-transform:uppercase;font-size:clamp(32px,4.4vw,48px);line-height:.9;text-shadow:0 3px 20px rgba(0,0,0,.4)}
+.rv-next-card em{font-style:italic;color:var(--sun);font-family:var(--f-display);font-weight:700;text-transform:uppercase;letter-spacing:.03em;font-size:17px}
+.rv-next-card i{position:absolute;right:20px;bottom:14px;font-style:normal;font-size:30px;color:var(--sun);transition:transform .15s}
+.rv-next-card:hover i{transform:translateX(5px)}
+@media (max-width:640px){ .rv-next-card{min-height:150px;padding:18px} }

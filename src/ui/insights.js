@@ -214,7 +214,7 @@ function inBest(run) {
   curve.forEach((c) => { s += `<circle class="in-pt" data-m="${c.m}" cx="${lx(c.m).toFixed(1)}" cy="${y(c.pace).toFixed(1)}" r="5"><title>Best ${c.m >= 1000 ? `${(c.m / 1000).toFixed(c.m % 1000 ? 1 : 0)} km` : `${c.m} m`}: ${mmss(c.sec)} (${mmss(c.pace)}/km), km ${c.km.toFixed(1)}</title></circle>`; });
   if (cur) s += `<line class="in-cur" x1="${lx(cur.m).toFixed(1)}" x2="${lx(cur.m).toFixed(1)}" y1="${t}" y2="${H - b}"/><circle class="in-pt cur" data-m="${cur.m}" cx="${lx(cur.m).toFixed(1)}" cy="${y(cur.pace).toFixed(1)}" r="7"/>`;
   const label = inDist;
-  return `${cur ? `<p class="in-res">Best <b>${label(cur.m)}</b>: <b>${mmss(cur.sec)}</b> at <b>${mmss(cur.pace)}/km</b>, from km ${cur.km.toFixed(1)} to ${cur.toKm.toFixed(1)}. <button type="button" class="btn sm" data-sec="${Math.round(cur.startSec)}">▶ Replay it</button></p>` : ""}
+  return `${cur ? `<p class="in-res">Best <b>${label(cur.m)}</b>: <b>${mmss(cur.sec)}</b> at <b>${mmss(cur.pace)}/km</b>, from km ${cur.km.toFixed(1)} to ${cur.toKm.toFixed(1)}.</p>` : ""}
     <svg viewBox="0 0 ${W} ${H}" class="in-svg" role="img" aria-label="Best pace for each distance">${s}</svg>`;
 }
 
@@ -413,7 +413,7 @@ export function mountInsights(box, run, { onSeek } = {}) {
   // then put the slider above it.
   box.innerHTML = `<div class="in-wrap">
     ${inCard("inKpi", "Key numbers", "tap or hover a number for what it means", `<div id="inKpiBody">${inKpis(run)}</div><details class="in-more"><summary>Your settings: weight</summary>${inSettings()}</details>`, true)}
-    ${inCard("inBest", "Best efforts", "your fastest stretch for any distance", `<div id="inBestBody">${inBest(run)}</div><p class="note">Each point is your fastest stretch of that length on the clock (a stop inside it counts). Faster is higher. Tap a point to see that distance, then Replay it.</p>`)}
+    ${inCard("inBest", "Best efforts", "your fastest stretch for any distance", `<div id="inBestBody">${inBest(run)}</div><p class="note">Each point is your fastest stretch of that length on the clock (a stop inside it counts). Faster is higher. Tap a point to see that distance.</p>`)}
     ${inCard("inBandC", "Pace by gradient", "where your time went, and how fast you were there", `<div id="inBandBody">${inBands(run)}</div>`)}
     ${inCard("inHeatC", "Pace heat map", "pace on each gradient, all along the run", `<div id="inHeatBody">${inHeat(run, list)}</div>`, true)}
     ${inCard("inHistC", "Pace distribution", "how much time at each pace", `<div id="inHistBody">${inHist(run, list)}</div>`)}
