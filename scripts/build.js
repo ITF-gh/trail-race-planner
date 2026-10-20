@@ -136,8 +136,7 @@ if (prov && ANALYTICS.site) {
   const a = Object.entries(attrs).map(([k, v]) => ` ${k}='${v}'`).join("");
   counter = { name: { goatcounter: "GoatCounter", plausible: "Plausible", cloudflare: "Cloudflare Web Analytics" }[ANALYTICS.provider], tag: `<script async src="${src}"${a}></script>` };
 }
-const howMd = readFileSync(join(root, "docs/HOW_IT_WORKS.md"), "utf8");
-for (const [file, html] of sitePages({ fonts, counter, howMd })) writeFileSync(join(root, "dist", file), html);
+for (const [file, html] of sitePages({ fonts, counter })) writeFileSync(join(root, "dist", file), html);
 // Icons, the share-preview image and the guide screenshots (made once by scripts/site-images.mjs
 // and scripts/guide-shots.mjs, kept in src/site).
 cpSync(join(root, "src/site/icons"), join(root, "dist"), { recursive: true });

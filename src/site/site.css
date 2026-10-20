@@ -131,3 +131,8 @@ body.site-page{background:var(--band-1)}
 .nf p:last-child{display:flex;gap:10px;flex-wrap:wrap}
 .site-page .tn-brand{display:flex!important}
 html[data-theme="sky"] .sf-col h4,html[data-theme="sky"] .sf-logo svg{color:#ffd66b}
+
+/* About, How it works: six short numbered steps (review of v2.11: "make it shorter"). */
+.sp-steps{margin:8px 0 12px;padding-left:22px;display:flex;flex-direction:column;gap:10px}
+.sp-steps li{padding-left:4px}
+.sp-steps li::marker{font-family:var(--f-display);font-weight:800;font-style:italic;color:var(--accent)}
