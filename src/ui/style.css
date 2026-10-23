@@ -1823,36 +1823,37 @@ html[data-theme="sky"] .gl-row.on{background:rgba(255,255,255,.35)}
 .acct-links .acct-danger:hover{border-color:#ff3048}
 
 /* AI waiting animation (Boss, 2026-10-23): a trail runner runs along a line and nature pops up
-   ahead of them; the loop lasts 7 s. Motion off for people who ask their system for less. */
+   ahead of them; the loop lasts 14 s (a slow Z2 jog). Motion off for people who ask their system for less. */
 .ai-wait{display:block;width:100%;max-width:420px;height:auto;margin:6px 0 4px;overflow:visible}
 .ai-wait .aiw-ground{stroke:var(--muted);stroke-width:2;stroke-linecap:round;stroke-dasharray:1 7;opacity:.8}
 .ai-wait .aiw-hills{fill:var(--muted);opacity:.14}
-.ai-wait .aiw-runner{animation:aiw-run 7s linear infinite}
-.ai-wait .aiw-body{animation:aiw-bob .38s ease-in-out infinite alternate}
-.ai-wait .aiw-runner line,.ai-wait .aiw-runner path{stroke:var(--sun);stroke-width:3.2;stroke-linecap:round;fill:none}
-.ai-wait .aiw-runner circle{fill:var(--sun)}
-.ai-wait .aiw-l{transform-box:fill-box;transform-origin:50% 0;animation:aiw-leg .38s ease-in-out infinite alternate}
-.ai-wait .aiw-l.b,.ai-wait .aiw-a.b{animation-direction:alternate-reverse}
-.ai-wait .aiw-a{transform-box:fill-box;transform-origin:50% 0;animation:aiw-arm .38s ease-in-out infinite alternate}
+.ai-wait .aiw-runner{animation:aiw-run 14s linear infinite}
+.ai-wait .aiw-body{animation:aiw-bob .42s ease-in-out infinite alternate}
+.ai-wait .aiw-runner line,.ai-wait .aiw-runner path{stroke:var(--sun);stroke-width:3.4;stroke-linecap:round;stroke-linejoin:round;fill:none}
+.ai-wait .aiw-runner .aiw-torso{stroke-width:5}
+.ai-wait .aiw-runner .back line,.ai-wait .aiw-runner .back path{opacity:.6}
+.ai-wait .aiw-runner .aiw-vest{fill:var(--accent);stroke:var(--accent);stroke-width:1.5}
+.ai-wait .aiw-runner .aiw-shorts{fill:#2a3550;stroke:#2a3550;stroke-width:1}
+.ai-wait .aiw-runner .aiw-cap{stroke:var(--accent);stroke-width:2.6}
+.ai-wait .aiw-runner .aiw-shoe{stroke-width:3.6}
+.ai-wait .aiw-runner circle{fill:#f2c9a0}
 .ai-wait .aiw-i{transform-box:fill-box;transform-origin:50% 100%;opacity:0}
 .ai-wait .pine{fill:#3fb27f}.ai-wait .trunk{fill:#8a6a4a}.ai-wait .rock{fill:#8c97a8}
 .ai-wait .petal{fill:#fff;stroke:#c9d2dc;stroke-width:.6}.ai-wait .heart{fill:var(--sun)}
 .ai-wait .bird{fill:none;stroke:var(--fg);stroke-width:1.6;stroke-linecap:round;opacity:.7}
 @keyframes aiw-run{0%{transform:translateX(0);opacity:0}4%{opacity:1}90%{transform:translateX(262px);opacity:1}96%,100%{transform:translateX(270px);opacity:0}}
 @keyframes aiw-bob{from{transform:translateY(0)}to{transform:translateY(-3px)}}
-@keyframes aiw-leg{from{transform:rotate(32deg)}to{transform:rotate(-32deg)}}
-@keyframes aiw-arm{from{transform:rotate(-38deg)}to{transform:rotate(38deg)}}
 
-.ai-wait .aiw-i.n0{animation:aiw-pop0 7s ease-out infinite}
+.ai-wait .aiw-i.n0{animation:aiw-pop0 14s ease-out infinite}
 @keyframes aiw-pop0{0%,9%{opacity:0;transform:scale(0)}13%{opacity:1;transform:scale(1.2)}16%,90%{opacity:1;transform:scale(1)}97%,100%{opacity:0;transform:scale(1)}}
-.ai-wait .aiw-i.n1{animation:aiw-pop1 7s ease-out infinite}
+.ai-wait .aiw-i.n1{animation:aiw-pop1 14s ease-out infinite}
 @keyframes aiw-pop1{0%,24%{opacity:0;transform:scale(0)}28%{opacity:1;transform:scale(1.2)}31%,90%{opacity:1;transform:scale(1)}97%,100%{opacity:0;transform:scale(1)}}
-.ai-wait .aiw-i.n2{animation:aiw-pop2 7s ease-out infinite}
+.ai-wait .aiw-i.n2{animation:aiw-pop2 14s ease-out infinite}
 @keyframes aiw-pop2{0%,38%{opacity:0;transform:scale(0)}42%{opacity:1;transform:scale(1.2)}45%,90%{opacity:1;transform:scale(1)}97%,100%{opacity:0;transform:scale(1)}}
-.ai-wait .aiw-i.n3{animation:aiw-pop3 7s ease-out infinite}
+.ai-wait .aiw-i.n3{animation:aiw-pop3 14s ease-out infinite}
 @keyframes aiw-pop3{0%,53%{opacity:0;transform:scale(0)}57%{opacity:1;transform:scale(1.2)}60%,90%{opacity:1;transform:scale(1)}97%,100%{opacity:0;transform:scale(1)}}
-.ai-wait .aiw-i.n4{animation:aiw-pop4 7s ease-out infinite}
+.ai-wait .aiw-i.n4{animation:aiw-pop4 14s ease-out infinite}
 @keyframes aiw-pop4{0%,67%{opacity:0;transform:scale(0)}71%{opacity:1;transform:scale(1.2)}74%,90%{opacity:1;transform:scale(1)}97%,100%{opacity:0;transform:scale(1)}}
-.ai-wait .aiw-i.n5{animation:aiw-pop5 7s ease-out infinite}
+.ai-wait .aiw-i.n5{animation:aiw-pop5 14s ease-out infinite}
 @keyframes aiw-pop5{0%,82%{opacity:0;transform:scale(0)}86%{opacity:1;transform:scale(1.2)}89%,90%{opacity:1;transform:scale(1)}97%,100%{opacity:0;transform:scale(1)}}
 @media (prefers-reduced-motion:reduce){.ai-wait *{animation:none!important}.ai-wait .aiw-i{opacity:1}}
