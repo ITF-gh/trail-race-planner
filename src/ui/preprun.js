@@ -26,7 +26,8 @@
 import { parseGpx } from "../core/track.js";
 import { buildPlan } from "../core/plan.js";
 import { prepRunPlan } from "../core/preprun.js";
-import { hm, parseDuration } from "../core/format.js";
+import { hm, clock, parseDuration } from "../core/format.js";
+import { starChip, descChip } from "./chips.js";
 import { makeDemoRaceGpx, DEMO_LONG_RUN_PROFILE } from "../demo.js";
 import { watchPanelHtml, mountWatch, watchPoints, downloadCourse, pimpBadge } from "./watch.js";
 import { trackEvent } from "./analytics.js";
@@ -65,6 +66,62 @@ export function prepHeroHtml(brand) {
       </div>
       ${refsCardHtml("prep")}
     </div>`;
+}
+
+/**
+ * "Your run at a glance": the run's important steps in the order you meet them, to read just
+ * before you go. Start, every climb (no bumps) and descent, the runnable stretches of 1 km or
+ * more between them, and Finish. Each row: clock time and km, what it is (stars for a climb,
+ * shoes for a descent), its figures, its tactic in one line, and how long it lasts. A step that
+ * meets a key zone carries its gold ★ badge and the zone's advice.
+ * Unlike Prep my race's tables (climbs and descents apart, steepest 100 m...), one list, by time.
+ */
+function glanceHtml(plan) {
+  const st = plan.startSec;
+  const T = plan.course.totalKm;
+  const at = (x) => x.start.central;
+  const steps = [
+    ...plan.climbs.filter((c) => !c.bump).map((c) => ({ kind: "c", x: c })),
+    ...plan.descents.map((d) => ({ kind: "d", x: d })),
+  ].sort((a, b) => a.x.startKm - b.x.startKm);
+  // zoneOf(a, b): the first key zone that covers more than half of km a..b, or that holds it.
+  const zoneOf = (a, b) => (plan.keyZones || []).find((z) => Math.min(b, z.toKm) - Math.max(a, z.fromKm) > Math.min(0.5 * (b - a), 0.5 * (z.toKm - z.fromKm)));
+  const timeAt = (km) => { const P = plan.course.profile, tl = plan.scenarios.central.timeline; let i = P.findIndex((p) => p[0] >= km); if (i <= 0) return i ? tl[tl.length - 1] : 0; const f = (km - P[i - 1][0]) / Math.max(1e-9, P[i][0] - P[i - 1][0]); return tl[i - 1] + f * (tl[i] - tl[i - 1]); };
+  const mins = (s) => (s >= 3600 ? hm(s) : `${Math.max(1, Math.round(s / 60))} min`);
+  const zoneBit = (z) => (z ? `<span class="gl-kz" title="${prEsc(z.title)}">★${z.n} ${prEsc(z.modeLabel)}</span>` : "");
+  const zoneHow = (z) => (z ? `<div class="gl-how">${prEsc(z.how.split(". ")[0].replace(/\.$/, ""))}.</div>` : "");
+  const row = (cls, t, km, icon, title, figs, tactic, dur, z) => `<li class="gl-row ${cls}${z ? " kz" : ""}">
+      <div class="gl-t"><b>${t}</b><small>km ${km.toFixed(1)}</small></div>
+      <div class="gl-i">${icon}</div>
+      <div class="gl-m"><div class="gl-h">${title}${zoneBit(z)}</div>${figs ? `<div class="gl-f">${figs}</div>` : ""}${tactic ? `<div class="gl-tac">${tactic}</div>` : ""}${zoneHow(z)}</div>
+      <div class="gl-d">${dur}</div></li>`;
+  const out = [row("gl-start", clock(st, 0), 0, "▶", "Start", `${T.toFixed(1)} km · +${Math.round(plan.course.gain)} m · ${steps.filter((s) => s.kind === "c").length} climbs ahead`, "Easy first km, let the body wake up", "", null)];
+  // gap(a, b): the runnable stretch between two steps, shown from 1 km, or when a key zone sits on it.
+  const gap = (a, b) => {
+    const z = zoneOf(a, b);
+    if (b - a < 1 && !z) return;
+    const t0 = timeAt(a), t1 = timeAt(b);
+    out.push(row("gl-run", clock(st, t0), a, "", `Runnable · ${(b - a).toFixed(1)} km`, "", "", mins(t1 - t0), z));
+  };
+  let km = 0;
+  steps.forEach(({ kind, x }) => {
+    gap(km, x.startKm);
+    const z = zoneOf(x.startKm, x.endKm);
+    const lenKm = `${(x.lenM / 1000).toFixed(1)} km`;
+    if (kind === "c") {
+      const parts = x.sections.length ? ` · ${x.sections.length} parts` : "";
+      out.push(row(`gl-c v${x.level}`, clock(st, at(x)), x.startKm, starChip(x.level), x.label || `Climb ${x.n}`, `${lenKm} · +${Math.round(x.gain)} m · ${x.avg.toFixed(0)}% avg${parts}`, prEsc(x.tactic), mins(x.dur.central), z));
+    } else {
+      out.push(row(`gl-dsc v${x.level}`, clock(st, at(x)), x.startKm, descChip(x.level), `Descent ${x.n}`, `${lenKm} · −${Math.round(x.loss)} m · ${Math.abs(x.avg).toFixed(0)}% avg`, prEsc(x.tactic), mins(x.dur.central), z));
+    }
+    km = x.endKm;
+  });
+  gap(km, T);
+  const fin = plan.scenarios.central.finishSec;
+  out.push(row("gl-fin", clock(st, fin), T, "◆", "Finish", `${hm(fin)} on the move`, "", "", null));
+  return `<details class="fold glance" id="prep-glance" open><summary class="sub-h">Your run at a glance</summary>
+    <p class="note gl-note">The steps that matter, in the order you meet them. Gold ★ = a key zone, where the run is played.</p>
+    <ol class="gl-list">${out.join("")}</ol></details>`;
 }
 
 /**
@@ -210,6 +267,8 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
     <div class="prep-facts"><b>${prEsc(st.name)}</b><span>${plan.course.totalKm.toFixed(1)} km</span><span>+${Math.round(plan.course.gain)} m</span><span>-${Math.round(plan.course.loss)} m</span><span>${plan.climbs.filter((c) => !c.bump).length} climbs</span><span>${(plan.keyZones || []).length} key zones</span><span>about <b>${hm(finish)}</b></span></div>
     <p class="note">Times come from ${prEsc(from)}. Change them in Your settings, next to your GPX.</p>
   </div>
+
+  ${glanceHtml(plan)}
 
   <div class="sub-h">Your run, section by section</div>
   <div id="prepAi"></div>
