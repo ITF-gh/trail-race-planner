@@ -719,11 +719,11 @@ function acSavedHtml() {
   const rows = list.map((it) => {
     const d = (it.data && it.data.summary) || {};
     const facts = it.kind === "run" ? `${d.km} km · +${Math.round(d.gain)} m · ${acDur(d.movingSec)}` : `${d.km} km · +${Math.round(d.gain)} m · ${acDur(d.finish && d.finish.central)}`;
-    return `<li><button type="button" class="acct-saved-open" data-acct="saved:${it.id}" title="Reopen it, ready to change"><b>${acEsc(it.title)}</b><small>${SAVED_KINDS[it.kind]} · ${acSavedDate(it.created_at)} · ${facts}</small></button><button type="button" class="acct-saved-del" data-acct="saved-del:${it.id}" aria-label="Delete ${acEsc(it.title)}">×</button></li>`;
+    return `<li><button type="button" class="acct-saved-open" data-acct="saved:${it.id}" title="${it.data && it.data.a4 ? "Reopen it and print the A4" : "Reopen it, ready to change"}"><b>${acEsc(it.title)}</b><small>${SAVED_KINDS[it.kind]} · ${acSavedDate(it.created_at)} · ${facts}</small></button><button type="button" class="acct-saved-del" data-acct="saved-del:${it.id}" aria-label="Delete ${acEsc(it.title)}">×</button></li>`;
   }).join("");
   return `<h4 data-pf-sec="saved">Saved to my account</h4>
-    ${list.length ? `<ul class="acct-saved">${rows}</ul>` : `<p class="acct-note">Nothing saved yet. Use "Save to my account" in Your plan, Prep my run or Rewind my run.</p>`}
-    ${list.length ? `<p class="acct-note">Tap one to reopen it as you left it: change the target or the settings, everything is computed again.</p>` : ""}`;
+    ${list.length ? `<ul class="acct-saved">${rows}</ul>` : `<p class="acct-note">Nothing saved yet. Use "Save to my account" in Your plan, Prep my run or Rewind my run, or "Save A4 to my account" in an Export A4 box.</p>`}
+    ${list.length ? `<p class="acct-note">Tap one to reopen it as you left it: change the target or the settings, everything is computed again. An A4 opens its print window too.</p>` : ""}`;
 }
 
 /**
