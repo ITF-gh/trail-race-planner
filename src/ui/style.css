@@ -1828,15 +1828,21 @@ html[data-theme="sky"] .gl-row.on{background:rgba(255,255,255,.35)}
 .ai-wait .aiw-ground{stroke:var(--muted);stroke-width:2;stroke-linecap:round;stroke-dasharray:1 7;opacity:.8}
 .ai-wait .aiw-hills{fill:var(--muted);opacity:.14}
 .ai-wait .aiw-runner{animation:aiw-run 14s linear infinite}
+.ai-wait .aiw-runner line{stroke-linecap:round;fill:none}
+.ai-wait .aiw-runner .sk{stroke:#f2c9a0;stroke-width:3.2}
+.ai-wait .aiw-runner .sh{stroke:#2a3550;stroke-width:4.6;stroke-linecap:butt}
+.ai-wait .aiw-runner .so{stroke:#3d4a63;stroke-width:3.6}
+.ai-wait .aiw-runner .sl{stroke:var(--sun);stroke-width:4.4;stroke-linecap:butt}
+.ai-wait .aiw-runner .shoe{fill:var(--accent);stroke:var(--accent);stroke-width:1;stroke-linejoin:round}
+.ai-wait .aiw-runner .sole{stroke:#1d2433;stroke-width:1.6;stroke-dasharray:1.4 .8}
+.ai-wait .aiw-runner .shirt{fill:var(--sun);stroke:var(--sun);stroke-width:1.5;stroke-linejoin:round}
+.ai-wait .aiw-runner .vest{fill:var(--accent);stroke:var(--accent);stroke-width:1.2;stroke-linejoin:round}
+.ai-wait .aiw-runner .flask{fill:#9fd2ff}
+.ai-wait .aiw-runner .shorts{fill:#2a3550;stroke:#2a3550;stroke-width:1;stroke-linejoin:round}
+.ai-wait .aiw-runner .head{fill:#f2c9a0}
+.ai-wait .aiw-runner .cap{fill:none;stroke:var(--accent);stroke-width:2.6;stroke-linecap:round}
+.ai-wait .aiw-runner .back{opacity:.6}
 .ai-wait .aiw-body{animation:aiw-bob .42s ease-in-out infinite alternate}
-.ai-wait .aiw-runner line,.ai-wait .aiw-runner path{stroke:var(--sun);stroke-width:3.4;stroke-linecap:round;stroke-linejoin:round;fill:none}
-.ai-wait .aiw-runner .aiw-torso{stroke-width:5}
-.ai-wait .aiw-runner .back line,.ai-wait .aiw-runner .back path{opacity:.6}
-.ai-wait .aiw-runner .aiw-vest{fill:var(--accent);stroke:var(--accent);stroke-width:1.5}
-.ai-wait .aiw-runner .aiw-shorts{fill:#2a3550;stroke:#2a3550;stroke-width:1}
-.ai-wait .aiw-runner .aiw-cap{stroke:var(--accent);stroke-width:2.6}
-.ai-wait .aiw-runner .aiw-shoe{stroke-width:3.6}
-.ai-wait .aiw-runner circle{fill:#f2c9a0}
 .ai-wait .aiw-i{transform-box:fill-box;transform-origin:50% 100%;opacity:0}
 .ai-wait .pine{fill:#3fb27f}.ai-wait .trunk{fill:#8a6a4a}.ai-wait .rock{fill:#8c97a8}
 .ai-wait .petal{fill:#fff;stroke:#c9d2dc;stroke-width:.6}.ai-wait .heart{fill:var(--sun)}
