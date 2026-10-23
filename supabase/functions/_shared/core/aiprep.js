@@ -150,8 +150,6 @@ const AIP_TASK = `TASK. Build a race plan tailored to this athlete for this cour
   say so and how to manage it, do not swap it for another goal. Say plainly in texts.answer and
   target.verdict when a target is unrealistic, and give the realistic version.
 - For every aid id, set stopMin. Plan fuel as carbs per hour plus intakes tied to leg ids.
-- target.finishSec is your central finish: EXACTLY the sum of every leg durSec plus every aid
-  stopMin x 60. Add them up and check. Any finish time you quote in texts is this one.
 - scenarios: bestFactor (0.85 to 1.0) and cautiousFactor (1.0 to 1.25) against your central time.
 - keyMoments: the 5 to 8 places that decide this race for this athlete; momentCues gives each
   one a full sentence: what to do there and why.
