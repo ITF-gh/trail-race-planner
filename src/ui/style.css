@@ -1787,9 +1787,8 @@ html[data-theme="sky"] .gl-row+.gl-row{border-top-color:rgba(0,0,0,.08)}
 .gl-row.on.kz{box-shadow:inset 3px 0 0 var(--gold)}
 html[data-theme="sky"] .gl-row.on{background:rgba(255,255,255,.35)}
 
-/* Account menu, My files (2026-10-23): each GPX file you gave the app, tagged RUN (GPS + time,
+/* Account window, My files (2026-10-23): each GPX file you gave the app, tagged RUN (GPS + time,
    pace, cadence) or ROUTE (GPS only), with the modes it can open in. */
-.acct-menu{width:min(400px,calc(100vw - 32px))}
 .acct-menu h4{font-size:14px}
 .acct-tag{display:inline-block;flex:none;font-family:var(--f-display);font-weight:800;font-style:italic;text-transform:uppercase;letter-spacing:.08em;font-size:11px;line-height:1;padding:4px 7px 3px;border-radius:6px;color:#06101f}
 .acct-tag.run{background:#3fd06a}
@@ -1808,3 +1807,5 @@ html[data-theme="sky"] .gl-row.on{background:rgba(255,255,255,.35)}
 .acct-use{display:flex;flex-wrap:wrap;gap:6px}
 .acct-use button{background:transparent;border:1px solid var(--acct-line);border-radius:999px;color:var(--acct-ink);font-family:var(--f-display);font-weight:700;text-transform:uppercase;letter-spacing:.05em;font-size:12px;padding:4px 10px;cursor:pointer}
 .acct-use button:hover,.acct-use button:focus-visible{border-color:var(--sun);color:var(--sun)}
+.acct-panel-in .acct-filelist{padding:0;margin:0}
+.acct-panel-in .acct-files{border:0;padding:6px 0 0}

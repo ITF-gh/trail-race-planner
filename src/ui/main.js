@@ -1575,14 +1575,14 @@ acctOnReopen(async (it) => {
 });
 
 // Use a file from My files (account menu) in a mode, as if it had been dropped there:
-//   race    the race course of Prep my race      ref     one more of Your runs (the engine)
-//   prep    the route of a Prep my run session   rewind  the run replayed in Rewind my run
+//   race    the race course of Prep my race
+//   prep    the route of a Prep my run session
+//   rewind  the run replayed in Rewind my run
 acctOnUseFile((xml, label, use) => {
-  if (use === "race" || use === "ref") {
+  if (use === "race") {
     setMode("plan");
-    if (use === "race") loadRace(xml, label);
-    else { state.ownRuns = true; loadEfforts([{ xml, label }]); }
-    $(use === "race" ? "#dropRace" : "#dropEffort").scrollIntoView({ behavior: "smooth", block: "center" });
+    loadRace(xml, label);
+    $("#dropRace").scrollIntoView({ behavior: "smooth", block: "center" });
   } else if (use === "prep") {
     setMode("prep");
     prepCtl.restore(xml, label);

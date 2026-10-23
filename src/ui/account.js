@@ -185,7 +185,6 @@ export async function acctKeepFile(xml, label) {
   const over = all.filter((f) => f.id !== id).sort((a, b) => a.added - b.added).slice(0, Math.max(0, all.length + (was ? 0 : 1) - AC_FILES_MAX));
   await acTx("readwrite", (s) => { s.put(file); over.forEach((f) => s.delete(f.id)); return null; }, AC_FILES);
   acFiles = null;
-  if (acMenu) acRender();
 }
 // The files, newest used first (read once, then from this cache until a file changes).
 let acFiles = null;
@@ -193,14 +192,14 @@ async function acFilesAll() {
   if (!acFiles) acFiles = ((await acTx("readonly", (s) => s.getAll(), AC_FILES)) || []).sort((a, b) => b.used - a.used);
   return acFiles;
 }
-// Where a file can go, by kind: [code, button text, what it does]. A run is also a route.
+// Where a file can go (owner's rule: three buttons, one per mode): [button text, what it does].
+// A run is also a route; only a run can be rewound.
 const AC_USE = {
-  race: ["▲ Race", "Open it as the race course in Prep my race"],
-  prep: ["◆ Run session", "Open it as the route of a session in Prep my run"],
-  ref: ["Engine", "Add it to Your runs in Prep my race: your engine learns from it"],
-  rewind: ["▶ Rewind", "Replay it in Rewind my run"],
+  race: ["▲ Prep my race", "Open it as the race course in Prep my race"],
+  prep: ["◆ Prep my run", "Open it as the route of a session in Prep my run"],
+  rewind: ["▶ Rewind my run", "Replay it in Rewind my run"],
 };
-const AC_USES = { run: ["rewind", "ref", "race", "prep"], route: ["race", "prep"] };
+const AC_USES = { run: ["race", "prep", "rewind"], route: ["race", "prep"] };
 // Uses a kept file in a mode (set by main.js through acctOnUseFile): fn(gpxText, name, use).
 let acUse = null;
 /** main.js gives the function that opens a kept file in a mode. */
@@ -217,7 +216,7 @@ function acFilesHtml(files) {
       <small>${f.date ? `${acDate(f.date)} · ` : ""}${f.km.toFixed(1)} km · ${acNum(f.gain)} m D+</small>
       <div class="acct-use">${AC_USES[f.kind].map((u) => `<button type="button" data-acct="use:${u}:${f.id}" title="${AC_USE[u][1]}">${AC_USE[u][0]}</button>`).join("")}</div>
     </li>`).join("");
-  return `<section class="acct-files"><h4>My files</h4>
+  return `<section class="acct-files"><h4 data-pf-sec="files">My files</h4>
     <p class="acct-legend"><span class="acct-tag run">Run</span> GPS + time, pace, cadence <span class="acct-tag route">Route</span> GPS only</p>
     ${files.length ? `<div class="acct-ftabs" role="group" aria-label="Show">${tabs.map(([k, t]) => `<button type="button" data-acct="files:${k}" aria-pressed="${acFileView.kind === k}">${t}</button>`).join("")}</div>
     <ul class="acct-filelist">${rows}</ul>
@@ -343,7 +342,7 @@ function acTokensHtml(S) {
  * Sections: who (name and where the runs are), then either an empty-log note, or the 12-month
  * totals, last runs and all the achievements as small icons; then tokens and the action links.
  */
-function acMenuHtml(S, demo = false, files = []) {
+function acMenuHtml(S, demo = false) {
   const user = cloudOn() && cloudUser();
   // The line under the name: demo profile, signed-in email, or runs on this device only.
   const where = demo ? `Demo profile · ${S.count} sample runs` : user ? `${acEsc(user.email)} · ${S.count} run${S.count === 1 ? "" : "s"}${cloudWritable() ? " synced" : " · profile synced"}` : `${S.count || "No"} run${S.count === 1 ? "" : "s"} on this device`;
@@ -355,8 +354,8 @@ function acMenuHtml(S, demo = false, files = []) {
   // sign out and delete account (signed in only).
   const links = `<section class="acct-links">${S.count ? `<button type="button" data-acct="bests">Bests</button>` : ""}${S.count && !demo ? `<button type="button" data-acct="export">Export</button><button type="button" data-acct="clear">Delete runs</button>` : ""}${user ? `<button type="button" data-acct="signout">Sign out</button>${cloudWritable() ? `<button type="button" data-acct="delete">Delete account</button>` : ""}` : ""}</section>`;
   if (!S.count) {
-    return `${who}${acFilesHtml(files)}
-    <section><h4>My runs</h4><p class="acct-empty">Open one of your runs in <b>Rewind my run</b>, or add it to <b>Your runs</b> in Prep my race: its numbers are kept here${user ? "" : ", on this device only"}, and your stats, records and achievements build up run after run.</p></section>
+    return `${who}
+    <section><p class="acct-empty">Open one of your runs in <b>Rewind my run</b>, or add it to <b>Your runs</b> in Prep my race: its numbers are kept here${user ? "" : ", on this device only"}, and your stats, records and achievements build up run after run.</p></section>
     ${acDocsHtml(ac.docs)}${acTokensHtml(S)}${links}`;
   }
   // Big climbing totals in thousands: 12345 m -> "12.3k".
@@ -369,7 +368,6 @@ function acMenuHtml(S, demo = false, files = []) {
   const medals = [...S.achievements].sort((a, b) => b.done - a.done || b.progress - a.progress);
   acMedals = medals;
   return `${who}
-    ${acFilesHtml(files)}
     <section><h4>Last 12 months</h4>
       <div class="acct-kpis"><div><b>${acNum(S.year.km)}</b><small>km</small></div><div><b>${gainK}</b><small>m D+</small></div><div><b>${acNum(S.year.movingSec / 3600)} h</b><small>moving</small></div></div>
     </section>
@@ -625,7 +623,7 @@ async function acRender() {
   acDemo = !mine.length && !(cloudOn() && cloudUser());
   acList = acDemo ? demoRecords() : mine;
   ac.docs = await aiDocsAll();
-  acMenu.innerHTML = acMenuHtml(historySummary(acList), acDemo, await acFilesAll());
+  acMenu.innerHTML = acMenuHtml(historySummary(acList), acDemo);
 }
 
 /**
@@ -924,7 +922,9 @@ function acProfile(keep = false) {
   // The field or button that has the focus (named by its data-pf or data-acct), to give it back.
   const f = keep && document.activeElement && acPanel.contains(document.activeElement) ? document.activeElement : null;
   const sel = f ? (f.dataset.pf ? `[data-pf="${f.dataset.pf}"]` : f.dataset.acct ? `[data-acct="${f.dataset.acct}"]` : "") : "";
-  acShowPanel(profileHtml(acList, acDemo, acDemo ? DEMO_USER : "My account") + acSavedHtml(), "Account", "acct-profile");
+  // My files (owner's rule: in this window, not in the small menu); read first if not cached yet.
+  if (!acFiles) { acFilesAll().then(() => acProfile(true)); }
+  acShowPanel(profileHtml(acList, acDemo, acDemo ? DEMO_USER : "My account") + acFilesHtml(acFiles || []) + acSavedHtml(), "Account", "acct-profile");
   const nb = acPanel.querySelector(".acct-panel-in");
   if (nb) nb.scrollTop = top;
   const again = sel ? acPanel.querySelector(sel) : null;
@@ -982,20 +982,22 @@ async function acAction(what) {
     await acTx("readwrite", (s) => s.put(f), AC_FILES);
     acFiles = null;
     trackEvent("file-use", use);
+    acPanel.hidden = true;
     acUse(trackToGpx(unpackTrack(f.track)), f.name, use);
   } else if (what.startsWith("file-del:")) {
     const id = what.slice(9);
     await acTx("readwrite", (s) => s.delete(id), AC_FILES);
     acFiles = null;
     trackEvent("file-delete");
-    acRender();
+    await acFilesAll();
+    acProfile(true);
   } else if (what.startsWith("files:")) {
     acFileView.kind = what.slice(6);
     acFileView.more = false;
-    acRender();
+    acProfile(true);
   } else if (what === "files-more") {
     acFileView.more = !acFileView.more;
-    acRender();
+    acProfile(true);
   } else if (what.startsWith("saved:")) {
     const it = (ac.saved || []).find((x) => x.id === what.slice(6));
     if (!it || !acReopen) return;
@@ -1197,7 +1199,7 @@ export async function initAccount(opts = {}) {
   // menu on any outside click) does not see it.
   btn.addEventListener("click", (e) => { e.stopPropagation(); set(!acMenu.classList.contains("open")); });
   // The Account window replaces the menu on screen: the menu closes when it opens.
-  acEl.addEventListener("click", (e) => { const b = e.target.closest("[data-acct]"); if (!b) return; if (b.dataset.acct === "profile" || b.dataset.acct === "bests" || b.dataset.acct.startsWith("use:")) set(false); acAction(b.dataset.acct); });
+  acEl.addEventListener("click", (e) => { const b = e.target.closest("[data-acct]"); if (!b) return; if (b.dataset.acct === "profile" || b.dataset.acct === "bests" ) set(false); acAction(b.dataset.acct); });
   // Hovering or tabbing onto an achievement icon shows it in the caption too (a tap is a click).
   const medalOver = (e) => { const b = e.target.closest && e.target.closest("[data-acct^='medal:']"); if (b) acMedalShow(b.dataset.acct.slice(6)); };
   acMenu.addEventListener("mouseover", medalOver);
