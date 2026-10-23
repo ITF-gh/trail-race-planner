@@ -2,6 +2,10 @@
 // technical detail). The first entry is the current version: the footer shows it on every page.
 
 export const CHANGELOG = [
+  { v: "2.22", date: "2026-10-23", items: [
+    "Prep my run AI coach: pick an effort from 1 (Recovery) to 5 (Very hard). The AI prepares the whole run at that effort, a pace and an effort for every section, plus the exercises that suit it.",
+    "The AI waiting runner wears trail clothes and runs up the trail toward the horizon.",
+  ] },
   { v: "2.21", date: "2026-10-23", items: [
     "The AI doc lists the Best, Central and Cautious finishes of the AI plan, as Your race shows them. The app never changes the AI's numbers.",
   ] },
