@@ -147,7 +147,7 @@ function a4Box(key) {
   return `<details class="a4x" data-a4="${key}"><summary><span aria-hidden="true">⎙</span> Export A4</summary>
     <div class="a4x-body"><span class="a4x-h">${ex.label} on A4 paper or as a PDF. Print:</span>
     ${ex.parts.map(([id, label, on]) => `<label class="chk"><input type="checkbox" value="${id}" ${on ? "checked" : ""}> ${label}</label>`).join("")}
-    <button class="btn sm primary" type="button" data-a4go="${key}">⎙ Print or save as PDF</button><span class="a4x-msg" role="status"></span></div></details>`;
+    <button class="btn sm primary" type="button" data-a4go="${key}">⎙ Print or save as PDF</button><button class="btn sm ghost" type="button" data-a4save="${key}">☁ Save A4 to my account</button><span class="a4x-msg" role="status"></span></div></details>`;
 }
 function initialTheme() {
   return store.get(THEME_KEY) === "sky" ? "sky" : "night";
@@ -1538,19 +1538,26 @@ function saveItem(kind) {
   const rec = runRecord(r.run, r.name);
   return { kind, title: rec.name, summary: rec, snap: { mode: "run", label: r.name, track: packTrack(r.parsed), target: r.target || null } };
 }
-document.querySelectorAll("[data-save]").forEach((b) => b.addEventListener("click", async () => {
-  const msg = b.parentElement.querySelector(".savex-msg");
+// Save the mode (`kind`) from button `b`, its message in `msg`. `a4` ({key, keep}, or none): an
+// A4 export saved to the account (Boss, 2026-10-23): the same save plus the export and its ticked
+// parts, so reopening it lays the sheet out again and opens the print dialog. The sheet is rebuilt
+// from the points, never stored as a page, so heart rate and weight never go online.
+async function saveFrom(b, msg, kind, a4 = null) {
   let item = null;
-  try { item = saveItem(b.dataset.save); } catch (e) { item = null; }
-  if (!item) { msg.textContent = b.dataset.save === "plan" ? "Nothing to save yet: load your runs and the race first." : "Nothing to save yet: load a GPX first."; return; }
+  try { item = saveItem(kind); } catch (e) { item = null; }
+  if (!item) { msg.textContent = kind === "plan" ? "Nothing to save yet: load your runs and the race first." : "Nothing to save yet: load a GPX first."; return; }
   b.disabled = true;
   msg.textContent = "Saving…";
+  const title = a4 ? `A4 · ${item.title}`.slice(0, 80) : item.title;
   let r;
-  try { r = await acctSaveItem({ kind: item.kind, title: item.title, data: { v: 2, summary: item.summary, snap: await gzPack(item.snap) } }); }
+  try { r = await acctSaveItem({ kind: item.kind, title, data: { v: 2, summary: item.summary, snap: await gzPack(item.snap), ...(a4 ? { a4 } : {}) } }); }
   catch (e) { r = { msg: `Could not save: ${e.message}` }; }
   b.disabled = false;
   msg.textContent = r.msg;
-}));
+}
+document.querySelectorAll("[data-save]").forEach((b) => b.addEventListener("click", () => saveFrom(b, b.parentElement.querySelector(".savex-msg"), b.dataset.save)));
+// The save kind of each A4 export's mode.
+const A4_KIND = { plan: "plan", prep: "session", run: "run" };
 // Reopen a saved item (the Account window's list): switch to its mode and load it back.
 acctOnReopen(async (it) => {
   const s = await gzUnpack(it.data.snap);
@@ -1572,6 +1579,13 @@ acctOnReopen(async (it) => {
     restoreRun(trackToGpx(unpackTrack(s.track)), s.label, s.target);
   }
   trackEvent("saved-reopen", s.mode);
+  // A saved A4 export: once the mode has its data again (computed in the background, so ask every
+  // 200 ms, for 10 s at most), print its sheet with the parts ticked when it was saved.
+  const a4 = it.data.a4;
+  if (a4 && P4_EXPORTS[a4.key]) {
+    for (let i = 0; i < 50 && !printData(P4_EXPORTS[a4.key].mode); i++) await new Promise((ok) => setTimeout(ok, 200));
+    if (printData(P4_EXPORTS[a4.key].mode)) printA4(a4.key, Array.isArray(a4.keep) ? a4.keep : null);
+  }
 });
 
 // Use a file from My files (account menu) in a mode, as if it had been dropped there:
@@ -1622,6 +1636,12 @@ document.querySelectorAll("[data-a4go]").forEach((b) => b.addEventListener("clic
   msg.textContent = "";
   trackEvent("export", `a4-${key}`);
   printA4(key, keep);
+}));
+// Save A4 to my account: the mode, plus which export and which parts.
+document.querySelectorAll("[data-a4save]").forEach((b) => b.addEventListener("click", () => {
+  const key = b.dataset.a4save;
+  const box = b.closest(".a4x");
+  saveFrom(b, box.querySelector(".a4x-msg"), A4_KIND[P4_EXPORTS[key].mode], { key, keep: [...box.querySelectorAll("input:checked")].map((i) => i.value) });
 }));
 // The profile's heart rates changed (account window): redraw the plan, its heart-rate guide uses them.
 document.addEventListener("trp-profile", () => { if (state.race) compute(); });
