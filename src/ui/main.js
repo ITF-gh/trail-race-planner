@@ -46,6 +46,7 @@ import { TERRAIN, SCENARIOS } from "../core/model.js";
 import { planToMarkdown } from "../core/markdown.js";
 import { watchPanelHtml, mountWatch, watchPoints, downloadCourse, pimpBadge } from "./watch.js";
 import { prepHeroHtml, initPrepRun } from "./preprun.js";
+import { starChip, descChip } from "./chips.js";
 import { mmss, hm, clock, parseDuration } from "../core/format.js";
 import { keyZones, toblerClock } from "../core/keyzones.js";
 import { secAtKm, raceLegs } from "../core/script.js";
@@ -112,6 +113,7 @@ const state = {
   tab: "c", // D-day list: climbs or descents
   kz: 0, // Your plan: the open key zone chip (index in plan.keyZones), or null; key zone 1 opens by default
   btab: "c", // briefing list: climbs or descents
+  ptab: "c", // Prep my run climbs and descents: which tab is open
   bwin: null, // briefing profile zoom window [fromKm, toKm], null = whole course
   plan: null,
   aiOn: store.get("trp.ai.on") === true, // Your race shows the AI plan (when there is one)
@@ -588,13 +590,6 @@ const tile = (k, v, s = "", cls = "") => `<div class="tile ${cls}"><div class="k
 const cell = (k, v, cls = "") => `<div class="c ${cls}"><span class="k">${k}</span><b>${v}</b></div>`;
 const len = (m) => (m >= 1000 ? `${(m / 1000).toFixed(2)} km` : `${Math.round(m)} m`);
 const kmRange = (x) => x.startKm.toFixed(1); // the start km only: the length column gives the rest
-// descChip(level): a descent's risk as running shoes (Boss, design review 2): 3 shoes Let it run,
-// 2 Control, 1 Brake (fewer shoes = less running), coloured green, orange, red; the word in the tooltip.
-const SHOE_SVG = `<svg viewBox="0 0 32 14" aria-hidden="true"><path d="M2.7 9.2C2.3 6.8 2.8 4 4 1.9c.2-.4.7-.5 1-.2l1.1 1.1c1.6 1.6 4 2.1 6 1.1l4.3-2.6c.6-.4 1.4-.3 1.8.3l1 1.5c2.3 2.8 6 4 9.6 4.8 1.6.4 2.6 1.5 2.4 2.5L4.2 10.2c-.8 0-1.4-.4-1.5-1z"/><path d="M2.8 10.9l28.4-1.4c.2 1.2-.6 2.3-2 2.5l-24.1 1.2c-1.2.1-2.2-.9-2.3-2.3z" fill-opacity=".55"/><path d="M5.6 13.6l.6-.8.6.8.6-.8.6.8.6-.8.6.8.6-.8.6.8.6-.8.6.8.6-.9.6.9.6-.9.6.9.6-.9.6.9.6-.9.6.9.6-.9.6.9.6-.9.6.9.6-.9.6.9.6-.9.6.9.6-1 .6.9" stroke="currentColor" stroke-width=".7" fill="none" stroke-linejoin="round"/><path d="M6.4 8.6c4.8-.3 9.4-1.7 13.6-3.9l.9.7C16.6 7.7 11.6 9.4 6.6 9.6z" fill="#fff" fill-opacity=".6"/><path d="M9.6 7.2c3-.3 5.9-1.2 8.5-2.5l.7.5c-2.8 1.5-6 2.5-9.1 2.7z" fill="#fff" fill-opacity=".35"/><path d="M4.2 2.2l1.6 1.6" stroke="#fff" stroke-opacity=".5" stroke-width=".8" stroke-linecap="round"/><path d="M12.8 4.1l1.3 1M14.6 3l1.3 1M16.4 2.1l1.2 1" stroke="#fff" stroke-opacity=".7" stroke-width=".8" stroke-linecap="round"/></svg>`;
-const descChip = (l) => { const k = l >= 4 ? 1 : l >= 2 ? 2 : 3; return `<span class="chip st dsc d${k}" title="${DESCENT_LABELS[l]}" aria-label="${DESCENT_LABELS[l]}">${SHOE_SVG.repeat(k)}</span>`; };
-// starChip(l): a climb's difficulty as 1 to 4 stars in its level colour (the unlit ones dimmed),
-// with the word (Easy...Crux) kept for screen readers and the hover tooltip.
-const starChip = (l) => `<span class="chip st l${l}" title="${LEVELS[l]}" aria-label="${l} of 4 stars, ${LEVELS[l]}">${STARS[l]}<i>${"★".repeat(4 - l)}</i></span>`;
 const empty = (html) => `<div class="empty">${html}</div>`;
 /**
  * The climbs and descents tables: one header row on top (the labels are not repeated in every
@@ -864,6 +859,51 @@ function diffCell(c) {
   return `<div class="diff">${starChip(c.level)}</div>`;
 }
 /**
+ * The climbs and descents lists of Your route, shared with Prep my run: two tabs (Climbs, Descents),
+ * each a table with the mini profile, length, gain or loss, steepest 100 m and the stars or shoes.
+ * brief: {climbs, descents, minClimb} (plan.js briefCourse); P: the profile; tab: "c" or "d"
+ * (the open tab); splitM: the length from which a climb is split; noun: "race" or "run".
+ * Wire the tabs with wireSegTabs.
+ */
+function segListHtml(brief, P, tab, splitM, noun = "race") {
+  // One table row for a climb (or, with sec = true, one of its sections, styled as indented).
+  // Columns in reading order: where, how long, how steep, how much, the steepest bit.
+  const climbRow = (c, sec) => `<div class="row v${c.level} ${sec ? "sec" : ""}">
+      <div class="n">${c.n}</div>${cell("Km", kmRange(c))}${spark(P, c.startKm, c.endKm, c.avg)}${cell("Length", len(c.lenM))}${cell("Gain", `${Math.round(c.gain)} m`)}${cell("Steepest 100 m", `${Math.round(c.steep)}%`)}${diffCell(c)}
+    </div>`;
+  // Bumps (rises under brief.minClimb) are not climbs: they stay out of this table.
+  const bumps = brief.climbs.filter((c) => c.bump).length;
+  const climbs = brief.climbs.filter((c) => !c.bump).map((c) => climbRow(c) + c.sections.map((x) => climbRow(x, true)).join("")).join("");
+  const descents = brief.descents.map((d) => `<div class="row v${d.level}">
+      <div class="n">${d.n}</div>${cell("Km", kmRange(d))}${spark(P, d.startKm, d.endKm, d.avg)}${cell("Length", len(d.lenM))}${cell("Loss", `${Math.round(d.loss)} m`)}${cell("Steepest 100 m", `${Math.abs(Math.round(d.steep))}%`)}<div class="diff">${descChip(d.level)}</div>
+    </div>`).join("");
+  return `
+    <div class="tabs seg-tabs" role="tablist" aria-label="Segments">
+      <button type="button" role="tab" data-t="c" aria-selected="${tab === "c"}">Climbs · ${brief.climbs.length - bumps}</button>
+      <button type="button" role="tab" data-t="d" aria-selected="${tab === "d"}">Descents · ${brief.descents.length}</button>
+    </div>
+    <div ${tab === "c" ? "" : "hidden"}>
+    <p class="note" style="margin:-4px 0 12px">Difficulty = gain × steepness (average ÷ 8%, between 0.5 and 2) × fatigue (1.00 early, 1.15 mid-race, 1.35 late). A climb gains at least ${Math.round(brief.minClimb)} m (10% of the ${noun}'s D+, or 100 m on any ${noun}); ${bumps ? `the ${bumps} smaller rise${bumps === 1 ? " is a bump" : "s are bumps"}, not counted here${noun === "race" ? " but kept in your plan and race script" : ""}. ` : ""}Climbs of ${(splitM / 1000).toFixed(0)} km or more are split where the gradient clearly changes, each section at least 15% of the climb, and rated on its own.</p>
+    ${climbs ? rowsTable("t-route", ["Length", "Gain", "Steepest 100 m"], climbs) : empty(`No climb of ${Math.round(brief.minClimb)} m or more.`)}
+    </div>
+    <div ${tab === "d" ? "" : "hidden"}>
+    <p class="note" style="margin:-4px 0 12px">${descChip(4)} Brake: a 100 m stretch of 20% or more, or 12% on average. ${descChip(2)} Control: 6% on average, or a 15% stretch. ${descChip(1)} Let it run: everything else.</p>
+    ${descents ? rowsTable("t-route", ["Length", "Loss", "Steepest 100 m"], descents) : empty("No descents over 10 m.")}
+    </div>`;
+}
+/** The tabs of segListHtml inside `box`: a click shows its list; onTab("c" or "d") remembers it. */
+function wireSegTabs(box, onTab) {
+  // ".seg-tabs ~ div" selects the divs that come after the tab bar at the same level: the two lists.
+  box.querySelectorAll(".seg-tabs button").forEach((b) => b.addEventListener("click", () => {
+    onTab(b.dataset.t);
+    box.querySelectorAll(".seg-tabs button").forEach((x) => x.setAttribute("aria-selected", String(x === b)));
+    const [c, d] = box.querySelectorAll(".seg-tabs ~ div");
+    c.hidden = b.dataset.t !== "c";
+    d.hidden = b.dataset.t !== "d";
+  }));
+}
+
+/**
  * Section 02 Course: the race on its own, before knowing who runs it. Writes into #s2body:
  * key figures, a map, a zoomable elevation profile, the key zones, and the climbs and descents
  * tables. Needs only state.race. Side effects: replaces briefMap, reads and sets state.bwin
@@ -884,17 +924,6 @@ function renderBriefing() {
     tile("High point", `${Math.round(top)}<small>m</small>`),
     tile("Start time", esc(state.settings.startTime || PLAN_DEFAULTS.startTime), "set it below"),
   ].join("");
-  // One table row for a climb (or, with sec = true, one of its sections, styled as indented).
-  // Columns in reading order: where, how long, how steep, how much, the steepest bit.
-  const climbRow = (c, sec) => `<div class="row v${c.level} ${sec ? "sec" : ""}">
-      <div class="n">${c.n}</div>${cell("Km", kmRange(c))}${spark(P, c.startKm, c.endKm, c.avg)}${cell("Length", len(c.lenM))}${cell("Gain", `${Math.round(c.gain)} m`)}${cell("Steepest 100 m", `${Math.round(c.steep)}%`)}${diffCell(c)}
-    </div>`;
-  // Bumps (rises under brief.minClimb) are not climbs: they stay out of this table.
-  const bumps = brief.climbs.filter((c) => c.bump).length;
-  const climbs = brief.climbs.filter((c) => !c.bump).map((c) => climbRow(c) + c.sections.map((x) => climbRow(x, true)).join("")).join("");
-  const descents = brief.descents.map((d) => `<div class="row v${d.level}">
-      <div class="n">${d.n}</div>${cell("Km", kmRange(d))}${spark(P, d.startKm, d.endKm, d.avg)}${cell("Length", len(d.lenM))}${cell("Loss", `${Math.round(d.loss)} m`)}${cell("Steepest 100 m", `${Math.abs(Math.round(d.steep))}%`)}<div class="diff">${descChip(d.level)}</div>
-    </div>`).join("");
   const aid = parseAidStations(state.settings.aidStations).filter((a) => a.km <= brief.totalKm);
   // With a plan, the zones use your predicted times; before that, a typical runner's (Tobler's hiking function).
   const zones = state.plan ? state.plan.keyZones : keyZones(brief, P, aid, toblerClock(P));
@@ -909,29 +938,8 @@ function renderBriefing() {
     <div class="prof-wrap b-prof" id="briefProf"><div class="prof-tools"><span class="note" style="margin:0">Drag across the profile to zoom: the map follows. Each climb shows whole, its badge gives its average gradient; hover or tap it for the figures.</span><button type="button" class="btn sm" id="profReset" hidden>Reset zoom</button></div><div id="briefProfSvg"></div><div class="prof-pop" id="profPop" hidden></div></div>
     <p class="note">Map and profile share their colours: climbs by difficulty, dashed red for descents to brake on, a yellow glow on the key zones (the details are in Your plan). Triangles are aid stations, numbers are km. Hover the profile to see where you are on the map.</p>
     <div class="sub-h" id="b-list">Climbs and descents</div>
-    <div class="tabs" role="tablist" aria-label="Segments">
-      <button type="button" role="tab" data-t="c" aria-selected="${state.btab === "c"}">Climbs · ${brief.climbs.length - bumps}</button>
-      <button type="button" role="tab" data-t="d" aria-selected="${state.btab === "d"}">Descents · ${brief.descents.length}</button>
-    </div>
-    <div ${state.btab === "c" ? "" : "hidden"}>
-    <p class="note" style="margin:-4px 0 12px">Difficulty = gain × steepness (average ÷ 8%, between 0.5 and 2) × fatigue (1.00 early, 1.15 mid-race, 1.35 late). A climb gains at least ${Math.round(brief.minClimb)} m (10% of the race's D+, or 100 m on any race); ${bumps ? `the ${bumps} smaller rise${bumps === 1 ? " is a bump" : "s are bumps"}, not counted here but kept in your plan and race script. ` : ""}Climbs of ${(state.settings.splitClimbM / 1000).toFixed(0)} km or more are split where the gradient clearly changes, each section at least 15% of the climb, and rated on its own.</p>
-    ${climbs ? rowsTable("t-route", ["Length", "Gain", "Steepest 100 m"], climbs) : empty(`No climb of ${Math.round(brief.minClimb)} m or more.`)}
-    </div>
-    <div ${state.btab === "d" ? "" : "hidden"}>
-    <p class="note" style="margin:-4px 0 12px">${descChip(4)} Brake: a 100 m stretch of 20% or more, or 12% on average. ${descChip(2)} Control: 6% on average, or a 15% stretch. ${descChip(1)} Let it run: everything else.</p>
-    ${descents ? rowsTable("t-route", ["Length", "Loss", "Steepest 100 m"], descents) : empty("No descents over 10 m.")}
-    </div>`;
-  // Tabs: a click selects one tab and shows its list without redrawing the whole section.
-  // ".tabs ~ div" selects the divs that come after the tab bar at the same level: the two lists.
-  // `const [c, d] = ...` (destructuring) names the first two results c and d.
-  box.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => {
-    state.btab = b.dataset.t;
-    trackEvent("briefing-tab", state.btab === "c" ? "climbs" : "descents");
-    box.querySelectorAll(".tabs button").forEach((x) => x.setAttribute("aria-selected", String(x === b)));
-    const [c, d] = box.querySelectorAll(".tabs ~ div");
-    c.hidden = state.btab !== "c";
-    d.hidden = state.btab !== "d";
-  }));
+    ${segListHtml(brief, P, state.btab, state.settings.splitClimbM)}`;
+  wireSegTabs(box, (t) => { state.btab = t; trackEvent("briefing-tab", t === "c" ? "climbs" : "descents"); });
 
   // The map: the route coloured like the profile. `...mapStyle(...)` spreads paint and marks into
   // the options object.
@@ -1267,13 +1275,13 @@ document.addEventListener("trp-ai-use", (ev) => {
 // identifies the race; noun: "Race" or "Run", used in the cockpit's wording.
 // It prepares the compact profile (flat: true) and the map colours, then hands everything to
 // replay.js mountReplay, which runs the animation. Also used by Prep my run (see initPrepRun).
-function mountCockpit(box, plan, sid, key, noun = "Race") {
+function mountCockpit(box, plan, sid, key, noun = "Race", timeline = "") {
   const sc = plan.scenarios[sid];
   const brief = { totalKm: plan.course.totalKm, climbs: plan.climbs, descents: plan.descents };
   const aidMarks = plan.aidStations.map((a) => ({ km: a.km, name: a.name, sec: a.arrive[sid], time: clock(plan.startSec, a.arrive[sid]) }));
   const prof = profileView(plan.course.profile, brief, { ...sc, startSec: plan.startSec, aid: aidMarks }, plan.keyZones, { flat: true });
   const m = mapStyle(brief, aidMarks, plan.keyZones);
-  mountReplay(box, { plan, sid, prof, mapPaint: m.paint, mapMarks: m.marks, key, noun });
+  mountReplay(box, { plan, sid, prof, mapPaint: m.paint, mapMarks: m.marks, key, noun, timeline });
 }
 
 /* ---------- sticky navigation ---------- */
@@ -1605,7 +1613,12 @@ document.addEventListener("trp-refs", () => { if (state.race) compute(); });
 // address (?mode=...), then start anonymous analytics and the account menu.
 initRefs();
 compute();
-prepCtl = initPrepRun({ getRuns: () => (state.effort ? state.effort.runs.map((r) => r.parsed) : []), getSettings: () => state.settings, onLoaded: () => renderNav(), cockpit: (box, plan, key) => mountCockpit(box, plan, "central", key, "Run") });
+prepCtl = initPrepRun({ getRuns: () => (state.effort ? state.effort.runs.map((r) => r.parsed) : []), getSettings: () => state.settings, onLoaded: () => renderNav(), cockpit: (box, plan, key, timeline) => mountCockpit(box, plan, "central", key, "Run", timeline),
+  // Prep my run's climbs and descents: the same tables as Your route, with their own open tab.
+  segments: (box, plan) => {
+    box.innerHTML = segListHtml({ climbs: plan.climbs, descents: plan.descents, minClimb: plan.course.minClimb }, plan.course.profile, state.ptab, plan.params.splitClimbM, "run");
+    wireSegTabs(box, (t) => { state.ptab = t; trackEvent("prep-segments-tab", t === "c" ? "climbs" : "descents"); });
+  } });
 setMode(new URLSearchParams(window.location.search).get("mode"), false);
 // Not in a copy opened as a file (the AI test copy): no outside script on a page holding a key.
 if (location.protocol !== "file:") startAnalytics();

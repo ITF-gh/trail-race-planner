@@ -1735,3 +1735,54 @@ html[data-theme="sky"] .rp-notifs li.rv-info .ic,html[data-theme="sky"] .rs-chip
 .rv-next-card i{position:absolute;right:20px;bottom:14px;font-style:normal;font-size:30px;color:var(--sun);transition:transform .15s}
 .rv-next-card:hover i{transform:translateX(5px)}
 @media (max-width:640px){ .rv-next-card{min-height:150px;padding:18px} }
+
+/* Prep my run: Your run at a glance (preprun.js glanceHtml). A vertical road book: time | icon on
+   a rail | what, figures, tactic | duration. Rail colour = the step's difficulty; gold = key zone. */
+.glance .gl-note{margin:-4px 0 10px}
+.gl-list{list-style:none;margin:0 0 18px;padding:0;max-width:860px}
+.gl-row{--rail:var(--line);display:grid;grid-template-columns:62px 74px 1fr 64px;align-items:start;gap:0 12px;position:relative;padding:8px 10px 8px 0;border-radius:10px}
+.gl-row+.gl-row{border-top:1px solid rgba(255,255,255,.06)}
+.gl-t{text-align:right;font-variant-numeric:tabular-nums;line-height:1.15}
+.gl-t b{display:block;font-family:var(--f-display);font-size:20px;font-weight:700}
+.gl-t small{color:var(--muted);font-size:11.5px}
+.gl-i{align-self:stretch;display:flex;justify-content:center;align-items:flex-start;padding-top:4px;position:relative}
+.gl-i::before{content:"";position:absolute;left:50%;top:-9px;bottom:-9px;width:4px;margin-left:-2px;border-radius:2px;background:var(--rail);opacity:.85}
+.gl-i>*{position:relative;background:var(--band-4);padding:1px 3px;border-radius:6px}
+.gl-start .gl-i,.gl-fin .gl-i{color:var(--sun);font-size:15px}
+.gl-start .gl-i::before{top:50%} .gl-fin .gl-i::before{bottom:50%}
+.gl-run .gl-i::before{background:repeating-linear-gradient(to bottom,var(--muted) 0 5px,transparent 5px 9px);opacity:.5;width:2px;margin-left:-1px}
+.gl-c.v1{--rail:var(--e-bar)} .gl-c.v2{--rail:var(--m-bar)} .gl-c.v3{--rail:var(--h-bar)} .gl-c.v4{--rail:var(--c-bar)}
+.gl-dsc.v1{--rail:var(--e-bar)} .gl-dsc.v2{--rail:var(--h-bar)} .gl-dsc.v4{--rail:var(--c-bar)}
+.gl-dsc .gl-i::before{background:repeating-linear-gradient(to bottom,var(--rail) 0 7px,transparent 7px 11px)}
+.gl-h{font-weight:700;font-size:16px;display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px}
+.gl-run .gl-h{font-weight:600;color:var(--muted);font-size:14px}
+.gl-run:not(.kz){padding-top:3px;padding-bottom:3px}
+.gl-run:not(.kz) .gl-t b{font-size:15px;font-weight:600;color:var(--muted)}
+.gl-run:not(.kz) .gl-t small{display:none}
+.gl-f{color:var(--muted);font-size:13.5px;font-variant-numeric:tabular-nums}
+.gl-tac{font-weight:600;font-size:14.5px;margin-top:1px}
+.gl-tac::before{content:"➜ ";color:var(--sun)}
+.gl-how{font-size:13.5px;margin-top:3px;color:var(--fg);opacity:.9}
+.gl-d{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted);font-size:13.5px;padding-top:3px}
+.gl-kz{font-size:11.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#1a1300;background:var(--gold);border-radius:999px;padding:1px 8px;box-shadow:0 0 8px rgba(255,190,40,.6)}
+.gl-row.kz{background:linear-gradient(90deg,rgba(255,190,40,.16),rgba(255,190,40,.04));box-shadow:inset 3px 0 0 var(--gold)}
+.gl-row.kz.gl-run .gl-h{color:var(--fg)}
+.gl-i .chip.st{font-size:12px}
+.gl-i .chip.st.dsc{flex-direction:column;gap:1px}
+.gl-i .chip.st.dsc svg{width:24px;height:11px}
+html[data-theme="sky"] .gl-i>*{background:transparent}
+html[data-theme="sky"] .gl-row+.gl-row{border-top-color:rgba(0,0,0,.08)}
+@media (max-width:640px){
+  .gl-row{grid-template-columns:48px 52px 1fr;padding-right:4px;gap:0 8px}
+  .gl-t b{font-size:17px}
+  .gl-d{grid-column:3;text-align:left;padding:0;font-size:12.5px}
+  .gl-i .chip.st{font-size:9.5px}
+  .gl-i .chip.st.dsc svg{width:20px;height:9px}
+}
+/* Run timeline in the cockpit: tappable, the runner's step lit, the steps behind faded. */
+.gl-row[data-sec]{cursor:pointer;transition:opacity .2s,background .2s}
+.gl-row[data-sec]:hover{background:rgba(255,255,255,.04)}
+.gl-row.past{opacity:.5}
+.gl-row.on{background:rgba(255,255,255,.07);box-shadow:inset 3px 0 0 var(--accent)}
+.gl-row.on.kz{box-shadow:inset 3px 0 0 var(--gold)}
+html[data-theme="sky"] .gl-row.on{background:rgba(255,255,255,.35)}

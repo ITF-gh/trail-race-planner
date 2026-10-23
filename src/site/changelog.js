@@ -2,6 +2,10 @@
 // technical detail). The first entry is the current version: the footer shows it on every page.
 
 export const CHANGELOG = [
+  { v: "2.13", date: "2026-10-23", items: [
+    "Prep my run: a Climbs and descents section, the same tables as Your route in Prep my race (stars for climbs, shoes for descents).",
+    "Prep my run: the run script list is now a run timeline. Every climb, descent and runnable stretch in order, with the time since the start, the clock time, its figures and tactic; key zones in gold. Tap a step to go there in the cockpit.",
+  ] },
   { v: "2.12", date: "2026-10-20", items: [
     "Privacy page brought up to date: the online account is open to invited testers (what it keeps, heart rate and weight never online), and the AI provider is OpenAI (the AI is still off).",
     "About: How it works is now six short steps; photo credits complete. Guide and FAQ say the account is open to invited testers.",
