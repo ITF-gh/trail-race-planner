@@ -1809,10 +1809,8 @@ html[data-theme="sky"] .gl-row.on{background:rgba(255,255,255,.35)}
 .acct-use button:hover,.acct-use button:focus-visible{border-color:var(--sun);color:var(--sun)}
 .acct-panel-in .acct-filelist{padding:0;margin:0}
 .acct-panel-in .acct-files{border:0;padding:6px 0 0}
-/* Signed in: the button in the brand's yellow and blue, the account name on its left (not on phones,
-   where the mode buttons fill that row). */
+/* Signed in: the account name on the left of the button (not on phones, where the mode buttons
+   fill that row). */
 .acct-name{position:absolute;right:calc(100% + 10px);top:50%;transform:translateY(-50%);max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--f-display);font-weight:700;font-style:italic;text-transform:uppercase;letter-spacing:.06em;font-size:15px;color:var(--sun);text-shadow:0 1px 8px rgba(0,0,0,.5);pointer-events:none}
 .acct-name:empty{display:none}
-.acct.signed .acct-btn{border:0;color:#06101f;background:linear-gradient(135deg,var(--sun) 0%,var(--sun) 45%,#2f8fe0 55%,#2f8fe0 100%);box-shadow:0 0 0 2px rgba(255,255,255,.25)}
-.acct.signed .acct-btn:hover,.acct.signed .acct-btn[aria-expanded="true"]{box-shadow:0 0 0 2px var(--sun)}
 @media (max-width:640px){ .acct-name{display:none} }

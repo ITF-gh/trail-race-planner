@@ -616,8 +616,7 @@ let acEl = null, acMenu = null, acPanel = null;
 
 /** Redraw the menu from the stored runs (or from the demo runs when there are none). */
 /**
- * Signed in (owner's rule, 2026-10-23): the account button turns yellow and blue and the account
- * name shows next to it (the name typed in the Account window, else the start of the email).
+ * Signed in (owner's rule, 2026-10-23): the account name shows next to the account button (the name typed in the Account window, else the start of the email).
  */
 function acSignedBadge() {
   const user = cloudOn() && cloudUser();
