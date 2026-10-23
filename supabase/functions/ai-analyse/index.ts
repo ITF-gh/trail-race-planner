@@ -1,7 +1,8 @@
 // POST /functions/v1/ai-analyse  body { mode: "prep_race" | "prep_run", input }
 // One AI request of the app: spends one edelweiss and asks OpenAI in the background. Answers at
 // once with { job } (HTTP 202); the app polls the ai_jobs row for the answer.
-// The OpenAI key is a secret of this function (OPENAI_API_KEY): it never reaches the browser.
+// The OpenAI key is a secret of this function, named App1 (Boss, 2026-10-23; OPENAI_API_KEY still
+// works): it never reaches the browser.
 // Without it, the function answers 503 and spends nothing (the AI stays off).
 //
 // This file is only the "plumbing": the real logic (checks, edelweiss, request, saving) is in
@@ -9,7 +10,7 @@
 import { admin, cors, json, makeDb, userOf } from "../_shared/server.ts";
 import { aiBegin, aiFinish } from "../_shared/aicall.js";
 
-const KEY = Deno.env.get("OPENAI_API_KEY") || "";
+const KEY = Deno.env.get("App1") || Deno.env.get("APP1") || Deno.env.get("OPENAI_API_KEY") || "";
 // The one call to the OpenAI Responses API; resolves to its JSON answer (an error is in it too).
 // deno-lint-ignore no-explicit-any
 const callOpenAI = async (request: any) => {
