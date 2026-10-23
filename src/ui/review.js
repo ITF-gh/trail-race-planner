@@ -1006,7 +1006,10 @@ export function initRunMode({ onLoaded } = {}) {
     const f = [...(files || [])][0];
     if (!f) return;
     trackEvent("gpx-upload", "review");
-    load(await f.text().catch(() => ""), f.name.replace(/\.gpx$/i, ""), false);
+    const xml = await f.text().catch(() => ""), label = f.name.replace(/\.gpx$/i, "");
+    load(xml, label, false);
+    // The file also joins My files in the account menu (account.js listens to "trp-gpx").
+    document.dispatchEvent(new CustomEvent("trp-gpx", { detail: { xml, label } }));
     input.value = "";
   };
   // Drag and drop: "dragover" must call preventDefault, or the browser refuses the drop (and opens the
@@ -1022,7 +1025,8 @@ export function initRunMode({ onLoaded } = {}) {
   }));
   empty();
   // Reopen a run saved to the account (main.js): its target first, then the run, as if dropped.
-  rvRestore = (xml, label, target) => { rv.target = target || null; rvSaveTarget(rv.target); load(xml, label, false); };
+  // target undefined (a file from My files): the target already typed stays.
+  rvRestore = (xml, label, target) => { if (target !== undefined) { rv.target = target || null; rvSaveTarget(rv.target); } load(xml, label, false); };
 }
 let rvRestore = null;
 /** Reopen a saved run (GPX text rebuilt from the saved points, its name and its target). */

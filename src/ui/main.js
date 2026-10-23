@@ -60,7 +60,7 @@ import { initPrint, P4_EXPORTS } from "./print.js";
 import { initHelp } from "./help.js";
 import { siteFooter, SITE } from "../site/site.js";
 import { refsCardHtml, refsCalibNow, initRefs } from "./refs.js";
-import { initAccount, acctSaveRun, acctSaveGpx, acctOpenAsk, acctAiBadge, acctSaveItem, acctOnReopen } from "./account.js";
+import { initAccount, acctSaveRun, acctSaveGpx, acctOpenAsk, acctAiBadge, acctSaveItem, acctOnReopen, acctOnUseFile } from "./account.js";
 import { arUse, arState, arBarHtml } from "./airace.js";
 import { startAnalytics, trackEvent, trackOnce, analyticsOn, analyticsName } from "./analytics.js";
 import { makeDemoRaceGpx, makeDemoEffortGpx, DEMO_ULTRA_PROFILE, DEMO_ULTRA_AID, DEMO_LONG_RUN_PROFILE } from "../demo.js";
@@ -509,6 +509,8 @@ function wireDrop(boxId, inputId, loader) {
     trackEvent("gpx-upload", boxId === "#dropRace" ? "race" : "run");
     const read = await Promise.all(files.map(async (f) => ({ xml: await f.text().catch(() => ""), label: f.name.replace(/\.gpx$/i, "") })));
     loader(read);
+    // Each file also joins My files in the account menu (account.js listens to "trp-gpx").
+    read.forEach((r) => document.dispatchEvent(new CustomEvent("trp-gpx", { detail: r })));
     input.value = ""; // so choosing the same file again still triggers a change
   };
   input.addEventListener("change", () => handle(input.files));
@@ -1570,6 +1572,24 @@ acctOnReopen(async (it) => {
     restoreRun(trackToGpx(unpackTrack(s.track)), s.label, s.target);
   }
   trackEvent("saved-reopen", s.mode);
+});
+
+// Use a file from My files (account menu) in a mode, as if it had been dropped there:
+//   race    the race course of Prep my race      ref     one more of Your runs (the engine)
+//   prep    the route of a Prep my run session   rewind  the run replayed in Rewind my run
+acctOnUseFile((xml, label, use) => {
+  if (use === "race" || use === "ref") {
+    setMode("plan");
+    if (use === "race") loadRace(xml, label);
+    else { state.ownRuns = true; loadEfforts([{ xml, label }]); }
+    $(use === "race" ? "#dropRace" : "#dropEffort").scrollIntoView({ behavior: "smooth", block: "center" });
+  } else if (use === "prep") {
+    setMode("prep");
+    prepCtl.restore(xml, label);
+  } else {
+    setMode("run");
+    restoreRun(xml, label);
+  }
 });
 
 /* ---------- export A4 (ui/print.js): the mode on screen, laid out for paper ---------- */

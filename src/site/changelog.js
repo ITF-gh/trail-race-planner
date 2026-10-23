@@ -2,6 +2,10 @@
 // technical detail). The first entry is the current version: the footer shows it on every page.
 
 export const CHANGELOG = [
+  { v: "2.14", date: "2026-10-23", items: [
+    "Account menu: new My files list. Every GPX you give the app is kept on this device (no heart rate), tagged Run (GPS + time, pace, cadence) or Route (GPS only), and opens again in one tap: Rewind, Engine (Your runs), Race or Run session. A run can also be used as a route.",
+    "Account menu easier to read: darker background, wider, files first.",
+  ] },
   { v: "2.13", date: "2026-10-23", items: [
     "Prep my run: a Climbs and descents section, the same tables as Your route in Prep my race (stars for climbs, shoes for descents).",
     "Prep my run: the run script list is now a run timeline. Every climb, descent and runnable stretch in order, with the time since the start, the clock time, its figures and tactic; key zones in gold. Tap a step to go there in the cockpit.",

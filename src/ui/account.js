@@ -32,7 +32,9 @@
 // ${...} holes filled by values) and put in the page with innerHTML. Every text that comes from a
 // user or from the AI goes through acEsc first, so it can never be read as HTML.
 
-import { parseGpx } from "../core/track.js";
+import { parseGpx, resample } from "../core/track.js";
+import { analyseCourse } from "../core/terrain.js";
+import { packTrack, unpackTrack, trackToGpx } from "../core/snapshot.js";
 import { analyseRun } from "../core/review.js";
 import { historySummary, aiSelect, recordClean, AI_QUESTION_MAX } from "../core/history.js";
 import { aiRaceChecks, aiRunChecks, AI_GOALS, AI_RISKS, AI_NOTES_MAX } from "../core/aichecks.js";
@@ -49,6 +51,8 @@ import { cloudOn, cloudWritable, CL_READONLY, cloudUser, cloudFromUrl, cloudSend
 
 // Database name and its one "object store" (IndexedDB's word for a table) of run summaries.
 const AC_DB = "trp-history", AC_STORE = "runs";
+// "My files": the GPX files you gave the app, kept on this device (packed points, never heart rate).
+const AC_FILES = "files", AC_FILES_MAX = 50;
 let acCache = null; // the records, once read; also the fallback when IndexedDB is blocked
 // Escape text for HTML: each of & < > " (the regex's character set) becomes its entity.
 const acEsc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -61,8 +65,12 @@ const acEsc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "
 function acOpen() {
   return new Promise((ok) => {
     try {
-      const req = indexedDB.open(AC_DB, 1);
-      req.onupgradeneeded = () => req.result.createObjectStore(AC_STORE, { keyPath: "id" });
+      // Version 2 adds the "files" store; onupgradeneeded creates whichever store is missing.
+      const req = indexedDB.open(AC_DB, 2);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        [AC_STORE, AC_FILES].forEach((n) => { if (!db.objectStoreNames.contains(n)) db.createObjectStore(n, { keyPath: "id" }); });
+      };
       req.onsuccess = () => ok(req.result);
       req.onerror = () => ok(null);
     } catch (e) { ok(null); }
@@ -70,17 +78,17 @@ function acOpen() {
 }
 /**
  * Run one request in a transaction; resolves with its result (or null on failure).
- * `mode` is "readonly" or "readwrite"; `make(store)` makes the request (getAll, put, clear...)
+ * `mode` is "readonly" or "readwrite" (`store`: "runs" by default, or "files"); `make(store)` makes the request (getAll, put, clear...)
  * and returns it (or null when it made several). The result is read once the whole transaction
  * is complete (oncomplete), so the data is surely written. The database is closed each time.
  */
-async function acTx(mode, make) {
+async function acTx(mode, make, store = AC_STORE) {
   const db = await acOpen();
   if (!db) return null;
   return new Promise((ok) => {
     try {
-      const tx = db.transaction(AC_STORE, mode);
-      const req = make(tx.objectStore(AC_STORE));
+      const tx = db.transaction(store, mode);
+      const req = make(tx.objectStore(store));
       tx.oncomplete = () => { db.close(); ok(req ? req.result : true); };
       // a = b = fn sets both handlers to the same function.
       tx.onerror = tx.onabort = () => { db.close(); ok(null); };
@@ -152,6 +160,71 @@ export function acctOpenProfile(part = "") {
 /** Same, from a GPX file (used for the runs added in Prep my race). Files that are not runs are skipped. */
 export function acctSaveGpx(xml, name) {
   try { acctSaveRun(analyseRun(parseGpx(xml)), name); } catch (e) { /* a route without times, or too short: not a run */ }
+}
+
+/**
+ * "My files": keep a GPX file you gave the app (any drop box), so it can be used again from the
+ * account menu. A file whose every point has a time is a RUN (GPS + time, pace, cadence); without
+ * times it is a ROUTE (GPS only). A run can also be used as a route. Only the points are kept,
+ * packed (core/snapshot.js), never heart rate; the same file given twice is kept once (its id is
+ * built from its first point and its number of points). At most AC_FILES_MAX: the oldest goes.
+ */
+export async function acctKeepFile(xml, label) {
+  let parsed;
+  try { parsed = parseGpx(xml); } catch (e) { return; }
+  const P = parsed.points;
+  if (P.length < 2) return;
+  const run = P.every((p) => Number.isFinite(p.time));
+  let c;
+  try { c = analyseCourse(resample(parsed, 10)); } catch (e) { return; }
+  const id = `${Math.round(P[0].lat * 1e5)}_${Math.round(P[0].lon * 1e5)}_${P.length}_${run ? Math.round(P[0].time / 1000) : 0}`;
+  const all = (await acTx("readonly", (s) => s.getAll(), AC_FILES)) || [];
+  const was = all.find((f) => f.id === id);
+  const file = { id, name: String(label || parsed.name || "GPX file").slice(0, 120), kind: run ? "run" : "route", km: Math.round(c.totalKm * 10) / 10, gain: Math.round(c.gain), date: run ? P[0].time : null, added: was ? was.added : Date.now(), used: Date.now(), track: packTrack(parsed) };
+  // Oldest first (sort by `added`), so the ones past the limit are at the start of the list.
+  const over = all.filter((f) => f.id !== id).sort((a, b) => a.added - b.added).slice(0, Math.max(0, all.length + (was ? 0 : 1) - AC_FILES_MAX));
+  await acTx("readwrite", (s) => { s.put(file); over.forEach((f) => s.delete(f.id)); return null; }, AC_FILES);
+  acFiles = null;
+  if (acMenu) acRender();
+}
+// The files, newest used first (read once, then from this cache until a file changes).
+let acFiles = null;
+async function acFilesAll() {
+  if (!acFiles) acFiles = ((await acTx("readonly", (s) => s.getAll(), AC_FILES)) || []).sort((a, b) => b.used - a.used);
+  return acFiles;
+}
+// Where a file can go, by kind: [code, button text, what it does]. A run is also a route.
+const AC_USE = {
+  race: ["▲ Race", "Open it as the race course in Prep my race"],
+  prep: ["◆ Run session", "Open it as the route of a session in Prep my run"],
+  ref: ["Engine", "Add it to Your runs in Prep my race: your engine learns from it"],
+  rewind: ["▶ Rewind", "Replay it in Rewind my run"],
+};
+const AC_USES = { run: ["rewind", "ref", "race", "prep"], route: ["race", "prep"] };
+// Uses a kept file in a mode (set by main.js through acctOnUseFile): fn(gpxText, name, use).
+let acUse = null;
+/** main.js gives the function that opens a kept file in a mode. */
+export function acctOnUseFile(fn) { acUse = fn; }
+// Which kinds the files list shows ("all", "run" or "route") and whether it shows them all.
+const acFileView = { kind: "all", more: false };
+function acFilesHtml(files) {
+  const runs = files.filter((f) => f.kind === "run").length;
+  const tabs = [["all", `All ${files.length}`], ["run", `Runs ${runs}`], ["route", `Routes ${files.length - runs}`]];
+  const list = files.filter((f) => acFileView.kind === "all" || f.kind === acFileView.kind);
+  const shown = acFileView.more ? list : list.slice(0, 5);
+  const rows = shown.map((f) => `<li class="acct-file">
+      <div class="acct-file-top"><span class="acct-tag ${f.kind}">${f.kind === "run" ? "Run" : "Route"}</span><b>${acEsc(f.name)}</b><button type="button" class="acct-file-del" data-acct="file-del:${f.id}" aria-label="Remove ${acEsc(f.name)}" title="Remove from my files">×</button></div>
+      <small>${f.date ? `${acDate(f.date)} · ` : ""}${f.km.toFixed(1)} km · ${acNum(f.gain)} m D+</small>
+      <div class="acct-use">${AC_USES[f.kind].map((u) => `<button type="button" data-acct="use:${u}:${f.id}" title="${AC_USE[u][1]}">${AC_USE[u][0]}</button>`).join("")}</div>
+    </li>`).join("");
+  return `<section class="acct-files"><h4>My files</h4>
+    <p class="acct-legend"><span class="acct-tag run">Run</span> GPS + time, pace, cadence <span class="acct-tag route">Route</span> GPS only</p>
+    ${files.length ? `<div class="acct-ftabs" role="group" aria-label="Show">${tabs.map(([k, t]) => `<button type="button" data-acct="files:${k}" aria-pressed="${acFileView.kind === k}">${t}</button>`).join("")}</div>
+    <ul class="acct-filelist">${rows}</ul>
+    ${list.length > 5 ? `<button class="acct-linkbtn" type="button" data-acct="files-more">${acFileView.more ? "Show fewer" : `Show all ${list.length}`}</button>` : ""}
+    <p class="acct-note">Kept on this device only, without heart rate. A run can also be used as a route.</p>`
+    : `<p class="acct-empty">The GPX files you give the app (race, your runs, a run to rewind) appear here, ready to use again in any mode. Kept on this device only.</p>`}
+  </section>`;
 }
 
 // Small formatters: a date as "12 Mar" in the reader's language (undefined = the browser's
@@ -270,7 +343,7 @@ function acTokensHtml(S) {
  * Sections: who (name and where the runs are), then either an empty-log note, or the 12-month
  * totals, last runs and all the achievements as small icons; then tokens and the action links.
  */
-function acMenuHtml(S, demo = false) {
+function acMenuHtml(S, demo = false, files = []) {
   const user = cloudOn() && cloudUser();
   // The line under the name: demo profile, signed-in email, or runs on this device only.
   const where = demo ? `Demo profile · ${S.count} sample runs` : user ? `${acEsc(user.email)} · ${S.count} run${S.count === 1 ? "" : "s"}${cloudWritable() ? " synced" : " · profile synced"}` : `${S.count || "No"} run${S.count === 1 ? "" : "s"} on this device`;
@@ -282,8 +355,8 @@ function acMenuHtml(S, demo = false) {
   // sign out and delete account (signed in only).
   const links = `<section class="acct-links">${S.count ? `<button type="button" data-acct="bests">Bests</button>` : ""}${S.count && !demo ? `<button type="button" data-acct="export">Export</button><button type="button" data-acct="clear">Delete runs</button>` : ""}${user ? `<button type="button" data-acct="signout">Sign out</button>${cloudWritable() ? `<button type="button" data-acct="delete">Delete account</button>` : ""}` : ""}</section>`;
   if (!S.count) {
-    return `${who}
-    <section><p class="acct-empty">Open one of your runs in <b>Rewind my run</b>, or add it to <b>Your runs</b> in Prep my race: its numbers are kept here${user ? "" : ", on this device only"}, and your stats, records and achievements build up run after run.</p></section>
+    return `${who}${acFilesHtml(files)}
+    <section><h4>My runs</h4><p class="acct-empty">Open one of your runs in <b>Rewind my run</b>, or add it to <b>Your runs</b> in Prep my race: its numbers are kept here${user ? "" : ", on this device only"}, and your stats, records and achievements build up run after run.</p></section>
     ${acDocsHtml(ac.docs)}${acTokensHtml(S)}${links}`;
   }
   // Big climbing totals in thousands: 12345 m -> "12.3k".
@@ -296,11 +369,9 @@ function acMenuHtml(S, demo = false) {
   const medals = [...S.achievements].sort((a, b) => b.done - a.done || b.progress - a.progress);
   acMedals = medals;
   return `${who}
+    ${acFilesHtml(files)}
     <section><h4>Last 12 months</h4>
       <div class="acct-kpis"><div><b>${acNum(S.year.km)}</b><small>km</small></div><div><b>${gainK}</b><small>m D+</small></div><div><b>${acNum(S.year.movingSec / 3600)} h</b><small>moving</small></div></div>
-    </section>
-    <section><h4>Last runs</h4>
-      ${S.last.map((r) => `<div class="acct-row"><span>${acDate(r.date)} · ${acEsc(r.name)}</span><b>${r.km.toFixed(1)} km · ${acNum(r.gain)} m</b></div>`).join("")}
     </section>
     <section><h4>Achievements · ${S.unlocked} / ${S.achievements.length}</h4>
       <div class="acct-medals mini">${medals.map((a) => `<button type="button" class="${a.done ? "on" : "lock"}" data-acct="medal:${a.code}" aria-label="${acEsc(a.label)}${a.done ? ", reached" : `, ${Math.floor(a.progress * 100)}%`}"><span aria-hidden="true">${a.icon}</span>${a.done ? "" : `<i style="width:${Math.round(a.progress * 100)}%"></i>`}</button>`).join("")}</div>
@@ -554,7 +625,7 @@ async function acRender() {
   acDemo = !mine.length && !(cloudOn() && cloudUser());
   acList = acDemo ? demoRecords() : mine;
   ac.docs = await aiDocsAll();
-  acMenu.innerHTML = acMenuHtml(historySummary(acList), acDemo);
+  acMenu.innerHTML = acMenuHtml(historySummary(acList), acDemo, await acFilesAll());
 }
 
 /**
@@ -902,6 +973,29 @@ async function acAction(what) {
     await acTx("readwrite", (s) => s.clear());
     trackEvent("history-clear");
     acRender();
+  } else if (what.startsWith("use:")) {
+    // "use:race:<id>": open that kept file in a mode. The file becomes the latest used.
+    const [, use, id] = what.split(":");
+    const f = (await acFilesAll()).find((x) => x.id === id);
+    if (!f || !acUse) return;
+    f.used = Date.now();
+    await acTx("readwrite", (s) => s.put(f), AC_FILES);
+    acFiles = null;
+    trackEvent("file-use", use);
+    acUse(trackToGpx(unpackTrack(f.track)), f.name, use);
+  } else if (what.startsWith("file-del:")) {
+    const id = what.slice(9);
+    await acTx("readwrite", (s) => s.delete(id), AC_FILES);
+    acFiles = null;
+    trackEvent("file-delete");
+    acRender();
+  } else if (what.startsWith("files:")) {
+    acFileView.kind = what.slice(6);
+    acFileView.more = false;
+    acRender();
+  } else if (what === "files-more") {
+    acFileView.more = !acFileView.more;
+    acRender();
   } else if (what.startsWith("saved:")) {
     const it = (ac.saved || []).find((x) => x.id === what.slice(6));
     if (!it || !acReopen) return;
@@ -1103,7 +1197,7 @@ export async function initAccount(opts = {}) {
   // menu on any outside click) does not see it.
   btn.addEventListener("click", (e) => { e.stopPropagation(); set(!acMenu.classList.contains("open")); });
   // The Account window replaces the menu on screen: the menu closes when it opens.
-  acEl.addEventListener("click", (e) => { const b = e.target.closest("[data-acct]"); if (!b) return; if (b.dataset.acct === "profile" || b.dataset.acct === "bests") set(false); acAction(b.dataset.acct); });
+  acEl.addEventListener("click", (e) => { const b = e.target.closest("[data-acct]"); if (!b) return; if (b.dataset.acct === "profile" || b.dataset.acct === "bests" || b.dataset.acct.startsWith("use:")) set(false); acAction(b.dataset.acct); });
   // Hovering or tabbing onto an achievement icon shows it in the caption too (a tap is a click).
   const medalOver = (e) => { const b = e.target.closest && e.target.closest("[data-acct^='medal:']"); if (b) acMedalShow(b.dataset.acct.slice(6)); };
   acMenu.addEventListener("mouseover", medalOver);
@@ -1132,7 +1226,10 @@ export async function initAccount(opts = {}) {
     if (pl) { e.preventDefault(); acctOpenProfile(pl.dataset.openProfile); }
   });
   // Any click outside the account element closes the menu.
-  document.addEventListener("click", (e) => { if (!acEl.contains(e.target)) set(false); });
+  // (A target the menu just redrew is no longer in the page: isConnected is false, so it is skipped.)
+  document.addEventListener("click", (e) => { if (e.target.isConnected && !acEl.contains(e.target)) set(false); });
+  // A GPX file given to any drop box (event "trp-gpx" from main.js, preprun.js, review.js) joins My files.
+  document.addEventListener("trp-gpx", (e) => acctKeepFile(e.detail.xml, e.detail.label));
   // Escape closes the pop-up first, then the menu (and gives the focus back to the icon).
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
