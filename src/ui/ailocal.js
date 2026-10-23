@@ -66,7 +66,7 @@ const AL_MODES = {
   prep_run: { input: (x) => aiRunInput(x.plan, { name: x.raceName, user: x.user, athlete: x.athlete, history: x.history }), request: aiRunRequest, fake: aiRunFake, merge: aiRunMerge },
 };
 // What a test file and the local server keep of a result (everything but the rebuilt plan).
-const alKeep = (m, tokens) => ({ status: m.status, reason: m.reason, tokens, finishSec: m.finishSec, aiFinishSec: m.aiFinishSec, fixes: m.fixes, legs: m.legs, aid: m.aid, exercises: m.exercises, workSec: m.workSec, texts: m.texts });
+const alKeep = (m, tokens) => ({ status: m.status, reason: m.reason, tokens, finishSec: m.finishSec, finishes: m.finishes, aiFinishSec: m.aiFinishSec, fixes: m.fixes, legs: m.legs, aid: m.aid, exercises: m.exercises, workSec: m.workSec, texts: m.texts });
 
 /**
  * Run one local test. `x` = { mode ("prep_race" by default, or "prep_run"), plan, raceName,
@@ -160,7 +160,11 @@ export function aiLocalHtml(r) {
   return `<p class="acct-kicker">${kick} · ${alEsc(tk.model)}</p>
     <h3>${alEsc(T.headline)}</h3>
     ${r.docId ? docBtns : `<div class="acct-actions"><button class="btn primary" type="button" data-acct="ai-race">▶ Play it in Your race</button></div><p class="acct-note">Kept in your AI docs (account menu).</p>`}
-    <p>Calculated finish <b>${hms(input.calc.finishSec.central)}</b> · AI finish (summed by code) <b>${hms(m.finishSec)}</b> · AI's own estimate ${hms(m.aiFinishSec)} · verdict <b>${alEsc(D.target.verdict)}</b></p>
+    <p>AI finish <b>${hms(m.finishSec)}</b> <small>(the AI leg times plus its stops, as Your race plays them)</small> · calculated ${hms(input.calc.finishSec.central)} · verdict <b>${alEsc(D.target.verdict)}</b></p>
+    ${m.finishes ? `<div class="acct-tbl-wrap"><table class="acct-tbl"><tr><th></th><th>Best</th><th>Central</th><th>Cautious</th></tr>
+      <tr><td>✦ AI</td><td>${hms(m.finishes.best)}</td><td><b>${hms(m.finishes.central)}</b></td><td>${hms(m.finishes.cautious)}</td></tr>
+      <tr><td>Calculated</td><td>${hms(input.calc.finishSec.best)}</td><td>${hms(input.calc.finishSec.central)}</td><td>${hms(input.calc.finishSec.cautious)}</td></tr></table></div>
+      <p class="acct-note">Your race shows the scenario picked in 03 Your plan (Best, Central or Cautious).</p>` : ""}
     ${T.answer ? `<p class="acct-answer">${alEsc(T.answer)}</p>` : ""}
     <p>${alEsc(T.synthesis)}</p>
     <div class="acct-ai-cols"><div><h4>Strengths</h4>${pts(T.strengths)}</div><div><h4>Weaknesses</h4>${pts(T.weaknesses)}</div></div>

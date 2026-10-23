@@ -2,6 +2,9 @@
 // technical detail). The first entry is the current version: the footer shows it on every page.
 
 export const CHANGELOG = [
+  { v: "2.21", date: "2026-10-23", items: [
+    "The AI doc lists the Best, Central and Cautious finishes of the AI plan, as Your race shows them. The app never changes the AI's numbers.",
+  ] },
   { v: "2.20", date: "2026-10-23", items: [
     "The AI waiting runner is now a real trail runner (cap, vest, knees and elbows that bend) jogging slowly, Z2 easy.",
   ] },

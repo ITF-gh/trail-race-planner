@@ -85,6 +85,7 @@ test("merge: AI leg times move the finish by exactly their sum, the app's functi
   const out = same();
   out.dataset.legs[1].durSec += 600; // 10 minutes slower on L2
   out.dataset.aid[0].stopMin += 5; // 5 more minutes at the first aid station
+  out.dataset.target.finishSec = plan.scenarios.central.finishSec + 900; // the AI added it up right
   const m = aiPrepMerge(plan, input, out);
   assert.ok(Math.abs(m.finishSec - plan.scenarios.central.finishSec - 900) < 30);
   assert.ok(m.legs[1].mark && m.legs[1].pct > 3);
@@ -154,4 +155,14 @@ test("merge: Your race reads the AI plan (tactics, notes, gels, moments, climb c
   assert.ok(s.some((e) => e.kind === "ai" && /hold back/.test(e.cue)));
   assert.ok(!raceScript(plan, "central").some((e) => e.kind === "ai"));
   assert.equal(raceLegs(plan, "central")[0].ai, null);
+});
+
+test("merge: the AI's own finish never changes its legs; finishes per scenario as Your race shows them", () => {
+  const f = same();
+  const sum = input.calc.legs.reduce((t, l) => t + l.durSec, 0) + f.dataset.aid.reduce((t, s) => t + s.stopMin * 60, 0);
+  f.dataset.target.finishSec = Math.round(sum * 0.9);
+  const m = aiPrepMerge(plan, input, f);
+  assert.ok(Math.abs(m.finishSec - sum) < 60);
+  assert.equal(m.aiFinishSec, f.dataset.target.finishSec);
+  for (const id of ["best", "central", "cautious"]) assert.equal(m.finishes[id], m.plan.scenarios[id].finishSec);
 });

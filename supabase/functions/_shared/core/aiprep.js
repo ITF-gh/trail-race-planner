@@ -297,18 +297,19 @@ export const aipClamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
  * Check the AI output against the input and rebuild the plan from it.
  * Inputs: plan (from buildPlan, the one the input was built from), input (aiPrepInput), output
  * (the AI's JSON).
- * Returns { status, reason, plan, legs, aid, fixes, finishSec, aiFinishSec, texts, dataset }:
+ * Returns { status, reason, plan, legs, aid, fixes, finishSec, finishes, aiFinishSec, texts, dataset }:
  *   status   "ok" or "null"; reason when null ("empty_dataset", "out_of_scope", "invalid_answer")
  *   plan     the AI plan: same shape as buildPlan's, central timeline rebuilt from the AI leg
  *            times, best / cautious from the AI factors, aid stops from the AI (null when null)
  *   legs     one row per leg: calc and AI moving time, difference in %, mode, effort, mark
  *            (true when they differ by more than 3%: the edelweiss mark), why
  *   fixes    what the referee changed, in words (dropped ids, values out of range, cut texts)
- *   finishSec      the AI finish computed by code (sum of legs and stops)
- *   aiFinishSec    the finish the AI wrote itself, only to cross-check
+ *   finishSec      the AI central finish computed by code (sum of legs and stops)
+ *   finishes       { best, central, cautious }: the finish of each scenario, as Your race shows it
+ *   aiFinishSec    the finish the AI wrote itself, shown as written
  */
 export function aiPrepMerge(plan, input, output) {
-  const nul = (reason, fixes = []) => ({ status: "null", reason, plan: null, legs: [], aid: [], fixes, finishSec: null, aiFinishSec: null, texts: null, dataset: null });
+  const nul = (reason, fixes = []) => ({ status: "null", reason, plan: null, legs: [], aid: [], fixes, finishSec: null, finishes: null, aiFinishSec: null, texts: null, dataset: null });
   if (!output || !output.check) return nul("invalid_answer");
   // An "empty" verdict on a dataset that has legs is the AI's mistake, not the runner's: it counts
   // as an invalid answer (first gpt-4o-mini test: 11 legs, answered "empty_dataset").
@@ -384,9 +385,12 @@ export function aiPrepMerge(plan, input, output) {
   const aid = input.race.aid.map((s, k) => ({ ...s, aiStopMin: stops[k], arriveSec: out.aidStations[k].arrive.central }));
   // 6. Texts: watch texts cut to 24 characters, the rest kept as written (shown escaped).
   const texts = T ? { ...T, watchTexts: (T.watchTexts || []).map((w) => ({ ...w, text: String(w.text).slice(0, 24) })) } : null;
+  // The AI's own finish is shown as it wrote it, never used to change its legs: the plan is the
+  // AI's legs and stops, added up by code (owner's rule, 2026-10-23).
   const aiFinishSec = D.target && Number.isFinite(D.target.finishSec) ? D.target.finishSec : null;
-  if (aiFinishSec && Math.abs(aiFinishSec / finishSec - 1) > 0.02) fixes.push(`The AI's own finish (${aipHms(aiFinishSec)}) differs from the sum of its legs and stops (${aipHms(finishSec)}): the sum is used.`);
-  return { status: "ok", reason: null, plan: out, legs, aid, fixes, finishSec, aiFinishSec, texts, dataset: D };
+  // The finish of each scenario, as Your race shows them (its scenario buttons).
+  const finishes = Object.fromEntries(AIP_SIDS.map((id) => [id, out.scenarios[id].finishSec]));
+  return { status: "ok", reason: null, plan: out, legs, aid, fixes, finishSec, finishes, aiFinishSec, texts, dataset: D };
 }
 
 // The three scenarios, in the order every per-scenario object uses.
