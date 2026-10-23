@@ -2,6 +2,9 @@
 // technical detail). The first entry is the current version: the footer shows it on every page.
 
 export const CHANGELOG = [
+  { v: "2.20", date: "2026-10-23", items: [
+    "The AI waiting runner is now a real trail runner (cap, vest, knees and elbows that bend) jogging slowly, Z2 easy.",
+  ] },
   { v: "2.19", date: "2026-10-23", items: [
     "While the AI works, a trail runner runs along the trail and pines, a rock, edelweiss and a bird pop up on the way.",
   ] },
