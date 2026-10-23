@@ -46,6 +46,7 @@ import { trackEvent } from "./analytics.js";
 import { profileHtml, profileInput, profileAction, profileAthlete, profileWho, profileData, profileReplace } from "./profile.js";
 import { aiLocalProbe, aiLocalRun, aiOnlineRun, aiLocalHtml } from "./ailocal.js";
 import { AI_PREP_MODELS, aiPrepMerge } from "../core/aiprep.js";
+import { AI_RUN_EFFORTS, AI_RUN_EFFORT_DEFAULT } from "../core/airun.js";
 import { aiDocsAll, aiDocsPut, aiDocsGet, aiDocsDelete } from "./aidocs.js";
 import { cloudOn, cloudWritable, CL_READONLY, cloudUser, cloudFromUrl, cloudSendLink, cloudSignInPassword, cloudSignOut, cloudProfile, cloudPutProfile, cloudSaved, cloudSave, cloudSavedDelete, cloudRuns, cloudPutRuns, cloudDeleteRuns, cloudLedger, cloudClaim, cloudAi, cloudAiOn, cloudJob, cloudDeleteAccount, cloudSignUp, cloudSendReset, cloudSetPassword } from "./cloud.js";
 
@@ -404,7 +405,7 @@ function acMenuHtml(S, demo = false) {
 //   checks    the failed checks shown after a click on "Spend", or null when none are shown
 const acAsk = { mode: "dates", from: null, to: null, ids: new Set(), goal: "target", risk: "balanced", target: null, notes: "", question: "", checks: null };
 // The Prep my run window (the AI coach) asks less: free information and a question, both optional.
-const acRunAsk = { notes: "", question: "", checks: null };
+const acRunAsk = { effort: AI_RUN_EFFORT_DEFAULT, notes: "", question: "", checks: null };
 // What the page knows about the run to come, given by main.js (getRun): { name, km, gain, climbs,
 // spots, plan, key } or null before a GPX is loaded.
 let acGetRun = () => null;
@@ -561,15 +562,18 @@ function acRunHtml() {
     <div class="acct-actions">${acLocal.key || acLocal.direct ? `<button class="btn primary" type="button" data-acct="run-go">${AC_SPARK}Send to the AI</button>` : ""}<button class="btn ${acLocal.key || acLocal.direct ? "ghost" : "primary"}" type="button" data-acct="run-fake">Fake answer</button><button class="btn ghost" type="button" data-acct="close">Cancel</button></div>`
     : `<div class="acct-actions"><button class="btn primary" type="button" data-acct="run-go">${AC_SPARK}Spend 1 ${AC_TOKEN.one}</button><button class="btn ghost" type="button" data-acct="close">Cancel</button></div>`;
   return `<p class="acct-kicker">${AC_SPARK} Ask the AI coach · Prep my run · ${acLocal ? "local test" : `1 ${AC_TOKEN.one}`}</p>
-    <h3>Find the exercises on my run</h3>
+    <h3>Prepare my run</h3>
     ${route}
-    <p class="acct-sub">The coach picks among the spots the app found (long flats, strings of climbs, steady climbs, runnable descents...), doses each exercise for you and explains it. The app then checks every dose: warm-up first, no more than 4 exercises, hard work at most a quarter of the run.</p>
+    <p class="acct-sub">The coach prepares the whole run at the effort you pick: a pace and an effort for every section, and the exercises that suit it on the spots the app found (long flats, strings of climbs, steady climbs, runnable descents...). The app then checks everything: warm-up first, no more than 4 exercises, hard work at most a quarter of the run.</p>
+    <h4>Effort</h4>
+    <div class="acct-chips">${AI_RUN_EFFORTS.map((x) => `<button type="button" class="acct-chip${acRunAsk.effort === x.code ? " on" : ""}" data-acct="reff:${x.code}" title="${acEsc(x.text)}">${x.code} · ${x.label}</button>`).join("")}</div>
+    <p class="acct-note" data-reff-text>${acEsc(AI_RUN_EFFORTS[acRunAsk.effort - 1].text)}.</p>
     <p class="acct-sub"><b>${runs.length} stored run${runs.length === 1 ? "" : "s"}</b> of the last 6 weeks: your load and form.</p>
     <h4>Free information <small>(optional)</small></h4>
     <textarea class="acct-q" data-ask="rnotes" data-field="notes" maxlength="${AI_NOTES_MAX}" rows="3" placeholder="e.g. Calf a bit tight since Sunday. Race in 5 weeks with long climbs. I have 2 hours.">${acEsc(acRunAsk.notes)}</textarea>
     <h4>Your question <small>(optional)</small></h4>
     <textarea class="acct-q" data-ask="rquestion" data-field="question" maxlength="${AI_QUESTION_MAX}" rows="2" placeholder="e.g. Can I work my climbing without wrecking my legs for Saturday?">${acEsc(acRunAsk.question)}</textarea>
-    <p class="acct-note">Sent: the route in sections (distance, climbing, gradients), the spots the app found, your pace when Your runs has GPX files, the numbers of your stored runs of the last 6 weeks, your two texts, and the heart rates and weight from your profile. <b>Not sent:</b> the GPX file, GPS track, run names and your email.</p>
+    <p class="acct-note">Sent: the effort you picked, the route in sections (distance, climbing, gradients), the spots the app found, your pace when Your runs has GPX files, the numbers of your stored runs of the last 6 weeks, your two texts, and the heart rates and weight from your profile. <b>Not sent:</b> the GPX file, GPS track, run names and your email.</p>
     ${box}`;
 }
 
@@ -823,7 +827,7 @@ async function acStartOnline(mode, forced = []) {
   const athlete = { maxHr: a.hrMax, restHr: a.hrRest, weightKg: a.weight };
   const R = run ? acGetRun() : acGetRace();
   const x = run
-    ? { mode, plan: R && R.plan, raceName: R ? R.name : "My run", user: { notes: acRunAsk.notes, question: acRunAsk.question, forced }, athlete, history: acRunRuns() }
+    ? { mode, plan: R && R.plan, raceName: R ? R.name : "My run", user: { effort: acRunAsk.effort, notes: acRunAsk.notes, question: acRunAsk.question, forced }, athlete, history: acRunRuns() }
     : { mode, plan: R.plan, raceName: R.race ? R.race.name : "Race", user: { targetSec: parseDuration((acAsk.target || "").trim()), goal: acAsk.goal, risk: acAsk.risk, notes: acAsk.notes, question: acAsk.question, forced }, athlete, history: acAskRuns() };
   acShowPanel(`<p class="acct-kicker">${AC_SPARK}${run ? "AI coach" : "AI"}</p><h3>Asking the AI…</h3>${AC_WAIT}<p>This can take a minute or two. Keep this tab open.</p>`, "AI");
   ac.job = true;
@@ -891,7 +895,7 @@ async function acStartRun(forced = []) {
   const a = profileAthlete();
   const r = await aiLocalRun({
     mode: "prep_run", plan: R && R.plan, raceName: R ? R.name : "My run", fake, direct: acLocal.direct, apiKey: acLocal.apiKey, model: acLocal.model,
-    user: { notes: acRunAsk.notes, question: acRunAsk.question, forced },
+    user: { effort: acRunAsk.effort, notes: acRunAsk.notes, question: acRunAsk.question, forced },
     athlete: { maxHr: a.hrMax, restHr: a.hrRest, weightKg: a.weight },
     history: acRunRuns(),
   });
@@ -936,7 +940,7 @@ async function acDocShow(id) {
  * caught by one listener in initAccount (data-ai-ask), so it works wherever it is drawn.
  */
 export function acctAiBadge(mode) {
-  return `<button class="ai-badge" type="button" data-ai-ask="${mode}" aria-label="Ask the AI ${mode === "run" ? "coach" : "for a race plan"}">${AC_SPARK}<span><b>Ask the AI</b><small>${mode === "run" ? "coach · exercises" : "race plan"}</small></span></button>`;
+  return `<button class="ai-badge" type="button" data-ai-ask="${mode}" aria-label="Ask the AI ${mode === "run" ? "coach" : "for a race plan"}">${AC_SPARK}<span><b>Ask the AI</b><small>${mode === "run" ? "coach · my run" : "race plan"}</small></span></button>`;
 }
 /** Open the Ask the AI window (for the "Ask the AI" link of Your race). */
 export function acctOpenAsk() { acAction("ai"); }
@@ -1123,6 +1127,12 @@ async function acAction(what) {
     const [k, v] = what.split(":");
     acAsk[k] = v;
     acPanel.querySelectorAll(`[data-acct^="${k}:"]`).forEach((b) => b.classList.toggle("on", b.dataset.acct === what));
+  } else if (what.startsWith("reff:")) {
+    // The effort of Prep my run (1 to 5): only the chips and the line under them change.
+    acRunAsk.effort = Number(what.slice(5));
+    acPanel.querySelectorAll('[data-acct^="reff:"]').forEach((b) => b.classList.toggle("on", b.dataset.acct === what));
+    const t = acPanel.querySelector("[data-reff-text]");
+    if (t) t.textContent = `${AI_RUN_EFFORTS[acRunAsk.effort - 1].text}.`;
   } else if (what.startsWith("goto:")) {
     // Close the window (its content stays in acAsk) and bring the drop zone into view.
     acPanel.hidden = true;

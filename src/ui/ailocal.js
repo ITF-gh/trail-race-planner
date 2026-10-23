@@ -19,7 +19,7 @@
 // a browser. The test is then offered as a download instead of being saved in ai-runs/.
 
 import { aiPrepInput, aiPrepRequest, aiPrepRead, aiPrepMerge, aiPrepFake, AI_PREP_MODEL } from "../core/aiprep.js";
-import { aiRunInput, aiRunRequest, aiRunMerge, aiRunFake } from "../core/airun.js";
+import { aiRunInput, aiRunRequest, aiRunMerge, aiRunFake, AI_RUN_EFFORTS } from "../core/airun.js";
 import { hms, hm } from "../core/format.js";
 
 // Escape text for HTML (& < > " become entities): AI texts are never read as HTML.
@@ -187,13 +187,18 @@ function alRunHtml(r, { kick, tokens, saved, docBtns, fixes }) {
     ${m.exercises.map((e) => `<tr><td>${alEsc(e.id)} ${alEsc(e.title)}</td><td>${alEsc(e.spotId)}</td><td>${e.startKm}–${e.endKm}</td><td>${alEsc(e.dose)}</td><td>${e.effort}/5</td><td>${hm(e.atSec)}</td></tr>`).join("")}</table></div>
     <ul>${m.exercises.map((e) => `<li><b>${alEsc(e.title)}</b>: ${alEsc(e.how)} <small>Why: ${alEsc(e.why)}</small></li>`).join("")}</ul>` : "<p>No exercise: an easy run.</p>";
   const pts = (a) => (a && a.length ? `<ul>${a.map((p) => `<li><b>${alEsc(p.what)}</b>: ${alEsc(p.effect)} <small>(${alEsc(p.proof)})</small></li>`).join("")}</ul>` : "<p>-</p>");
+  // The sections as the AI prepared them (version 2; a version 1 doc has none).
+  const legs = (m.legs || []).length ? `<h4>Sections (moving time at easy pace and as the AI prepared it)</h4><div class="acct-tbl-wrap"><table class="acct-tbl"><tr><th>Section</th><th>km</th><th>Easy</th><th>AI</th><th>Diff</th><th>Mode</th><th>Effort</th><th>Note</th></tr>
+    ${m.legs.map((l) => `<tr><td>${l.id} ${alEsc(l.kind)}${l.n ? " " + alEsc(l.n) : ""}</td><td>${l.startKm}–${l.endKm}</td><td>${hm(l.calcSec)}</td><td>${hm(l.aiSec)}</td><td>${l.pct > 0 ? "+" : ""}${l.pct}%</td><td>${alEsc(l.mode || "")}</td><td>${l.effort ? `${l.effort}/5` : ""}</td><td>${alEsc(l.note || "")}</td></tr>`).join("")}</table></div>` : "";
+  const E = AI_RUN_EFFORTS.find((x) => x.code === input.user.effort);
   return `<p class="acct-kicker">${kick} · Prep my run · ${alEsc(read.tokens.model)}</p>
     <h3>${alEsc(T.headline)}</h3>
     ${r.docId ? docBtns : `<div class="acct-actions"><button class="btn primary" type="button" data-acct="ai-run">▶ Play it in Prep my run</button></div><p class="acct-note">Kept in your AI docs (account menu).</p>`}
-    <p>Session <b>${alEsc(D.session && D.session.type)}</b> · intensity ${alEsc(D.session && D.session.intensity)}/5 · ${(m.exercises || []).length} exercise(s) · hard work <b>${Math.round((m.workSec || 0) / 60)} min</b> · finish ${hm(input.calc.finishSec.central)} at easy pace, <b>${hm(m.finishSec)}</b> with the session · ${input.spots.length} spots found</p>
+    <p>${E ? `Effort asked <b>${E.code}/5 ${alEsc(E.label)}</b> · ` : ""}Session <b>${alEsc(D.session && D.session.type)}</b> · intensity ${alEsc(D.session && D.session.intensity)}/5 · ${(m.exercises || []).length} exercise(s) · hard work <b>${Math.round((m.workSec || 0) / 60)} min</b> · finish ${hm(input.calc.finishSec.central)} at easy pace, <b>${hm(m.finishSec)}</b> as prepared · ${input.spots.length} spots found</p>
     ${T.answer ? `<p class="acct-answer">${alEsc(T.answer)}</p>` : ""}
     <p>${alEsc(T.synthesis)}</p>
     ${T.warmup ? `<p><b>Warm-up:</b> ${alEsc(T.warmup)} <b>Cool-down:</b> ${alEsc(T.cooldown)}</p>` : ""}
+    ${legs}
     <h4>Exercises (checked by the app)</h4>${ex}
     ${(T.skipped || []).length ? `<h4>Spots not used</h4><ul>${T.skipped.map((s) => `<li>${alEsc(s.spotId)}: ${alEsc(s.why)}</li>`).join("")}</ul>` : ""}
     ${T.loadNote ? `<h4>Load</h4><p>${alEsc(T.loadNote)}</p>` : ""}

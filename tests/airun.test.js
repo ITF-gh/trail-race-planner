@@ -6,11 +6,12 @@ import { prepRunPlan } from "../src/core/preprun.js";
 import { raceScript, racePaceLine } from "../src/core/script.js";
 import { aiPrepRead } from "../src/core/aiprep.js";
 import { makeDemoRaceGpx, DEMO_LONG_RUN_PROFILE } from "../src/demo.js";
-import { runSpots, runLoad, aiRunInput, aiRunRequest, aiRunMerge, aiRunFake, AI_RUN_SCHEMA, AI_RUN_INSTRUCTIONS } from "../src/core/airun.js";
+import { runSpots, runLoad, aiRunInput, aiRunRequest, aiRunMerge, aiRunFake, AI_RUN_SCHEMA, AI_RUN_INSTRUCTIONS, AI_RUN_EFFORT_DEFAULT } from "../src/core/airun.js";
 
 // The sample long run of Prep my run (30 km, 4 climbs), built once.
 const plan = prepRunPlan(parseGpx(makeDemoRaceGpx(DEMO_LONG_RUN_PROFILE, { name: "Run", startEle: 650, loop: true, center: [45.05, 5.7] })), {});
-const input = aiRunInput(plan, { name: "Sample\n<b>", user: { notes: "", question: "Climbing today?" } });
+// Effort 5 (very hard): the referee tests below need room for several exercises.
+const input = aiRunInput(plan, { name: "Sample\n<b>", user: { effort: 5, notes: "", question: "Climbing today?" } });
 // One exercise answer, made from the fake one with the given exercises.
 const answer = (exercises) => { const f = aiRunFake(input); f.dataset.exercises = exercises; return f; };
 const spot = (kind) => input.spots.find((s) => s.kind === kind);
@@ -100,11 +101,11 @@ test("referee: injuries in the notes and a heavy load", () => {
     { id: "E1", spotId: f.id, kind: "strides", startKm: f.startKm, endKm: f.endKm, reps: 8, workSec: 20, recoverySec: 40, effort: 4 },
     { id: "E2", spotId: d.id, kind: "downhill", startKm: d.startKm, endKm: d.endKm, reps: 3, workSec: 60, recoverySec: 60, effort: 4 },
   ];
-  const sore = aiRunInput(plan, { user: { notes: "Mal au genou depuis lundi." } });
+  const sore = aiRunInput(plan, { user: { effort: 5, notes: "Mal au genou depuis lundi." } });
   const m = aiRunMerge(plan, sore, answer(ex));
   assert.deepEqual(m.exercises.map((e) => e.kind), ["strides"], "no downhill drill with a sore knee");
   const now = Date.UTC(2026, 9, 16);
-  const tired = aiRunInput(plan, { history: [{ date: now - 86400000, km: 32 }, { date: now - 9 * 86400000, km: 10 }], now });
+  const tired = aiRunInput(plan, { user: { effort: 5 }, history: [{ date: now - 86400000, km: 32 }, { date: now - 9 * 86400000, km: 10 }], now });
   assert.equal(tired.engine.load.heavy, true);
   const h = aiRunMerge(plan, tired, answer(ex));
   assert.equal(h.exercises.length, 1);
@@ -118,5 +119,38 @@ test("referee: empty, out of scope, false empty, no exercise", () => {
   assert.equal(aiRunMerge(plan, input, null).reason, "invalid_answer");
   const easy = aiRunMerge(plan, input, answer([]));
   assert.equal(easy.status, "ok");
-  assert.equal(easy.finishSec, input.calc.finishSec.central, "an easy run keeps the calculated clock");
+  const sum = easy.dataset.legs.reduce((t, l) => t + l.durSec, 0);
+  assert.ok(Math.abs(easy.finishSec - sum) <= 2, "the clock is the AI's sections, added up by code");
+});
+
+test("effort: picked by the runner, sent, and capping the exercises", () => {
+  assert.equal(aiRunInput(plan, {}).user.effort, AI_RUN_EFFORT_DEFAULT);
+  assert.equal(aiRunInput(plan, { user: { effort: 9 } }).user.effort, 5);
+  assert.match(aiRunRequest(input).input, /effort asked: 5 of 5, Very hard/);
+  const f = spot("flat"), c = spot("climb");
+  const ex = [
+    { id: "E1", spotId: f.id, kind: "strides", startKm: f.startKm, endKm: f.endKm, reps: 6, workSec: 20, recoverySec: 40, effort: 5 },
+    { id: "E2", spotId: c.id, kind: "uphill_threshold", startKm: c.startKm, endKm: c.endKm, reps: 2, workSec: 300, recoverySec: 120, effort: 5 },
+  ];
+  const at = (e) => aiRunInput(plan, { user: { effort: e } });
+  const rec = aiRunMerge(plan, at(1), answer(ex));
+  assert.equal(rec.exercises.length, 0, "recovery: no exercise");
+  assert.match(rec.fixes.join(" "), /recovery run takes no exercise/);
+  const easy = aiRunMerge(plan, at(2), answer(ex));
+  assert.equal(easy.exercises.length, 1);
+  assert.ok(easy.exercises[0].effort <= 3, "easy: effort 3 at most");
+  assert.equal(aiRunMerge(plan, at(4), answer(ex)).exercises.length, 2);
+});
+
+test("sections: the AI times set the clock, checked like Prep my race", () => {
+  const out = aiRunFake(input);
+  out.dataset.legs[0].durSec = 1; // 2:30 per km at least
+  out.dataset.legs.push({ id: "L999", durSec: 600, mode: "run", effort: 2 });
+  const m = aiRunMerge(plan, input, out);
+  assert.match(m.fixes.join(" "), /L999 does not exist/);
+  assert.equal(m.legs[0].aiSec, m.legs[0].calcSec, "an absurd time falls back to the calculated one");
+  assert.equal(m.legs.length, input.race.legs.length);
+  const few = aiRunFake(input);
+  few.dataset.legs = few.dataset.legs.slice(0, 1);
+  assert.equal(aiRunMerge(plan, input, few).reason, "invalid_answer");
 });
