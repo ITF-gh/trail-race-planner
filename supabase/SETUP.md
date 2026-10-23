@@ -25,9 +25,9 @@ What runs where:
 ```
 browser (GitHub Pages)  -- magic link sign-in, REST reads/writes ------>  Supabase Auth + Postgres (RLS)
                         -- claim-cairns / ai-analyse / delete-account ->  Supabase Edge Functions (Deno)
-                                                                               | ANTHROPIC_API_KEY (secret)
+                                                                               | OPENAI_API_KEY (secret)
                                                                                v
-                                                                          Claude API (claude-opus-5-5)
+                                                                          OpenAI API (gpt-4o-mini)
 ```
 
 The API key lives only in the Edge Function secrets. The browser never sees it.
@@ -55,28 +55,37 @@ to sign up", so not even an email address is stored. To test sign-in in read-onl
 your own account by hand: Authentication > Users > Add user > your email. Email (magic link) stays enabled. The free plan sends a few emails per
 hour; for real use, plug in an SMTP service (Authentication > Emails > SMTP).
 
-## 4. The Claude API key
+## 4. The AI step (Boss, 2026-10-23)
 
-1. https://console.anthropic.com > Billing: add prepaid credits (and a monthly limit).
-2. API keys > Create key.
-3. Supabase > Edge Functions > Secrets: add `ANTHROPIC_API_KEY` = that key.
+1. SQL editor: run `supabase/migrations/20261023120000_ai_open.sql` (also in the project files as
+   `supabase-setup/step9-ai-open.sql`). It opens the edelweiss ledger and the AI jobs to the
+   server functions only, gives 4 edelweiss to every account (now and at each new account) and
+   keeps the runs table closed.
+2. Deploy the functions (step 5).
+3. The very last step, only on Boss's go: the OpenAI key. https://platform.openai.com > Billing:
+   prepaid credits and a monthly limit; API keys > Create key; Supabase > Edge Functions >
+   Secrets: add `OPENAI_API_KEY` = that key. Then `ai: true` in `CLOUD` (src/ui/cloud.js).
+   Without the key the function answers "not switched on yet" and spends nothing.
 
-One analysis costs roughly $0.10 to $0.20 (a few thousand tokens in, a few thousand out).
+One request with gpt-4o-mini costs well under one cent.
 
-## 5. Deploy the three functions (not needed while read-only)
+## 5. Deploy the functions
 
-Skip this step for the read-only state: the functions only write. Note: `ai-analyse` still calls
-Claude, while the app's AI now uses OpenAI (gpt-4o-mini); it is updated before the AI is switched on.
+From GitHub, nothing to install: add the repository secret `SUPABASE_ACCESS_TOKEN` (supabase.com >
+Account > Access tokens > Generate), then GitHub > Actions > "Deploy Supabase functions" > Run
+workflow. It runs the tests, then deploys delete-account, ai-analyse and claim-cairns.
 
-With the Supabase CLI (https://supabase.com/docs/guides/cli), from the repository folder:
+Or with the Supabase CLI (https://supabase.com/docs/guides/cli), from the repository folder:
 
 ```
 supabase login
-supabase link --project-ref <ref>
-supabase functions deploy claim-cairns
-supabase functions deploy ai-analyse
-supabase functions deploy delete-account
+supabase functions deploy delete-account --project-ref vjhzcuvxucpldhsjpqrl
+supabase functions deploy ai-analyse --project-ref vjhzcuvxucpldhsjpqrl
+supabase functions deploy claim-cairns --project-ref vjhzcuvxucpldhsjpqrl
 ```
+
+`ai-analyse` builds its OpenAI request with the app's own prompt code: `npm run build` copies
+`src/core` into `supabase/functions/_shared/core` (a test fails if the copy is out of date).
 
 ## 6. Fill in the app (read-only)
 

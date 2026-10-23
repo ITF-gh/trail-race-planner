@@ -2,6 +2,9 @@
 // technical detail). The first entry is the current version: the footer shows it on every page.
 
 export const CHANGELOG = [
+  { v: "2.16", date: "2026-10-23", items: [
+    "The AI is ready on the server (still off): signed-in testers will spend 1 edelweiss for one AI race plan (Prep my race) or one AI coach session (Prep my run). Every account gets 4 free edelweiss. If the AI does not answer, the edelweiss comes back.",
+  ] },
   { v: "2.15", date: "2026-10-23", items: [
     "Online account: create an account (by invitation for now), Forgot password, change password, Export my data (profile, runs, files, AI answers, saves in one file) and Delete my account, in a new Sign-in and data part of the Account window.",
   ] },

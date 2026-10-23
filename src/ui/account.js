@@ -20,7 +20,7 @@
 //   acAsk... functions         the "Ask the AI" window: which runs, which axis, which question
 //   acRender                   redraw the menu
 //   acClaim, acSync            talk to the account (tokens, two-way sync of runs)
-//   acShowPanel, acResultHtml, acStartAi   the pop-up panel, the AI answer, start and polling
+//   acShowPanel, acStartAi, acStartOnline   the pop-up panel, the AI request, start and polling
 //   acAction, acSignIn         what each menu button does
 //   initAccount                build the icon and menu, wire the clicks and the keyboard
 //
@@ -44,10 +44,10 @@ import { hm, mmss, parseDuration } from "../core/format.js";
 import { SAVED_KINDS, savedCheck } from "../core/saved.js";
 import { trackEvent } from "./analytics.js";
 import { profileHtml, profileInput, profileAction, profileAthlete, profileWho, profileData, profileReplace } from "./profile.js";
-import { aiLocalProbe, aiLocalRun, aiLocalHtml } from "./ailocal.js";
+import { aiLocalProbe, aiLocalRun, aiOnlineRun, aiLocalHtml } from "./ailocal.js";
 import { AI_PREP_MODELS } from "../core/aiprep.js";
 import { aiDocsAll, aiDocsPut, aiDocsGet, aiDocsDelete } from "./aidocs.js";
-import { cloudOn, cloudWritable, CL_READONLY, cloudUser, cloudFromUrl, cloudSendLink, cloudSignInPassword, cloudSignOut, cloudProfile, cloudPutProfile, cloudSaved, cloudSave, cloudSavedDelete, cloudRuns, cloudPutRuns, cloudDeleteRuns, cloudLedger, cloudClaim, cloudAnalyse, cloudJob, cloudJobs, cloudDeleteAccount, cloudSignUp, cloudSendReset, cloudSetPassword } from "./cloud.js";
+import { cloudOn, cloudWritable, CL_READONLY, cloudUser, cloudFromUrl, cloudSendLink, cloudSignInPassword, cloudSignOut, cloudProfile, cloudPutProfile, cloudSaved, cloudSave, cloudSavedDelete, cloudRuns, cloudPutRuns, cloudDeleteRuns, cloudLedger, cloudClaim, cloudAi, cloudAiOn, cloudJob, cloudDeleteAccount, cloudSignUp, cloudSendReset, cloudSetPassword } from "./cloud.js";
 
 // Database name and its one "object store" (IndexedDB's word for a table) of run summaries.
 const AC_DB = "trp-history", AC_STORE = "runs";
@@ -263,11 +263,10 @@ export const AC_SPARK = (() => {
 
 // What the account side knows (filled by acSync): the token ledger, the analysis running, a message.
 //   ledger  [{ delta, reason, created_at }] from the server, null before the first read
-//   jobs    past AI analyses, newest first
-//   job     id of the analysis running now, null when none
+//   job     true while an AI request runs
 //   msg     a message to show in the tokens section ("" = none)
 //   busy    true while a sign-in link is being sent (greys out the button)
-const ac = { ledger: null, jobs: [], job: null, msg: "", busy: false, docs: [], saved: null, signup: false, recovery: false, dataMsg: "" };
+const ac = { ledger: null, job: null, msg: "", busy: false, docs: [], saved: null, signup: false, recovery: false, dataMsg: "" };
 // Opens or closes the account menu (set in initAccount), for callers outside it.
 let acOpenMenu = () => {};
 // Reopens a saved item in its mode (set by main.js through acctOnReopen).
@@ -305,7 +304,7 @@ function acMedalShow(code) {
  * ledger is read), otherwise S.cairns: what the achievements in this browser would earn.
  * The note under it is, in order of priority: a message (signed in), "The AI is reading your
  * race and runs" while an analysis runs, or what tokens are for. Signed out with the account open: a
- * sign-in form. Signed in: a link to the last analysis, when there is one.
+ * sign-in form.
  * The "Ask the AI" button is only disabled while an analysis runs; the Ask the AI window then
  * says what (if anything) blocks it.
  */
@@ -333,7 +332,6 @@ function acTokensHtml(S) {
   return `<section><h4>AI ${AC_TOKEN.many}</h4>
       <div class="acct-cairns"><b>${AC_SPARK}${n}</b>${ask}</div>
       <p class="acct-note">${note}</p>${signin}
-      ${signedIn && ac.jobs.length ? `<button class="acct-linkbtn" type="button" data-acct="last">See my last analysis (${acDate(Date.parse(ac.jobs[0].created_at))})</button>` : ""}
     </section>`;
 }
 
@@ -439,7 +437,7 @@ function acAskChecks() {
     targetText: (acAsk.target || "").trim(), targetSec: parseDuration((acAsk.target || "").trim()), centralSec: R.centralSec,
     notes: acAsk.notes, question: acAsk.question,
     // Local test: no account is needed, so the account checks pass.
-    cloud: acLocal ? { open: true, signedIn: true, balance: 1 } : { open: cloudWritable(), signedIn, balance: acBalance(), demo: acDemo },
+    cloud: acLocal ? { open: true, signedIn: true, balance: 1 } : { open: cloudAiOn(), signedIn, balance: acBalance(), demo: acDemo },
   });
 }
 /** The stored runs selected, in one line of HTML: "12 runs · 240 km, 3 Jul to 14 Oct". */
@@ -527,7 +525,7 @@ function acRunChecks() {
   const signedIn = Boolean(cloudOn() && cloudUser());
   return aiRunChecks({
     route: R ? { km: R.km, gain: R.gain } : null, notes: acRunAsk.notes, question: acRunAsk.question,
-    cloud: acLocal ? { open: true, signedIn: true, balance: 1 } : { open: cloudWritable(), signedIn, balance: acBalance(), demo: acDemo },
+    cloud: acLocal ? { open: true, signedIn: true, balance: 1 } : { open: cloudAiOn(), signedIn, balance: acBalance(), demo: acDemo },
   });
 }
 /**
@@ -674,9 +672,8 @@ async function acSync() {
       acCache = local.concat(fresh);
       await acTx("readwrite", (s) => { fresh.forEach((r) => s.put(r)); return null; });
     }
-    // 3. Tokens and past analyses.
+    // 3. Tokens.
     await acClaim();
-    ac.jobs = await cloudJobs();
     ac.msg = "";
   } catch (e) {
     ac.msg = e.message === "Session expired, please sign in again" ? e.message : "Could not reach your account. Your runs are safe on this device.";
@@ -781,65 +778,76 @@ function acShowPanel(html, label = "AI analysis", cls = "") {
   if (x) x.focus();
 }
 /**
- * HTML of an AI analysis result `r` (from the server): headline, the answer to the runner's
- * question (when asked), summary, new KPIs (each with name, value, unit, meaning and how it is
- * computed), strengths, things to work on and a plan for the next weeks. `when` is its creation
- * date (ISO text). Every text is escaped: it comes from the AI, not from this code.
+ * "Spend 1 edelweiss" in the Prep my race window: the local test when the page runs on this
+ * computer (acStartLocal), else the online AI (acStartOnline).
  */
-function acResultHtml(r, when) {
-  const list = (a) => (a && a.length ? `<ul>${a.map((x) => `<li>${acEsc(x)}</li>`).join("")}</ul>` : "");
-  return `<p class="acct-kicker">AI analysis${when ? ` · ${acDate(Date.parse(when))}` : ""}</p>
-    <h3>${acEsc(r.headline || "")}</h3>
-    ${r.answer ? `<p class="acct-answer">${acEsc(r.answer)}</p>` : ""}
-    <p>${acEsc(r.summary || "")}</p>
-    ${r.kpis && r.kpis.length ? `<h4>New KPIs</h4><div class="acct-ai-kpis">${r.kpis.map((k) => `<div><span>${acEsc(k.name)}</span><b>${acEsc(k.value)} <small>${acEsc(k.unit)}</small></b><p>${acEsc(k.meaning)}</p><p class="how">${acEsc(k.how)}</p></div>`).join("")}</div>` : ""}
-    <div class="acct-ai-cols"><div><h4>Strengths</h4>${list(r.strengths)}</div><div><h4>To work on</h4>${list(r.focus)}</div></div>
-    ${r.next_weeks ? `<h4>Next weeks</h4><p>${acEsc(r.next_weeks)}</p>` : ""}`;
+function acStartAi(forced = []) {
+  return acLocal ? acStartLocal(forced) : acStartOnline("prep_race", forced);
 }
 
 /**
- * Start an AI analysis (the "Spend 1 edelweiss" button) and wait for its result.
- * Sends the athlete settings and the window's ask (acAskPayload, with `forced`: the codes of the
- * warnings the runner chose to send anyway). The server answers at once
- * with a job id and works in the background; this function then "polls": it asks for the job's
- * status every 4 s until it is done or failed, or 6 minutes have passed (90 tries x 4 s).
- * Done: the result opens in the panel. Failed: the server gives the token back, and the ledger
- * is read again to show it.
+ * Send one request to the account's AI and wait for the answer: cloudAi starts it (the server
+ * spends the edelweiss), then the job row is read every 4 s until it is done or failed, for up to
+ * 6 minutes (90 x 4 s). Resolves to the finished row, or { status: "running" } after 6 minutes.
  */
-async function acStartAi(forced = []) {
-  if (acLocal) return acStartLocal(forced);
-  acPanel.hidden = true;
-  ac.msg = "";
-  try {
-    const r = await cloudAnalyse(profileAthlete(), acAskPayload(forced));
-    ac.job = r.job;
-    trackEvent("ai-start");
-    ac.ledger = await cloudLedger();
-  } catch (e) {
-    ac.msg = e.message;
-    acRender();
-    return;
-  }
+async function acAskServer(mode, input) {
+  const { job } = await cloudAi(mode, input);
+  trackEvent("ai-start");
+  ac.ledger = await cloudLedger().catch(() => ac.ledger);
   acRender();
-  // Poll the analysis row every 4 s, for up to 6 minutes.
-  for (let i = 0; i < 90 && ac.job; i++) {
+  for (let i = 0; i < 90; i++) {
     // A pause: a Promise that resolves after 4000 ms, awaited.
     await new Promise((ok) => setTimeout(ok, 4000));
-    const j = await cloudJob(ac.job).catch(() => null);
+    const j = await cloudJob(job).catch(() => null);
     // No answer (network) or still running: try again next round.
-    if (!j || j.status === "running") continue;
-    ac.job = null;
-    if (j.status === "done") {
-      ac.jobs = [j, ...ac.jobs];
-      acShowPanel(acResultHtml(j.result, j.created_at));
-      trackEvent("ai-done");
-    } else {
-      ac.msg = `The analysis failed; your ${AC_TOKEN.one} was given back.`;
-      ac.ledger = await cloudLedger().catch(() => ac.ledger);
-    }
+    if (j && j.status !== "running") return j;
   }
-  if (ac.job) { ac.job = null; ac.msg = "Still running: open this menu again in a minute to see it."; }
+  return { status: "running" };
+}
+
+/**
+ * The online AI (CLOUD.ai on, signed in): Prep my race (mode "prep_race") or the AI coach of
+ * Prep my run ("prep_run"), with the same input as the local test. The answer is kept as an AI doc
+ * on this device and played at once when usable, like the local test; the server keeps it too.
+ */
+async function acStartOnline(mode, forced = []) {
+  const run = mode === "prep_run";
+  const a = profileAthlete();
+  const athlete = { maxHr: a.hrMax, restHr: a.hrRest, weightKg: a.weight };
+  const R = run ? acGetRun() : acGetRace();
+  const x = run
+    ? { mode, plan: R && R.plan, raceName: R ? R.name : "My run", user: { notes: acRunAsk.notes, question: acRunAsk.question, forced }, athlete, history: acRunRuns() }
+    : { mode, plan: R.plan, raceName: R.race ? R.race.name : "Race", user: { targetSec: parseDuration((acAsk.target || "").trim()), goal: acAsk.goal, risk: acAsk.risk, notes: acAsk.notes, question: acAsk.question, forced }, athlete, history: acAskRuns() };
+  acShowPanel(`<p class="acct-kicker">${AC_SPARK}${run ? "AI coach" : "AI"}</p><h3>Asking the AI…</h3><p>This can take a minute or two. Keep this tab open.</p>`, "AI");
+  ac.job = true;
+  ac.msg = "";
   acRender();
+  const r = await aiOnlineRun(x, acAskServer);
+  ac.job = null;
+  ac.ledger = await cloudLedger().catch(() => ac.ledger);
+  if (!r.error) {
+    await acKeepDoc(mode, R && R.key, x.raceName, r);
+    trackEvent("ai-done");
+  }
+  acShowPanel(aiLocalHtml(r), "AI answer", "acct-local");
+  acRender();
+}
+
+/**
+ * Keep an AI answer as an AI doc on this device (aidocs.js), and play it at once when usable
+ * (main.js and preprun.js listen to trp-ai-use). `r` is what aiLocalRun or aiOnlineRun returned.
+ * A call that never reached the model (a wrong key, nothing billed) is not kept.
+ */
+async function acKeepDoc(mode, key, name, r) {
+  if (r.error || !(r.read.output || r.read.tokens.total)) return;
+  const m = r.result;
+  // The referee's summary, without the rebuilt plan (rebuilt from the output when played).
+  const result = mode === "prep_run"
+    ? { status: m.status, reason: m.reason, finishSec: m.finishSec, fixes: m.fixes, exercises: m.exercises, workSec: m.workSec, texts: m.texts, dataset: m.dataset || null }
+    : { status: m.status, reason: m.reason, finishSec: m.finishSec, aiFinishSec: m.aiFinishSec, fixes: m.fixes, legs: m.legs, aid: m.aid, texts: m.texts, dataset: m.dataset || null };
+  const doc = { id: `ai-${Date.now()}`, at: new Date().toISOString(), mode, race: key, raceName: name, input: r.input, output: r.read.output, tokens: r.read.tokens, result };
+  await aiDocsPut(doc);
+  if (m.status === "ok") document.dispatchEvent(new CustomEvent("trp-ai-use", { detail: doc }));
 }
 
 /**
@@ -858,30 +866,18 @@ async function acStartLocal(forced) {
     athlete: { maxHr: a.hrMax, restHr: a.hrRest, weightKg: a.weight },
     history: acAskRuns(),
   });
-  // Every answer that came back is kept as an AI doc (aidocs.js); a usable one also goes to
-  // Your race (main.js plays it and turns the AI switch on).
-  // (A call that never reached the model, like a wrong key, bills nothing and is not kept.)
-  if (!r.error && (r.read.output || r.read.tokens.total)) {
-    const m = r.result;
-    const doc = {
-      id: `ai-${Date.now()}`, at: new Date().toISOString(), mode: "prep_race", race: R.key, raceName: R.race ? R.race.name : "Race",
-      input: r.input, output: r.read.output, tokens: r.read.tokens,
-      // The referee's summary, without the rebuilt plan (rebuilt from the output when played).
-      result: { status: m.status, reason: m.reason, finishSec: m.finishSec, aiFinishSec: m.aiFinishSec, fixes: m.fixes, legs: m.legs, aid: m.aid, texts: m.texts, dataset: m.dataset || null },
-    };
-    await aiDocsPut(doc);
-    if (m.status === "ok") document.dispatchEvent(new CustomEvent("trp-ai-use", { detail: doc }));
-  }
+  // Every answer that came back is kept as an AI doc; a usable one also goes to Your race.
+  await acKeepDoc("prep_race", R.key, R.race ? R.race.name : "Race", r);
   acShowPanel(aiLocalHtml(r), "Local AI test", "acct-local");
 }
 
 /**
  * The Prep my run test (the AI coach): the same chain as acStartLocal with the run's plan and
  * the two texts. Every answer is kept as an AI doc (mode "prep_run"); a usable one plays in Prep
- * my run at once (preprun.js listens to trp-ai-use). Online, nothing is sent yet.
+ * my run at once (preprun.js listens to trp-ai-use). Online: acStartOnline.
  */
 async function acStartRun(forced = []) {
-  if (!acLocal) { acShowPanel(`<p class="acct-kicker">${AC_SPARK} AI coach</p><h3>Not open yet</h3><p>The AI coach opens with the online account. Nothing was sent and nothing was spent.</p>`, "AI coach"); return; }
+  if (!acLocal) return acStartOnline("prep_run", forced);
   const R = acGetRun();
   const fake = acLocal.fake;
   acShowPanel(`<p class="acct-kicker">Local AI test · Prep my run</p><h3>${fake ? "Making the fake answer…" : `Asking ${acEsc(acLocal.model)}…`}</h3><p>${fake ? "" : "This can take a minute. Keep this tab open."}</p>`, "Local AI test");
@@ -892,16 +888,7 @@ async function acStartRun(forced = []) {
     athlete: { maxHr: a.hrMax, restHr: a.hrRest, weightKg: a.weight },
     history: acRunRuns(),
   });
-  if (!r.error && (r.read.output || r.read.tokens.total)) {
-    const m = r.result;
-    const doc = {
-      id: `ai-${Date.now()}`, at: new Date().toISOString(), mode: "prep_run", race: R.key, raceName: R.name,
-      input: r.input, output: r.read.output, tokens: r.read.tokens,
-      result: { status: m.status, reason: m.reason, finishSec: m.finishSec, fixes: m.fixes, exercises: m.exercises, workSec: m.workSec, texts: m.texts, dataset: m.dataset || null },
-    };
-    await aiDocsPut(doc);
-    if (m.status === "ok") document.dispatchEvent(new CustomEvent("trp-ai-use", { detail: doc }));
-  }
+  await acKeepDoc("prep_run", R && R.key, R ? R.name : "My run", r);
   acShowPanel(aiLocalHtml(r), "Local AI test", "acct-local");
 }
 
@@ -1051,12 +1038,12 @@ async function acAction(what) {
     profileReplace({});
     await cloudSignOut();
     // Object.assign(target, values) sets several fields of `ac` at once.
-    Object.assign(ac, { ledger: null, jobs: [], job: null, msg: "", saved: null, recovery: false, dataMsg: "" });
+    Object.assign(ac, { ledger: null, job: null, msg: "", saved: null, recovery: false, dataMsg: "" });
     acRender();
     if (!acPanel.hidden) acProfile(true);
   } else if (what === "delete") {
     if (!window.confirm(`Delete your account for good? Your online profile, saves, ${AC_TOKEN.many} and AI answers are erased from the server. What is on this device (runs, files) stays until you delete it too.`)) return;
-    try { await cloudDeleteAccount(); profileReplace({}); Object.assign(ac, { ledger: null, jobs: [], job: null, saved: null, msg: "", dataMsg: "Your account is deleted." }); trackEvent("account-delete"); }
+    try { await cloudDeleteAccount(); profileReplace({}); Object.assign(ac, { ledger: null, job: null, saved: null, msg: "", dataMsg: "Your account is deleted." }); trackEvent("account-delete"); }
     catch (e) { ac.dataMsg = `Could not delete the account: ${e.message}`; }
     acProfile(true);
   } else if (what === "reset") {
@@ -1159,8 +1146,6 @@ async function acAction(what) {
     acAsk.checks = null;
     trackEvent("ai-forced");
     acStartAi(checks.map((k) => k.code));
-  } else if (what === "last" && ac.jobs[0]) {
-    acShowPanel(acResultHtml(ac.jobs[0].result, ac.jobs[0].created_at));
   } else if (what.startsWith("doc:")) {
     acDocShow(what.slice(4));
   } else if (what === "docs") {

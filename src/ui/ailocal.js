@@ -105,9 +105,33 @@ export async function aiLocalRun(x) {
   return { input, read, result, stamp: res.stamp || "" };
 }
 
+/**
+ * The online way (the live site, signed in, CLOUD.ai on): the same chain, with the server in the
+ * middle. `x` as aiLocalRun; `ask(mode, input)` sends the input to the account and resolves to the
+ * finished job row { status, result: { output, tokens }, error } (account.js: cloudAi, then it
+ * polls cloudJob). The server spends the edelweiss, builds the request and calls OpenAI; this page
+ * runs the referee and the rebuild, as in the local test.
+ * Returns { input, read, result, online: true }, or { online: false, error } when nothing came back.
+ */
+export async function aiOnlineRun(x, ask) {
+  const mode = x.mode === "prep_run" ? "prep_run" : "prep_race", M = AL_MODES[mode];
+  if (!x.plan) return { online: false, error: mode === "prep_run" ? "Load the GPX of your run first: the route is what the AI coach reads." : "Load a race GPX first: the plan is what the AI reads." };
+  const input = M.input(x);
+  let job;
+  try { job = await ask(mode, input); } catch (e) { return { online: false, error: e.message }; }
+  if (!job || job.status === "running") return { online: false, error: "The AI is still working. Your answer is kept in your account: try again in a few minutes." };
+  const res = job.result || {};
+  const tokens = res.tokens || { requestType: mode, model: "", input: 0, inputCached: 0, output: 0, reasoning: 0, total: 0 };
+  // Zero tokens: OpenAI never answered, and the server gave the edelweiss back.
+  if (!tokens.total) return { online: false, error: `The AI did not answer (${job.error || "no answer"}). Your edelweiss was given back.` };
+  const read = { output: res.output || null, tokens, error: job.error || "" };
+  const result = read.output ? M.merge(x.plan, input, read.output) : { status: "null", reason: read.error, legs: [], aid: [], exercises: [], fixes: [], texts: null };
+  return { input, read, result, online: true };
+}
+
 /** HTML of a local test result, for the pop-up panel. */
 export function aiLocalHtml(r) {
-  if (r.error) return `<p class="acct-kicker">Local AI test</p><h3>Nothing sent</h3><p>${alEsc(r.error)}</p>`;
+  if (r.error) return `<p class="acct-kicker">${r.online === false ? "AI" : "Local AI test"}</p><h3>${r.online === false ? "No answer" : "Nothing sent"}</h3><p>${alEsc(r.error)}</p>`;
   const { input, read, result: m } = r;
   const T = m.texts || {};
   const tk = read.tokens;
@@ -118,7 +142,7 @@ export function aiLocalHtml(r) {
     : r.stamp ? `<p class="acct-note">Saved in ai-runs/${alEsc(r.stamp)}/ on your computer.</p>` : "";
   // A saved AI doc (account menu > AI docs) gets its own buttons: play it, or delete it.
   const run = input && input.mode === "prep_run";
-  const kick = r.docId ? `AI doc · ${alEsc(r.when || "")}` : "Local AI test";
+  const kick = r.docId ? `AI doc · ${alEsc(r.when || "")}` : r.online ? "AI answer" : "Local AI test";
   const docBtns = r.docId ? `<div class="acct-actions">${m.status === "ok" ? `<button class="btn primary" type="button" data-acct="doc-use:${alEsc(r.docId)}">▶ Use in ${run ? "Prep my run" : "Your race"}</button>` : ""}<button class="btn ghost" type="button" data-acct="doc-del:${alEsc(r.docId)}">Delete this doc</button></div>` : "";
   const fixes = `<h4>Referee fixes</h4>${m.fixes.length ? `<ul>${m.fixes.map((f) => `<li>${alEsc(f)}</li>`).join("")}</ul>` : "<p>None: the answer was used as given.</p>"}`;
   if (m.status !== "ok") {

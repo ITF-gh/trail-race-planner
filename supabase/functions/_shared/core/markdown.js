@@ -1,0 +1,86 @@
+// markdown.js: render a plan as Markdown (for the CLI, and the "Copy plan" button).
+//
+// Input: the plan object returned by buildPlan() in plan.js. Output: one long
+// Markdown string. The approach is simple: push one line at a time onto an
+// array `L`, then join the lines with newlines at the end. Markdown tables are
+// written as "| a | b |" rows under a "|---|---|" separator row.
+
+import { mmss, hm, clock } from "./format.js";
+import { LEVELS, DESCENT_LABELS } from "./plan.js";
+
+/**
+ * The whole plan as Markdown text.
+ *
+ * `plan` comes from buildPlan(); `scenarioId` picks which scenario ("best",
+ * "central" or "cautious") the tables use; an unknown id falls back to central.
+ * Sections, in order: summary, effort profile and pace table, checkpoints,
+ * aid stations (when any), gels, heart-rate guide (when the effort file had
+ * heart rate), climbs (with their sections as extra rows), descents.
+ * Times are printed with format.js: clock() for time of day from the start
+ * time `st`, hm() for elapsed time, mmss() for paces.
+ */
+export function planToMarkdown(plan, scenarioId = "central") {
+  const sc = plan.scenarios[scenarioId] || plan.scenarios.central;
+  const st = plan.startSec;
+  // The lines of the document, joined with "\n" at the end.
+  const L = [];
+  L.push(`# Race plan`);
+  L.push("");
+  L.push(`Course: ${plan.course.totalKm.toFixed(1)} km, ${Math.round(plan.course.gain)} m D+, ${plan.course.climbCount} climbs, ${plan.course.descentCount} descents. Start ${clock(st, 0)}.`);
+  L.push(`Scenarios: ${Object.values(plan.scenarios).map((s) => `${s.label} ${hm(s.finishSec)}`).join(", ")}. Tables below use **${sc.label}**.`);
+  L.push("");
+  L.push(`## Your effort profile`);
+  // With several reference runs, list each one with its date, distance and weight.
+  if (plan.effort.runs && plan.effort.runs.length > 1) L.push(`Reference runs: ${plan.effort.runs.map((r) => `${r.date} ${r.distKm.toFixed(1)} km (weight ${r.weight.toFixed(2)})`).join(", ")}.`);
+  L.push(`Reference run${plan.effort.runs && plan.effort.runs.length > 1 ? "s (weighted average)" : ""}: ${plan.effort.distKm.toFixed(1)} km in ${hm(plan.effort.durationSec)}, flat pace ${mmss(plan.effort.flatPace)}/km${plan.effort.flatHr ? ` at HR ${Math.round(plan.effort.flatHr)}` : ""}.`);
+  if (plan.effort.drift) {
+    const d = plan.effort.drift;
+    L.push(`Flat drift: ${mmss(d.firstPace)} at HR ${Math.round(d.firstHr)} early, ${mmss(d.secondPace)} at HR ${Math.round(d.secondHr)} late (${d.decouplingPct.toFixed(1)}% less speed per heartbeat).`);
+  }
+  L.push("");
+  // Pace table: one row per gradient band.
+  L.push(`| Gradient | Fresh | Tired | Source |`);
+  L.push(`|---|---|---|---|`);
+  for (const b of plan.effort.bands) L.push(`| ${b.label} | ${mmss(b.fresh)} | ${mmss(b.tired)} | ${b.source} |`);
+  L.push("");
+  L.push(`## Checkpoints`);
+  for (const c of sc.checkpoints) L.push(`- ${c.label}: ${clock(st, c.sec)} (${hm(c.sec)})`);
+  L.push("");
+  if (plan.aidStations.length) {
+    L.push(`## Aid stations`);
+    for (const a of plan.aidStations) L.push(`- km ${a.km.toFixed(1)} ${a.name}: arrive ${clock(st, a.arrive[sc.id])}${a.stopMin ? `, ${a.stopMin} min stop` : ""}`);
+    L.push("");
+  }
+  L.push(`## Gels (every ${plan.params.gelEveryMin} min, moved off climbs and technical descents)`);
+  // Each gel shows why it moved, when it did: the aid station (`at`) wins over
+  // the reason (`where`, such as "top"). Nested ternaries: a ? x : b ? y : z.
+  for (const g of sc.gels) L.push(`- km ${g.km.toFixed(1)}: ${clock(st, g.sec)}${g.at ? ` (at ${g.at})` : g.where ? ` (${g.where})` : ""}`);
+  L.push("");
+  if (plan.hrGuide) {
+    L.push(`## Heart-rate guide`);
+    for (const h of plan.hrGuide) L.push(`- km ${h.fromKm.toFixed(0)} to ${h.toKm.toFixed(0)}: ${h.text}`);
+    L.push("");
+  }
+  L.push(`## Climbs`);
+  L.push(`| # | Km | Length | Gain | Avg | Steepest 100 m | Pace | Clock | Tactic | Difficulty |`);
+  L.push(`|---|---|---|---|---|---|---|---|---|---|`);
+  // Pace column: duration (s) / length (km) = average s/km on that climb.
+  // LEVELS[c.level] turns the 1 to 4 difficulty level into its word.
+  for (const c of plan.climbs) {
+    L.push(`| ${c.n} | ${c.startKm.toFixed(2)} | ${Math.round(c.lenM)} m | ${Math.round(c.gain)} m | ${c.avg.toFixed(1)}% | ${Math.round(c.steep)}% | ${mmss(c.dur[sc.id] / (c.lenM / 1000))} | ${clock(st, c.start[sc.id])} | ${c.tactic} | ${LEVELS[c.level]} |`);
+    // Sections of a long climb follow their climb, numbered "2.1", "2.2"...
+    for (const s of c.sections) {
+      L.push(`| ${s.n} | ${s.startKm.toFixed(2)} | ${Math.round(s.lenM)} m | ${Math.round(s.gain)} m | ${s.avg.toFixed(1)}% | ${Math.round(s.steep)}% | ${mmss(s.dur[sc.id] / (s.lenM / 1000))} | ${clock(st, s.start[sc.id])} | ${s.tactic} | ${LEVELS[s.level]} |`);
+    }
+  }
+  L.push("");
+  L.push(`## Descents`);
+  L.push(`| # | Km | Length | Loss | Avg | Steepest 100 m | Pace | Clock | Tactic | Risk |`);
+  L.push(`|---|---|---|---|---|---|---|---|---|---|`);
+  // Descents store negative gradients; Math.abs prints them without the sign.
+  for (const d of plan.descents) {
+    L.push(`| ${d.n} | ${d.startKm.toFixed(2)} | ${Math.round(d.lenM)} m | ${Math.round(d.loss)} m | ${Math.abs(d.avg).toFixed(1)}% | ${Math.abs(Math.round(d.steep))}% | ${mmss(d.dur[sc.id] / (d.lenM / 1000))} | ${clock(st, d.start[sc.id])} | ${d.tactic} | ${DESCENT_LABELS[d.level]} |`);
+  }
+  L.push("");
+  return L.join("\n");
+}

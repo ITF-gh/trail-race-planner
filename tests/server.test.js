@@ -1,9 +1,12 @@
-// The server functions' logic (supabase/functions/_shared/cairns.js) with a fake database and a
-// fake Claude: cairns are paid once, impossible runs do not count, a failed analysis refunds.
+// The server functions' logic (supabase/functions/_shared/cairns.js and aicall.js) with a fake
+// database and a fake OpenAI: cairns are paid once, impossible runs do not count, an AI request
+// spends one edelweiss and gives it back only when OpenAI never answered.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { claimCairns, aiStart, aiRun, aiRequest, AI_SCHEMA } from "../supabase/functions/_shared/cairns.js";
+import { readFileSync, readdirSync } from "node:fs";
+import { claimCairns } from "../supabase/functions/_shared/cairns.js";
+import { aiBegin, aiFinish, aiNoBody, AI_MODEL } from "../supabase/functions/_shared/aicall.js";
+import { aiPrepFake } from "../src/core/aiprep.js";
 import { checkRecord, aiDigest, aiAsk, aiSelect, recordClean, AI_FOCUS } from "../src/core/history.js";
 import { profileClean, profileBests, flagEmoji } from "../src/core/profile.js";
 import { demoRecords } from "../src/core/demorecords.js";
@@ -32,8 +35,8 @@ function fakeDb(runs, ledger = []) {
 }
 const balance = (db) => db.ledger.reduce((s, r) => s + r.delta, 0);
 
-test("server copy of history.js is up to date (run npm run build)", () => {
-  assert.equal(readFileSync("supabase/functions/_shared/history.js", "utf8"), readFileSync("src/core/history.js", "utf8"));
+test("server copy of src/core is up to date (run npm run build)", () => {
+  for (const f of readdirSync("src/core")) assert.equal(readFileSync(`supabase/functions/_shared/core/${f}`, "utf8"), readFileSync(`src/core/${f}`, "utf8"), f);
 });
 
 test("checkRecord accepts real runs and rejects impossible ones", () => {
@@ -59,47 +62,6 @@ test("claimCairns pays each achievement once, from believable runs only", async 
   assert.equal(c.balance, 0, "a 120 km run in 30 min earns nothing");
 });
 
-test("an AI analysis spends one cairn, saves the answer, and refunds on failure", async () => {
-  const runs = [run(1), run(2), run(3)];
-  const answer = { headline: "h", summary: "s", kpis: [], strengths: [], focus: [], next_weeks: "n" };
-  const db = fakeDb(runs, [{ delta: 1, reason: "ach:first" }]);
-  let sent = null;
-  const ok = async (req) => { sent = req; return { stop_reason: "end_turn", model: req.model, content: [{ type: "text", text: JSON.stringify(answer) }], usage: { input_tokens: 10, output_tokens: 5 } }; };
-  const s = await aiStart({ db, userId: "u", athlete: { hrMax: 188, weight: 71, evil: "x" }, now: NOW, newId: () => "job1" });
-  assert.equal(s.status, 202);
-  assert.equal(balance(db), 0);
-  assert.equal((await aiStart({ db, userId: "u", now: NOW, newId: () => "job2" })).status, 409, "one analysis at a time");
-  assert.deepEqual(await aiRun({ db, callClaude: ok, userId: "u", job: s.job, digest: s.digest }), answer);
-  assert.equal(db.jobs.get("job1").status, "done");
-  assert.equal(sent.model, "claude-opus-5-5");
-  assert.equal(sent.fallbacks, "default");
-  assert.ok(!JSON.stringify(sent).includes("Run 1"), "run names are not sent");
-  assert.ok(!JSON.stringify(sent).includes("evil"), "only known athlete settings are sent");
-  // No cairn left: refused before anything is spent.
-  assert.equal((await aiStart({ db, userId: "u", now: NOW, newId: () => "job3" })).status, 402);
-  // A failure gives the cairn back, once.
-  const db2 = fakeDb(runs, [{ delta: 1, reason: "event:launch" }]);
-  const s2 = await aiStart({ db: db2, userId: "u", now: NOW, newId: () => "job4" });
-  const refused = async () => ({ stop_reason: "refusal", content: [] });
-  assert.equal(await aiRun({ db: db2, callClaude: refused, userId: "u", job: s2.job, digest: s2.digest }), null);
-  assert.equal(balance(db2), 1);
-  assert.equal(db2.jobs.get("job4").status, "failed");
-  // A selection with no run in it: refused before anything is spent.
-  const db3 = fakeDb(runs, [{ delta: 1, reason: "ach:first" }]);
-  assert.equal((await aiStart({ db: db3, userId: "u", ask: { from: NOW + DAY, to: NOW + 2 * DAY }, now: NOW, newId: () => "j" })).status, 400);
-  assert.equal(balance(db3), 1);
-});
-
-test("the AI request is built from the digest and asks for the app's JSON shape", () => {
-  const d = aiDigest([run(1), run(2)], { hrMax: 188 });
-  assert.equal(d.runs, 2);
-  assert.ok(d.table.startsWith("date,km"));
-  const r = aiRequest(d);
-  assert.deepEqual(r.output_config.format.schema, AI_SCHEMA);
-  assert.ok(r.messages[0].content.includes("max heart rate 188"));
-  assert.ok(!("thinking" in r) && !("temperature" in r));
-});
-
 test("online writes are closed until the account opens", async () => {
   const { CLOUD, cloudOn, cloudWritable } = await import("../src/ui/cloud.js");
   const { cloudPutRuns, CL_READONLY } = await import("../src/ui/cloud.js");
@@ -123,8 +85,9 @@ test("the profile and saved items are the only tables the app may write, without
   assert.match(sql, /profiles_no_body check/);
   const js = readFileSync(new URL("../src/ui/cloud.js", import.meta.url), "utf8");
   // 7 sign-in calls (password, link, sign-out, refresh, sign-up, forgot password, new password),
-  // the profile save, saving or deleting a saved item, and deleting the account: nothing else writes.
-  assert.equal([...js.matchAll(/method: "(POST|PATCH|PUT|DELETE)"/g)].length, 11);
+  // the profile save, saving or deleting a saved item, deleting the account, and one AI request
+  // (only when CLOUD.ai is on): nothing else writes.
+  assert.equal([...js.matchAll(/method: "(POST|PATCH|PUT|DELETE)"/g)].length, 12);
   assert.match(js, /CL_DELETE = "\/functions\/v1\/delete-account"/);
   const sv = readFileSync(new URL("../supabase/migrations/20261018170000_saved_items.sql", import.meta.url), "utf8");
   for (const op of ["select using", "insert with check", "delete using"]) assert.match(sv, new RegExp(`on public\\.saved_items for ${op} \\(user_id = auth\\.uid\\(\\)\\)`));
@@ -155,17 +118,7 @@ test("the runner chooses the runs (dates or a list), the axis and the question",
   assert.deepEqual(a.ids, [], "invalid ids leave an empty pick");
   assert.deepEqual(aiSelect(runs, { ids: [] }), [], "every run unticked selects nothing, not everything");
   assert.deepEqual(aiSelect(runs, { ids: [], from: NOW - 10 * DAY }), [], "an empty pick ignores the dates");
-  const db0 = fakeDb(runs, [{ delta: 1, reason: "ach:first" }]);
-  assert.equal((await aiStart({ db: db0, userId: "u", ask: { ids: [] }, now: NOW, newId: () => "j0" })).status, 400);
-  assert.equal(balance(db0), 1, "nothing spent on an empty pick");
   assert.equal(aiAsk({ focus: "hack" }).focus, "overall", "unknown axis falls back");
-  const db = fakeDb(runs, [{ delta: 1, reason: "ach:first" }]);
-  const s = await aiStart({ db, userId: "u", ask: { from: NOW - 10 * DAY, to: NOW, focus: "speed", question: "How can I go sub-40 in 10K in a month?" }, now: NOW, newId: () => "j1" });
-  assert.equal(s.status, 202);
-  assert.equal(s.digest.runs, 3, "only the selected runs are sent");
-  const msg = aiRequest(s.digest, s.ask).messages[0].content;
-  assert.ok(msg.includes("speed: fastest 1, 5 and 10 km") && msg.includes("<question>How can I go sub-40 in 10K in a month?</question>"));
-  assert.ok(AI_SCHEMA.required.includes("answer"));
 });
 
 test("no heart data from runs: summaries, demo runs, the AI table and the database", () => {
@@ -201,4 +154,63 @@ test("profile: cleaned, limited, and bests found in the run log", () => {
   assert.equal(b["5k"].sec, 1250);
   assert.equal(b["50k"].sec, 7 * 3600, "a 60 km run does not count as a 50K");
   assert.equal(b["100k"], null);
+});
+
+test("an AI request spends one edelweiss, keeps the answer without heart or weight, refunds only when OpenAI never answered", async () => {
+  const { planFromGpx } = await import("../src/core/plan.js");
+  const { makeDemoRaceGpx, makeDemoEffortGpx, DEMO_ULTRA_PROFILE, DEMO_ULTRA_AID, DEMO_LONG_RUN_PROFILE } = await import("../src/demo.js");
+  const { aiPrepInput } = await import("../src/core/aiprep.js");
+  const plan = planFromGpx(makeDemoRaceGpx(DEMO_ULTRA_PROFILE, { name: "Ultra", startEle: 650, loop: true, center: [45.05, 5.7] }),
+    [makeDemoEffortGpx({ profile: DEMO_LONG_RUN_PROFILE, startIso: "2026-10-11T07:00:00Z" })], { aidStations: DEMO_ULTRA_AID, startTime: "06:00" });
+  const input = aiPrepInput(plan, { raceName: "Ultra", history: demoRecords(), athlete: { maxHr: 188, restHr: 50, weightKg: 70 }, user: { notes: "", question: "" } });
+  const db = fakeDb([], [{ delta: 4, reason: "welcome" }]);
+  const begin = (o) => aiBegin({ db, userId: "u", mode: "prep_race", input, hasKey: true, now: NOW, newId: () => "job1", ...o });
+  // Nothing spent: unknown mode, no input, no key (the AI is off), too large.
+  assert.equal((await begin({ mode: "hack" })).status, 400);
+  assert.equal((await begin({ input: null })).status, 400);
+  assert.equal((await begin({ hasKey: false })).status, 503);
+  assert.equal((await begin({ input: { big: "x".repeat(500000) } })).status, 413);
+  assert.equal(balance(db), 4);
+  // A good request: one spent, the server's model and prompt, whatever the browser asked.
+  const s = await begin({});
+  assert.equal(s.status, 202);
+  assert.equal(balance(db), 3);
+  assert.equal(s.request.model, AI_MODEL);
+  assert.equal((await begin({ newId: () => "job2" })).status, 409, "one request at a time");
+  const answer = aiPrepFake(input);
+  const ok = async (req) => ({ model: req.model, status: "completed", output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify(answer) }] }], usage: { input_tokens: 100, output_tokens: 50, total_tokens: 150 } });
+  const done = await aiFinish({ db, callOpenAI: ok, userId: "u", job: s.job, request: s.request, mode: "prep_race", input });
+  assert.equal(done.status, "done");
+  assert.deepEqual(done.result.output, answer);
+  assert.equal(done.result.tokens.total, 150);
+  assert.doesNotMatch(JSON.stringify(done.result), /"(athlete|hr|maxHr|restHr|heart|weight)/i, "no heart rate or weight online");
+  assert.ok(JSON.stringify(s.request).includes("188"), "the heart rate does go to OpenAI for the one call");
+  assert.equal(balance(db), 3, "an answer keeps the edelweiss spent");
+  // OpenAI down: nothing billed, the edelweiss comes back, once.
+  const s2 = await begin({ newId: () => "job3", now: NOW + 3600000 });
+  assert.equal(balance(db), 2);
+  const down = async () => { throw new Error("network"); };
+  const failed = await aiFinish({ db, callOpenAI: down, userId: "u", job: s2.job, request: s2.request, mode: "prep_race", input });
+  assert.equal(failed.status, "failed");
+  assert.equal(balance(db), 3);
+  // A refusal was billed: spent, kept as failed.
+  const s3 = await begin({ newId: () => "job4", now: NOW + 7200000 });
+  const refused = async () => ({ model: "m", status: "completed", output: [{ type: "message", content: [{ type: "refusal", refusal: "no" }] }], usage: { input_tokens: 10, output_tokens: 1, total_tokens: 11 } });
+  assert.equal((await aiFinish({ db, callOpenAI: refused, userId: "u", job: s3.job, request: s3.request, mode: "prep_race", input })).status, "failed");
+  assert.equal(balance(db), 2);
+  // No edelweiss left: refused, nothing spent.
+  const poor = fakeDb([], []);
+  assert.equal((await aiBegin({ db: poor, userId: "u", mode: "prep_race", input, hasKey: true, now: NOW, newId: () => "j" })).status, 402);
+  assert.equal(balance(poor), 0);
+  assert.deepEqual(aiNoBody({ a: [{ hrGuide: 1, km: 2 }], athlete: {}, weightKg: 70 }), { a: [{ km: 2 }] });
+});
+
+test("the AI step SQL: ledger and AI jobs open to the server only, runs stay closed, 4 edelweiss at sign-up", () => {
+  const sql = readFileSync(new URL("../supabase/migrations/20261023120000_ai_open.sql", import.meta.url), "utf8");
+  assert.match(sql, /drop trigger if exists ledger_closed on public\.edelweiss_ledger/);
+  assert.match(sql, /drop trigger if exists ai_jobs_closed on public\.ai_jobs/);
+  assert.doesNotMatch(sql, /runs_closed|writes_open|create policy/, "no browser write and the runs stay closed");
+  assert.match(sql, /values \(new\.id, 4, 'welcome'\)/);
+  assert.match(sql, /select id, 4, 'welcome' from auth\.users/);
+  assert.doesNotMatch(sql.replace(/^\s*--.*$/gm, ""), /\$\$/, "the Supabase SQL editor breaks on double dollar signs");
 });

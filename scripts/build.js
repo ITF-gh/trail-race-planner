@@ -17,7 +17,7 @@
 // (The first rule is checked too, for an import list split over several lines.)
 //
 // Besides the page, the build also copies a few files next to it (photos, the Leaflet map
-// library) and refreshes the server functions' copy of src/core/history.js.
+// library) and refreshes the server functions' copy of src/core/.
 //
 // Most of the work is done with regular expressions (regexes). The `m` flag makes ^ and $
 // match at the start and end of every LINE (not only of the whole text), and the `g` flag
@@ -106,8 +106,9 @@ const body = `<style>\n${css}\n</style>\n<div class="wrap" id="app"></div>\n<scr
 // whole folders with cpSync.
 mkdirSync(join(root, "dist"), { recursive: true });
 // The server functions (supabase/functions) check achievements with the very same code as the
-// app: they get a copy of history.js (a test fails if the copy is out of date).
-cpSync(join(root, "src/core/history.js"), join(root, "supabase/functions/_shared/history.js"));
+// app, and the AI function builds its OpenAI request with the very same prompt code: they get a
+// copy of src/core in _shared/core (a test fails if the copy is out of date).
+cpSync(join(root, "src/core"), join(root, "supabase/functions/_shared/core"), { recursive: true });
 // Photos are separate files (inlining them as base64 would make the page ~1.3x heavier and uncacheable).
 cpSync(join(root, "src/ui/photos"), join(root, "dist/photos"), { recursive: true });
 // Leaflet (the map library, BSD-2 licence) ships next to the page and is loaded only when a map
