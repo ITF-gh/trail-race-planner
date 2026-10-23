@@ -615,8 +615,19 @@ function acAskShow(field = "") {
 let acEl = null, acMenu = null, acPanel = null;
 
 /** Redraw the menu from the stored runs (or from the demo runs when there are none). */
+/**
+ * Signed in (owner's rule, 2026-10-23): the account button turns yellow and blue and the account
+ * name shows next to it (the name typed in the Account window, else the start of the email).
+ */
+function acSignedBadge() {
+  const user = cloudOn() && cloudUser();
+  acEl.classList.toggle("signed", Boolean(user));
+  const me = profileWho();
+  acEl.querySelector(".acct-name").textContent = user ? `${me.flag ? `${me.flag} ` : ""}${me.name || String(user.email || "").split("@")[0]}` : "";
+}
 async function acRender() {
   if (!acMenu) return;
+  acSignedBadge();
   const mine = await acAll();
   // No run of your own yet (and not signed in): show the demo profile User1 and its made-up runs,
   // so the menu is never empty. Your first saved run replaces it.
@@ -1176,6 +1187,7 @@ export async function initAccount(opts = {}) {
   // The round button (a person icon in SVG: a circle head and a curved path for the shoulders),
   // the menu (filled by acRender) and the hidden pop-up panel.
   acEl.innerHTML = `
+    <span class="acct-name" aria-hidden="true"></span>
     <button class="acct-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="My account">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8.5" r="3.8"/><path d="M4.5 20c1.2-3.6 4-5.4 7.5-5.4s6.3 1.8 7.5 5.4"/></svg>
     </button>

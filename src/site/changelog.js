@@ -4,7 +4,7 @@
 export const CHANGELOG = [
   { v: "2.14", date: "2026-10-23", items: [
     "Account window: new My files list. Every GPX you give the app is kept on this device (no heart rate), tagged Run (GPS + time, pace, cadence) or Route (GPS only), and opens again in one tap in Prep my race, Prep my run or (runs only) Rewind my run.",
-    "Account menu easier to read: darker background.",
+    "Account menu easier to read: darker background. Signed in, the account button turns yellow and blue with your name next to it.",
   ] },
   { v: "2.13", date: "2026-10-23", items: [
     "Prep my run: a Climbs and descents section, the same tables as Your route in Prep my race (stars for climbs, shoes for descents).",
