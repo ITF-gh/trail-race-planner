@@ -508,7 +508,7 @@ export function buildPlan(raceParsed, effortParsed, userParams = {}) {
   return {
     params: { ...params, hikeGrade },
     startSec,
-    course: { totalKm: total, gain: course.gain, loss: course.loss, climbCount: climbs.filter((c) => !c.bump).length, descentCount: descents.length, profile, route },
+    course: { totalKm: total, gain: course.gain, loss: course.loss, minClimb: brief.minClimb, climbCount: climbs.filter((c) => !c.bump).length, descentCount: descents.length, profile, route },
     effort: {
       durationSec: effort.durationSec,
       distKm: effort.distKm,

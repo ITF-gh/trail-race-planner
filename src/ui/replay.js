@@ -216,7 +216,7 @@ function mountPaceLine(svg, cur, prof, pl) {
  */
 // A running shoe icon (descent risk: 3 shoes Let it run, 2 Control, 1 Brake), filled with currentColor.
 const RP_SHOE = `<svg viewBox="0 0 32 14" aria-hidden="true"><path d="M2.7 9.2C2.3 6.8 2.8 4 4 1.9c.2-.4.7-.5 1-.2l1.1 1.1c1.6 1.6 4 2.1 6 1.1l4.3-2.6c.6-.4 1.4-.3 1.8.3l1 1.5c2.3 2.8 6 4 9.6 4.8 1.6.4 2.6 1.5 2.4 2.5L4.2 10.2c-.8 0-1.4-.4-1.5-1z"/><path d="M2.8 10.9l28.4-1.4c.2 1.2-.6 2.3-2 2.5l-24.1 1.2c-1.2.1-2.2-.9-2.3-2.3z" fill-opacity=".55"/><path d="M5.6 13.6l.6-.8.6.8.6-.8.6.8.6-.8.6.8.6-.8.6.8.6-.8.6.8.6-.9.6.9.6-.9.6.9.6-.9.6.9.6-.9.6.9.6-.9.6.9.6-.9.6.9.6-.9.6.9.6-.9.6.9.6-1 .6.9" stroke="currentColor" stroke-width=".7" fill="none" stroke-linejoin="round"/><path d="M6.4 8.6c4.8-.3 9.4-1.7 13.6-3.9l.9.7C16.6 7.7 11.6 9.4 6.6 9.6z" fill="#fff" fill-opacity=".6"/><path d="M9.6 7.2c3-.3 5.9-1.2 8.5-2.5l.7.5c-2.8 1.5-6 2.5-9.1 2.7z" fill="#fff" fill-opacity=".35"/><path d="M4.2 2.2l1.6 1.6" stroke="#fff" stroke-opacity=".5" stroke-width=".8" stroke-linecap="round"/><path d="M12.8 4.1l1.3 1M14.6 3l1.3 1M16.4 2.1l1.2 1" stroke="#fff" stroke-opacity=".7" stroke-width=".8" stroke-linecap="round"/></svg>`;
-export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, noun = "Race" }) {
+export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, noun = "Race", timeline = "" }) {
   // 1. Data. Stop any replay already running, and restart from 0 on a different course.
   stopReplay();
   if (rp.key !== key) { rp.key = key; rp.sec = 0; }
@@ -297,10 +297,10 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     ${hasMap ? `<label class="chk"><input type="checkbox" id="rpFollow" ${rp.follow ? "checked" : ""}> Follow the runner</label>` : ""}
   </div>
   </div>
-  <div class="sub-h" id="rp-script">${noun} script · ${script.length} moments</div>
+  ${timeline ? `<div class="sub-h" id="rp-script">${noun} timeline</div>${timeline}` : `<div class="sub-h" id="rp-script">${noun} script · ${script.length} moments</div>
   <div class="rs-filt" role="group" aria-label="Moment types">${kinds.map((k) => `<button type="button" class="rs-f k-${k}" data-k="${k}" aria-pressed="${!rp.hideKinds.has(k)}" title="Show or hide ${KIND_NAME[k].toLowerCase()}"><span class="ic">${ICON[k] || "•"}</span>${KIND_NAME[k]}<small>${script.filter((e) => e.kind === k).length}</small></button>`).join("")}<button type="button" class="rs-all" id="rsAll"></button></div>
   <div class="rs-chips" id="rpScript" role="group" aria-label="${noun} script moments">${script.map((e, i) => `<button type="button" class="rs-chip k-${e.kind} lv${e.level}" data-i="${i}" data-k="${e.kind}" title="${escR(e.title)} · km ${e.km.toFixed(1)} · ${clock(st, e.sec)}" aria-label="${escR(e.title)}"><span class="ic">${ICON[e.kind] || "•"}</span><small>${e.km.toFixed(0)}</small></button>`).join("")}</div>
-  <div class="rs-cards" id="rsCards"></div>`;
+  <div class="rs-cards" id="rsCards"></div>`}`;
 
   // 3. Find the elements once and keep them in `els`, so each frame does not search the page.
   // $r(selector) is a short name for "the first element in this box matching the CSS selector".
@@ -394,6 +394,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
   // change anything. Writing innerHTML is the slow part; textContent and style are cheap.
   let lastLeg = -1;
   let lastCue = -1;
+  let lastTl = -1;
   let lastNowHtml = "";
   let lastNextHtml = "";
   // The panel never scrolls: when the section card, the aid-station line and the moments do not all
@@ -540,7 +541,13 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
       }).join("");
       lastCue = ci;
       // In the script list below: mark the current moment and grey the past ones.
-      els.list.querySelectorAll(".rs-chip").forEach((b) => { b.classList.toggle("on", Number(b.dataset.i) === ci); b.classList.toggle("past", Number(b.dataset.i) < ci); });
+      if (els.list) els.list.querySelectorAll(".rs-chip").forEach((b) => { b.classList.toggle("on", Number(b.dataset.i) === ci); b.classList.toggle("past", Number(b.dataset.i) < ci); });
+    }
+    // The timeline (Prep my run): light the step the runner is in, grey the ones behind.
+    if (timeline) {
+      const rows = [...box.querySelectorAll("[data-sec]")];
+      const ti = rows.reduce((k, r, n) => (Number(r.dataset.sec) <= s.sec ? n : k), 0);
+      if (ti !== lastTl) { rows.forEach((r, n) => { r.classList.toggle("on", n === ti); r.classList.toggle("past", n < ti); }); lastTl = ti; }
     }
     // The pace line: the whole current section lit, the dot and the live pace at the runner.
     if (pace) pace.draw(s.km, l, s.sec, s.aid ? "stopped" : "");
@@ -672,56 +679,66 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
   slidable(els.bar.parentElement, slideOpts((f) => f * TOT_KM));
   // The script list: filter buttons by kind, one icon chip per moment, and the cards of the open
   // moments below (several can be open). A card's "Go there" moves the replay to that moment.
-  const cards = $r("#rsCards");
-  const allBtn = $r("#rsAll");
-  const visible = (i) => !rp.hideKinds.has(script[i].kind);
-  const drawList = () => {
-    els.list.querySelectorAll(".rs-chip").forEach((b) => {
+  if (els.list) {
+    const cards = $r("#rsCards");
+    const allBtn = $r("#rsAll");
+    const visible = (i) => !rp.hideKinds.has(script[i].kind);
+    const drawList = () => {
+      if (els.list) els.list.querySelectorAll(".rs-chip").forEach((b) => {
+        const i = Number(b.dataset.i);
+        b.hidden = !visible(i);
+        b.setAttribute("aria-pressed", String(open.has(i)));
+      });
+      box.querySelectorAll(".rs-f").forEach((b) => b.setAttribute("aria-pressed", String(!rp.hideKinds.has(b.dataset.k))));
+      const ids = [...open].filter(visible).sort((a, b) => a - b);
+      cards.innerHTML = ids.map((i) => {
+        const e = script[i];
+        return `<article class="rs-card k-${e.kind} lv${e.level}" data-i="${i}"><span class="ic">${ICON[e.kind] || "•"}</span><div class="t"><b>${escR(e.title)}</b><small>km ${e.km.toFixed(1)} · ${clock(st, e.sec)} · ${hm(e.sec)} on course</small><p>${escR(e.cue)}</p></div><button type="button" class="btn rs-go" data-go="${i}">Go there</button><button type="button" class="rs-x" data-x="${i}" aria-label="Close">×</button></article>`;
+      }).join("");
+      const any = script.some((e, i) => visible(i) && !open.has(i));
+      allBtn.textContent = any ? "Open all" : "Close all";
+    };
+    els.list.querySelectorAll(".rs-chip").forEach((b) => b.addEventListener("click", () => {
       const i = Number(b.dataset.i);
-      b.hidden = !visible(i);
-      b.setAttribute("aria-pressed", String(open.has(i)));
+      if (open.has(i)) open.delete(i);
+      else { open.add(i); trackEvent("replay-moment", script[i].kind); }
+      drawList();
+    }));
+    box.querySelectorAll(".rs-f").forEach((b) => b.addEventListener("click", () => {
+      const k = b.dataset.k;
+      if (rp.hideKinds.has(k)) rp.hideKinds.delete(k); else rp.hideKinds.add(k);
+      trackEvent("replay-filter", k);
+      drawList();
+    }));
+    allBtn.addEventListener("click", () => {
+      const ids = script.map((e, i) => i).filter(visible);
+      if (allBtn.textContent === "Open all") ids.forEach((i) => open.add(i)); else ids.forEach((i) => open.delete(i));
+      drawList();
     });
-    box.querySelectorAll(".rs-f").forEach((b) => b.setAttribute("aria-pressed", String(!rp.hideKinds.has(b.dataset.k))));
-    const ids = [...open].filter(visible).sort((a, b) => a - b);
-    cards.innerHTML = ids.map((i) => {
-      const e = script[i];
-      return `<article class="rs-card k-${e.kind} lv${e.level}" data-i="${i}"><span class="ic">${ICON[e.kind] || "•"}</span><div class="t"><b>${escR(e.title)}</b><small>km ${e.km.toFixed(1)} · ${clock(st, e.sec)} · ${hm(e.sec)} on course</small><p>${escR(e.cue)}</p></div><button type="button" class="btn rs-go" data-go="${i}">Go there</button><button type="button" class="rs-x" data-x="${i}" aria-label="Close">×</button></article>`;
-    }).join("");
-    const any = script.some((e, i) => visible(i) && !open.has(i));
-    allBtn.textContent = any ? "Open all" : "Close all";
-  };
-  els.list.querySelectorAll(".rs-chip").forEach((b) => b.addEventListener("click", () => {
-    const i = Number(b.dataset.i);
-    if (open.has(i)) open.delete(i);
-    else { open.add(i); trackEvent("replay-moment", script[i].kind); }
+    cards.addEventListener("click", (ev) => {
+      const x = ev.target.closest("[data-x]");
+      if (x) { open.delete(Number(x.dataset.x)); drawList(); return; }
+      const g = ev.target.closest("[data-go]");
+      if (!g) return;
+      const m = script[Number(g.dataset.go)];
+      trackEvent("replay-moment-go", m.kind);
+      pause();
+      seek(m.sec + 1);
+      // The section of that moment lights up on the map, the rest dimmed (until Play), at your zoom.
+      const l = legs.find((y) => m.km >= y.startKm && m.km < y.endKm) || legs[legs.length - 1];
+      if (rp.map && l) rp.map.focus(l.startKm, l.endKm, { zoom: false });
+      $r(".rp-cockpit").scrollIntoView({ behavior: "smooth", block: "start" });
+    });
     drawList();
-  }));
-  box.querySelectorAll(".rs-f").forEach((b) => b.addEventListener("click", () => {
-    const k = b.dataset.k;
-    if (rp.hideKinds.has(k)) rp.hideKinds.delete(k); else rp.hideKinds.add(k);
-    trackEvent("replay-filter", k);
-    drawList();
-  }));
-  allBtn.addEventListener("click", () => {
-    const ids = script.map((e, i) => i).filter(visible);
-    if (allBtn.textContent === "Open all") ids.forEach((i) => open.add(i)); else ids.forEach((i) => open.delete(i));
-    drawList();
-  });
-  cards.addEventListener("click", (ev) => {
-    const x = ev.target.closest("[data-x]");
-    if (x) { open.delete(Number(x.dataset.x)); drawList(); return; }
-    const g = ev.target.closest("[data-go]");
-    if (!g) return;
-    const m = script[Number(g.dataset.go)];
-    trackEvent("replay-moment-go", m.kind);
+  }
+  // Prep my run's timeline (in place of the script list): a tap on a step moves the runner there.
+  if (timeline) box.querySelectorAll("[data-sec]").forEach((r) => r.addEventListener("click", () => {
+    trackEvent("replay-timeline-go");
     pause();
-    seek(m.sec + 1);
-    // The section of that moment lights up on the map, the rest dimmed (until Play), at your zoom.
-    const l = legs.find((y) => m.km >= y.startKm && m.km < y.endKm) || legs[legs.length - 1];
-    if (rp.map && l) rp.map.focus(l.startKm, l.endKm, { zoom: false });
+    seek(Number(r.dataset.sec) + 1);
+    if (rp.map) rp.map.focus(Number(r.dataset.from), Number(r.dataset.to), { zoom: false });
     $r(".rp-cockpit").scrollIntoView({ behavior: "smooth", block: "start" });
-  });
-  drawList();
+  }));
   // Tap or slide on the profile to move the runner there.
   const svg = $r("#rpProf svg");
   if (svg) {

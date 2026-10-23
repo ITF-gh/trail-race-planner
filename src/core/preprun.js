@@ -97,7 +97,7 @@ export function prepRunPlan(parsed, opts = {}) {
     startSec: parseClock(opts.startTime || PLAN_DEFAULTS.startTime),
     timeSource: opts.targetSec > 0 ? "target" : opts.calib ? "refs" : "estimate",
     estimateSec: Math.round(est),
-    course: { totalKm: course.totalKm, gain: course.gain, loss: course.loss, climbCount: climbs.filter((c) => !c.bump).length, descentCount: descents.length, profile, route },
+    course: { totalKm: course.totalKm, gain: course.gain, loss: course.loss, minClimb: brief.minClimb, climbCount: climbs.filter((c) => !c.bump).length, descentCount: descents.length, profile, route },
     climbs,
     descents,
     aidStations: [],

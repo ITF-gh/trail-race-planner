@@ -69,7 +69,7 @@ export function prepHeroHtml(brand) {
 }
 
 /**
- * "Your run at a glance": the run's important steps in the order you meet them, to read just
+ * The run timeline (below the cockpit, in place of the race script list): the run's important steps in the order you meet them, to read just
  * before you go. Start, every climb (no bumps) and descent, the runnable stretches of 1 km or
  * more between them, and Finish. Each row: clock time and km, what it is (stars for a climb,
  * shoes for a descent), its figures, its tactic in one line, and how long it lasts. A step that
@@ -90,18 +90,19 @@ function glanceHtml(plan) {
   const mins = (s) => (s >= 3600 ? hm(s) : `${Math.max(1, Math.round(s / 60))} min`);
   const zoneBit = (z) => (z ? `<span class="gl-kz" title="${prEsc(z.title)}">★${z.n} ${prEsc(z.modeLabel)}</span>` : "");
   const zoneHow = (z) => (z ? `<div class="gl-how">${prEsc(z.how.split(". ")[0].replace(/\.$/, ""))}.</div>` : "");
-  const row = (cls, t, km, icon, title, figs, tactic, dur, z) => `<li class="gl-row ${cls}${z ? " kz" : ""}">
+  // row(...): one step. sec, from, to: where a tap moves the cockpit's runner (replay.js).
+  const row = (cls, t, km, icon, title, figs, tactic, dur, z, sec, to = km) => `<li class="gl-row ${cls}${z ? " kz" : ""}" data-sec="${Math.round(sec)}" data-from="${km.toFixed(2)}" data-to="${to.toFixed(2)}" title="Tap: go there in the cockpit">
       <div class="gl-t"><b>${t}</b><small>km ${km.toFixed(1)}</small></div>
       <div class="gl-i">${icon}</div>
       <div class="gl-m"><div class="gl-h">${title}${zoneBit(z)}</div>${figs ? `<div class="gl-f">${figs}</div>` : ""}${tactic ? `<div class="gl-tac">${tactic}</div>` : ""}${zoneHow(z)}</div>
       <div class="gl-d">${dur}</div></li>`;
-  const out = [row("gl-start", clock(st, 0), 0, "▶", "Start", `${T.toFixed(1)} km · +${Math.round(plan.course.gain)} m · ${steps.filter((s) => s.kind === "c").length} climbs ahead`, "Easy first km, let the body wake up", "", null)];
+  const out = [row("gl-start", clock(st, 0), 0, "▶", "Start", `${T.toFixed(1)} km · +${Math.round(plan.course.gain)} m · ${steps.filter((s) => s.kind === "c").length} climbs ahead`, "Easy first km, let the body wake up", "", null, 0, Math.min(1, T))];
   // gap(a, b): the runnable stretch between two steps, shown from 1 km, or when a key zone sits on it.
   const gap = (a, b) => {
     const z = zoneOf(a, b);
     if (b - a < 1 && !z) return;
     const t0 = timeAt(a), t1 = timeAt(b);
-    out.push(row("gl-run", clock(st, t0), a, "", `Runnable · ${(b - a).toFixed(1)} km`, "", "", mins(t1 - t0), z));
+    out.push(row("gl-run", clock(st, t0), a, "", `Runnable · ${(b - a).toFixed(1)} km`, "", "", mins(t1 - t0), z, t0, b));
   };
   let km = 0;
   steps.forEach(({ kind, x }) => {
@@ -110,18 +111,17 @@ function glanceHtml(plan) {
     const lenKm = `${(x.lenM / 1000).toFixed(1)} km`;
     if (kind === "c") {
       const parts = x.sections.length ? ` · ${x.sections.length} parts` : "";
-      out.push(row(`gl-c v${x.level}`, clock(st, at(x)), x.startKm, starChip(x.level), x.label || `Climb ${x.n}`, `${lenKm} · +${Math.round(x.gain)} m · ${x.avg.toFixed(0)}% avg${parts}`, prEsc(x.tactic), mins(x.dur.central), z));
+      out.push(row(`gl-c v${x.level}`, clock(st, at(x)), x.startKm, starChip(x.level), x.label || `Climb ${x.n}`, `${lenKm} · +${Math.round(x.gain)} m · ${x.avg.toFixed(0)}% avg${parts}`, prEsc(x.tactic), mins(x.dur.central), z, at(x), x.endKm));
     } else {
-      out.push(row(`gl-dsc v${x.level}`, clock(st, at(x)), x.startKm, descChip(x.level), `Descent ${x.n}`, `${lenKm} · −${Math.round(x.loss)} m · ${Math.abs(x.avg).toFixed(0)}% avg`, prEsc(x.tactic), mins(x.dur.central), z));
+      out.push(row(`gl-dsc v${x.level}`, clock(st, at(x)), x.startKm, descChip(x.level), `Descent ${x.n}`, `${lenKm} · −${Math.round(x.loss)} m · ${Math.abs(x.avg).toFixed(0)}% avg`, prEsc(x.tactic), mins(x.dur.central), z, at(x), x.endKm));
     }
     km = x.endKm;
   });
   gap(km, T);
   const fin = plan.scenarios.central.finishSec;
-  out.push(row("gl-fin", clock(st, fin), T, "◆", "Finish", `${hm(fin)} on the move`, "", "", null));
-  return `<details class="fold glance" id="prep-glance" open><summary class="sub-h">Your run at a glance</summary>
-    <p class="note gl-note">The steps that matter, in the order you meet them. Gold ★ = a key zone, where the run is played.</p>
-    <ol class="gl-list">${out.join("")}</ol></details>`;
+  out.push(row("gl-fin", clock(st, fin), T, "◆", "Finish", `${hm(fin)} on the move`, "", "", null, fin - 1, T));
+  return `<div class="glance" id="prep-glance"><p class="note gl-note">The steps that matter, in the order you meet them. Gold ★ = a key zone, where the run is played. Tap a step to go there in the cockpit.</p>
+    <ol class="gl-list">${out.join("")}</ol></div>`;
 }
 
 /**
@@ -134,7 +134,7 @@ function glanceHtml(plan) {
  * print export what is on screen.
  * Side effects: listens to the file input, the drop zone, the sample button and two page events.
  */
-export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLoaded = () => {}, cockpit = null } = {}) {
+export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLoaded = () => {}, cockpit = null, segments = null } = {}) {
   // The mode's state, kept between renders (a closure: every function below sees the same `st`):
   //   parsed     the parsed GPX of the run to come ({ name, points, ... }), null before a drop
   //   name       the name shown (file name, or the GPX's own name)
@@ -162,7 +162,7 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
     const plan = on ? ai.result.plan : st.plan;
     const bar = $p("#prepAi");
     if (bar) bar.innerHTML = arBarHtml(ai, on, st.plan.scenarios.central.finishSec, plan.scenarios.central.finishSec);
-    cockpit(box, plan, st.key);
+    cockpit(box, plan, st.key, glanceHtml(plan));
   };
   // The switch and the edelweiss button (event delegation: the mode body is drawn again often).
   $p("#sPrepBody").addEventListener("click", (ev) => {
@@ -268,7 +268,8 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
     <p class="note">Times come from ${prEsc(from)}. Change them in Your settings, next to your GPX.</p>
   </div>
 
-  ${glanceHtml(plan)}
+  <div class="sub-h" id="prep-seg-h">Climbs and descents</div>
+  <div id="prepSeg"></div>
 
   <div class="sub-h">Your run, section by section</div>
   <div id="prepAi"></div>
@@ -279,6 +280,7 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
     // say(text): show a short status or error message next to the download buttons.
     const say = (t) => { $p("#prepStat").textContent = t; };
     mountWatch($p("#prepWatch"), { plan, sid, key, say });
+    if (segments) segments($p("#prepSeg"), plan);
     st.plan = plan; st.key = key; st.source = source;
     showCockpit();
     $p("#sPrepBody .pimp-link").addEventListener("click", () => trackEvent("nav", "pimp-badge-prep"));

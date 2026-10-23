@@ -1779,3 +1779,10 @@ html[data-theme="sky"] .gl-row+.gl-row{border-top-color:rgba(0,0,0,.08)}
   .gl-i .chip.st{font-size:9.5px}
   .gl-i .chip.st.dsc svg{width:20px;height:9px}
 }
+/* Run timeline in the cockpit: tappable, the runner's step lit, the steps behind faded. */
+.gl-row[data-sec]{cursor:pointer;transition:opacity .2s,background .2s}
+.gl-row[data-sec]:hover{background:rgba(255,255,255,.04)}
+.gl-row.past{opacity:.5}
+.gl-row.on{background:rgba(255,255,255,.07);box-shadow:inset 3px 0 0 var(--accent)}
+.gl-row.on.kz{box-shadow:inset 3px 0 0 var(--gold)}
+html[data-theme="sky"] .gl-row.on{background:rgba(255,255,255,.35)}

@@ -1,5 +1,5 @@
 // chips.js: the difficulty chips shared by Prep my race (Your route, Your plan) and Prep my run
-// (Your run at a glance): stars for a climb, running shoes for a descent. Each returns HTML text.
+// (climbs and descents, run timeline): stars for a climb, running shoes for a descent. Each returns HTML text.
 import { LEVELS, STARS, DESCENT_LABELS } from "../core/plan.js";
 
 // descChip(level): a descent's risk as running shoes (Boss, design review 2): 3 shoes Let it run,
