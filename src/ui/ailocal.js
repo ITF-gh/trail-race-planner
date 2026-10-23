@@ -160,7 +160,7 @@ export function aiLocalHtml(r) {
   return `<p class="acct-kicker">${kick} · ${alEsc(tk.model)}</p>
     <h3>${alEsc(T.headline)}</h3>
     ${r.docId ? docBtns : `<div class="acct-actions"><button class="btn primary" type="button" data-acct="ai-race">▶ Play it in Your race</button></div><p class="acct-note">Kept in your AI docs (account menu).</p>`}
-    <p>AI finish <b>${hms(m.finishSec)}</b> · calculated ${hms(input.calc.finishSec.central)} · verdict <b>${alEsc(D.target.verdict)}</b></p>
+    <p>AI finish <b>${hms(m.finishSec)}</b> <small>(the AI leg times plus its stops, as Your race plays them)</small> · calculated ${hms(input.calc.finishSec.central)} · verdict <b>${alEsc(D.target.verdict)}</b></p>
     ${m.finishes ? `<div class="acct-tbl-wrap"><table class="acct-tbl"><tr><th></th><th>Best</th><th>Central</th><th>Cautious</th></tr>
       <tr><td>✦ AI</td><td>${hms(m.finishes.best)}</td><td><b>${hms(m.finishes.central)}</b></td><td>${hms(m.finishes.cautious)}</td></tr>
       <tr><td>Calculated</td><td>${hms(input.calc.finishSec.best)}</td><td>${hms(input.calc.finishSec.central)}</td><td>${hms(input.calc.finishSec.cautious)}</td></tr></table></div>
