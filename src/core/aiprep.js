@@ -306,10 +306,9 @@ export const aipClamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
  *   legs     one row per leg: calc and AI moving time, difference in %, mode, effort, mark
  *            (true when they differ by more than 3%: the edelweiss mark), why
  *   fixes    what the referee changed, in words (dropped ids, values out of range, cut texts)
- *   finishSec      the AI central finish computed by code (sum of legs and stops, after the
- *                  legs were scaled to the AI's own finish when the two disagreed)
+ *   finishSec      the AI central finish computed by code (sum of legs and stops)
  *   finishes       { best, central, cautious }: the finish of each scenario, as Your race shows it
- *   aiFinishSec    the finish the AI wrote itself
+ *   aiFinishSec    the finish the AI wrote itself, shown as written
  */
 export function aiPrepMerge(plan, input, output) {
   const nul = (reason, fixes = []) => ({ status: "null", reason, plan: null, legs: [], aid: [], fixes, finishSec: null, finishes: null, aiFinishSec: null, texts: null, dataset: null });
@@ -343,25 +342,6 @@ export function aiPrepMerge(plan, input, output) {
     if (k < 0) { fixes.push(`Aid ${s.id} does not exist: dropped.`); continue; }
     if (!(s.stopMin >= 0 && s.stopMin <= 60)) { fixes.push(`Aid ${s.id}: ${s.stopMin} min is outside 0 to 60, the typed stop is kept.`); continue; }
     stops[k] = s.stopMin;
-  }
-  // 2b. One finish everywhere. The AI writes its own finish (target.finishSec), and its texts
-  // quote it, but a model adds up 30 leg times badly: the sum of its legs and stops often lands
-  // elsewhere, and the doc, its texts and Your race then disagree. When they differ by more than
-  // 2%, the AI's legs are scaled together so the plan lands on the AI's own finish (the time it
-  // talks about); a scale outside 0.8 to 1.25 is not trusted and the sum is kept.
-  const aiOwn = D.target && Number.isFinite(D.target.finishSec) && D.target.finishSec > 0 ? D.target.finishSec : null;
-  if (aiOwn) {
-    const stopSum = stops.reduce((t, m) => t + m * 60, 0);
-    const aiSum = [...ai.values()].reduce((t, l) => t + l.durSec, 0);
-    const keptSum = [...calc.keys()].reduce((t, id) => t + (ai.has(id) ? 0 : calc.get(id).durSec), 0);
-    const total = aiSum + keptSum + stopSum;
-    if (Math.abs(aiOwn / total - 1) > 0.02) {
-      const k = aiSum > 0 ? (aiOwn - keptSum - stopSum) / aiSum : NaN;
-      if (k >= 0.8 && k <= 1.25) {
-        for (const l of ai.values()) l.durSec *= k;
-        fixes.push(`The AI's legs and stops add up to ${aipHms(total)}, but its own finish is ${aipHms(aiOwn)}: every leg it gave is scaled by ${k > 1 ? "+" : ""}${rd((k - 1) * 100, 1)}% so the plan lands on ${aipHms(aiOwn)}.`);
-      } else fixes.push(`The AI's own finish (${aipHms(aiOwn)}) is too far from the sum of its legs and stops (${aipHms(total)}): the sum is used.`);
-    }
   }
   // 3. Rebuild the central timeline (the clock every 100 m, stops included, that every screen
   // reads). Inside each leg the calculated MOVING time is stretched by aiTime / calcTime, so the
@@ -407,7 +387,9 @@ export function aiPrepMerge(plan, input, output) {
   const aid = input.race.aid.map((s, k) => ({ ...s, aiStopMin: stops[k], arriveSec: out.aidStations[k].arrive.central }));
   // 6. Texts: watch texts cut to 24 characters, the rest kept as written (shown escaped).
   const texts = T ? { ...T, watchTexts: (T.watchTexts || []).map((w) => ({ ...w, text: String(w.text).slice(0, 24) })) } : null;
-  const aiFinishSec = aiOwn;
+  // The AI's own finish is shown as it wrote it, never used to change its legs: the plan is the
+  // AI's legs and stops, added up by code (owner's rule, 2026-10-23).
+  const aiFinishSec = D.target && Number.isFinite(D.target.finishSec) ? D.target.finishSec : null;
   // The finish of each scenario, as Your race shows them (its scenario buttons).
   const finishes = Object.fromEntries(AIP_SIDS.map((id) => [id, out.scenarios[id].finishSec]));
   return { status: "ok", reason: null, plan: out, legs, aid, fixes, finishSec, finishes, aiFinishSec, texts, dataset: D };

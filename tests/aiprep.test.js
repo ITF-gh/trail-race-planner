@@ -157,18 +157,12 @@ test("merge: Your race reads the AI plan (tactics, notes, gels, moments, climb c
   assert.equal(raceLegs(plan, "central")[0].ai, null);
 });
 
-test("merge: legs scaled to the AI's own finish when its sum disagrees, so doc and Your race show one finish", () => {
+test("merge: the AI's own finish never changes its legs; finishes per scenario as Your race shows them", () => {
   const f = same();
   const sum = input.calc.legs.reduce((t, l) => t + l.durSec, 0) + f.dataset.aid.reduce((t, s) => t + s.stopMin * 60, 0);
-  f.dataset.target.finishSec = Math.round(sum * 0.92);
+  f.dataset.target.finishSec = Math.round(sum * 0.9);
   const m = aiPrepMerge(plan, input, f);
-  assert.ok(Math.abs(m.finishSec - f.dataset.target.finishSec) < 30, `${m.finishSec} vs ${f.dataset.target.finishSec}`);
-  assert.equal(m.finishes.central, m.plan.scenarios.central.finishSec);
-  assert.equal(m.finishes.best, m.plan.scenarios.best.finishSec);
-  assert.ok(m.fixes.some((x) => x.includes("scaled")));
-  // Too far apart: not trusted, the sum stays.
-  f.dataset.target.finishSec = Math.round(sum * 0.5);
-  const n = aiPrepMerge(plan, input, f);
-  assert.ok(Math.abs(n.finishSec - sum) < 60);
-  assert.ok(n.fixes.some((x) => x.includes("too far")));
+  assert.ok(Math.abs(m.finishSec - sum) < 60);
+  assert.equal(m.aiFinishSec, f.dataset.target.finishSec);
+  for (const id of ["best", "central", "cautious"]) assert.equal(m.finishes[id], m.plan.scenarios[id].finishSec);
 });
