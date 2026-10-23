@@ -306,7 +306,7 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
   const file = $p("#filePrep");
   file.addEventListener("change", () => {
     const f = file.files && file.files[0];
-    if (f) f.text().then((xml) => load(xml, f.name.replace(/\.gpx$/i, "")));
+    if (f) f.text().then((xml) => { const label = f.name.replace(/\.gpx$/i, ""); load(xml, label); document.dispatchEvent(new CustomEvent("trp-gpx", { detail: { xml, label } })); });
   });
   const drop = $p("#dropPrep");
   // preventDefault() on dragover tells the browser this box accepts a drop (otherwise the
@@ -316,7 +316,7 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
   drop.addEventListener("drop", (e) => {
     e.preventDefault(); drop.classList.remove("over");
     const f = e.dataTransfer.files && e.dataTransfer.files[0];
-    if (f) f.text().then((xml) => load(xml, f.name.replace(/\.gpx$/i, "")));
+    if (f) f.text().then((xml) => { const label = f.name.replace(/\.gpx$/i, ""); load(xml, label); document.dispatchEvent(new CustomEvent("trp-gpx", { detail: { xml, label } })); });
   });
   // Sample button: a made-up 30 km loop built in demo.js (starting at 650 m, centred near
   // latitude 45.05, longitude 5.7), loaded exactly like a dropped file.
@@ -327,9 +327,12 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
   // current(): what is on screen, for the A4 export (ui/print.js); null before a GPX is loaded.
   // spots and key: for the Ask the AI coach window (account.js), which files its answer by key.
   // restore(): reopen a session saved to the account: its target time, then the course as if dropped.
+  // targetSec undefined (a file from My files in the account menu): the target already typed stays.
   const restore = (xml, label, targetSec) => {
-    st.targetSec = targetSec || 0;
-    $p("#prepTarget").value = st.targetSec ? hm(st.targetSec).replace("h", ":") : "";
+    if (targetSec !== undefined) {
+      st.targetSec = targetSec || 0;
+      $p("#prepTarget").value = st.targetSec ? hm(st.targetSec).replace("h", ":") : "";
+    }
     load(xml, label);
   };
   return { rerender: render, restore, current: () => (st.plan ? { plan: st.plan, parsed: st.parsed, targetSec: st.targetSec, name: st.name, source: st.source, key: st.key, spots: runSpots(st.plan).filter((x) => x.kind !== "caution").length } : null) };

@@ -941,8 +941,8 @@ html[data-theme="sky"] .in-k b{color:var(--glow);text-shadow:0 0 12px rgba(255,1
 /* ================= Account menu (src/ui/account.js) =================
    A see-through account icon at the top right of the hero and a see-through menu that slides
    down (clip-path grows from the top edge; backdrop-filter blurs the page behind it). */
-:root{--acct-bg:rgba(6,16,31,.66);--acct-line:rgba(255,255,255,.18);--acct-sep:rgba(255,255,255,.12);--acct-ink:var(--on-pine);--acct-muted:var(--on-pine-muted)}
-html[data-theme="sky"]{--acct-bg:rgba(18,70,140,.38);--acct-line:rgba(255,255,255,.7);--acct-sep:rgba(255,255,255,.35)}
+:root{--acct-bg:rgba(6,16,31,.9);--acct-line:rgba(255,255,255,.18);--acct-sep:rgba(255,255,255,.12);--acct-ink:var(--on-pine);--acct-muted:var(--on-pine-muted)}
+html[data-theme="sky"]{--acct-bg:rgba(18,70,140,.86);--acct-line:rgba(255,255,255,.7);--acct-sep:rgba(255,255,255,.35)}
 .acct{position:absolute;z-index:1001;top:40px;right:max(16px,calc(50% - 564px))}
 .acct-btn{width:44px;height:44px;border-radius:50%;padding:0;display:grid;place-items:center;background:transparent;border:1.5px solid rgba(255,255,255,.35);color:var(--acct-ink);transition:border-color .15s,background .15s}
 .acct-btn:hover,.acct-btn[aria-expanded="true"]{border-color:var(--sun);background:rgba(255,255,255,.06)}
@@ -1786,3 +1786,31 @@ html[data-theme="sky"] .gl-row+.gl-row{border-top-color:rgba(0,0,0,.08)}
 .gl-row.on{background:rgba(255,255,255,.07);box-shadow:inset 3px 0 0 var(--accent)}
 .gl-row.on.kz{box-shadow:inset 3px 0 0 var(--gold)}
 html[data-theme="sky"] .gl-row.on{background:rgba(255,255,255,.35)}
+
+/* Account window, My files (2026-10-23): each GPX file you gave the app, tagged RUN (GPS + time,
+   pace, cadence) or ROUTE (GPS only), with the modes it can open in. */
+.acct-menu h4{font-size:14px}
+.acct-tag{display:inline-block;flex:none;font-family:var(--f-display);font-weight:800;font-style:italic;text-transform:uppercase;letter-spacing:.08em;font-size:11px;line-height:1;padding:4px 7px 3px;border-radius:6px;color:#06101f}
+.acct-tag.run{background:#3fd06a}
+.acct-tag.route{background:#6fd0ff}
+.acct-legend{margin:0 0 10px;font-size:12px;color:var(--acct-muted);display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
+.acct-ftabs{display:flex;gap:6px;margin-bottom:8px}
+.acct-ftabs button{background:transparent;border:1px solid var(--acct-line);border-radius:999px;color:var(--acct-muted);font:inherit;font-size:13px;padding:3px 12px;cursor:pointer}
+.acct-ftabs button[aria-pressed="true"]{border-color:var(--sun);color:var(--acct-ink);background:rgba(255,255,255,.08)}
+.acct-filelist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.acct-file{padding:9px 10px 10px;border:1px solid var(--acct-sep);border-radius:12px;background:rgba(255,255,255,.04)}
+.acct-file-top{display:flex;align-items:center;gap:8px}
+.acct-file-top b{flex:1;min-width:0;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.acct-file small{display:block;margin:3px 0 7px;color:var(--acct-muted);font-size:13px}
+.acct-file-del{flex:none;width:28px;height:28px;border-radius:50%;border:1px solid transparent;background:transparent;color:var(--acct-muted);font-size:18px;line-height:1;cursor:pointer}
+.acct-file-del:hover{border-color:var(--acct-line);color:var(--acct-ink)}
+.acct-use{display:flex;flex-wrap:wrap;gap:6px}
+.acct-use button{background:transparent;border:1px solid var(--acct-line);border-radius:999px;color:var(--acct-ink);font-family:var(--f-display);font-weight:700;text-transform:uppercase;letter-spacing:.05em;font-size:12px;padding:4px 10px;cursor:pointer}
+.acct-use button:hover,.acct-use button:focus-visible{border-color:var(--sun);color:var(--sun)}
+.acct-panel-in .acct-filelist{padding:0;margin:0}
+.acct-panel-in .acct-files{border:0;padding:6px 0 0}
+/* Signed in: the account name on the left of the button (not on phones, where the mode buttons
+   fill that row). */
+.acct-name{position:absolute;right:calc(100% + 10px);top:50%;transform:translateY(-50%);max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--f-display);font-weight:700;font-style:italic;text-transform:uppercase;letter-spacing:.06em;font-size:15px;color:var(--sun);text-shadow:0 1px 8px rgba(0,0,0,.5);pointer-events:none}
+.acct-name:empty{display:none}
+@media (max-width:640px){ .acct-name{display:none} }
