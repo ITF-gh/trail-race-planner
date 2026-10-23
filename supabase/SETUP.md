@@ -25,7 +25,7 @@ What runs where:
 ```
 browser (GitHub Pages)  -- magic link sign-in, REST reads/writes ------>  Supabase Auth + Postgres (RLS)
                         -- claim-cairns / ai-analyse / delete-account ->  Supabase Edge Functions (Deno)
-                                                                               | OPENAI_API_KEY (secret)
+                                                                               | App1 (secret)          
                                                                                v
                                                                           OpenAI API (gpt-4o-mini)
 ```
@@ -64,7 +64,7 @@ hour; for real use, plug in an SMTP service (Authentication > Emails > SMTP).
 2. Deploy the functions (step 5).
 3. The very last step, only on Boss's go: the OpenAI key. https://platform.openai.com > Billing:
    prepaid credits and a monthly limit; API keys > Create key; Supabase > Edge Functions >
-   Secrets: add `OPENAI_API_KEY` = that key. Then `ai: true` in `CLOUD` (src/ui/cloud.js).
+   Secrets: add `App1` = that key (`OPENAI_API_KEY` also works). Then `ai: true` in `CLOUD` (src/ui/cloud.js).
    Without the key the function answers "not switched on yet" and spends nothing.
 
 One request with gpt-4o-mini costs well under one cent.
