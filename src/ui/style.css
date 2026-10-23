@@ -1823,11 +1823,12 @@ html[data-theme="sky"] .gl-row.on{background:rgba(255,255,255,.35)}
 .acct-links .acct-danger:hover{border-color:#ff3048}
 
 /* AI waiting animation (Boss, 2026-10-23): a trail runner runs along a line and nature pops up
-   ahead of them; the loop lasts 14 s (a slow Z2 jog). Motion off for people who ask their system for less. */
+   ahead of them; the loop lasts 14 s (a slow Z2 jog, away to the horizon). Motion off for people who ask their system for less. */
 .ai-wait{display:block;width:100%;max-width:420px;height:auto;margin:6px 0 4px;overflow:visible}
-.ai-wait .aiw-ground{stroke:var(--muted);stroke-width:2;stroke-linecap:round;stroke-dasharray:1 7;opacity:.8}
+.ai-wait .aiw-ground{fill:none;stroke:var(--muted);stroke-width:1.4;stroke-linecap:round;stroke-dasharray:1 6;opacity:.7}
+.ai-wait .aiw-trail{fill:var(--muted);opacity:.22}
+.ai-wait .aiw-horizon{stroke:var(--muted);stroke-width:1;opacity:.35}
 .ai-wait .aiw-hills{fill:var(--muted);opacity:.14}
-.ai-wait .aiw-runner{animation:aiw-run 14s linear infinite}
 .ai-wait .aiw-runner line{stroke-linecap:round;fill:none}
 .ai-wait .aiw-runner .sk{stroke:#f2c9a0;stroke-width:3.2}
 .ai-wait .aiw-runner .sh{stroke:#2a3550;stroke-width:4.6;stroke-linecap:butt}
@@ -1847,19 +1848,20 @@ html[data-theme="sky"] .gl-row.on{background:rgba(255,255,255,.35)}
 .ai-wait .pine{fill:#3fb27f}.ai-wait .trunk{fill:#8a6a4a}.ai-wait .rock{fill:#8c97a8}
 .ai-wait .petal{fill:#fff;stroke:#c9d2dc;stroke-width:.6}.ai-wait .heart{fill:var(--sun)}
 .ai-wait .bird{fill:none;stroke:var(--fg);stroke-width:1.6;stroke-linecap:round;opacity:.7}
-@keyframes aiw-run{0%{transform:translateX(0);opacity:0}4%{opacity:1}90%{transform:translateX(262px);opacity:1}96%,100%{transform:translateX(270px);opacity:0}}
 @keyframes aiw-bob{from{transform:translateY(0)}to{transform:translateY(-3px)}}
 
 .ai-wait .aiw-i.n0{animation:aiw-pop0 14s ease-out infinite}
-@keyframes aiw-pop0{0%,9%{opacity:0;transform:scale(0)}13%{opacity:1;transform:scale(1.2)}16%,90%{opacity:1;transform:scale(1)}97%,100%{opacity:0;transform:scale(1)}}
+@keyframes aiw-pop0{0%,3%{opacity:0;transform:scale(0)}7%{opacity:1;transform:scale(1.2)}10%,88%{opacity:1;transform:scale(1)}95%,100%{opacity:0;transform:scale(1)}}
 .ai-wait .aiw-i.n1{animation:aiw-pop1 14s ease-out infinite}
-@keyframes aiw-pop1{0%,24%{opacity:0;transform:scale(0)}28%{opacity:1;transform:scale(1.2)}31%,90%{opacity:1;transform:scale(1)}97%,100%{opacity:0;transform:scale(1)}}
+@keyframes aiw-pop1{0%,14%{opacity:0;transform:scale(0)}18%{opacity:1;transform:scale(1.2)}21%,88%{opacity:1;transform:scale(1)}95%,100%{opacity:0;transform:scale(1)}}
 .ai-wait .aiw-i.n2{animation:aiw-pop2 14s ease-out infinite}
-@keyframes aiw-pop2{0%,38%{opacity:0;transform:scale(0)}42%{opacity:1;transform:scale(1.2)}45%,90%{opacity:1;transform:scale(1)}97%,100%{opacity:0;transform:scale(1)}}
+@keyframes aiw-pop2{0%,30%{opacity:0;transform:scale(0)}34%{opacity:1;transform:scale(1.2)}37%,88%{opacity:1;transform:scale(1)}95%,100%{opacity:0;transform:scale(1)}}
 .ai-wait .aiw-i.n3{animation:aiw-pop3 14s ease-out infinite}
-@keyframes aiw-pop3{0%,53%{opacity:0;transform:scale(0)}57%{opacity:1;transform:scale(1.2)}60%,90%{opacity:1;transform:scale(1)}97%,100%{opacity:0;transform:scale(1)}}
+@keyframes aiw-pop3{0%,44%{opacity:0;transform:scale(0)}48%{opacity:1;transform:scale(1.2)}51%,88%{opacity:1;transform:scale(1)}95%,100%{opacity:0;transform:scale(1)}}
 .ai-wait .aiw-i.n4{animation:aiw-pop4 14s ease-out infinite}
-@keyframes aiw-pop4{0%,67%{opacity:0;transform:scale(0)}71%{opacity:1;transform:scale(1.2)}74%,90%{opacity:1;transform:scale(1)}97%,100%{opacity:0;transform:scale(1)}}
+@keyframes aiw-pop4{0%,52%{opacity:0;transform:scale(0)}56%{opacity:1;transform:scale(1.2)}59%,88%{opacity:1;transform:scale(1)}95%,100%{opacity:0;transform:scale(1)}}
 .ai-wait .aiw-i.n5{animation:aiw-pop5 14s ease-out infinite}
-@keyframes aiw-pop5{0%,82%{opacity:0;transform:scale(0)}86%{opacity:1;transform:scale(1.2)}89%,90%{opacity:1;transform:scale(1)}97%,100%{opacity:0;transform:scale(1)}}
+@keyframes aiw-pop5{0%,62%{opacity:0;transform:scale(0)}66%{opacity:1;transform:scale(1.2)}69%,88%{opacity:1;transform:scale(1)}95%,100%{opacity:0;transform:scale(1)}}
+.ai-wait .aiw-i.n6{animation:aiw-pop6 14s ease-out infinite}
+@keyframes aiw-pop6{0%,72%{opacity:0;transform:scale(0)}76%{opacity:1;transform:scale(1.2)}79%,88%{opacity:1;transform:scale(1)}95%,100%{opacity:0;transform:scale(1)}}
 @media (prefers-reduced-motion:reduce){.ai-wait *{animation:none!important}.ai-wait .aiw-i{opacity:1}}
