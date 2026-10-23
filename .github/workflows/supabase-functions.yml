@@ -1,0 +1,30 @@
+# Deploy the server functions (supabase/functions) to the Supabase project, by hand only:
+# GitHub > Actions > "Deploy Supabase functions" > Run workflow.
+# Needs one repository secret, SUPABASE_ACCESS_TOKEN (supabase.com > Account > Access tokens).
+# The OpenAI key is NOT here: it is a secret of the function, set in Supabase itself.
+name: Deploy Supabase functions
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_REF: vjhzcuvxucpldhsjpqrl
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm test
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - run: supabase functions deploy delete-account --project-ref "$PROJECT_REF"
+      - run: supabase functions deploy ai-analyse --project-ref "$PROJECT_REF"
+      - run: supabase functions deploy claim-cairns --project-ref "$PROJECT_REF"

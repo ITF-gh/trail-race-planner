@@ -217,7 +217,7 @@ function privacyBody(counter) {
       <li>data is stored in the EU (Supabase, Frankfurt): your email address for signing in, your profile (name, flag, a few words, badges, goals and bests), and the plans, sessions or runs you choose to save with the Save button (track points, settings and target, up to 30 saves);</li>
       <li>heart rate is never kept online, and neither are the max and resting heart rate or the weight of your profile: they stay in your browser;</li>
       <li>the AI is not switched on yet. When it is, an AI answer you ask for will send that plan or run's summary to the AI provider (OpenAI) to write it, and this page will say so first;</li>
-      <li>you can ask for your data or the deletion of your account at any time by email.</li>
+      <li>you can download all your data (Export my data) and delete your account (Delete my account) at any time, in the Account window.</li>
     </ul>
   </section>
   <section class="sp-block">

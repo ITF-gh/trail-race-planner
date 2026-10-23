@@ -1814,3 +1814,10 @@ html[data-theme="sky"] .gl-row.on{background:rgba(255,255,255,.35)}
 .acct-name{position:absolute;right:calc(100% + 10px);top:50%;transform:translateY(-50%);max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--f-display);font-weight:700;font-style:italic;text-transform:uppercase;letter-spacing:.06em;font-size:15px;color:var(--sun);text-shadow:0 1px 8px rgba(0,0,0,.5);pointer-events:none}
 .acct-name:empty{display:none}
 @media (max-width:640px){ .acct-name{display:none} }
+/* Sign-in form extras (Forgot password, Create an account) and the Account window's data part. */
+.acct-signin-alt{display:flex;flex-wrap:wrap;gap:4px 16px}
+.acct-signin-alt .acct-linkbtn{margin-top:2px;font-size:13px}
+.acct-msg{margin:8px 0;font-size:14px;color:var(--sun)}
+.acct-data .acct-links{margin-top:10px}
+.acct-links .acct-danger{border-color:rgba(255,48,72,.6);color:#ff8090}
+.acct-links .acct-danger:hover{border-color:#ff3048}

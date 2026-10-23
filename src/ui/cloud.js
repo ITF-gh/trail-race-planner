@@ -4,8 +4,8 @@
 //   REST      /rest/v1/<table>   READ the user's rows only (Row Level Security in the database
 //                                makes sure a token only reaches its own rows), and WRITE the
 //                                user's own profile and saved items (Boss, 2026-10-18)
-// The server functions (/functions/v1/...: paying out AI tokens, an AI analysis, deleting the
-// account) all write, so the app does not call them.
+// The server functions (/functions/v1/...): delete-account, and ai-analyse (one AI request,
+// one edelweiss) once CLOUD.ai is switched on (Boss, 2026-10-23).
 //
 // Two states, set in CLOUD below:
 //   off        (url empty, or connect false): the app works exactly as before, with the run log
@@ -42,6 +42,9 @@ export const CLOUD = {
   anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZqaHpjdXZ4dWNwbGRoc2pwcXJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIzMTk4OTUsImV4cCI6MjEwNzg5NTg5NX0.I6XJP6XyZmxwFOsosDkEP2HvDirC8tUA7XkNPfrPhxk",
   // the "anon public" key: safe to publish, Row Level Security does the protecting
   connect: true, // true = read-only: sign in and read, never write (supabase/SETUP.md, step 6)
+  // The online AI (ai-analyse). Off until the OpenAI key is on the server and Boss says go: the
+  // very last step (Boss, 2026-10-23). Off, the AI windows say the AI opens soon and send nothing.
+  ai: false,
 };
 
 /** The message every write call throws while the account is read-only (account.js shows it). */
@@ -51,13 +54,19 @@ export const CL_READONLY = "Only your profile is saved to the online account for
 // they choose to keep ("Save to my account": add one, delete one). Nothing else is ever written.
 const CL_PROFILE_WRITE = "/rest/v1/profiles?on_conflict=user_id";
 const CL_SAVED = "/rest/v1/saved_items";
-const clMayWrite = (path) => path.startsWith("/auth/v1/") || path === CL_PROFILE_WRITE || path === CL_SAVED || path.startsWith(`${CL_SAVED}?id=eq.`);
+// 2026-10-23 (Boss: "a full functional account"): also deleting the account (a server function).
+const CL_DELETE = "/functions/v1/delete-account";
+// And one AI request (the server spends the edelweiss and calls OpenAI), when CLOUD.ai is on.
+const CL_AI = "/functions/v1/ai-analyse";
+const clMayWrite = (path) => path.startsWith("/auth/v1/") || path === CL_PROFILE_WRITE || path === CL_SAVED || path.startsWith(`${CL_SAVED}?id=eq.`) || path === CL_DELETE || (path === CL_AI && cloudAiOn());
 
 // localStorage key of the saved session.
 const CL_SESSION = "trp.session";
 
 /** True when the online account is configured and connected (read-only or open): every other call needs this. */
 export const cloudOn = () => Boolean(CLOUD.url && CLOUD.anonKey && CLOUD.connect);
+/** True when the online AI is switched on too (CLOUD.ai): the AI windows can spend an edelweiss. */
+export const cloudAiOn = () => cloudOn() && CLOUD.ai === true;
 /** Writes are not part of this app yet: always false (account.js asks before any write step). */
 export const cloudWritable = () => false;
 // What account.js calls for a write: always refused here, nothing is sent.
@@ -65,8 +74,6 @@ const clNoWrite = async () => { throw new Error(CL_READONLY); };
 export const cloudPutRuns = clNoWrite;
 export const cloudDeleteRuns = clNoWrite;
 export const cloudClaim = clNoWrite;
-export const cloudAnalyse = clNoWrite;
-export const cloudDeleteAccount = clNoWrite;
 
 /**
  * Read and write the saved session in localStorage, as JSON text. Session shape:
@@ -86,11 +93,14 @@ export function cloudUser() {
 
 /**
  * Turn the tokens Supabase puts in the URL after a sign-in link into a session (then tidy the URL).
- * Returns (as a Promise, being async) true when a session was made, false otherwise.
+ * Returns (as a Promise, being async) the kind of link ("recovery", "signup", "magiclink") when a
+ * session was made, false otherwise.
  * Side effects: rewrites the address bar without the tokens, stores the session in localStorage.
  */
 export async function cloudFromUrl() {
   if (!cloudOn() || !location.hash.includes("access_token=")) return false;
+  // "recovery" when the link came from Forgot password, "signup" from the confirm email.
+  const kind = new URLSearchParams(location.hash.slice(1)).get("type") || "magiclink";
   // location.hash is "#access_token=...&..."; slice(1) drops the "#" and URLSearchParams reads
   // the key=value pairs.
   const p = new URLSearchParams(location.hash.slice(1));
@@ -105,7 +115,7 @@ export async function cloudFromUrl() {
   // expires_in is in seconds (3600 when missing); expiresAt is the moment in milliseconds.
   clSession = { access, refresh, expiresAt: Date.now() + (Number(p.get("expires_in")) || 3600) * 1000, userId: user.id, email: user.email || "" };
   clWrite(clSession);
-  return true;
+  return kind;
 }
 
 /**
@@ -130,6 +140,38 @@ export async function cloudSendLink(email) {
   const back = location.origin + location.pathname;
   // create_user false: a link goes only to an account that already exists, none is made.
   await clFetch(`/auth/v1/otp?redirect_to=${encodeURIComponent(back)}`, { method: "POST", body: { email, create_user: false } });
+}
+
+// Where the emails' links bring the user back: this page, without its address extras.
+const clBack = () => encodeURIComponent(location.origin + location.pathname);
+
+/**
+ * Create an account with email and password. Supabase emails a link to confirm the address; the
+ * link signs the user in (cloudFromUrl). While sign-ups are closed in the Supabase dashboard,
+ * the answer is "Signups not allowed for this instance" (account.js says so in plain words).
+ */
+export async function cloudSignUp(email, password) {
+  await clFetch(`/auth/v1/signup?redirect_to=${clBack()}`, { method: "POST", body: { email, password } });
+}
+
+/** Forgot password: Supabase emails a link that signs the user in to choose a new password. */
+export async function cloudSendReset(email) {
+  await clFetch(`/auth/v1/recover?redirect_to=${clBack()}`, { method: "POST", body: { email } });
+}
+
+/** Set a new password for the signed-in user (after a Forgot password link, or to change it). */
+export async function cloudSetPassword(password) {
+  await clAuthed("/auth/v1/user", { method: "PUT", body: { password } });
+}
+
+/**
+ * Delete the account on the server (the delete-account function: the user and, through
+ * ON DELETE CASCADE, their profile, saves, runs, edelweiss and AI jobs), then forget the session.
+ */
+export async function cloudDeleteAccount() {
+  await clAuthed(CL_DELETE, { method: "POST", body: {} });
+  clSession = null;
+  clWrite(null);
 }
 
 /**
@@ -232,12 +274,18 @@ export async function cloudRuns() {
 export async function cloudLedger() {
   return (await clAuthed("/rest/v1/edelweiss_ledger?select=delta,reason,created_at&order=created_at.desc")) || [];
 }
+/**
+ * Send one AI request (the ai-analyse function): mode "prep_race" or "prep_run" and the input the
+ * app built for it. The server checks, spends one edelweiss and starts the OpenAI call; it answers
+ * at once with { job } (then poll cloudJob). Throws the server's message: no edelweiss left, a
+ * request already running, the AI not switched on (nothing spent in those cases).
+ */
+export async function cloudAi(mode, input) {
+  if (!cloudAiOn()) throw new Error("The AI opens with the online account, soon.");
+  return clAuthed(CL_AI, { method: "POST", body: { mode, input } });
+}
 /** One analysis job by id: { id, status ("running", "done" or "failed"), result, error, created_at }. */
 export async function cloudJob(id) {
   const rows = await clAuthed(`/rest/v1/ai_jobs?id=eq.${encodeURIComponent(id)}&select=id,status,result,error,created_at`);
   return rows && rows[0];
-}
-/** The past analyses that finished well, newest first, at most 10. */
-export async function cloudJobs() {
-  return (await clAuthed("/rest/v1/ai_jobs?status=eq.done&select=id,result,created_at&order=created_at.desc&limit=10")) || [];
 }
