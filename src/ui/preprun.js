@@ -26,7 +26,7 @@
 import { parseGpx } from "../core/track.js";
 import { buildPlan } from "../core/plan.js";
 import { prepRunPlan } from "../core/preprun.js";
-import { hm, clock, parseDuration } from "../core/format.js";
+import { hm, parseDuration } from "../core/format.js";
 import { starChip, descChip } from "./chips.js";
 import { makeDemoRaceGpx, DEMO_LONG_RUN_PROFILE } from "../demo.js";
 import { watchPanelHtml, mountWatch, watchPoints, downloadCourse, pimpBadge } from "./watch.js";
@@ -71,13 +71,12 @@ export function prepHeroHtml(brand) {
 /**
  * The run timeline (below the cockpit, in place of the race script list): the run's important steps in the order you meet them, to read just
  * before you go. Start, every climb (no bumps) and descent, the runnable stretches of 1 km or
- * more between them, and Finish. Each row: clock time and km, what it is (stars for a climb,
+ * more between them, and Finish. Each row: time since the start (Boss: not the clock) and km, what it is (stars for a climb,
  * shoes for a descent), its figures, its tactic in one line, and how long it lasts. A step that
  * meets a key zone carries its gold ★ badge and the zone's advice.
  * Unlike Prep my race's tables (climbs and descents apart, steepest 100 m...), one list, by time.
  */
 function glanceHtml(plan) {
-  const st = plan.startSec;
   const T = plan.course.totalKm;
   const at = (x) => x.start.central;
   const steps = [
@@ -96,13 +95,13 @@ function glanceHtml(plan) {
       <div class="gl-i">${icon}</div>
       <div class="gl-m"><div class="gl-h">${title}${zoneBit(z)}</div>${figs ? `<div class="gl-f">${figs}</div>` : ""}${tactic ? `<div class="gl-tac">${tactic}</div>` : ""}${zoneHow(z)}</div>
       <div class="gl-d">${dur}</div></li>`;
-  const out = [row("gl-start", clock(st, 0), 0, "▶", "Start", `${T.toFixed(1)} km · +${Math.round(plan.course.gain)} m · ${steps.filter((s) => s.kind === "c").length} climbs ahead`, "Easy first km, let the body wake up", "", null, 0, Math.min(1, T))];
+  const out = [row("gl-start", hm(0), 0, "▶", "Start", `${T.toFixed(1)} km · +${Math.round(plan.course.gain)} m · ${steps.filter((s) => s.kind === "c").length} climbs ahead`, "Easy first km, let the body wake up", "", null, 0, Math.min(1, T))];
   // gap(a, b): the runnable stretch between two steps, shown from 1 km, or when a key zone sits on it.
   const gap = (a, b) => {
     const z = zoneOf(a, b);
     if (b - a < 1 && !z) return;
     const t0 = timeAt(a), t1 = timeAt(b);
-    out.push(row("gl-run", clock(st, t0), a, "", `Runnable · ${(b - a).toFixed(1)} km`, "", "", mins(t1 - t0), z, t0, b));
+    out.push(row("gl-run", hm(t0), a, "", `Runnable · ${(b - a).toFixed(1)} km`, "", "", mins(t1 - t0), z, t0, b));
   };
   let km = 0;
   steps.forEach(({ kind, x }) => {
@@ -111,15 +110,15 @@ function glanceHtml(plan) {
     const lenKm = `${(x.lenM / 1000).toFixed(1)} km`;
     if (kind === "c") {
       const parts = x.sections.length ? ` · ${x.sections.length} parts` : "";
-      out.push(row(`gl-c v${x.level}`, clock(st, at(x)), x.startKm, starChip(x.level), x.label || `Climb ${x.n}`, `${lenKm} · +${Math.round(x.gain)} m · ${x.avg.toFixed(0)}% avg${parts}`, prEsc(x.tactic), mins(x.dur.central), z, at(x), x.endKm));
+      out.push(row(`gl-c v${x.level}`, hm(at(x)), x.startKm, starChip(x.level), x.label || `Climb ${x.n}`, `${lenKm} · +${Math.round(x.gain)} m · ${x.avg.toFixed(0)}% avg${parts}`, prEsc(x.tactic), mins(x.dur.central), z, at(x), x.endKm));
     } else {
-      out.push(row(`gl-dsc v${x.level}`, clock(st, at(x)), x.startKm, descChip(x.level), `Descent ${x.n}`, `${lenKm} · −${Math.round(x.loss)} m · ${Math.abs(x.avg).toFixed(0)}% avg`, prEsc(x.tactic), mins(x.dur.central), z, at(x), x.endKm));
+      out.push(row(`gl-dsc v${x.level}`, hm(at(x)), x.startKm, descChip(x.level), `Descent ${x.n}`, `${lenKm} · −${Math.round(x.loss)} m · ${Math.abs(x.avg).toFixed(0)}% avg`, prEsc(x.tactic), mins(x.dur.central), z, at(x), x.endKm));
     }
     km = x.endKm;
   });
   gap(km, T);
   const fin = plan.scenarios.central.finishSec;
-  out.push(row("gl-fin", clock(st, fin), T, "◆", "Finish", `${hm(fin)} on the move`, "", "", null, fin - 1, T));
+  out.push(row("gl-fin", hm(fin), T, "◆", "Finish", `${T.toFixed(1)} km · +${Math.round(plan.course.gain)} m done`, "", "", null, fin - 1, T));
   return `<div class="glance" id="prep-glance"><p class="note gl-note">The steps that matter, in the order you meet them. Gold ★ = a key zone, where the run is played. Tap a step to go there in the cockpit.</p>
     <ol class="gl-list">${out.join("")}</ol></div>`;
 }
