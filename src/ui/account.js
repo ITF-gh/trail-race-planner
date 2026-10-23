@@ -47,7 +47,7 @@ import { profileHtml, profileInput, profileAction, profileAthlete, profileWho, p
 import { aiLocalProbe, aiLocalRun, aiLocalHtml } from "./ailocal.js";
 import { AI_PREP_MODELS } from "../core/aiprep.js";
 import { aiDocsAll, aiDocsPut, aiDocsGet, aiDocsDelete } from "./aidocs.js";
-import { cloudOn, cloudWritable, CL_READONLY, cloudUser, cloudFromUrl, cloudSendLink, cloudSignInPassword, cloudSignOut, cloudProfile, cloudPutProfile, cloudSaved, cloudSave, cloudSavedDelete, cloudRuns, cloudPutRuns, cloudDeleteRuns, cloudLedger, cloudClaim, cloudAnalyse, cloudJob, cloudJobs, cloudDeleteAccount } from "./cloud.js";
+import { cloudOn, cloudWritable, CL_READONLY, cloudUser, cloudFromUrl, cloudSendLink, cloudSignInPassword, cloudSignOut, cloudProfile, cloudPutProfile, cloudSaved, cloudSave, cloudSavedDelete, cloudRuns, cloudPutRuns, cloudDeleteRuns, cloudLedger, cloudClaim, cloudAnalyse, cloudJob, cloudJobs, cloudDeleteAccount, cloudSignUp, cloudSendReset, cloudSetPassword } from "./cloud.js";
 
 // Database name and its one "object store" (IndexedDB's word for a table) of run summaries.
 const AC_DB = "trp-history", AC_STORE = "runs";
@@ -267,7 +267,7 @@ export const AC_SPARK = (() => {
 //   job     id of the analysis running now, null when none
 //   msg     a message to show in the tokens section ("" = none)
 //   busy    true while a sign-in link is being sent (greys out the button)
-const ac = { ledger: null, jobs: [], job: null, msg: "", busy: false, docs: [], saved: null };
+const ac = { ledger: null, jobs: [], job: null, msg: "", busy: false, docs: [], saved: null, signup: false, recovery: false, dataMsg: "" };
 // Opens or closes the account menu (set in initAccount), for callers outside it.
 let acOpenMenu = () => {};
 // Reopens a saved item in its mode (set by main.js through acctOnReopen).
@@ -317,10 +317,12 @@ function acTokensHtml(S) {
   else if (signedIn && ac.job) note = "The AI is reading your race and runs. It takes about a minute; you can close this menu.";
   // The sign-in form, only when the account exists but nobody is signed in. data-acct-form names
   // it for the submit listener in initAccount.
+  // ac.signup switches the same form to "Create an account" (a password is then required).
   const signin = cloudOn() && !signedIn ? `<form class="acct-signin" data-acct-form="signin">
-        <label for="acEmail">Sign in to collect them</label>
+        <label for="acEmail">${ac.signup ? "Create an account" : "Sign in to collect them"}</label>
         <input id="acEmail" type="email" required autocomplete="email" placeholder="you@example.com" value="${acEsc(ac.email || "")}">
-        <div><input id="acPass" type="password" autocomplete="current-password" placeholder="Password (empty: email me a link)"><button class="btn ghost" type="submit"${ac.busy ? " disabled" : ""}>Sign in</button></div>
+        <div><input id="acPass" type="password" ${ac.signup ? 'required minlength="8" autocomplete="new-password" placeholder="Password, 8 characters or more"' : 'autocomplete="current-password" placeholder="Password (empty: email me a link)"'}><button class="btn ghost" type="submit"${ac.busy ? " disabled" : ""}>${ac.signup ? "Create" : "Sign in"}</button></div>
+        <div class="acct-signin-alt">${ac.signup ? `<button class="acct-linkbtn" type="button" data-acct="signin-mode">I have an account</button>` : `<button class="acct-linkbtn" type="button" data-acct="reset">Forgot password?</button><button class="acct-linkbtn" type="button" data-acct="signup-mode">Create an account</button>`}</div>
       </form>` : "";
   // The Ask the AI button opens the window of the mode on screen (data-mode on <html>, read at
   // each redraw, and the menu is redrawn each time it opens): the race plan in Prep my race, the
@@ -352,7 +354,7 @@ function acMenuHtml(S, demo = false) {
   const who = `<section class="acct-who"><div><b>${me.flag ? `${me.flag} ` : ""}${acEsc(me.name || (demo ? DEMO_USER : "My account"))}</b><small>${where}</small></div><button class="btn ghost acct-prof" type="button" data-acct="profile">Account</button></section>`;
   // The links at the bottom: bests (when there are runs), export and delete (own runs only),
   // sign out and delete account (signed in only).
-  const links = `<section class="acct-links">${S.count ? `<button type="button" data-acct="bests">Bests</button>` : ""}${S.count && !demo ? `<button type="button" data-acct="export">Export</button><button type="button" data-acct="clear">Delete runs</button>` : ""}${user ? `<button type="button" data-acct="signout">Sign out</button>${cloudWritable() ? `<button type="button" data-acct="delete">Delete account</button>` : ""}` : ""}</section>`;
+  const links = `<section class="acct-links">${S.count ? `<button type="button" data-acct="bests">Bests</button>` : ""}${S.count && !demo ? `<button type="button" data-acct="export">Export</button><button type="button" data-acct="clear">Delete runs</button>` : ""}${user ? `<button type="button" data-acct="signout">Sign out</button>` : ""}</section>`;
   if (!S.count) {
     return `${who}
     <section><p class="acct-empty">Open one of your runs in <b>Rewind my run</b>, or add it to <b>Your runs</b> in Prep my race: its numbers are kept here${user ? "" : ", on this device only"}, and your stats, records and achievements build up run after run.</p></section>
@@ -728,6 +730,24 @@ function acSavedHtml() {
 }
 
 /**
+ * The last part of the Account window: sign-in and data. Signed in: the email, a new password
+ * (also where a Forgot password link lands, ac.recovery), sign out and delete the account.
+ * Always: export all my data as one file.
+ */
+function acDataHtml() {
+  const user = cloudOn() && cloudUser();
+  return `<section class="acct-data"><h4 data-pf-sec="data">Sign-in and data</h4>
+    ${user ? `<p class="acct-note">Signed in as <b>${acEsc(user.email)}</b>.</p>
+    <form class="acct-signin" data-acct-form="password">
+      <label for="acNewPass">${ac.recovery ? "Choose your new password" : "Change password"}</label>
+      <div><input id="acNewPass" type="password" required minlength="8" autocomplete="new-password" placeholder="8 characters or more"><button class="btn ghost" type="submit">Save</button></div>
+    </form>` : `<p class="acct-note">Not signed in: everything stays on this device.</p>`}
+    ${ac.dataMsg ? `<p class="acct-msg" role="status">${acEsc(ac.dataMsg)}</p>` : ""}
+    <div class="acct-links"><button type="button" data-acct="export">Export my data</button>${user ? `<button type="button" data-acct="signout">Sign out</button><button type="button" class="acct-danger" data-acct="delete">Delete my account</button>` : ""}</div>
+  </section>`;
+}
+
+/**
  * Saving the profile online. Each change in the Account window fires "trp-profile-save"
  * (profile.js); while signed in, the profile is sent 800 ms after the last change, so typing a
  * name sends one request, not one per letter. acProfileFlush sends a waiting change at once.
@@ -927,6 +947,7 @@ export function acctOpenRunAsk() { acAction("ai-run-ask"); }
  * since its first line shows the profile's name and flag.
  */
 function acProfile(keep = false) {
+  if (!keep) ac.dataMsg = ""; // a fresh opening shows no old message
   const box = acPanel.querySelector(".acct-panel-in");
   const top = keep && box ? box.scrollTop : 0;
   // The field or button that has the focus (named by its data-pf or data-acct), to give it back.
@@ -934,7 +955,7 @@ function acProfile(keep = false) {
   const sel = f ? (f.dataset.pf ? `[data-pf="${f.dataset.pf}"]` : f.dataset.acct ? `[data-acct="${f.dataset.acct}"]` : "") : "";
   // My files (owner's rule: in this window, not in the small menu); read first if not cached yet.
   if (!acFiles) { acFilesAll().then(() => acProfile(true)); }
-  acShowPanel(profileHtml(acList, acDemo, acDemo ? DEMO_USER : "My account") + acFilesHtml(acFiles || []) + acSavedHtml(), "Account", "acct-profile");
+  acShowPanel(profileHtml(acList, acDemo, acDemo ? DEMO_USER : "My account") + acFilesHtml(acFiles || []) + acSavedHtml() + acDataHtml(), "Account", "acct-profile");
   const nb = acPanel.querySelector(".acct-panel-in");
   if (nb) nb.scrollTop = top;
   const again = sel ? acPanel.querySelector(sel) : null;
@@ -966,10 +987,14 @@ async function acAction(what) {
   if (what === "export") {
     // Same download trick as the course files: a Blob, a temporary blob: address, a link clicked
     // from the code. JSON.stringify(x, null, 1) indents the JSON by one space, readable by eye.
-    const blob = new Blob([JSON.stringify({ app: "trail-race-planner", exported: new Date().toISOString(), runs: await acAll() }, null, 1)], { type: "application/json" });
+    // Everything the app keeps about you: profile, run log, My files, AI answers, and (signed in)
+    // the account's email and saved items.
+    const user = cloudOn() && cloudUser();
+    const data = { app: "prep-my-race", exported: new Date().toISOString(), account: user ? { email: user.email } : null, profile: profileData(), runs: await acAll(), files: await acFilesAll(), aiDocs: await aiDocsAll(), saved: user ? ac.saved || [] : [] };
+    const blob = new Blob([JSON.stringify(data, null, 1)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "my-trail-runs.json";
+    a.download = "my-prep-my-race-data.json";
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     trackEvent("history-export");
@@ -1026,11 +1051,26 @@ async function acAction(what) {
     profileReplace({});
     await cloudSignOut();
     // Object.assign(target, values) sets several fields of `ac` at once.
-    Object.assign(ac, { ledger: null, jobs: [], job: null, msg: "", saved: null });
+    Object.assign(ac, { ledger: null, jobs: [], job: null, msg: "", saved: null, recovery: false, dataMsg: "" });
     acRender();
+    if (!acPanel.hidden) acProfile(true);
   } else if (what === "delete") {
-    if (!window.confirm(`Delete your account? Your runs, ${AC_TOKEN.many} and AI analyses are erased from the server for good. The runs on this device stay until you delete them too.`)) return;
-    try { await cloudDeleteAccount(); Object.assign(ac, { ledger: null, jobs: [], job: null, msg: "Account deleted." }); trackEvent("account-delete"); } catch (e) { ac.msg = e.message; }
+    if (!window.confirm(`Delete your account for good? Your online profile, saves, ${AC_TOKEN.many} and AI answers are erased from the server. What is on this device (runs, files) stays until you delete it too.`)) return;
+    try { await cloudDeleteAccount(); profileReplace({}); Object.assign(ac, { ledger: null, jobs: [], job: null, saved: null, msg: "", dataMsg: "Your account is deleted." }); trackEvent("account-delete"); }
+    catch (e) { ac.dataMsg = `Could not delete the account: ${e.message}`; }
+    acProfile(true);
+  } else if (what === "reset") {
+    // Forgot password: the email typed in the sign-in form gets a link to choose a new one.
+    const email = (acMenu.querySelector("#acEmail") || {}).value || "";
+    if (!email.trim()) { ac.msg = "Type your email first, then Forgot password."; acRender(); return; }
+    ac.email = email.trim();
+    try { await cloudSendReset(ac.email); ac.msg = `If ${ac.email} has an account, a link to choose a new password is on its way.`; trackEvent("password-reset"); }
+    catch (e) { ac.msg = `Could not send the link: ${e.message}`; }
+    acRender();
+  } else if (what === "signup-mode" || what === "signin-mode") {
+    ac.signup = what === "signup-mode";
+    ac.email = ((acMenu.querySelector("#acEmail") || {}).value || ac.email || "").trim();
+    ac.msg = "";
     acRender();
   } else if (what === "ai") {
     acAsk.checks = null;
@@ -1148,12 +1188,26 @@ async function acAction(what) {
  * for the typed email. The button is greyed out meanwhile (ac.busy) and the outcome shows in the
  * tokens section.
  */
+/** Save a new password for the signed-in user (Account window, Sign-in and data). */
+async function acNewPassword(pass) {
+  if (!pass || pass.length < 8) { ac.dataMsg = "The password needs 8 characters or more."; acProfile(true); return; }
+  try { await cloudSetPassword(pass); ac.recovery = false; ac.dataMsg = "Password saved."; trackEvent("password-set"); }
+  catch (e) { ac.dataMsg = `Could not save the password: ${e.message}`; }
+  acProfile(true);
+}
 async function acSignIn(form) {
   const email = form.querySelector("#acEmail").value.trim(), pass = form.querySelector("#acPass").value;
   if (!email) return;
   ac.email = email; // kept in the form when it is redrawn
   ac.busy = true;
   acRender();
+  if (ac.signup) {
+    try { await cloudSignUp(email, pass); ac.signup = false; ac.msg = `Almost there: open the link sent to ${email} to confirm your account.`; trackEvent("signup"); }
+    catch (e) { ac.msg = /signups? not allowed/i.test(e.message) ? "Accounts are by invitation for now." : `Could not create the account: ${e.message}`; }
+    ac.busy = false;
+    acRender();
+    return;
+  }
   if (pass) {
     try { await cloudSignInPassword(email, pass); ac.msg = ""; trackEvent("signin"); ac.busy = false; acRender(); acSync(); }
     catch (e) { ac.busy = false; ac.msg = e.status === 400 ? "Wrong email or password." : `Could not sign in: ${e.message}`; acRender(); }
@@ -1216,7 +1270,12 @@ export async function initAccount(opts = {}) {
   acMenu.addEventListener("mouseover", medalOver);
   acMenu.addEventListener("focusin", medalOver);
   // The sign-in form: preventDefault() stops the browser from submitting it as a page load.
-  acEl.addEventListener("submit", (e) => { const f = e.target.closest("[data-acct-form=signin]"); if (f) { e.preventDefault(); acSignIn(f); } });
+  acEl.addEventListener("submit", (e) => {
+    const f = e.target.closest("[data-acct-form=signin]");
+    if (f) { e.preventDefault(); acSignIn(f); }
+    const pw = e.target.closest("[data-acct-form=password]");
+    if (pw) { e.preventDefault(); acNewPassword(pw.querySelector("#acNewPass").value); }
+  });
   // A click on the dimmed backdrop itself (not on the panel's content) closes the pop-up.
   acPanel.addEventListener("click", (e) => { if (e.target === acPanel) acPanel.hidden = true; });
   // The "input" event fires on every keystroke, date change or tick in the Ask the AI window.
@@ -1251,5 +1310,9 @@ export async function initAccount(opts = {}) {
   });
   acRender();
   // Back from a sign-in link: keep the session, sync, and show the menu so the user sees it worked.
-  if (await cloudFromUrl()) { trackEvent("signin"); set(true); }
+  // Back from an email link: a Forgot password link opens the Account window on the new
+  // password; any other link (sign-in, confirm the account) opens the menu.
+  const link = await cloudFromUrl();
+  if (link === "recovery") { ac.recovery = true; trackEvent("signin", "recovery"); acctOpenProfile("data"); }
+  else if (link) { trackEvent("signin", link); set(true); }
 }

@@ -2,6 +2,9 @@
 // technical detail). The first entry is the current version: the footer shows it on every page.
 
 export const CHANGELOG = [
+  { v: "2.15", date: "2026-10-23", items: [
+    "Online account: create an account (by invitation for now), Forgot password, change password, Export my data (profile, runs, files, AI answers, saves in one file) and Delete my account, in a new Sign-in and data part of the Account window.",
+  ] },
   { v: "2.14", date: "2026-10-23", items: [
     "Account window: new My files list. Every GPX you give the app is kept on this device (no heart rate), tagged Run (GPS + time, pace, cadence) or Route (GPS only), and opens again in one tap in Prep my race, Prep my run or (runs only) Rewind my run.",
     "Account menu easier to read: darker background. Signed in, your name shows next to the account button.",
