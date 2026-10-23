@@ -2,6 +2,9 @@
 // technical detail). The first entry is the current version: the footer shows it on every page.
 
 export const CHANGELOG = [
+  { v: "2.18", date: "2026-10-23", items: [
+    "The AI is switched on for signed-in testers: 1 edelweiss for one AI race plan (Prep my race) or one AI coach session (Prep my run). If the AI does not answer, the edelweiss comes back.",
+  ] },
   { v: "2.17", date: "2026-10-23", items: [
     "Save A4 to my account (signed-in testers): every Export A4 box can keep that export, with the parts you ticked, in your account. Tap it in your Account window: the mode reopens and the print window opens, ready to print or save as PDF. Heart rate and weight are never saved online: the sheet is laid out again from your points.",
   ] },
