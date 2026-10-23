@@ -2,6 +2,9 @@
 // technical detail). The first entry is the current version: the footer shows it on every page.
 
 export const CHANGELOG = [
+  { v: "2.19", date: "2026-10-23", items: [
+    "While the AI works, a trail runner runs along the trail and pines, a rock, edelweiss and a bird pop up on the way.",
+  ] },
   { v: "2.18", date: "2026-10-23", items: [
     "The AI is switched on for signed-in testers: 1 edelweiss for one AI race plan (Prep my race) or one AI coach session (Prep my run). If the AI does not answer, the edelweiss comes back.",
   ] },

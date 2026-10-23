@@ -239,6 +239,9 @@ const acTok = (n) => `${n} ${n === 1 ? AC_TOKEN.one : AC_TOKEN.many}`;
 // The token logo: a shiny edelweiss. Eight woolly star petals (long and short in turn), a yellow
 // heart of small florets, and a glint. Built once as an SVG string; no gradients, so the many
 // copies on the page need no shared ids.
+// The AI waiting picture (Boss, 2026-10-23): a trail runner on a line, nature popping up ahead
+// (pines, a rock, edelweiss, a bird). Pure SVG; the motion is CSS (.ai-wait in style.css).
+const AC_WAIT = `<svg class="ai-wait" viewBox="0 0 320 96" role="img" aria-label="A trail runner on the way while the AI works"><path class="aiw-hills" d="M0 84 L40 58 L70 70 L110 40 L150 66 L190 48 L230 70 L270 44 L320 72 L320 84Z"/><g class="aiw-i n0"><rect class="trunk" x="73.5" y="78" width="3" height="6"/><path class="pine" d="M75 54 L84 70 L80 70 L86 79 L64 79 L70 70 L66 70Z"/></g><g class="aiw-i n1"><path class="rock" d="M110 84 L114 75 L121 72 L128 77 L131 84Z"/></g><g class="aiw-i n2"><ellipse class="petal" cx="160" cy="70" rx="2.2" ry="5" transform="rotate(0 160 74)"/><ellipse class="petal" cx="160" cy="70" rx="2.2" ry="5" transform="rotate(60 160 74)"/><ellipse class="petal" cx="160" cy="70" rx="2.2" ry="5" transform="rotate(120 160 74)"/><ellipse class="petal" cx="160" cy="70" rx="2.2" ry="5" transform="rotate(180 160 74)"/><ellipse class="petal" cx="160" cy="70" rx="2.2" ry="5" transform="rotate(240 160 74)"/><ellipse class="petal" cx="160" cy="70" rx="2.2" ry="5" transform="rotate(300 160 74)"/><circle class="heart" cx="160" cy="74" r="2.2"/><line x1="160" y1="78" x2="160" y2="84" stroke="#3fb27f" stroke-width="1.4"/></g><g class="aiw-i n3"><path class="pine" d="M199 62 L206 75 L203 75 L208 83 L190 83 L195 75 L192 75Z"/><path class="pine" d="M211 52 L219 67 L215 67 L221 83 L201 83 L207 67 L203 67Z"/></g><g class="aiw-i n4"><path class="bird" d="M237 30 q4 -5 8 0 q4 -5 8 0"/></g><g class="aiw-i n5"><ellipse class="petal" cx="290" cy="70" rx="2.2" ry="5" transform="rotate(0 290 74)"/><ellipse class="petal" cx="290" cy="70" rx="2.2" ry="5" transform="rotate(60 290 74)"/><ellipse class="petal" cx="290" cy="70" rx="2.2" ry="5" transform="rotate(120 290 74)"/><ellipse class="petal" cx="290" cy="70" rx="2.2" ry="5" transform="rotate(180 290 74)"/><ellipse class="petal" cx="290" cy="70" rx="2.2" ry="5" transform="rotate(240 290 74)"/><ellipse class="petal" cx="290" cy="70" rx="2.2" ry="5" transform="rotate(300 290 74)"/><circle class="heart" cx="290" cy="74" r="2.2"/><line x1="290" y1="78" x2="290" y2="84" stroke="#3fb27f" stroke-width="1.4"/></g><line class="aiw-ground" x1="4" y1="86" x2="316" y2="86"/><g class="aiw-runner"><g class="aiw-body"><g transform="rotate(12 22 66)"><line class="aiw-l b" x1="22" y1="66" x2="22" y2="84"/><line class="aiw-a b" x1="23" y1="52" x2="23" y2="64"/><line x1="22" y1="66" x2="24" y2="51"/><circle cx="25" cy="45" r="4.6"/><line class="aiw-l" x1="22" y1="66" x2="22" y2="84"/><line class="aiw-a" x1="23" y1="52" x2="23" y2="64"/></g></g></g></svg>`;
 export const AC_SPARK = (() => {
   // One petal as an SVG path, pointing straight up from the centre (16, 16) of the 32 x 32 box.
   // M x y moves the pen to the centre; each C draws a cubic Bezier curve (two control points,
@@ -818,7 +821,7 @@ async function acStartOnline(mode, forced = []) {
   const x = run
     ? { mode, plan: R && R.plan, raceName: R ? R.name : "My run", user: { notes: acRunAsk.notes, question: acRunAsk.question, forced }, athlete, history: acRunRuns() }
     : { mode, plan: R.plan, raceName: R.race ? R.race.name : "Race", user: { targetSec: parseDuration((acAsk.target || "").trim()), goal: acAsk.goal, risk: acAsk.risk, notes: acAsk.notes, question: acAsk.question, forced }, athlete, history: acAskRuns() };
-  acShowPanel(`<p class="acct-kicker">${AC_SPARK}${run ? "AI coach" : "AI"}</p><h3>Asking the AI…</h3><p>This can take a minute or two. Keep this tab open.</p>`, "AI");
+  acShowPanel(`<p class="acct-kicker">${AC_SPARK}${run ? "AI coach" : "AI"}</p><h3>Asking the AI…</h3>${AC_WAIT}<p>This can take a minute or two. Keep this tab open.</p>`, "AI");
   ac.job = true;
   ac.msg = "";
   acRender();
@@ -858,7 +861,7 @@ async function acKeepDoc(mode, key, name, r) {
 async function acStartLocal(forced) {
   const R = acGetRace();
   const fake = acLocal.fake;
-  acShowPanel(`<p class="acct-kicker">Local AI test</p><h3>${fake ? "Making the fake answer…" : `Asking ${acEsc(acLocal.model)}…`}</h3><p>${fake ? "" : "This can take a minute or two. Keep this tab open."}</p>`, "Local AI test");
+  acShowPanel(`<p class="acct-kicker">Local AI test</p><h3>${fake ? "Making the fake answer…" : `Asking ${acEsc(acLocal.model)}…`}</h3>${AC_WAIT}<p>${fake ? "" : "This can take a minute or two. Keep this tab open."}</p>`, "Local AI test");
   const a = profileAthlete();
   const r = await aiLocalRun({
     plan: R.plan, raceName: R.race ? R.race.name : "Race", fake, direct: acLocal.direct, apiKey: acLocal.apiKey, model: acLocal.model,
@@ -880,7 +883,7 @@ async function acStartRun(forced = []) {
   if (!acLocal) return acStartOnline("prep_run", forced);
   const R = acGetRun();
   const fake = acLocal.fake;
-  acShowPanel(`<p class="acct-kicker">Local AI test · Prep my run</p><h3>${fake ? "Making the fake answer…" : `Asking ${acEsc(acLocal.model)}…`}</h3><p>${fake ? "" : "This can take a minute. Keep this tab open."}</p>`, "Local AI test");
+  acShowPanel(`<p class="acct-kicker">Local AI test · Prep my run</p><h3>${fake ? "Making the fake answer…" : `Asking ${acEsc(acLocal.model)}…`}</h3>${AC_WAIT}<p>${fake ? "" : "This can take a minute. Keep this tab open."}</p>`, "Local AI test");
   const a = profileAthlete();
   const r = await aiLocalRun({
     mode: "prep_run", plan: R && R.plan, raceName: R ? R.name : "My run", fake, direct: acLocal.direct, apiKey: acLocal.apiKey, model: acLocal.model,
