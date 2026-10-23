@@ -45,7 +45,7 @@ import { SAVED_KINDS, savedCheck } from "../core/saved.js";
 import { trackEvent } from "./analytics.js";
 import { profileHtml, profileInput, profileAction, profileAthlete, profileWho, profileData, profileReplace } from "./profile.js";
 import { aiLocalProbe, aiLocalRun, aiOnlineRun, aiLocalHtml } from "./ailocal.js";
-import { AI_PREP_MODELS } from "../core/aiprep.js";
+import { AI_PREP_MODELS, aiPrepMerge } from "../core/aiprep.js";
 import { aiDocsAll, aiDocsPut, aiDocsGet, aiDocsDelete } from "./aidocs.js";
 import { cloudOn, cloudWritable, CL_READONLY, cloudUser, cloudFromUrl, cloudSendLink, cloudSignInPassword, cloudSignOut, cloudProfile, cloudPutProfile, cloudSaved, cloudSave, cloudSavedDelete, cloudRuns, cloudPutRuns, cloudDeleteRuns, cloudLedger, cloudClaim, cloudAi, cloudAiOn, cloudJob, cloudDeleteAccount, cloudSignUp, cloudSendReset, cloudSetPassword } from "./cloud.js";
 
@@ -849,7 +849,7 @@ async function acKeepDoc(mode, key, name, r) {
   // The referee's summary, without the rebuilt plan (rebuilt from the output when played).
   const result = mode === "prep_run"
     ? { status: m.status, reason: m.reason, finishSec: m.finishSec, fixes: m.fixes, exercises: m.exercises, workSec: m.workSec, texts: m.texts, dataset: m.dataset || null }
-    : { status: m.status, reason: m.reason, finishSec: m.finishSec, aiFinishSec: m.aiFinishSec, fixes: m.fixes, legs: m.legs, aid: m.aid, texts: m.texts, dataset: m.dataset || null };
+    : { status: m.status, reason: m.reason, finishSec: m.finishSec, finishes: m.finishes, aiFinishSec: m.aiFinishSec, fixes: m.fixes, legs: m.legs, aid: m.aid, texts: m.texts, dataset: m.dataset || null };
   const doc = { id: `ai-${Date.now()}`, at: new Date().toISOString(), mode, race: key, raceName: name, input: r.input, output: r.read.output, tokens: r.read.tokens, result };
   await aiDocsPut(doc);
   if (m.status === "ok") document.dispatchEvent(new CustomEvent("trp-ai-use", { detail: doc }));
@@ -917,7 +917,15 @@ async function acDocShow(id) {
   const d = await aiDocsGet(id);
   if (!d) return;
   const download = URL.createObjectURL(new Blob([JSON.stringify(d, null, 2)], { type: "application/json" }));
-  acShowPanel(aiLocalHtml({ docId: d.id, when: acDate(Date.parse(d.at)), input: d.input, read: { tokens: d.tokens, output: d.output }, result: d.result, stamp: d.at.slice(0, 19).replace(/[:T]/g, "-"), download }), "AI doc", "acct-local");
+  // A Prep my race doc for the race on screen, made from the same plan: checked again by today's
+  // referee, so the doc shows exactly what Your race plays (an older doc kept an older summary).
+  let result = d.result;
+  const R = d.mode === "prep_run" ? null : acGetRace();
+  const calc = d.input && d.input.calc && d.input.calc.finishSec;
+  if (R && R.plan && R.key === d.race && d.output && calc && Math.abs(calc.central - R.plan.scenarios.central.finishSec) < 60) {
+    try { result = aiPrepMerge(R.plan, d.input, d.output); } catch (e) { /* keep the stored summary */ }
+  }
+  acShowPanel(aiLocalHtml({ docId: d.id, when: acDate(Date.parse(d.at)), input: d.input, read: { tokens: d.tokens, output: d.output }, result, stamp: d.at.slice(0, 19).replace(/[:T]/g, "-"), download }), "AI doc", "acct-local");
 }
 
 /**
