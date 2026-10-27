@@ -42,9 +42,10 @@ export const CLOUD = {
   anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZqaHpjdXZ4dWNwbGRoc2pwcXJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIzMTk4OTUsImV4cCI6MjEwNzg5NTg5NX0.I6XJP6XyZmxwFOsosDkEP2HvDirC8tUA7XkNPfrPhxk",
   // the "anon public" key: safe to publish, Row Level Security does the protecting
   connect: true, // true = read-only: sign in and read, never write (supabase/SETUP.md, step 6)
-  // The online AI (ai-analyse). On since Boss's go (2026-10-23); the OpenAI key lives only in the
-  // Supabase function secrets. Without it, the server answers "not switched on yet" and spends nothing.
-  ai: true,
+  // The online AI (ai-analyse). On 2026-10-23 to 2026-10-27, OFF again on Boss's word (2026-10-27):
+  // the AI button is blocked and nothing is sent. Removing the App1 secret in Supabase stops the
+  // server side too (it then answers "not switched on yet" and spends nothing).
+  ai: false,
 };
 
 /** The message every write call throws while the account is read-only (account.js shows it). */
