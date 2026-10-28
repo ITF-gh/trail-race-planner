@@ -70,8 +70,11 @@ visit(entry);
 const names = new Map();
 // Turn each file into a piece of the bundle: imports removed, `export` keywords removed,
 // and a /* path */ comment on top so the bundle stays readable.
+// The French dictionary's address carries a hash of its content (?v=...): the page fetches it with
+// cache: "force-cache", so a browser would otherwise keep an older dictionary after an update.
+const frUrl = `i18n/fr.json?v=${createHash("sha256").update(readFileSync(join(root, "src/i18n/fr.json"))).digest("hex").slice(0, 10)}`;
 const parts = order.map((file) => {
-  let src = readFileSync(file, "utf8");
+  let src = readFileSync(file, "utf8").replaceAll('"i18n/fr.json"', `"${frUrl}"`);
   // Delete every import line (same pattern as above). In one shared scope the imported names
   // already exist, because the files that declare them come earlier in the bundle.
   src = src.replace(/^import\s+.*?from\s+["'].+?["'];?\s*$/gm, "");
@@ -177,7 +180,7 @@ for (const [file, html] of sitePages({ fonts, counter })) writeFileSync(join(roo
 // export keywords removed, wrapped like the app, started once the page is read).
 mkdirSync(join(root, "dist/i18n"), { recursive: true });
 writeFileSync(join(root, "dist/i18n/fr.json"), JSON.stringify(JSON.parse(readFileSync(join(root, "src/i18n/fr.json"), "utf8"))));
-const i18nSrc = readFileSync(join(root, "src/ui/i18n.js"), "utf8").replace(/^export /gm, "");
+const i18nSrc = readFileSync(join(root, "src/ui/i18n.js"), "utf8").replace(/^export /gm, "").replaceAll('"i18n/fr.json"', `"${frUrl}"`);
 writeFileSync(join(root, "dist/i18n.js"), `(function(){\n"use strict";\n${i18nSrc}\nif (i18nLang() === "fr") document.documentElement.classList.add("i18n-wait");\ndocument.addEventListener("DOMContentLoaded", () => i18nInit(document.querySelector(".i18n-slot")));\n})();\n`);
 // Icons, the share-preview image and the guide screenshots (made once by scripts/site-images.mjs
 // and scripts/guide-shots.mjs, kept in src/site).
