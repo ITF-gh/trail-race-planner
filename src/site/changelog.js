@@ -2,6 +2,10 @@
 // technical detail). The first entry is the current version: the footer shows it on every page.
 
 export const CHANGELOG = [
+  { v: "2.25", date: "2026-10-28", items: [
+    "A new About page: why Prep my race exists (your next runs, built on what you already did), and who is behind it, ITeam Fenix.",
+    "Lighter site pages: the guide, FAQ, About, Privacy and What's new drop their boxes for open sections.",
+  ] },
   { v: "2.24", date: "2026-10-28", items: [
     "Safer pages: each page now tells the browser exactly which sites it may load code and data from, so nothing else can run in it.",
     "No more dead ends: while the AI is off, its buttons are hidden, and the account menu says accounts are by invitation instead of offering a sign-up that cannot work.",
