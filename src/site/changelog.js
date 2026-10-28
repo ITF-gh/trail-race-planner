@@ -6,6 +6,7 @@ export const CHANGELOG = [
     "Safer pages: each page now tells the browser exactly which sites it may load code and data from, so nothing else can run in it.",
     "No more dead ends: while the AI is off, its buttons are hidden, and the account menu says accounts are by invitation instead of offering a sign-up that cannot work.",
     "A working contact address on About and Privacy: contact.iteamfenix@gmail.com, with the ITeam Fenix logo.",
+    "Every link works: photo credits, map credits and the bug tracker now open their page.",
   ] },
   { v: "2.23", date: "2026-10-27", items: [
     "The online AI is switched off for now. Everything else works as before.",

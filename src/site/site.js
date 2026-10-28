@@ -5,9 +5,8 @@
 // too, to write the static pages (guide.html, about.html, ...). One source, so the footer and
 // the version can never differ from one page to another.
 //
-// External links are OFF for now (SITE.linksLive = false): they are written as plain text that
-// looks like a link but goes nowhere, so nothing points at an address that is not ready yet
-// (the bug tracker, credits). The contact mail link is always live. Set it to true and rebuild to switch them all on.
+// External links are ON (SITE.linksLive = true, Boss 2026-10-28): each opens in a new tab.
+// Set it to false and rebuild to write them as inert text again. The contact mail link is always live.
 
 import { CHANGELOG } from "./changelog.js";
 
@@ -20,7 +19,7 @@ export const SITE = {
   version: CHANGELOG[0].v,
   email: "contact.iteamfenix@gmail.com", // Boss, 2026-10-28
   issues: "https://github.com/ITF-gh/trail-race-planner/issues/new",
-  linksLive: false,
+  linksLive: true, // Boss, 2026-10-28: every link clickable
 };
 
 const siteEsc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
