@@ -15,5 +15,8 @@ test("i18n: every French text keeps the number slots of its English key", () => 
 });
 
 test("i18n: the newest What's new entries are translated", () => {
-  for (const it of CHANGELOG[0].items) assert.ok(fr.t[it] || fr.h[it], `no French for "${it}"`);
+  // The page looks a text up as it is, then with its numbers as {0}, {1}... (src/ui/i18n.js).
+  let n;
+  const slots = (s) => { n = 0; return s.replace(/\d+(?:[.,:h']\d+)*/g, () => `{${n++}}`); };
+  for (const it of CHANGELOG[0].items) assert.ok(fr.t[it] || fr.h[it] || fr.t[slots(it)], `no French for "${it}"`);
 });

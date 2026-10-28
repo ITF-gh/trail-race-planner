@@ -1632,7 +1632,21 @@
   "{0} runs": "{0} runs",
   "Prep my race now speaks French: tap the flag next to the account button to switch between English and French. Your choice is kept on this device.": "Prep my race parle maintenant français : touche le drapeau à côté du bouton du compte pour passer de l'anglais au français. Ton choix est gardé sur cet appareil.",
   "The guide, FAQ, About, Privacy and What's new pages switch language too.": "Le guide, la FAQ, À propos, Confidentialité et Nouveautés changent aussi de langue.",
-  "Relive the run. Learn from it.": "Débriefe ton run et apprends à te connaître."
+  "Relive the run. Learn from it.": "Débriefe ton run et apprends à te connaître.",
+  "Race date (optional)": "Date de la course (facultatif)",
+  "Sets dusk and dawn at the start line: stretches in the dark are planned {0}% slower.": "Fixe le crépuscule et l'aube au départ : les portions de nuit sont prévues {0} % plus lentes.",
+  "How fast you fade when the race is longer than your run. {0} is the default.": "À quel point tu ralentis quand la course est plus longue que ton run. {0} par défaut.",
+  "Race pace is {0}% faster than your run on the same gradients: the race is shorter than your runs and your race references allow it. Every clock time on this page follows the scenario you pick.": "L'allure de course est {0} % plus rapide que ton run sur les mêmes pentes : la course est plus courte que tes runs et tes références de course le permettent. Chaque heure de cette page suit le scénario que tu choisis.",
+  "Dark from {0} to {1} at the start line: {2} km in the dark, planned {3}% slower.": "Nuit de {0} à {1} au départ : {2} km dans le noir, prévus {3} % plus lents.",
+  "Add the race date in Your route to plan the stretches run in the dark.": "Ajoute la date de la course dans Ton parcours pour prévoir les portions de nuit.",
+  "This race is shorter than your runs, so it is planned at their training pace. Type your {0}K or half-marathon time under the drop boxes to plan it at race effort.": "Cette course est plus courte que tes runs : elle est prévue à leur allure d'entraînement. Tape ton temps sur {0} km ou semi-marathon sous les zones de dépôt pour la prévoir à effort de course.",
+  "from your climbs": "d'après tes montées",
+  "partly measured": "partiellement mesuré",
+  "A new way to calculate the race plan, from the calculation review: fatigue now builds with the time you have been running, not the distance, so long climbs tire you more than fast flats.": "Une nouvelle façon de calculer le plan de course, issue de la revue des calculs : la fatigue monte maintenant avec le temps de course, pas la distance, donc les longues montées fatiguent plus que le plat rapide.",
+  "The gap between your fresh and tired pace grows on races much longer than your runs and shrinks on shorter ones. The race-length fade goes from {0} to {1} so long races do not count that fatigue twice.": "L'écart entre ton allure fraîche et fatiguée grandit sur les courses bien plus longues que tes runs et diminue sur les plus courtes. La baisse liée à la longueur passe de {0} à {1} pour que les longues courses ne comptent pas cette fatigue deux fois.",
+  "Steep climbs you never ran fully take their pace from your own climbing speed, marked \"from your climbs\" in Your engine.": "Les montées raides que tu n'as jamais courues en entier prennent leur allure de ta propre vitesse ascensionnelle, marquées « d'après tes montées » dans Ton moteur.",
+  "New Race date field in Your route: stretches run between dusk and dawn at the start line are planned {0}% slower.": "Nouveau champ Date de la course dans Ton parcours : les portions courues entre le crépuscule et l'aube au départ sont prévues {0} % plus lentes.",
+  "With your {0}K or half-marathon time, a race shorter than your runs is planned faster, at race effort. Without them, Your race asks for them.": "Avec ton temps sur {0} km ou semi-marathon, une course plus courte que tes runs est prévue plus vite, à effort de course. Sans eux, Ta course te les demande."
  },
  "h": {
   "Prep it up,<br><em>get it done.</em>": "Un brief<br><em>et c'est parti !</em>",

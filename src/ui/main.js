@@ -119,6 +119,9 @@ const state = {
   plan: null,
   aiOn: store.get("trp.ai.on") === true, // Your race shows the AI plan (when there is one)
 };
+// v2.27 lowered the default endurance exponent from 0.07 to 0.05 (the tired gap now also grows with
+// race length). A value saved by an earlier version that still holds the old default follows it.
+if (state.settings.enduranceExp === 0.07) state.settings.enduranceExp = PLAN_DEFAULTS.enduranceExp;
 
 // PEAK: the small mountain logo, as inline SVG text, reused in the hero, the top bar and prep mode.
 /* ---------- skeleton ---------- */
@@ -277,6 +280,7 @@ $("#app").innerHTML = `
   <div class="panel">
     <div class="fields">
       <label class="f">Start time<input type="time" id="startTime"></label>
+      <label class="f">Race date (optional)<input type="date" id="raceDate"><span class="hint">Sets dusk and dawn at the start line: stretches in the dark are planned ${Math.round(PLAN_DEFAULTS.nightSlow * 100)}% slower.</span></label>
       <label class="f">Targeted duration (optional)<input type="text" id="targetTime" inputmode="numeric" placeholder="h:mm, for example 10:15" autocomplete="off"><span class="hint">The planner says if your runs back it up.</span></label>
       <label class="f">Terrain on race day
         <select id="terrain">${Object.entries(TERRAIN).map(([k, v]) => `<option value="${k}">${esc(v.label)}</option>`).join("")}</select>
@@ -289,7 +293,7 @@ $("#app").innerHTML = `
       <div class="fields" style="margin-top:12px">
         <label class="f">Checkpoint every (km)<input type="number" id="checkpointKm" min="2" max="25"></label>
         <label class="f">Hiking threshold (% gradient)<input type="number" id="hikeGrade" min="6" max="30" placeholder="learned from your run"><span class="hint">Leave blank to learn it from your cadence.</span></label>
-        <label class="f">Endurance exponent<input type="number" id="enduranceExp" step="0.01" min="0.03" max="0.15"><span class="hint">How fast you fade when the race is longer than your run. 0.07 is typical.</span></label>
+        <label class="f">Endurance exponent<input type="number" id="enduranceExp" step="0.01" min="0.03" max="0.15"><span class="hint">How fast you fade when the race is longer than your run. ${PLAN_DEFAULTS.enduranceExp} is the default.</span></label>
         <label class="f">Run half-life (days)<input type="number" id="halfLifeDays" min="3" max="365"><span class="hint">With several runs: a run this many days older counts half as much.</span></label>
         <label class="f">Faster on gentle descents (%)<input type="number" id="descentBoost" step="1" min="0" max="10"><span class="hint">Only if your quads can take it. 0 is safe.</span></label>
       </div>
@@ -351,7 +355,7 @@ ${siteFooter({ analytics: analyticsOn ? analyticsName : "" })}
 // FIELDS: the ids of the settings inputs. Each one, when changed, re-reads the form and
 // recomputes the plan (see the forEach just after writeSettings()).
 /* ---------- settings form ---------- */
-const FIELDS = ["startTime", "targetTime", "terrain", "gelEveryMin", "aidStations", "checkpointKm", "hikeGrade", "enduranceExp", "halfLifeDays", "descentBoost"];
+const FIELDS = ["startTime", "raceDate", "targetTime", "terrain", "gelEveryMin", "aidStations", "checkpointKm", "hikeGrade", "enduranceExp", "halfLifeDays", "descentBoost"];
 /**
  * Fill the settings form from state.settings (used once at start-up, with saved values).
  * `??` (nullish coalescing) gives the right side only when the left is null or undefined, so a
@@ -363,6 +367,7 @@ const FIELDS = ["startTime", "targetTime", "terrain", "gelEveryMin", "aidStation
 function writeSettings() {
   const s = state.settings;
   $("#startTime").value = s.startTime;
+  $("#raceDate").value = s.raceDate || "";
   $("#targetTime").value = s.targetTime || "";
   $("#terrain").value = s.terrain;
   $("#gelEveryMin").value = s.gelEveryMin;
@@ -377,7 +382,7 @@ function writeSettings() {
  * Read the settings form back into state.settings and save it in this browser.
  * n(id) reads a number input: parseFloat turns the text into a number, and NaN (empty or not
  * a number) becomes null. `x || 45` falls back to a default when the box is empty (or 0);
- * `?? 0.07` only when it is null, so the endurance exponent can be set to any valid number.
+ * `??` only when it is null, so the endurance exponent can be set to any valid number.
  * The aid stations stay as raw text here; core/plan.js parseAidStations reads them.
  */
 function readSettings() {
@@ -385,12 +390,13 @@ function readSettings() {
   state.settings = {
     ...state.settings,
     startTime: $("#startTime").value || "09:00",
+    raceDate: $("#raceDate").value,
     targetTime: $("#targetTime").value.trim(),
     terrain: $("#terrain").value,
     gelEveryMin: n("gelEveryMin") || 45,
     checkpointKm: n("checkpointKm") || 10,
     hikeGrade: n("hikeGrade"),
-    enduranceExp: n("enduranceExp") ?? 0.07,
+    enduranceExp: n("enduranceExp") ?? PLAN_DEFAULTS.enduranceExp,
     descentBoost: (n("descentBoost") || 0) / 100,
     aidStations: $("#aidStations").value,
     halfLifeDays: n("halfLifeDays") || 28,
@@ -1106,7 +1112,9 @@ function renderDday() {
     ${tile(`Estimated duration · ${sc.label.toLowerCase()}`, hm(sc.finishSec), `finish at ${clock(st, sc.finishSec)} · start ${clock(st, 0)}`, "big")}
     <div class="panel" style="display:flex;flex-direction:column;gap:12px;justify-content:center">
       <div class="scen-row"><div class="seg" role="group" aria-label="Scenario" id="scen">${seg}</div>${acctAiBadge("race")}</div>
-      <p class="note" style="margin:0">Race pace is ${((sc.factor - 1) * 100).toFixed(0)}% slower than your run on the same gradients: terrain factor plus the fade for a longer effort. Every clock time on this page follows the scenario you pick.</p>
+      <p class="note" style="margin:0">${sc.factor >= 1 ? `Race pace is ${((sc.factor - 1) * 100).toFixed(0)}% slower than your run on the same gradients: terrain factor plus the fade for a longer effort.` : `Race pace is ${((1 - sc.factor) * 100).toFixed(0)}% faster than your run on the same gradients: the race is shorter than your runs and your race references allow it.`} Every clock time on this page follows the scenario you pick.</p>
+      ${plan.night ? `<p class="note" style="margin:0">Dark from ${clock(0, plan.night.dusk)} to ${clock(0, plan.night.dawn)} at the start line: ${plan.night.darkKm.toFixed(1)} km in the dark, planned ${plan.night.slowPct}% slower.</p>` : `<p class="note" style="margin:0">Add the race date in Your route to plan the stretches run in the dark.</p>`}
+      ${plan.levelHint ? `<p class="note level-hint" style="margin:0">This race is shorter than your runs, so it is planned at their training pace. Type your 10K or half-marathon time under the drop boxes to plan it at race effort.</p>` : ""}
     </div>
     <div class="side-stack">${pimpBadge("#s-pimp")}</div>
   </div>

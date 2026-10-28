@@ -27,6 +27,7 @@
 
 import { resample, smooth } from "./track.js";
 import { BANDS, bandIndex, gradeSeries, GRADE_HALF_WINDOW } from "./terrain.js";
+import { BAND_CENTRES } from "./model.js";
 
 /**
  * Fallbacks used when your reference file has too little data in a band
@@ -186,6 +187,8 @@ export function analyseEffort(parsedOrList, opts = {}) {
     };
   });
 
+  fromClimbs(bands);
+
   // Heart-rate drift on the flat: speed per heartbeat, first half vs second half.
   // "Efficiency" ef = speed (m/s) / heart rate (bpm). If ef drops by 5% in the
   // second half, decouplingPct is 5: the heart works harder for the same speed.
@@ -254,6 +257,32 @@ export function hikeThreshold(slices) {
     if (err < bestErr) { bestErr = err; best = g; }
   }
   return best;
+}
+
+/**
+ * Uphill bands without full data, from your own climbing (calculation review, 2026-10-28).
+ * A band "partly measured" (fresh pace measured, tired pace from a stock ratio) takes the
+ * fresh-to-tired ratio of the nearest uphill band you did run in both halves (the steeper one on
+ * a tie). A steep band (+10% or more) you never ran takes its fresh pace from your climbing speed
+ * on the steepest band you did run: at a vertical speed of V m/h on a gradient of g%, you cover
+ * V / (g/100) metres an hour, so pace = 36000 x g / V seconds per km. These bands get the source
+ * "from your climbs". Changes `bands` in place; does nothing without a fully measured uphill band.
+ */
+function fromClimbs(bands) {
+  const up = bands.map((b, i) => i).filter((i) => i > FLAT);
+  const meas = up.filter((i) => bands[i].source === "measured" && bands[i].vam > 50);
+  if (!meas.length) return;
+  const steepVam = bands[meas[meas.length - 1]].vam;
+  for (const i of up) {
+    const b = bands[i];
+    if (b.source === "measured") continue;
+    // Nearest measured band: smallest distance in rows, the steeper one first on a tie.
+    const near = bands[meas.slice().sort((x, y) => Math.abs(x - i) - Math.abs(y - i) || y - x)[0]];
+    if (b.source === "estimated" && BAND_CENTRES[i] >= 10) b.fresh = (36000 * BAND_CENTRES[i]) / steepVam;
+    b.tired = b.fresh * (near.tired / near.fresh);
+    if (b.source === "estimated") b.pace = b.fresh;
+    b.source = "from your climbs";
+  }
 }
 
 /**

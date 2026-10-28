@@ -2,6 +2,13 @@
 // technical detail). The first entry is the current version: the footer shows it on every page.
 
 export const CHANGELOG = [
+  { v: "2.27", date: "2026-10-28", items: [
+    "A new way to calculate the race plan, from the calculation review: fatigue now builds with the time you have been running, not the distance, so long climbs tire you more than fast flats.",
+    "The gap between your fresh and tired pace grows on races much longer than your runs and shrinks on shorter ones. The race-length fade goes from 0.07 to 0.05 so long races do not count that fatigue twice.",
+    "Steep climbs you never ran fully take their pace from your own climbing speed, marked \"from your climbs\" in Your engine.",
+    "New Race date field in Your route: stretches run between dusk and dawn at the start line are planned 8% slower.",
+    "With your 10K or half-marathon time, a race shorter than your runs is planned faster, at race effort. Without them, Your race asks for them.",
+  ] },
   { v: "2.26", date: "2026-10-28", items: [
     "Prep my race now speaks French: tap the flag next to the account button to switch between English and French. Your choice is kept on this device.",
     "The guide, FAQ, About, Privacy and What's new pages switch language too.",

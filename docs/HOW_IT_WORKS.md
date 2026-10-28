@@ -54,23 +54,27 @@ The fix is one shared constant, `GRADE_HALF_WINDOW`, used for the race and for t
 
 ## 5. Predicting the race (`src/core/model.js`)
 
-For every 10 m of the course, take the pace of its gradient band and slide it from fresh to tired along the race. Add up the seconds. That gives a finish time and a clock time at every point.
+For every 10 m of the course, take your pace on its gradient (blended between the two nearest bands) and slide it from fresh to tired by the share of race **time** gone, so a slow climb tires you more than a fast flat. Add up the seconds. That gives a finish time and a clock time at every point. The model runs several passes, because "how tired" and "is it dark" need the clock from the pass before.
 
-Three adjustments stand in for what one reference run cannot tell us:
+A few adjustments stand in for what your reference runs cannot tell us (calculation review of 2026-10-28):
 
 | Adjustment | What it represents | Default |
 |---|---|---|
 | Terrain | Roots, mud, leaves, crowds are slower than your training path | smooth 1.03, mixed 1.06, technical 1.09 |
-| Duration | A longer race cannot be held at the reference effort | pace × (race time / reference time)^0.07 |
+| Race-length fade | A longer race cannot be held at the reference effort | pace × (race time / reference time)^0.05 |
+| Tired gap | Fatigue at the end of a 10 h race is more than at the end of a 3 h run | gap × (race time / reference time)^0.5, both ways, kept between ×0.3 and ×3 |
+| Night | Running by headlamp is slower | +8% between civil dusk and dawn at the start line, with a race date |
 | Scenario | A plausible spread around the central guess | best −3.5%, central, cautious +3.5% |
 
-The duration rule is a cousin of the **Riegel formula** (time2 = time1 × (distance2 / distance1)^1.06), which says endurance fades by a power law. The exponent 0.07 is a typical value for a trained amateur; raise it if you fade fast.
+The fade is a cousin of the **Riegel formula** (time2 = time1 × (distance2 / distance1)^1.06), which says endurance fades by a power law. It was 0.07 before the tired gap also grew with race length; 0.05 keeps long races from counting the same fatigue twice. With a 10K or half-marathon time in your references, the plan uses your own exponent from those two races, and a race shorter than the reference is run faster (at most 15% per km). Without them, your runs are training efforts, so a shorter race is never sped up and Your race asks for those times.
+
+Steep uphill bands you did not run in both halves of your runs come from your own climbing: the tired ratio of the nearest band you did run, and for a steep band (+10% or more) you never ran, a fresh pace from your climbing speed on the steepest band you did run (pace = 36000 × gradient / vertical metres per hour). They show "from your climbs" in Your engine.
 
 ### Honest limits
 
-- The model slides fresh to tired by **position along the course**, not by elapsed time.
-- It assumes the reference run reflects your current fitness. An old or easy run gives an old or easy plan.
+- It assumes the reference runs reflect your current fitness. An old or easy run gives an old or easy plan.
 - It cannot see mud, heat, a missed gel or a bad day. The three scenarios are a range, not a promise. Expect errors of 5 to 10%.
+- Dusk and dawn use this device's time zone on the race date.
 
 ## 6. From numbers to a plan (`src/core/plan.js`)
 

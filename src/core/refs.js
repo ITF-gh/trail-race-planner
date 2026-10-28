@@ -177,5 +177,8 @@ export function refsEffort(calib) {
   return { flatPace: calib.flatPace, durationSec: calib.durationSec, bands, calib };
 }
 
-/** The model settings with your own fatigue exponent when the calibration has one. */
-export const calibParams = (params) => (params.calib && params.calib.enduranceExp ? { ...params, enduranceExp: params.calib.enduranceExp } : params);
+/**
+ * The model settings with your own fatigue exponent when the calibration has one. At race level
+ * (your 10K or half time) `fadeBoth` also lets a race shorter than the reference be run faster.
+ */
+export const calibParams = (params) => (params.calib ? { ...params, fadeBoth: params.calib.level === "race", ...(params.calib.enduranceExp ? { enduranceExp: params.calib.enduranceExp } : {}) } : params);
