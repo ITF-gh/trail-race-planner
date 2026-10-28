@@ -160,12 +160,13 @@ function inKpis(run) {
 /**
  * The settings form: the weight, for the energy. Heart rates are no longer asked here: the app
  * never reads heart rate from a file, and the runner's own max and resting heart rate live in
- * their profile (the Account window). onsubmit="return false" stops Enter from reloading the
- * page; mountInsights listens to "input" on the form and saves each change.
+ * their profile (the Account window). mountInsights stops Enter from reloading the page (a
+ * "submit" listener; no inline handler, which the page's security policy refuses) and listens to
+ * "input" on the form to save each change.
  */
 function inSettings() {
   const a = inState.athlete;
-  return `<form class="in-set" id="inSet" onsubmit="return false">
+  return `<form class="in-set" id="inSet">
     <label class="f">Weight<span class="in-u"><input type="number" id="inW" min="30" max="150" step="1" value="${a.weight}"> kg</span></label>
     <p class="note">Used for the energy. Saved in this browser only, shared with your profile.</p>
   </form>`;
@@ -473,6 +474,7 @@ export function mountInsights(box, run, { onSeek } = {}) {
   $i("#inKpiBody").addEventListener("click", (e) => { const k = e.target.closest(".in-k"); if (k) k.classList.toggle("open"); });
   // Athlete settings: re-draw the numbers on each change.
   const set = $i("#inSet");
+  if (set) set.addEventListener("submit", (e) => e.preventDefault());
   if (set) set.addEventListener("input", () => {
     // The value of a number field, or 0 when it is empty. An empty weight falls back to 70 kg.
     const num = (id) => { const el = $i(id); return el && el.value !== "" ? Number(el.value) : 0; };

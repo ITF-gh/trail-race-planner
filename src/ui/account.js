@@ -48,7 +48,7 @@ import { aiLocalProbe, aiLocalRun, aiOnlineRun, aiLocalHtml } from "./ailocal.js
 import { AI_PREP_MODELS, aiPrepMerge } from "../core/aiprep.js";
 import { AI_RUN_EFFORTS, AI_RUN_EFFORT_DEFAULT } from "../core/airun.js";
 import { aiDocsAll, aiDocsPut, aiDocsGet, aiDocsDelete } from "./aidocs.js";
-import { cloudOn, cloudWritable, CL_READONLY, cloudUser, cloudFromUrl, cloudSendLink, cloudSignInPassword, cloudSignOut, cloudProfile, cloudPutProfile, cloudSaved, cloudSave, cloudSavedDelete, cloudRuns, cloudPutRuns, cloudDeleteRuns, cloudLedger, cloudClaim, cloudAi, cloudAiOn, cloudJob, cloudDeleteAccount, cloudSignUp, cloudSendReset, cloudSetPassword } from "./cloud.js";
+import { CLOUD, cloudOn, cloudWritable, CL_READONLY, cloudUser, cloudFromUrl, cloudSendLink, cloudSignInPassword, cloudSignOut, cloudProfile, cloudPutProfile, cloudSaved, cloudSave, cloudSavedDelete, cloudRuns, cloudPutRuns, cloudDeleteRuns, cloudLedger, cloudClaim, cloudAi, cloudAiOn, cloudJob, cloudDeleteAccount, cloudSignUp, cloudSendReset, cloudSetPassword } from "./cloud.js";
 
 // Database name and its one "object store" (IndexedDB's word for a table) of run summaries.
 const AC_DB = "trp-history", AC_STORE = "runs";
@@ -320,6 +320,7 @@ function acTokensHtml(S) {
   const signedIn = cloudOn() && cloudUser();
   const n = signedIn ? (ac.ledger ? acBalance() : "…") : S.cairns;
   let note = `Earned with achievements and events. 1 ${AC_TOKEN.one} buys 1 AI-tailored race plan.`;
+  if (!acAiOn()) note = `The AI is switched off for now: your ${AC_TOKEN.many} wait for it.`;
   if (ac.msg) note = acEsc(ac.msg);
   else if (signedIn && ac.job) note = "The AI is reading your race and runs. It takes about a minute; you can close this menu.";
   // The sign-in form, only when the account exists but nobody is signed in. data-acct-form names
@@ -329,13 +330,13 @@ function acTokensHtml(S) {
         <label for="acEmail">${ac.signup ? "Create an account" : "Sign in to collect them"}</label>
         <input id="acEmail" type="email" required autocomplete="email" placeholder="you@example.com" value="${acEsc(ac.email || "")}">
         <div><input id="acPass" type="password" ${ac.signup ? 'required minlength="8" autocomplete="new-password" placeholder="Password, 8 characters or more"' : 'autocomplete="current-password" placeholder="Password (empty: email me a link)"'}><button class="btn ghost" type="submit"${ac.busy ? " disabled" : ""}>${ac.signup ? "Create" : "Sign in"}</button></div>
-        <div class="acct-signin-alt">${ac.signup ? `<button class="acct-linkbtn" type="button" data-acct="signin-mode">I have an account</button>` : `<button class="acct-linkbtn" type="button" data-acct="reset">Forgot password?</button><button class="acct-linkbtn" type="button" data-acct="signup-mode">Create an account</button>`}</div>
+        <div class="acct-signin-alt">${ac.signup ? `<button class="acct-linkbtn" type="button" data-acct="signin-mode">I have an account</button>` : `<button class="acct-linkbtn" type="button" data-acct="reset">Forgot password?</button>${CLOUD.signup ? `<button class="acct-linkbtn" type="button" data-acct="signup-mode">Create an account</button>` : `<span class="acct-invite">Accounts are by invitation for now.</span>`}`}</div>
       </form>` : "";
   // The Ask the AI button opens the window of the mode on screen (data-mode on <html>, read at
   // each redraw, and the menu is redrawn each time it opens): the race plan in Prep my race, the
   // coach in Prep my run, none in Rewind my run (a pure run detail, no AI there).
   const mode = document.documentElement.dataset.mode;
-  const ask = mode === "run" ? "" : `<button class="btn primary" type="button" data-acct="${mode === "prep" ? "ai-run-ask" : "ai"}"${ac.job ? " disabled" : ""}>${ac.job ? "Analysing…" : `${AC_SPARK}${mode === "prep" ? "Ask the AI coach" : "Ask the AI"}`}</button>`;
+  const ask = mode === "run" || !acAiOn() ? "" : `<button class="btn primary acct-ai-ask" type="button" data-acct="${mode === "prep" ? "ai-run-ask" : "ai"}"${ac.job ? " disabled" : ""}>${ac.job ? "Analysing…" : `${AC_SPARK}${mode === "prep" ? "Ask the AI coach" : "Ask the AI"}`}</button>`;
   // data-acct="..." on a button names the action a click runs (see acAction).
   return `<section><h4>AI ${AC_TOKEN.many}</h4>
       <div class="acct-cairns"><b>${AC_SPARK}${n}</b>${ask}</div>
@@ -421,6 +422,11 @@ let acGetRace = () => ({ race: null, gpxRuns: 0, targetText: "", centralSec: nul
 // The local test mode (ailocal.js): { key, model, fake } when the page comes from npm run
 // ai-browser on this computer, else null. `fake` = the last click asked for the fake answer.
 let acLocal = null;
+// Can the AI be asked here? The online AI is switched on (CLOUD.ai), or the local test server
+// answers. When not, <html> gets the class ai-off and every "Ask the AI" button is hidden (CSS),
+// so no button leads to a window that can only say "blocked".
+const acAiOn = () => cloudAiOn() || Boolean(acLocal);
+const acAiShow = () => document.documentElement.classList.toggle("ai-off", !acAiOn());
 /**
  * What is sent to the server as the `ask`: the stored runs (ticked ids or the date range), the
  * goal, target time, risk, free information and question, and `forced`: the codes of the
@@ -1244,7 +1250,8 @@ export async function initAccount(opts = {}) {
   if (opts.getRace) acGetRace = opts.getRace;
   if (opts.getRun) acGetRun = opts.getRun;
   // Local test mode: only answers on this computer, under npm run ai-browser (ailocal.js).
-  aiLocalProbe().then((x) => { acLocal = x; });
+  acAiShow();
+  aiLocalProbe().then((x) => { acLocal = x; acAiShow(); });
   acEl = document.createElement("div");
   acEl.className = "acct";
   // The round button (a person icon in SVG: a circle head and a curved path for the shoulders),

@@ -1865,3 +1865,7 @@ html[data-theme="sky"] .gl-row.on{background:rgba(255,255,255,.35)}
 .ai-wait .aiw-i.n6{animation:aiw-pop6 14s ease-out infinite}
 @keyframes aiw-pop6{0%,72%{opacity:0;transform:scale(0)}76%{opacity:1;transform:scale(1.2)}79%,88%{opacity:1;transform:scale(1)}95%,100%{opacity:0;transform:scale(1)}}
 @media (prefers-reduced-motion:reduce){.ai-wait *{animation:none!important}.ai-wait .aiw-i{opacity:1}}
+/* AI switched off (html.ai-off, set by account.js): no "Ask the AI" button anywhere, and the AI
+   bar of a mode only shows when an AI answer is ready to play (an answer kept from before). */
+html.ai-off .ai-badge,html.ai-off .ar-bar:not([data-state="ok"]){display:none}
+.acct-invite{display:inline-block;margin-top:8px;font-size:14px;opacity:.75}
