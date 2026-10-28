@@ -46,6 +46,9 @@ export const CLOUD = {
   // the AI button is blocked and nothing is sent. Removing the App1 secret in Supabase stops the
   // server side too (it then answers "not switched on yet" and spends nothing).
   ai: false,
+  // New accounts: false = by invitation only (Boss, 2026-10-23: sign-ups stay off in Supabase),
+  // so the menu shows no "Create an account" button that could only fail.
+  signup: false,
 };
 
 /** The message every write call throws while the account is read-only (account.js shows it). */

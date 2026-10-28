@@ -29,6 +29,8 @@ import { fileURLToPath } from "node:url";
 import { sitePages, headMeta } from "./site-pages.js";
 import { SITE } from "../src/site/site.js";
 import { ANALYTICS, PROVIDERS } from "../src/ui/analytics.js";
+import { CLOUD } from "../src/ui/cloud.js";
+import { createHash } from "node:crypto";
 
 // The project folder: import.meta.url is this file's address (file:///.../scripts/build.js);
 // turn it into a path, take its folder (scripts/) and go one level up.
@@ -117,6 +119,38 @@ cpSync(join(root, "src/vendor/leaflet"), join(root, "dist/vendor/leaflet"), { re
 // The page title comes from SITE (src/site/site.js). In HTML, "&" must be written "&amp;".
 const title = `${SITE.name} · ${SITE.tagline}`;
 const titleHtml = title.replace(/&/g, "&amp;");
+// The Content Security Policy (CSP): a rule list in each page's <head> telling the browser which
+// sites the page may load code, styles, images and data from. Anything else is refused, so even
+// if a booby-trapped text slipped into the page as HTML, its script would not run and could not
+// send your sign-in to another site. Inline <script> blocks are allowed one by one by their
+// SHA-256 fingerprint (a hash of their exact text), computed here at build time: a script that is
+// not ours has another fingerprint. Inline style="" attributes stay allowed (the app and the map
+// draw with them). The hosts come from the app's own settings (CLOUD for the account, ANALYTICS
+// for the visit counter), so the policy follows them. api.openai.com is only reached by the local
+// AI test copy (opened as a file), never by the live site.
+const origin = (u) => (u ? new URL(u).origin : "");
+const counterHosts = (() => {
+  const p = PROVIDERS[ANALYTICS.provider];
+  if (!p || !ANALYTICS.site) return [];
+  const { src, attrs } = p.script(ANALYTICS.site);
+  return [origin(src), ...Object.values(attrs).filter((v) => /^https:/.test(v)).map(origin)];
+})();
+function withCsp(html) {
+  const hashes = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => `'sha256-${createHash("sha256").update(m[1]).digest("base64")}'`);
+  const rules = [
+    "default-src 'self'",
+    `script-src 'self' ${[...hashes, ...counterHosts.slice(0, 1)].join(" ")}`,
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    `img-src 'self' data: blob: https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://*.basemaps.cartocdn.com https://*.tile.opentopomap.org ${counterHosts.join(" ")}`,
+    `connect-src 'self' ${[origin(CLOUD.url), ...counterHosts, "https://api.openai.com"].filter(Boolean).join(" ")}`,
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].map((r) => r.trim());
+  return html.replace('<meta charset="utf-8">', `<meta charset="utf-8">\n<meta http-equiv="Content-Security-Policy" content="${rules.join("; ")}">`);
+}
+
 // fragment.html: the content without <html>/<head>/<body>, for a host page that adds its own.
 writeFileSync(join(root, "dist/fragment.html"), `<title>${titleHtml}</title>\n${fonts}\n${body}`);
 // index.html: a complete page. The viewport meta tag makes it render at phone width on phones;
@@ -124,7 +158,7 @@ writeFileSync(join(root, "dist/fragment.html"), `<title>${titleHtml}</title>\n${
 // description, icons and share-preview tags.
 writeFileSync(
   join(root, "dist/index.html"),
-  `<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n<title>${titleHtml}</title>\n${headMeta({ title })}\n${fonts}\n</head>\n<body>\n${body}</body>\n</html>\n`
+  withCsp(`<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n<title>${titleHtml}</title>\n${headMeta({ title })}\n${fonts}\n</head>\n<body>\n${body}</body>\n</html>\n`)
 );
 
 // The static pages (guide, about, privacy, what's new, 404) share the app's stylesheet as a file.
@@ -137,7 +171,7 @@ if (prov && ANALYTICS.site) {
   const a = Object.entries(attrs).map(([k, v]) => ` ${k}='${v}'`).join("");
   counter = { name: { goatcounter: "GoatCounter", plausible: "Plausible", cloudflare: "Cloudflare Web Analytics" }[ANALYTICS.provider], tag: `<script async src="${src}"${a}></script>` };
 }
-for (const [file, html] of sitePages({ fonts, counter })) writeFileSync(join(root, "dist", file), html);
+for (const [file, html] of sitePages({ fonts, counter })) writeFileSync(join(root, "dist", file), withCsp(html));
 // Icons, the share-preview image and the guide screenshots (made once by scripts/site-images.mjs
 // and scripts/guide-shots.mjs, kept in src/site).
 cpSync(join(root, "src/site/icons"), join(root, "dist"), { recursive: true });

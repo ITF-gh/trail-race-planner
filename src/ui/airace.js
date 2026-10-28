@@ -94,7 +94,7 @@ export function arBarHtml(s, on, calcSec, aiSec) {
       <button type="button" data-ar="calc" class="${on && can ? "" : "on"}" aria-pressed="${!(on && can)}">Calculated</button>
       <button type="button" data-ar="ai" class="${on && can ? "on" : ""}" aria-pressed="${on && can}"${can ? "" : " disabled"}>✦ AI</button>
     </div>`;
-  if (!(on && can)) return `<div class="ar-bar">${sw}<p class="ar-note">${note}</p></div>`;
+  if (!(on && can)) return `<div class="ar-bar" data-state="${s.state}">${sw}<p class="ar-note">${note}</p></div>`;
   const T = s.result.texts || {};
   const D = s.result.dataset;
   const diff = aiSec - calcSec;
@@ -133,7 +133,7 @@ function arRunBarHtml(s, on, calcSec, aiSec) {
     empty: `The last answer was empty (${arEsc(s.result && s.result.reason)}): nothing to show. ${ask("Ask again")}`,
     ok: "A session from the AI coach is ready: switch to AI to play it.",
   }[s.state];
-  if (!on) return `<div class="ar-bar">${arSwitch(false, can)}<p class="ar-note">${note}</p></div>`;
+  if (!on) return `<div class="ar-bar" data-state="${s.state}">${arSwitch(false, can)}<p class="ar-note">${note}</p></div>`;
   const R = s.result, T = R.texts || {}, D = R.dataset || {};
   const ex = R.exercises.length
     ? `<ol class="ar-ex">${R.exercises.map((e) => `<li><b>${arEsc(e.title)}</b> <span class="ar-dose">${arEsc(e.dose)}</span> <small>km ${e.startKm}–${e.endKm} · ${hm(e.atSec)} · effort ${e.effort}/5</small></li>`).join("")}</ol>`

@@ -136,3 +136,5 @@ html[data-theme="sky"] .sf-col h4,html[data-theme="sky"] .sf-logo svg{color:#ffd
 .sp-steps{margin:8px 0 12px;padding-left:22px;display:flex;flex-direction:column;gap:10px}
 .sp-steps li{padding-left:4px}
 .sp-steps li::marker{font-family:var(--f-display);font-weight:800;font-style:italic;color:var(--accent)}
+.sp-author{display:flex;align-items:center;gap:14px;margin:4px 0 12px}
+.sp-author img{width:72px;height:72px;border-radius:50%;background:#fff;flex:none}
