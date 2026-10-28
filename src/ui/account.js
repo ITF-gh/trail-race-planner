@@ -676,6 +676,8 @@ async function acSync() {
     // 0. The profile: the account's copy wins; an account without one takes this browser's.
     const online = await cloudProfile();
     if (online) profileReplace(online); else await cloudPutProfile(profileData());
+    // The account's profile may carry "Tune my engine": plan again with it.
+    document.dispatchEvent(new CustomEvent("trp-refs"));
     ac.saved = await cloudSaved();
     // 1. Upload: local runs whose id the account does not have.
     const [local, remote] = [await acAll(), await cloudRuns()];
@@ -1062,6 +1064,7 @@ async function acAction(what) {
     await acProfileFlush();
     profileReplace({});
     await cloudSignOut();
+    document.dispatchEvent(new CustomEvent("trp-refs")); // signed out: plans drop the tuning
     // Object.assign(target, values) sets several fields of `ac` at once.
     Object.assign(ac, { ledger: null, job: null, msg: "", saved: null, recovery: false, dataMsg: "" });
     acRender();

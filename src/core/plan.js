@@ -54,6 +54,24 @@ export const PLAN_DEFAULTS = {
 };
 
 /**
+ * Apply "Tune my engine" (core/profile.js tuneClean, with `on` true) to an effort profile: every
+ * pace times (1 + level %), each band's fresh and tired pace times its own (1 + %), then the
+ * fresh-to-tired gap times fatigue %. Returns a new effort object; the measured one is unchanged.
+ */
+export function tuneEffort(effort, tune) {
+  const lv = 1 + tune.level / 100;
+  const bands = effort.bands.map((b, i) => {
+    const [fp, tp] = tune.bands[i] || [0, 0];
+    const fresh = b.fresh * lv * (1 + fp / 100);
+    const tiredRaw = b.tired * lv * (1 + tp / 100);
+    const tired = fresh + Math.max(0, tiredRaw - fresh) * (tune.fatigue / 100);
+    return { ...b, fresh, tired, pace: b.pace * lv * (1 + fp / 100) };
+  });
+  const flat = bands.find((b) => b.id === "f0");
+  return { ...effort, bands, flatPace: flat ? flat.fresh : effort.flatPace * lv };
+}
+
+/**
  * Civil dawn and dusk (sun 6 degrees below the horizon: the headlamp goes on or off) on `date`
  * ("YYYY-MM-DD") at `lat`, `lon` (degrees), in seconds of the local day, with the local clock
  * `tzMin` minutes east of UTC. The NOAA solar formulas: the sun's declination and the equation
@@ -382,8 +400,10 @@ export function buildPlan(raceParsed, effortParsed, userParams = {}) {
   const raceRs = resample(raceParsed, 10);
   const course = analyseCourse(raceRs);
   // params.calib (refs.js refsCalib): your references set the level, your runs keep the shape.
-  const effort = calibrateEffort(analyseEffort(effortParsed, { halfLifeDays: params.halfLifeDays }), params.calib);
+  let effort = calibrateEffort(analyseEffort(effortParsed, { halfLifeDays: params.halfLifeDays }), params.calib);
   const effortCourse = analyseCourse(effort.resampled);
+  // Tune my engine (profile, signed-in runners): your own corrections on top of the measured table.
+  if (params.tune) effort = tuneEffort(effort, params.tune);
   // Aid stations: the stop is added to every clock time after the station (step 2 below).
   // Each station gets `idx`, the 10 m sample nearest to its km.
   const aid = parseAidStations(params.aidStations)
@@ -394,7 +414,8 @@ export function buildPlan(raceParsed, effortParsed, userParams = {}) {
   const sun = raceRs.lat ? civilTwilight(params.raceDate, raceRs.lat[0], raceRs.lon[0], tz) : null;
   const startSec = parseClock(params.startTime);
   const night = sun ? { startSec, ...sun } : null;
-  const preds = predictAll(course, effort, { ...calibParams(params), night, stops: aid.map((a) => ({ idx: a.idx, sec: a.stopMin * 60 })) });
+  const tuned = params.tune ? { enduranceExp: params.tune.k, gapExp: params.tune.gapExp, nightSlow: params.tune.night / 100 } : {};
+  const preds = predictAll(course, effort, { ...calibParams(params), ...tuned, night, stops: aid.map((a) => ({ idx: a.idx, sec: a.stopMin * 60 })) });
   const rawCentral = preds.central.cum; // moving time only, for the time-per-gradient table
 
   // 2. Aid stations: add each stop to every time after it.
@@ -555,7 +576,8 @@ export function buildPlan(raceParsed, effortParsed, userParams = {}) {
     bandUse,
     hrGuide,
     // Night (null without a race date): civil dawn and dusk (s of the day), km in the dark (central).
-    night: night ? { dawn: night.dawn, dusk: night.dusk, darkKm: preds.central.darkM / 1000, slowPct: Math.round(params.nightSlow * 100) } : null,
+    night: night ? { dawn: night.dawn, dusk: night.dusk, darkKm: preds.central.darkM / 1000, slowPct: Math.round((params.tune ? params.tune.night / 100 : params.nightSlow) * 100) } : null,
+    tuned: Boolean(params.tune),
     // True when the race is shorter than your runs and no 10K or half time sets your race level:
     // the plan then runs it at your training pace, so the page asks for those times.
     levelHint: !(params.calib && params.calib.level === "race") && rawCentral[rawCentral.length - 1] < effort.durationSec,

@@ -25,6 +25,37 @@ export const PROFILE_DISTANCES = [
 
 export const PROFILE_LIMITS = { name: 40, about: 280, tags: 5 };
 
+/**
+ * "Tune my engine" (signed-in runners only, Boss's rule 2026-10-28): your own settings for the
+ * race-plan engine, saved with the profile. Each entry is [default, lowest, highest]:
+ *   level    % on every pace (-15 faster to +15 slower)
+ *   fatigue  % of the measured fresh-to-tired gap (100 = as your runs show it)
+ *   k        race-length fade exponent (model.js enduranceExp)
+ *   gapExp   how fast the tired gap grows with race length (model.js gapExp)
+ *   night    % slower in the dark
+ *   bands    per gradient band, [fresh %, tired %] on top of your measured pace (-30 to +50)
+ * `on` false keeps the settings but plans as if they were not there.
+ */
+export const TUNE_RANGE = { level: [0, -15, 15], fatigue: [100, 0, 250], k: [0.05, 0, 0.15], gapExp: [0.5, 0, 1], night: [8, 0, 25] };
+export const TUNE_BAND = [-30, 50];
+
+/** A clean tuning object from anything (defaults for what is missing or out of range). */
+export function tuneClean(raw) {
+  const r = raw && typeof raw === "object" ? raw : {};
+  const num = (v, [d, lo, hi]) => (Number.isFinite(v) && v >= lo && v <= hi ? Math.round(v * 1000) / 1000 : d);
+  const out = { on: r.on === true };
+  for (const [k, range] of Object.entries(TUNE_RANGE)) out[k] = num(r[k], range);
+  const band = (v) => num(v, [0, ...TUNE_BAND]);
+  out.bands = Array.from({ length: 10 }, (_, i) => {
+    const b = Array.isArray(r.bands) && Array.isArray(r.bands[i]) ? r.bands[i] : [];
+    return [band(b[0]), band(b[1])];
+  });
+  return out;
+}
+
+/** True when the tuning changes nothing (every setting at its default). */
+export const tuneIsDefault = (t) => Object.entries(TUNE_RANGE).every(([k, [d]]) => t[k] === d) && t.bands.every(([f, x]) => f === 0 && x === 0);
+
 // The countries for the flag: [ISO 3166 code, name]. A short list of trail-running countries
 // first, the rest alphabetical; easy to extend.
 export const PROFILE_COUNTRIES = [
@@ -102,6 +133,7 @@ export function profileClean(raw) {
     // run in Prep my run (REF_LEVELS, 1 Recovery to 5 Race).
     refs: refsClean(r.refs),
     level: REF_LEVELS.includes(r.level) ? r.level : "easy",
+    tune: tuneClean(r.tune),
   };
 }
 

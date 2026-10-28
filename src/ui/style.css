@@ -1236,6 +1236,15 @@ html[data-theme="sky"] .brand-desc{color:#fff;opacity:.92;border-color:rgba(255,
 .pf-goals td small{display:block;margin-top:3px;font-size:11px;color:var(--acct-muted)}
 .pf-goals .pf-gap{padding-top:11px;white-space:nowrap;color:var(--acct-ink)}
 .pf-ok{color:var(--sun);font-weight:700}
+.tn-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;margin-top:10px}
+.tn-row{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--acct-muted)}
+.tn-row output{color:var(--acct-ink);font-weight:700}
+.acct-profile .tn-row input[type=range]{padding:0;border:0;background:none;accent-color:var(--sun)}
+.tn-row small{font-size:11px}
+.tn-grid.off,.tn-bands.off{opacity:.45}
+.acct-profile .tn-bands input{width:64px;padding:4px 6px;font-size:14px}
+.tn-bands small{display:inline;margin:0 0 0 6px!important}
+@media (max-width:560px){.tn-grid{grid-template-columns:1fr}}
 @media (max-width:560px){
   .pf-grid,.pf-grid.three{grid-template-columns:1fr}
   .pf-avatar{width:52px;height:52px;font-size:28px}

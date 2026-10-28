@@ -20,10 +20,13 @@
 //   profileWho     { name, flag } for the menu's first line
 //   profileRefs, profileSetRefs   your references (10K, half, easy pace) and the run level
 //   profileData, profileReplace   the profile to save online, and loading the online one
+//   profileTune, profileSetBands  "Tune my engine" for the plan (signed in), the measured table to show
 //   profileHtml    the Account window
 //   profileInput, profileAction   what typing and clicking in it do
 
-import { PROFILE_DISTANCES, PROFILE_COUNTRIES, PROFILE_TAGS, PROFILE_LIMITS, flagEmoji, profileClean, profileBests } from "../core/profile.js";
+import { PROFILE_DISTANCES, PROFILE_COUNTRIES, PROFILE_TAGS, PROFILE_LIMITS, flagEmoji, profileClean, profileBests, TUNE_RANGE, TUNE_BAND, tuneClean, tuneIsDefault } from "../core/profile.js";
+import { cloudUser } from "./cloud.js";
+import { BANDS } from "../core/terrain.js";
 import { mmss, hms, parseDuration } from "../core/format.js";
 import { historySummary } from "../core/history.js";
 
@@ -79,10 +82,55 @@ export function profileSetRefs({ refs, level } = {}) {
   pfSave();
   document.dispatchEvent(new CustomEvent("trp-refs"));
 }
+/**
+ * "Tune my engine" for the plan, or null: only for a signed-in runner who switched it on (Boss's
+ * rule, 2026-10-28: manual pace by gradient is a deeper feature for registered users).
+ */
+export function profileTune() {
+  const t = pfGet().tune;
+  return cloudUser() && t.on ? t : null;
+}
+// The measured pace table of the runs loaded in Prep my race (effort.js bands), to show next to
+// the tuning; main.js gives it after each analysis. null until runs are loaded.
+let pfBands = null;
+/** Remember the measured pace table for the tuning part of the window. */
+export function profileSetBands(bands) { pfBands = bands || null; }
+
 /** Name and flag emoji for the menu ("" when not set). */
 export function profileWho() {
   const p = pfGet();
   return { name: p.name, flag: flagEmoji(p.flag) };
+}
+
+/**
+ * The "Tune my engine" part of the Account window (signed in only). Sliders for the engine's
+ * settings and a table of the 10 gradient bands, each with a fresh and a tired % on top of your
+ * measured pace (shown when runs are loaded in Prep my race).
+ */
+function tuneHtml() {
+  const t = pfGet().tune;
+  const R = TUNE_RANGE;
+  const row = (k, label, step, unit, help) => `<label class="tn-row">${label} <output>${t[k]}${unit}</output>
+    <input type="range" data-pf="tune:${k}" min="${R[k][1]}" max="${R[k][2]}" step="${step}" value="${t[k]}"><small>${help} Default ${R[k][0]}${unit}.</small></label>`;
+  const mm = (s) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`;
+  const band = (b, i) => {
+    const [fp, tp] = t.bands[i];
+    const m = pfBands && pfBands[i];
+    const cell = (j, v, base) => `<td><input type="number" data-pf="tune:b${i}:${j}" min="${TUNE_BAND[0]}" max="${TUNE_BAND[1]}" step="1" value="${v}">%${m ? `<small>${mm(base * (1 + v / 100))}</small>` : ""}</td>`;
+    return `<tr><th>${pfEsc(b)}</th>${cell(0, fp, m ? m.fresh : 0)}${cell(1, tp, m ? m.tired : 0)}</tr>`;
+  };
+  return `<h4 data-pf-sec="engine">Tune my engine</h4>
+    <p class="acct-note">Your own corrections to the race plan, on top of what your runs measure. Useful on very long races. Saved with your profile.</p>
+    <div class="acct-actions" style="margin:0"><button type="button" class="acct-chip${t.on ? " on" : ""}" data-acct="pf:tune-on">${t.on ? "On: every plan uses my tuning" : "Off: plans use my runs as measured"}</button>${tuneIsDefault(t) ? "" : `<button class="acct-linkbtn" type="button" data-acct="pf:tune-reset">Reset tuning</button>`}</div>
+    <div class="tn-grid${t.on ? "" : " off"}">
+      ${row("level", "Level", 1, "%", "Every pace, minus = faster.")}
+      ${row("fatigue", "Fatigue gap", 5, "%", "How much slower tired is than fresh, 100% = as your runs show.")}
+      ${row("k", "Race-length fade", 0.005, "", "Slows long races more as it grows.")}
+      ${row("gapExp", "Tired gap growth", 0.05, "", "How fast the tired gap grows on races longer than your runs.")}
+      ${row("night", "Night", 1, "%", "Slower in the dark (with a race date).")}
+    </div>
+    <table class="pf-goals tn-bands${t.on ? "" : " off"}"><thead><tr><th>Gradient</th><th>Fresh</th><th>Tired</th></tr></thead><tbody>${BANDS.map((b, i) => band(b.label, i)).join("")}</tbody></table>
+    <p class="acct-note">${pfBands ? "Paces in min/km from the runs loaded in Prep my race, before your level and references." : "Load your runs in Prep my race to see the paces next to each %."}</p>`;
 }
 
 /**
@@ -152,6 +200,7 @@ export function profileHtml(records, demo, fallbackName) {
       <label>Weight<span class="pf-u"><input type="number" data-pf="weight" min="30" max="200" step="0.5" placeholder="70" value="${a.weight || ""}"> kg</span></label>
     </div>
     <p class="acct-note">These are the only heart data the app uses: heart rate recorded in a GPX file is never read. They set the plan's heart-rate guide and stay on this device.</p>
+    ${cloudUser() ? tuneHtml() : ""}
     <div class="acct-actions"><button class="btn ghost" type="button" data-acct="close">Done</button><button class="acct-linkbtn" type="button" data-acct="pf:reset">Reset profile</button></div>`;
 }
 
@@ -167,6 +216,18 @@ export function profileInput(el, final) {
   const [what, code] = k.split(":");
   if (what === "name" || what === "about") { p[what] = el.value; pfSave(); return final; }
   if (what === "flag") { p.flag = el.value; pfSave(); return true; }
+  if (what === "tune") {
+    // Sliders save as they move (the output shows the value); band boxes once the field is left.
+    const sub = k.split(":").slice(1);
+    const v = parseFloat(el.value);
+    if (sub[0].startsWith("b")) { if (!final) return false; p.tune.bands[+sub[0].slice(1)][+sub[1]] = v; }
+    else { p.tune[sub[0]] = v; const o = el.parentElement.querySelector("output"); if (o) o.textContent = el.value + (sub[0] === "level" || sub[0] === "fatigue" || sub[0] === "night" ? "%" : ""); }
+    p.tune = tuneClean(p.tune);
+    pf = p;
+    pfSave();
+    if (final || sub[0].startsWith("b")) document.dispatchEvent(new CustomEvent("trp-refs"));
+    return final;
+  }
   if (!final) return false;
   if (what === "goal" || what === "best") {
     const d = PROFILE_DISTANCES.find((x) => x.code === code);
@@ -196,6 +257,12 @@ export function profileInput(el, final) {
  */
 export function profileAction(what) {
   const p = pfGet();
+  if (what === "tune-on" || what === "tune-reset") {
+    p.tune = what === "tune-on" ? { ...p.tune, on: !p.tune.on } : tuneClean({ on: p.tune.on });
+    pfSave();
+    document.dispatchEvent(new CustomEvent("trp-refs"));
+    return true;
+  }
   if (what.startsWith("tag:")) {
     const t = what.slice(4);
     if (p.tags.includes(t)) p.tags = p.tags.filter((x) => x !== t);

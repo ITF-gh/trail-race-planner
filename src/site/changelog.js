@@ -2,6 +2,10 @@
 // technical detail). The first entry is the current version: the footer shows it on every page.
 
 export const CHANGELOG = [
+  { v: "2.28", date: "2026-10-28", items: [
+    "Tune my engine, for signed-in runners: in your profile, set your own level, fatigue gap, race-length fade, tired gap growth and night slowdown, and correct your pace on each gradient. Every plan then uses your tuning.",
+    "On a long race, Your race points to Tune my engine.",
+  ] },
   { v: "2.27", date: "2026-10-28", items: [
     "A new way to calculate the race plan, from the calculation review: fatigue now builds with the time you have been running, not the distance, so long climbs tire you more than fast flats.",
     "The gap between your fresh and tired pace grows on races much longer than your runs and shrinks on shorter ones. The race-length fade goes from 0.07 to 0.05 so long races do not count that fatigue twice.",

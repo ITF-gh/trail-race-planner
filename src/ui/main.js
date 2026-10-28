@@ -63,6 +63,8 @@ import { refsCardHtml, refsCalibNow, initRefs } from "./refs.js";
 import { initAccount, acctSaveRun, acctSaveGpx, acctOpenAsk, acctAiBadge, acctSaveItem, acctOnReopen, acctOnUseFile } from "./account.js";
 import { arUse, arState, arBarHtml } from "./airace.js";
 import { i18nInit } from "./i18n.js";
+import { profileTune, profileSetBands } from "./profile.js";
+import { cloudUser } from "./cloud.js";
 import { startAnalytics, trackEvent, trackOnce, analyticsOn, analyticsName } from "./analytics.js";
 import { makeDemoRaceGpx, makeDemoEffortGpx, DEMO_ULTRA_PROFILE, DEMO_ULTRA_AID, DEMO_LONG_RUN_PROFILE } from "../demo.js";
 
@@ -488,6 +490,7 @@ function setRuns(runs, bad = []) {
     try {
       const info = analyseEffort(runs.map((r) => r.parsed), { halfLifeDays: state.settings.halfLifeDays });
       state.effort = { runs, info };
+      profileSetBands(info.bands);
     } catch (e) { bad.push(e.message); }
   }
   // One status line per run: name, date, distance, and its weight in % when there are several.
@@ -572,7 +575,7 @@ function compute() {
     try {
       // calib: your references (My references card) set the level at race effort; your runs
       // keep the shape (how you slow down on each gradient). null without references.
-      state.plan = buildPlan(state.race.parsed, state.effort.runs.map((r) => r.parsed), { ...state.settings, ...profileHeart(), calib: refsCalibNow("race") });
+      state.plan = buildPlan(state.race.parsed, state.effort.runs.map((r) => r.parsed), { ...state.settings, ...profileHeart(), calib: refsCalibNow("race"), tune: profileTune() });
       // The regex /\(made up\)$/ matches "(made up)" at the end of the name: the demo's label.
       // Once per visit: did this visitor get a plan, from the demo or from their own files?
       trackOnce("plan-built", /\(made up\)$/.test(state.race.name) ? "demo" : "own");
@@ -1114,6 +1117,7 @@ function renderDday() {
       <div class="scen-row"><div class="seg" role="group" aria-label="Scenario" id="scen">${seg}</div>${acctAiBadge("race")}</div>
       <p class="note" style="margin:0">${sc.factor >= 1 ? `Race pace is ${((sc.factor - 1) * 100).toFixed(0)}% slower than your run on the same gradients: terrain factor plus the fade for a longer effort.` : `Race pace is ${((1 - sc.factor) * 100).toFixed(0)}% faster than your run on the same gradients: the race is shorter than your runs and your race references allow it.`} Every clock time on this page follows the scenario you pick.</p>
       ${plan.night ? `<p class="note" style="margin:0">Dark from ${clock(0, plan.night.dusk)} to ${clock(0, plan.night.dawn)} at the start line: ${plan.night.darkKm.toFixed(1)} km in the dark, planned ${plan.night.slowPct}% slower.</p>` : `<p class="note" style="margin:0">Add the race date in Your route to plan the stretches run in the dark.</p>`}
+      ${plan.scenarios.central.finishSec > 6 * 3600 || plan.scenarios.central.finishSec > 2.5 * plan.effort.durationSec ? (cloudUser() ? `<p class="note" style="margin:0">Long race: ${plan.tuned ? "planned with your tuning." : "fine-tune the calculation in your profile."} <button type="button" class="to-profile" data-open-profile="engine">Tune my engine →</button></p>` : `<p class="note" style="margin:0">Long race: signed-in runners can fine-tune the calculation in their profile (accounts are by invitation for now).</p>`) : ""}
       ${plan.levelHint ? `<p class="note level-hint" style="margin:0">This race is shorter than your runs, so it is planned at their training pace. Type your 10K or half-marathon time under the drop boxes to plan it at race effort.</p>` : ""}
     </div>
     <div class="side-stack">${pimpBadge("#s-pimp")}</div>
