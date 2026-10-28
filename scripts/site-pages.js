@@ -57,6 +57,7 @@ ${headMeta({ title, description, path })}
 ${fonts}
 <link rel="stylesheet" href="style.css">
 ${THEME_JS}
+<script src="i18n.js"></script>
 </head>
 <body class="site-page">
 <nav class="topnav site-top" aria-label="Site">
@@ -64,6 +65,7 @@ ${THEME_JS}
     <a class="tn-brand st-brand" href="./" aria-label="${esc(SITE.name)}, open the planner">${SITE_PEAK}<b>${esc(SITE.name)}</b></a>
     <div class="tn-links">${nav.map(([h, t, k]) => `<a href="${h}"${k === active ? ' aria-current="page"' : ""}>${t}</a>`).join("")}</div>
     <a class="btn primary sm st-open" href="./">Open the planner</a>
+    <span class="i18n-slot"></span>
     <button class="btn ghost sm tn-theme" type="button" id="themeBtn" aria-pressed="false"></button>
   </div>
 </nav>
