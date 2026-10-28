@@ -2,6 +2,10 @@
 // technical detail). The first entry is the current version: the footer shows it on every page.
 
 export const CHANGELOG = [
+  { v: "2.26", date: "2026-10-28", items: [
+    "Prep my race now speaks French: tap the flag next to the account button to switch between English and French. Your choice is kept on this device.",
+    "The guide, FAQ, About, Privacy and What's new pages switch language too.",
+  ] },
   { v: "2.25", date: "2026-10-28", items: [
     "A new About page: why Prep my race exists (your next runs, built on what you already did), and who is behind it, ITeam Fenix.",
     "Lighter site pages: the guide, FAQ, About, Privacy and What's new drop their boxes for open sections.",

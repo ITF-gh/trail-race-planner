@@ -172,6 +172,13 @@ if (prov && ANALYTICS.site) {
   counter = { name: { goatcounter: "GoatCounter", plausible: "Plausible", cloudflare: "Cloudflare Web Analytics" }[ANALYTICS.provider], tag: `<script async src="${src}"${a}></script>` };
 }
 for (const [file, html] of sitePages({ fonts, counter })) writeFileSync(join(root, "dist", file), withCsp(html));
+// The French version (src/ui/i18n.js swaps the texts): the dictionary as dist/i18n/fr.json, read
+// only when French is picked, and the same i18n.js as a plain script for the static pages (its
+// export keywords removed, wrapped like the app, started once the page is read).
+mkdirSync(join(root, "dist/i18n"), { recursive: true });
+writeFileSync(join(root, "dist/i18n/fr.json"), JSON.stringify(JSON.parse(readFileSync(join(root, "src/i18n/fr.json"), "utf8"))));
+const i18nSrc = readFileSync(join(root, "src/ui/i18n.js"), "utf8").replace(/^export /gm, "");
+writeFileSync(join(root, "dist/i18n.js"), `(function(){\n"use strict";\n${i18nSrc}\nif (i18nLang() === "fr") document.documentElement.classList.add("i18n-wait");\ndocument.addEventListener("DOMContentLoaded", () => i18nInit(document.querySelector(".i18n-slot")));\n})();\n`);
 // Icons, the share-preview image and the guide screenshots (made once by scripts/site-images.mjs
 // and scripts/guide-shots.mjs, kept in src/site).
 cpSync(join(root, "src/site/icons"), join(root, "dist"), { recursive: true });

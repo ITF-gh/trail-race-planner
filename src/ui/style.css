@@ -1869,3 +1869,13 @@ html[data-theme="sky"] .gl-row.on{background:rgba(255,255,255,.35)}
    bar of a mode only shows when an AI answer is ready to play (an answer kept from before). */
 html.ai-off .ai-badge,html.ai-off .ar-bar:not([data-state="ok"]){display:none}
 .acct-invite{display:inline-block;margin-top:8px;font-size:14px;opacity:.75}
+/* Language flags (i18n.js): next to the account button, and in the site pages' top bar. */
+.i18n-flags{display:inline-flex;gap:6px;align-items:center}
+.i18n-flags button{width:30px;height:22px;padding:0;border:1.5px solid transparent;border-radius:4px;background:none;cursor:pointer;opacity:.55;display:grid;place-items:center;overflow:hidden}
+.i18n-flags button svg{width:100%;height:100%;display:block}
+.i18n-flags button[aria-pressed="true"]{opacity:1;border-color:var(--sun)}
+.i18n-flags button:hover{opacity:1}
+.acct{display:flex;align-items:center;gap:10px}
+/* on a phone the top row is full: only the other language's flag shows, under the account icon */
+@media (max-width:640px){.acct{flex-direction:column-reverse;gap:6px}.i18n-flags button[aria-pressed="true"]{display:none}}
+html.i18n-wait body{visibility:hidden}

@@ -62,6 +62,7 @@ import { siteFooter, SITE } from "../site/site.js";
 import { refsCardHtml, refsCalibNow, initRefs } from "./refs.js";
 import { initAccount, acctSaveRun, acctSaveGpx, acctOpenAsk, acctAiBadge, acctSaveItem, acctOnReopen, acctOnUseFile } from "./account.js";
 import { arUse, arState, arBarHtml } from "./airace.js";
+import { i18nInit } from "./i18n.js";
 import { startAnalytics, trackEvent, trackOnce, analyticsOn, analyticsName } from "./analytics.js";
 import { makeDemoRaceGpx, makeDemoEffortGpx, DEMO_ULTRA_PROFILE, DEMO_ULTRA_AID, DEMO_LONG_RUN_PROFILE } from "../demo.js";
 
@@ -1687,6 +1688,8 @@ initAccount({
   },
 });
 initHelp();
+// English or French (flags next to the account button; i18n.js swaps the texts).
+i18nInit(document.querySelector(".acct"));
 
 // This is event delegation: one listener on the whole document handles every jump link, even
 // the ones drawn after start-up. closest() climbs from the clicked element to the nearest
