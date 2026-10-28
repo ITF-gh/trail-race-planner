@@ -35,7 +35,7 @@ import { acctOpenRunAsk, acctAiBadge } from "./account.js";
 import { arUse, arState, arBarHtml } from "./airace.js";
 import { runSpots } from "../core/airun.js";
 import { refsCardHtml, levelPickerHtml, refsCalibNow } from "./refs.js";
-import { profileRefs } from "./profile.js";
+import { profileRefs, profileTune } from "./profile.js";
 
 // Escape text for HTML: each of & < > " (the regex's character set) becomes its entity.
 const prEsc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -236,7 +236,7 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
       try {
         // { ...settings, startTime, aidStations: "" } copies the settings and overrides two fields.
         // With references, they set the level and the runs keep the shape (plan.js, params.calib).
-        const plan = buildPlan(st.parsed, runs, { ...settings, startTime, aidStations: "", calib });
+        const plan = buildPlan(st.parsed, runs, { ...settings, startTime, aidStations: "", calib, tune: profileTune() });
         return { plan, source: calib ? "runs+refs" : "runs", calib };
       } catch (e) { /* a run too short or without time: fall back to the estimate */ }
     }
