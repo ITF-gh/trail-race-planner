@@ -10,6 +10,7 @@ import { raceScript, raceStateAt, secAtKm, raceLegs, raceTotals, legAtKm, racePa
 import { keyZones, toblerClock, spreadAt } from "../src/core/keyzones.js";
 import { mmss, hm, clock, parseDuration, parseClock } from "../src/core/format.js";
 import { makeDemoRaceGpx, makeDemoEffortGpx, DEMO_RACE_PROFILE, DEMO_ULTRA_PROFILE, DEMO_ULTRA_AID, DEMO_LONG_RUN_PROFILE } from "../src/demo.js";
+import { refsCalib } from "../src/core/refs.js";
 
 const race = parseGpx(makeDemoRaceGpx());
 const effort = parseGpx(makeDemoEffortGpx());
@@ -627,4 +628,22 @@ test("Save to my account: a packed track reopens to the same plan", async () => 
   assert.ok(Math.abs(a.course.gain - b.course.gain) < 1);
   const size = JSON.stringify(packTrack(effort)).length;
   assert.ok(size < JSON.stringify(effort.points).length / 3, `packed is small (${size} chars)`);
+});
+
+test("calculation review: night, short races with a race reference, steep bands from your climbs", () => {
+  const race = parseGpx(makeDemoRaceGpx());
+  const runs = [parseGpx(makeDemoEffortGpx())];
+  // Night: same race, a 06:00 start in late October (dark at the start) vs a noon start.
+  const dark = buildPlan(race, runs, { raceDate: "2026-10-28", tzOffsetMin: 60, startTime: "06:00" });
+  const day = buildPlan(race, runs, { raceDate: "2026-10-28", tzOffsetMin: 60, startTime: "12:00" });
+  assert.ok(dark.night.darkKm > 0 && day.night.darkKm === 0);
+  assert.ok(dark.scenarios.central.finishSec > day.scenarios.central.finishSec);
+  assert.equal(buildPlan(race, runs, {}).night, null);
+  // A race shorter than your runs: no speed-up from training runs alone (and the page asks for a
+  // 10K or half time), a speed-up with a race reference.
+  const plain = buildPlan(race, runs, {});
+  if (plain.effort.durationSec > plain.scenarios.central.finishSec) assert.equal(plain.levelHint, true);
+  assert.equal(buildPlan(race, runs, { calib: refsCalib({ k10: 2700, half: 6000 }, "race") }).levelHint, false);
+  // Every band is either measured, from your climbs, or estimated; never slower fresh than tired.
+  for (const b of plain.effort.bands) assert.ok(b.tired >= b.fresh && ["measured", "partly measured", "estimated", "from your climbs"].includes(b.source));
 });

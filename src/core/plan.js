@@ -49,7 +49,31 @@ export const PLAN_DEFAULTS = {
   aidStations: [], // [{km, name, stopMin}] or text, one per line: "8.5 Refuge du Lac 2"
   gelToAidMin: 10, // a gel due within this many minutes of an aid station is taken there
   gelMaxDelayMin: 20, // a gel waits for the top of a climb at most this long, else it is eaten on the way up
+  raceDate: "", // "YYYY-MM-DD": with it, steps run in the dark (civil dusk to dawn at the start) are slower
+  tzOffsetMin: null, // minutes east of UTC on race day; null = this device's time zone on that date
 };
+
+/**
+ * Civil dawn and dusk (sun 6 degrees below the horizon: the headlamp goes on or off) on `date`
+ * ("YYYY-MM-DD") at `lat`, `lon` (degrees), in seconds of the local day, with the local clock
+ * `tzMin` minutes east of UTC. The NOAA solar formulas: the sun's declination and the equation
+ * of time from the day of the year, then the hour angle where the sun is 6 degrees down.
+ * Returns {dawn, dusk}, or null on a bad date or when the sun never sets or never rises then.
+ */
+export function civilTwilight(date, lat, lon, tzMin) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date || "");
+  if (!m || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  const day = (Date.UTC(+m[1], +m[2] - 1, +m[3]) - Date.UTC(+m[1], 0, 0)) / 86400000; // 1 = 1 January
+  const rad = Math.PI / 180;
+  const g = (2 * Math.PI / 365) * (day - 1); // fractional year (radians), at noon
+  const eqTime = 229.18 * (0.000075 + 0.001868 * Math.cos(g) - 0.032077 * Math.sin(g) - 0.014615 * Math.cos(2 * g) - 0.040849 * Math.sin(2 * g));
+  const decl = 0.006918 - 0.399912 * Math.cos(g) + 0.070257 * Math.sin(g) - 0.006758 * Math.cos(2 * g) + 0.000907 * Math.sin(2 * g) - 0.002697 * Math.cos(3 * g) + 0.00148 * Math.sin(3 * g);
+  const cosH = (Math.cos(96 * rad) - Math.sin(lat * rad) * Math.sin(decl)) / (Math.cos(lat * rad) * Math.cos(decl));
+  if (cosH > 1 || cosH < -1) return null;
+  const h = Math.acos(cosH) / rad; // hour angle in degrees
+  const noon = 720 - 4 * lon - eqTime + tzMin; // solar noon, minutes after local midnight
+  return { dawn: (noon - 4 * h) * 60, dusk: (noon + 4 * h) * 60 };
+}
 
 /**
  * Read an aid-station list typed by a person, one per line (or separated by ";"):
@@ -360,14 +384,20 @@ export function buildPlan(raceParsed, effortParsed, userParams = {}) {
   // params.calib (refs.js refsCalib): your references set the level, your runs keep the shape.
   const effort = calibrateEffort(analyseEffort(effortParsed, { halfLifeDays: params.halfLifeDays }), params.calib);
   const effortCourse = analyseCourse(effort.resampled);
-  const preds = predictAll(course, effort, calibParams(params));
-  const rawCentral = preds.central.cum; // moving time only, for the time-per-gradient table
-
-  // 2. Aid stations: the stop is added to every clock time after the station.
+  // Aid stations: the stop is added to every clock time after the station (step 2 below).
   // Each station gets `idx`, the 10 m sample nearest to its km.
   const aid = parseAidStations(params.aidStations)
     .filter((a) => a.km >= 0 && a.km <= course.totalKm)
     .map((a) => ({ ...a, idx: Math.min(course.n - 1, Math.round((a.km * 1000) / course.step)) }));
+  // Night: with a race date and a GPX with positions, dark = civil dusk to dawn at the start line.
+  const tz = params.tzOffsetMin ?? (/^\d{4}-\d{2}-\d{2}$/.test(params.raceDate || "") ? -new Date(`${params.raceDate}T12:00:00`).getTimezoneOffset() : 0);
+  const sun = raceRs.lat ? civilTwilight(params.raceDate, raceRs.lat[0], raceRs.lon[0], tz) : null;
+  const startSec = parseClock(params.startTime);
+  const night = sun ? { startSec, ...sun } : null;
+  const preds = predictAll(course, effort, { ...calibParams(params), night, stops: aid.map((a) => ({ idx: a.idx, sec: a.stopMin * 60 })) });
+  const rawCentral = preds.central.cum; // moving time only, for the time-per-gradient table
+
+  // 2. Aid stations: add each stop to every time after it.
   // For each scenario, rebuild `cum` with a running total of stop time
   // (`extra`) that grows as each station is passed. `k` points to the next station.
   if (aid.length) {
@@ -383,7 +413,6 @@ export function buildPlan(raceParsed, effortParsed, userParams = {}) {
       preds[sc.id] = { ...p, cum, finishSec: cum[cum.length - 1] };
     }
   }
-  const startSec = parseClock(params.startTime);
   // 3. The hiking gradient: your setting, else learned from cadence, else 15%.
   // `??` picks the right side only when the left is null or undefined (unlike
   // `||`, it keeps a real 0).
@@ -525,6 +554,11 @@ export function buildPlan(raceParsed, effortParsed, userParams = {}) {
     },
     bandUse,
     hrGuide,
+    // Night (null without a race date): civil dawn and dusk (s of the day), km in the dark (central).
+    night: night ? { dawn: night.dawn, dusk: night.dusk, darkKm: preds.central.darkM / 1000, slowPct: Math.round(params.nightSlow * 100) } : null,
+    // True when the race is shorter than your runs and no 10K or half time sets your race level:
+    // the plan then runs it at your training pace, so the page asks for those times.
+    levelHint: !(params.calib && params.calib.level === "race") && rawCentral[rawCentral.length - 1] < effort.durationSec,
     // Where the race is played, from your predicted (central) time on each stretch.
     keyZones: keyZones({ totalKm: total, climbs, descents }, profile, aid, clockFromTimeline(profile, scenarios.central.timeline)),
     aidStations: aid.map((a) => ({
