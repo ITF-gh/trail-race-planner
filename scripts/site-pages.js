@@ -149,28 +149,22 @@ export function markdown(md) {
 }
 
 function aboutBody() {
-  return `${pageHead("About", "About " + esc(SITE.name), `${esc(SITE.tagline)}: turn the race GPX and a few of your own runs into a plan you can trust, rehearse it, put it on your watch, then look back at how it went.`)}
-<div class="sp-cols">
-  <section class="sp-block">
-    <h2>Why it exists</h2>
-    <p>Race estimates are made for an average runner. On a mountain course, what matters is how <i>you</i> climb, hike and descend, and how you fade after hours on your feet. Your watch already knows that: ${esc(SITE.name)} reads it from your own runs, then applies it to every 10 metres of the race.</p>
-    <p>It is a personal project by an independent engineer and trail runner who works with data. It is free, needs no account, and runs entirely in your browser: your GPX files are never uploaded.</p>
-  </section>
-  <section class="sp-block">
-    <h2>What it is not</h2>
-    <p>Not a coach and not a medical tool. Times and paces are estimates from a model, usually within 5 to 10%. Weather, terrain, race rules, mandatory gear and how you feel on the day always come first. If in doubt, slow down, and follow the race organisers and mountain rescue.</p>
-  </section>
-  <section class="sp-block" id="contact">
-    <h2>Contact</h2>
-    <div class="sp-author"><img src="author.webp" width="72" height="72" alt="ITeam Fenix logo"><p>Made by <b>ITeam Fenix</b>, an independent engineer and trail runner.</p></div>
-    <p>A question, a bug, an idea, a GPX that gives a strange plan? Write to ${mailLink()}. Please add the version shown at the bottom of the page (v${SITE.version}) and, if you can, the GPX file.</p>
-    <p>Bugs and ideas can also go on the public tracker: ${extLink(SITE.issues, "report a bug or an idea")}.</p>
-  </section>
-  <section class="sp-block">
-    <h2>Credits</h2>
-    <p>Photos from Pexels (free licence), with no recognisable face: ${SITE_PHOTOGRAPHERS.map(([n]) => n).join(", ")}. Maps: ${extLink("https://www.openstreetmap.org/copyright", "© OpenStreetMap contributors")}, tiles by OpenStreetMap, ${extLink("https://carto.com/attributions", "CARTO")} and ${extLink("https://opentopomap.org", "OpenTopoMap")} (CC-BY-SA), drawn with ${extLink("https://leafletjs.com", "Leaflet")} (BSD-2). Fonts: Barlow and Barlow Condensed (Open Font License). The uphill cost of running comes from Minetti et al. (2002), walking times from Tobler's hiking function.</p>
-  </section>
-</div>
+  return `${pageHead("About", "Your runs. Your plan.", `${esc(SITE.name)} turns the runs you already did into the plan for your next race: rehearse it, put it on your watch, then look back at how it went.`)}
+<section class="ab-why" id="why">
+  <div class="sec-kicker">Why it exists</div>
+  <h2 class="ab-big">You want to build your next runs on what you already did?</h2>
+  <p class="ab-lead">That is the whole idea. Your watch already knows how <i>you</i> climb, hike, descend, and fade after hours on your feet. ${esc(SITE.name)} reads it from your own runs, and the race plan is only that: <b>your performance data, turned into a plan that fits you.</b> Not an average runner. You.</p>
+  <ul class="ab-trio">
+    <li><b>Faster</b><span>Drop a GPX, get a full plan in seconds. No sync, no feed to scroll, no waiting.</span></li>
+    <li><b>Safer</b><span>Your files stay in your browser. No account needed, and your heart rate is never sent anywhere.</span></li>
+    <li><b>Deeper</b><span>Pace on every gradient, every climb rated, every gel on the clock: the details the usual Garmin or Strava screens never show.</span></li>
+  </ul>
+</section>
+<section class="ab-team">
+  <div class="ab-team-head"><img src="author.webp" width="88" height="88" alt="ITeam Fenix logo"><div><div class="sec-kicker">Who is behind it</div><h2>ITeam Fenix</h2></div></div>
+  <p>ITeam Fenix is an independent agency around IT, AI and automation. ${esc(SITE.name)} started as a playground: what happens when a trail runner who loves data opens up AI and starts vibe coding? A fun app came out of it, built run after run, idea after idea.</p>
+  <p class="ab-quote">Discover AI, code for the fun of it, and build tools that make sport a better experience.</p>
+</section>
 <section class="sp-block" id="how">
   <h2>How it works</h2>
   <ol class="sp-steps">
@@ -182,7 +176,23 @@ function aboutBody() {
     <li><b>Look back.</b> Rewind my run replays a run you did and shows where you gained or lost time, without comparing it to a plan.</li>
   </ol>
   <p class="note">Estimates, usually within 5 to 10%. The model cannot see mud, heat or a bad day. The full technical notes are in the source code (docs/HOW_IT_WORKS.md).</p>
-</section>`;
+</section>
+<div class="sp-cols">
+  <section class="sp-block">
+    <h2>What it is not</h2>
+    <p>Not a coach and not a medical tool. Times and paces are estimates from a model. Weather, terrain, race rules, mandatory gear and how you feel on the day always come first. If in doubt, slow down, and follow the race organisers.</p>
+  </section>
+  <section class="sp-block" id="contact">
+    <h2>Contact</h2>
+    <p>A question, a bug, an idea, a GPX that gives a strange plan? Write to ${mailLink()}. Please add the version shown at the bottom of the page (v${SITE.version}) and, if you can, the GPX file.</p>
+    <p>Bugs and ideas can also go on the public tracker: ${extLink(SITE.issues, "report a bug or an idea")}.</p>
+  </section>
+</div>
+<section class="sp-block">
+  <h2>Credits</h2>
+  <p>Photos from Pexels (free licence), with no recognisable face: ${SITE_PHOTOGRAPHERS.map(([n]) => n).join(", ")}. Maps: ${extLink("https://www.openstreetmap.org/copyright", "© OpenStreetMap contributors")}, tiles by OpenStreetMap, ${extLink("https://carto.com/attributions", "CARTO")} and ${extLink("https://opentopomap.org", "OpenTopoMap")} (CC-BY-SA), drawn with ${extLink("https://leafletjs.com", "Leaflet")} (BSD-2). Fonts: Barlow and Barlow Condensed (Open Font License). The uphill cost of running comes from Minetti et al. (2002), walking times from Tobler's hiking function.</p>
+</section>
+`;
 }
 
 /* ---------- privacy ---------- */
