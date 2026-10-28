@@ -13,17 +13,17 @@ test("site: version comes from the newest changelog entry, versions are unique",
   assert.equal(new Set(CHANGELOG.map((c) => c.v)).size, CHANGELOG.length);
 });
 
-test("site: external links stay inert while linksLive is false", () => {
+test("site: external links stay inert while linksLive is false; the mail link works", () => {
   assert.equal(SITE.linksLive, false);
   const foot = siteFooter({ analytics: "GoatCounter" });
-  assert.ok(!/mailto:|href="https?:/.test(foot), "no live external link in the footer");
-  assert.match(foot, /contact@prepmyrace\.com/);
+  assert.ok(!/href="https?:/.test(foot), "no live external link in the footer");
+  assert.match(foot, /href="mailto:contact\.iteamfenix@gmail\.com"/);
   assert.match(foot, new RegExp(`v${SITE.version.replace(".", "\\.")}`));
   assert.match(extLink("https://example.com", "x"), /^<span class="ext-off"/);
   const pages = sitePages({ fonts: "", counter: null, howMd: "# T\n\nHello" });
   for (const [file, html] of pages) {
     const body = html.slice(html.indexOf("<body"));
-    assert.ok(!/<a [^>]*href="(https?:|mailto:)/.test(body), `${file}: no live external link`);
+    assert.ok(!/<a [^>]*href="https?:/.test(body), `${file}: no live external link`);
   }
 });
 

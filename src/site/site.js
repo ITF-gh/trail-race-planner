@@ -7,7 +7,7 @@
 //
 // External links are OFF for now (SITE.linksLive = false): they are written as plain text that
 // looks like a link but goes nowhere, so nothing points at an address that is not ready yet
-// (the prepmyrace.com mailbox, the bug tracker). Set it to true and rebuild to switch them all on.
+// (the bug tracker, credits). The contact mail link is always live. Set it to true and rebuild to switch them all on.
 
 import { CHANGELOG } from "./changelog.js";
 
@@ -18,7 +18,7 @@ export const SITE = {
   url: "https://itf-gh.github.io/trail-race-planner/", // absolute address, for share previews
   base: "/trail-race-planner/", // path of the site on its host, for the 404 page (any depth)
   version: CHANGELOG[0].v,
-  email: "contact@prepmyrace.com",
+  email: "contact.iteamfenix@gmail.com", // Boss, 2026-10-28
   issues: "https://github.com/ITF-gh/trail-race-planner/issues/new",
   linksLive: false,
 };
@@ -31,8 +31,8 @@ export function extLink(href, text, cls = "") {
   return `<span class="ext-off${cls ? " " + cls : ""}" title="Link coming soon">${text}</span>`;
 }
 
-/** The contact address, as a mail link once links are live. */
-export const mailLink = (cls = "") => (SITE.linksLive ? `<a${cls ? ` class="${cls}"` : ""} href="mailto:${SITE.email}">${SITE.email}</a>` : `<span class="ext-off${cls ? " " + cls : ""}" title="Address coming soon">${SITE.email}</span>`);
+/** The contact address, always a working mail link (it is a real mailbox, Boss 2026-10-28). */
+export const mailLink = (cls = "") => `<a${cls ? ` class="${cls}"` : ""} href="mailto:${SITE.email}">${SITE.email}</a>`;
 
 // The photographers, credited on every page. Pexels licence: free use, credit appreciated.
 export const SITE_PHOTOGRAPHERS = [

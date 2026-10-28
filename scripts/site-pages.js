@@ -162,6 +162,7 @@ function aboutBody() {
   </section>
   <section class="sp-block" id="contact">
     <h2>Contact</h2>
+    <div class="sp-author"><img src="author.webp" width="72" height="72" alt="ITeam Fenix logo"><p>Made by <b>ITeam Fenix</b>, an independent engineer and trail runner.</p></div>
     <p>A question, a bug, an idea, a GPX that gives a strange plan? Write to ${mailLink()}. Please add the version shown at the bottom of the page (v${SITE.version}) and, if you can, the GPX file.</p>
     <p>Bugs and ideas can also go on the public tracker: ${extLink(SITE.issues, "report a bug or an idea")}.</p>
   </section>
