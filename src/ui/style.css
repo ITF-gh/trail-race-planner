@@ -1888,4 +1888,3 @@ html.ai-off .ai-badge,html.ai-off .ar-bar:not([data-state="ok"]){display:none}
 /* on a phone the top row is full: only the other language's flag shows, under the account icon */
 @media (max-width:640px){.acct{flex-direction:column-reverse;gap:6px}.i18n-flags button[aria-pressed="true"]{display:none}}
 html.i18n-wait body{visibility:hidden}
-.note.level-hint{color:var(--sun);font-weight:600}

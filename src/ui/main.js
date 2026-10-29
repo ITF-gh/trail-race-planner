@@ -59,7 +59,7 @@ import { runRecord } from "../core/runrecord.js";
 import { initPrint, P4_EXPORTS } from "./print.js";
 import { initHelp } from "./help.js";
 import { siteFooter, SITE } from "../site/site.js";
-import { refsCardHtml, refsCalibNow, initRefs } from "./refs.js";
+import { refsCardHtml, initRefs } from "./refs.js";
 import { initAccount, acctSaveRun, acctSaveGpx, acctOpenAsk, acctAiBadge, acctSaveItem, acctOnReopen, acctOnUseFile } from "./account.js";
 import { arUse, arState, arBarHtml } from "./airace.js";
 import { i18nInit } from "./i18n.js";
@@ -254,7 +254,6 @@ $("#app").innerHTML = `
         <div class="status" id="stRace" aria-live="polite"></div>
         <div class="actions drop-act"><label class="btn ghost" for="fileRace">Add GPX</label><input type="file" id="fileRace" accept=".gpx,application/gpx+xml,text/xml"></div>
       </div>
-      ${refsCardHtml("race")}
     </div>
   </div>
 </header>
@@ -286,6 +285,10 @@ $("#app").innerHTML = `
       <label class="f">Targeted duration (optional)<input type="text" id="targetTime" inputmode="numeric" placeholder="h:mm, for example 10:15" autocomplete="off"><span class="hint">The planner says if your runs back it up.</span></label>
       <label class="f">Terrain on race day
         <select id="terrain">${Object.entries(TERRAIN).map(([k, v]) => `<option value="${k}">${esc(v.label)}</option>`).join("")}</select>
+      </label>
+      <label class="f">Form on race day
+        <select id="form"><option value="0">Normal</option><option value="3">In shape (3% faster)</option><option value="5">Top shape (5% faster)</option></select>
+        <span class="hint">Your runs set the plan. Tell it if you feel sharper than in training.</span>
       </label>
       <label class="f">Gel every (minutes)<input type="number" id="gelEveryMin" min="20" max="90"></label>
       <label class="f" style="grid-column:1 / -1">Aid stations<textarea id="aidStations" rows="3" placeholder="One per line: km, name, minutes stopped&#10;8.5 Refuge du Lac 2&#10;16 Ferme des Crêtes 3"></textarea><span class="hint">Stops are added to every clock time after the station. A gel due within ${PLAN_DEFAULTS.gelToAidMin} minutes of a station is taken there.</span></label>
@@ -357,7 +360,7 @@ ${siteFooter({ analytics: analyticsOn ? analyticsName : "" })}
 // FIELDS: the ids of the settings inputs. Each one, when changed, re-reads the form and
 // recomputes the plan (see the forEach just after writeSettings()).
 /* ---------- settings form ---------- */
-const FIELDS = ["startTime", "raceDate", "targetTime", "terrain", "gelEveryMin", "aidStations", "checkpointKm", "hikeGrade", "enduranceExp", "halfLifeDays", "descentBoost"];
+const FIELDS = ["startTime", "raceDate", "targetTime", "terrain", "form", "gelEveryMin", "aidStations", "checkpointKm", "hikeGrade", "enduranceExp", "halfLifeDays", "descentBoost"];
 /**
  * Fill the settings form from state.settings (used once at start-up, with saved values).
  * `??` (nullish coalescing) gives the right side only when the left is null or undefined, so a
@@ -372,6 +375,7 @@ function writeSettings() {
   $("#raceDate").value = s.raceDate || "";
   $("#targetTime").value = s.targetTime || "";
   $("#terrain").value = s.terrain;
+  $("#form").value = String(s.form || 0);
   $("#gelEveryMin").value = s.gelEveryMin;
   $("#checkpointKm").value = s.checkpointKm;
   $("#hikeGrade").value = s.hikeGrade ?? "";
@@ -395,6 +399,7 @@ function readSettings() {
     raceDate: $("#raceDate").value,
     targetTime: $("#targetTime").value.trim(),
     terrain: $("#terrain").value,
+    form: Number($("#form").value) || 0,
     gelEveryMin: n("gelEveryMin") || 45,
     checkpointKm: n("checkpointKm") || 10,
     hikeGrade: n("hikeGrade"),
@@ -573,9 +578,9 @@ function compute() {
   $("#planErr").innerHTML = "";
   if (state.race && state.effort) {
     try {
-      // calib: your references (My references card) set the level at race effort; your runs
-      // keep the shape (how you slow down on each gradient). null without references.
-      state.plan = buildPlan(state.race.parsed, state.effort.runs.map((r) => r.parsed), { ...state.settings, ...profileHeart(), calib: refsCalibNow("race"), tune: profileTune() });
+      // Your runs alone set the level (Boss, 2026-10-29: a road best can be old and says nothing
+      // of the training around it); "Form on race day" (settings.form) is your own say.
+      state.plan = buildPlan(state.race.parsed, state.effort.runs.map((r) => r.parsed), { ...state.settings, ...profileHeart(), tune: profileTune() });
       // The regex /\(made up\)$/ matches "(made up)" at the end of the name: the demo's label.
       // Once per visit: did this visitor get a plan, from the demo or from their own files?
       trackOnce("plan-built", /\(made up\)$/.test(state.race.name) ? "demo" : "own");
@@ -1118,7 +1123,6 @@ function renderDday() {
       <p class="note" style="margin:0">${sc.factor >= 1 ? `Race pace is ${((sc.factor - 1) * 100).toFixed(0)}% slower than your run on the same gradients: terrain factor plus the fade for a longer effort.` : `Race pace is ${((1 - sc.factor) * 100).toFixed(0)}% faster than your run on the same gradients: the race is shorter than your runs and your race references allow it.`} Every clock time on this page follows the scenario you pick.</p>
       ${plan.night ? `<p class="note" style="margin:0">Dark from ${clock(0, plan.night.dusk)} to ${clock(0, plan.night.dawn)} at the start line: ${plan.night.darkKm.toFixed(1)} km in the dark, planned ${plan.night.slowPct}% slower.</p>` : `<p class="note" style="margin:0">Add the race date in Your route to plan the stretches run in the dark.</p>`}
       ${plan.scenarios.central.finishSec > 6 * 3600 || plan.scenarios.central.finishSec > 2.5 * plan.effort.durationSec ? (cloudUser() ? `<p class="note" style="margin:0">Long race: ${plan.tuned ? "planned with your tuning." : "fine-tune the calculation in your profile."} <button type="button" class="to-profile" data-open-profile="engine">Tune my engine →</button></p>` : `<p class="note" style="margin:0">Long race: signed-in runners can fine-tune the calculation in their profile (accounts are by invitation for now).</p>`) : ""}
-      ${plan.levelHint ? `<p class="note level-hint" style="margin:0">This race is shorter than your runs, so it is planned at their training pace. Type your 10K or half-marathon time under the drop boxes to plan it at race effort.</p>` : ""}
     </div>
     <div class="side-stack">${pimpBadge("#s-pimp")}</div>
   </div>

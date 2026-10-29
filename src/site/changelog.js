@@ -2,6 +2,10 @@
 // technical detail). The first entry is the current version: the footer shows it on every page.
 
 export const CHANGELOG = [
+  { v: "2.29", date: "2026-10-29", items: [
+    "Prep my race now plans your race from your runs only: the 10K and half-marathon boxes are gone from it (a road best can be old and says little about trail).",
+    "New Form on race day setting in Your route: Normal, In shape (3% faster) or Top shape (5% faster).",
+  ] },
   { v: "2.28", date: "2026-10-28", items: [
     "Tune my engine, for signed-in runners: in your profile, set your own level, fatigue gap, race-length fade, tired gap growth and night slowdown, and correct your pace on each gradient. Every plan then uses your tuning.",
     "On a long race, Your race points to Tune my engine.",
