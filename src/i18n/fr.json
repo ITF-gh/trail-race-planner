@@ -1639,7 +1639,6 @@
   "Race pace is {0}% faster than your run on the same gradients: the race is shorter than your runs and your race references allow it. Every clock time on this page follows the scenario you pick.": "L'allure de course est {0} % plus rapide que ton run sur les mêmes pentes : la course est plus courte que tes runs et tes références de course le permettent. Chaque heure de cette page suit le scénario que tu choisis.",
   "Dark from {0} to {1} at the start line: {2} km in the dark, planned {3}% slower.": "Nuit de {0} à {1} au départ : {2} km dans le noir, prévus {3} % plus lents.",
   "Add the race date in Your route to plan the stretches run in the dark.": "Ajoute la date de la course dans Ton parcours pour prévoir les portions de nuit.",
-  "This race is shorter than your runs, so it is planned at their training pace. Type your {0}K or half-marathon time under the drop boxes to plan it at race effort.": "Cette course est plus courte que tes runs : elle est prévue à leur allure d'entraînement. Tape ton temps sur {0} km ou semi-marathon sous les zones de dépôt pour la prévoir à effort de course.",
   "from your climbs": "d'après tes montées",
   "partly measured": "partiellement mesuré",
   "A new way to calculate the race plan, from the calculation review: fatigue now builds with the time you have been running, not the distance, so long climbs tire you more than fast flats.": "Une nouvelle façon de calculer le plan de course, issue de la revue des calculs : la fatigue monte maintenant avec le temps de course, pas la distance, donc les longues montées fatiguent plus que le plat rapide.",
@@ -1676,7 +1675,14 @@
   "Max heart rate": "Fréquence cardiaque max",
   "Resting heart rate": "Fréquence cardiaque au repos",
   "Type a best to replace the one found in your runs. {0}K and {1}K read as mm:ss, longer ones as h:mm (or h:mm:ss everywhere).": "Tape un record pour remplacer celui trouvé dans tes runs. {0}K et {1}K en mm:ss, les plus longs en h:mm (ou h:mm:ss partout).",
-  "These are the only heart data the app uses: heart rate recorded in a GPX file is never read. They set the plan's heart-rate guide and stay on this device.": "Ce sont les seules données cardiaques utilisées par l'app : la fréquence cardiaque enregistrée dans un fichier GPX n'est jamais lue. Elles règlent le guide cardio du plan et restent sur cet appareil."
+  "These are the only heart data the app uses: heart rate recorded in a GPX file is never read. They set the plan's heart-rate guide and stay on this device.": "Ce sont les seules données cardiaques utilisées par l'app : la fréquence cardiaque enregistrée dans un fichier GPX n'est jamais lue. Elles règlent le guide cardio du plan et restent sur cet appareil.",
+  "Form on race day": "Forme le jour J",
+  "Normal": "Normale",
+  "In shape ({0}% faster)": "En forme ({0} % plus rapide)",
+  "Top shape ({0}% faster)": "Au top ({0} % plus rapide)",
+  "Your runs set the plan. Tell it if you feel sharper than in training.": "Tes runs fixent le plan. Dis-lui si tu te sens plus affûté qu'à l'entraînement.",
+  "Prep my race now plans your race from your runs only: the 10K and half-marathon boxes are gone from it (a road best can be old and says little about trail).": "Prep my race prévoit maintenant ta course uniquement à partir de tes runs : les cases 10K et semi n'y sont plus (un record sur route peut être ancien et dit peu sur le trail).",
+  "New Form on race day setting in Your route: Normal, In shape ({0}% faster) or Top shape ({1}% faster).": "Nouveau réglage Forme le jour J dans Ton parcours : Normale, En forme ({0} % plus rapide) ou Au top ({1} % plus rapide)."
  },
  "h": {
   "Prep it up,<br><em>get it done.</em>": "Un brief<br><em>et c'est parti !</em>",

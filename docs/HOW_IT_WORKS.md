@@ -64,9 +64,10 @@ A few adjustments stand in for what your reference runs cannot tell us (calculat
 | Race-length fade | A longer race cannot be held at the reference effort | pace × (race time / reference time)^0.05 |
 | Tired gap | Fatigue at the end of a 10 h race is more than at the end of a 3 h run | gap × (race time / reference time)^0.5, both ways, kept between ×0.3 and ×3 |
 | Night | Running by headlamp is slower | +8% between civil dusk and dawn at the start line, with a race date |
+| Form on race day | How sharp you feel against your training | normal 0, in shape −3%, top shape −5% |
 | Scenario | A plausible spread around the central guess | best −3.5%, central, cautious +3.5% |
 
-The fade is a cousin of the **Riegel formula** (time2 = time1 × (distance2 / distance1)^1.06), which says endurance fades by a power law. It was 0.07 before the tired gap also grew with race length; 0.05 keeps long races from counting the same fatigue twice. With a 10K or half-marathon time in your references, the plan uses your own exponent from those two races, and a race shorter than the reference is run faster (at most 15% per km). Without them, your runs are training efforts, so a shorter race is never sped up and Your race asks for those times.
+The fade is a cousin of the **Riegel formula** (time2 = time1 × (distance2 / distance1)^1.06), which says endurance fades by a power law. It was 0.07 before the tired gap also grew with race length; 0.05 keeps long races from counting the same fatigue twice. Prep my race plans from your runs only (Boss, 2026-10-29: a road best can be old and says little about trail), so a shorter race is never sped up by the fade; the runner says it with **Form on race day** (normal, in shape 3% faster, top shape 5% faster). The 10K and half-marathon references still set the level in Prep my run.
 
 Steep uphill bands you did not run in both halves of your runs come from your own climbing: the tired ratio of the nearest band you did run, and for a steep band (+10% or more) you never ran, a fresh pace from your climbing speed on the steepest band you did run (pace = 36000 × gradient / vertical metres per hour). They show "from your climbs" in Your engine.
 

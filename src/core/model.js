@@ -85,6 +85,8 @@ const MILD_DESCENTS = new Set(["d1", "d2"]); // -12% to -2%: where gravity can h
  *                 (race time / reference time)^gapExp, both ways: a race shorter than your runs
  *                 gets a smaller gap, a longer one a bigger gap
  *   nightSlow     share slower in the dark (0.08 = 8%), used only when the plan gives `night`
+ *   form          how you feel on race day, % faster on every step: 0 normal, 3 in shape, 5 top
+ *                 shape (Boss, 2026-10-29: plans come from your runs only, this is your say)
  * (Calculation review, 2026-10-28: Boss picked fatigue by elapsed time, the growing tired gap,
  * steep bands from your climbing speed (effort.js) and the night slowdown.)
  */
@@ -94,6 +96,7 @@ export const MODEL_DEFAULTS = {
   descentBoost: 0, // 0 to 0.1: fraction faster on mild descents (needs strong quads)
   gapExp: 0.5,
   nightSlow: 0.08,
+  form: 0,
 };
 
 // Limits that keep the two race-length rules sane on odd inputs (a 5 min test run, a 100-mile race).
@@ -126,7 +129,7 @@ export function predictScenario(course, effort, scenario, params = {}) {
   // Object spread: start from the defaults, then let `params` override any field.
   const p = { ...MODEL_DEFAULTS, ...params };
   const terrain = TERRAIN[p.terrain] || TERRAIN.mixed;
-  const base = terrain.factor * scenario.mult;
+  const base = terrain.factor * scenario.mult * (1 - (Number(p.form) || 0) / 100);
   const n = course.n;
   const stops = p.stops || [];
   const night = p.night && Number.isFinite(p.night.dawn) && Number.isFinite(p.night.dusk) ? p.night : null;

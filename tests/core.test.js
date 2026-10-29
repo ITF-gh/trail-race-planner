@@ -10,7 +10,6 @@ import { raceScript, raceStateAt, secAtKm, raceLegs, raceTotals, legAtKm, racePa
 import { keyZones, toblerClock, spreadAt } from "../src/core/keyzones.js";
 import { mmss, hm, clock, parseDuration, parseClock } from "../src/core/format.js";
 import { makeDemoRaceGpx, makeDemoEffortGpx, DEMO_RACE_PROFILE, DEMO_ULTRA_PROFILE, DEMO_ULTRA_AID, DEMO_LONG_RUN_PROFILE } from "../src/demo.js";
-import { refsCalib } from "../src/core/refs.js";
 
 const race = parseGpx(makeDemoRaceGpx());
 const effort = parseGpx(makeDemoEffortGpx());
@@ -639,11 +638,10 @@ test("calculation review: night, short races with a race reference, steep bands 
   assert.ok(dark.night.darkKm > 0 && day.night.darkKm === 0);
   assert.ok(dark.scenarios.central.finishSec > day.scenarios.central.finishSec);
   assert.equal(buildPlan(race, runs, {}).night, null);
-  // A race shorter than your runs: no speed-up from training runs alone (and the page asks for a
-  // 10K or half time), a speed-up with a race reference.
+  // Form on race day: "in shape" plans every step 3% faster.
   const plain = buildPlan(race, runs, {});
-  if (plain.effort.durationSec > plain.scenarios.central.finishSec) assert.equal(plain.levelHint, true);
-  assert.equal(buildPlan(race, runs, { calib: refsCalib({ k10: 2700, half: 6000 }, "race") }).levelHint, false);
+  const fit = buildPlan(race, runs, { form: 3 });
+  assert.ok(Math.abs(fit.scenarios.central.finishSec / plain.scenarios.central.finishSec - 0.97) < 0.01);
   // Every band is either measured, from your climbs, or estimated; never slower fresh than tired.
   for (const b of plain.effort.bands) assert.ok(b.tired >= b.fresh && ["measured", "partly measured", "estimated", "from your climbs"].includes(b.source));
 });

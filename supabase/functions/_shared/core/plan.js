@@ -580,7 +580,6 @@ export function buildPlan(raceParsed, effortParsed, userParams = {}) {
     tuned: Boolean(params.tune),
     // True when the race is shorter than your runs and no 10K or half time sets your race level:
     // the plan then runs it at your training pace, so the page asks for those times.
-    levelHint: !(params.calib && params.calib.level === "race") && rawCentral[rawCentral.length - 1] < effort.durationSec,
     // Where the race is played, from your predicted (central) time on each stretch.
     keyZones: keyZones({ totalKm: total, climbs, descents }, profile, aid, clockFromTimeline(profile, scenarios.central.timeline)),
     aidStations: aid.map((a) => ({
