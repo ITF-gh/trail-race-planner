@@ -1,60 +1,11 @@
-// keyzones.js: where the race is played. A key zone is a short stretch where how you run
-// it changes your race: to gain time (ATTACK), to set up what comes next (PREPARE), or to
-// protect your effort for later (MANAGE). Zones are portions of the course, not whole climbs:
-// a whole climb is only kept when its sections are all key, by merging them.
-//
-// Each candidate gets "minutes in play": the time two runners of your level, one who runs
-// that stretch well and one who does not, typically end up apart because of it.
-//
-//   in play (min) = time on it (min) x spread(when) x weight(kind)
-//
-//   time on it   from your prediction, or from Tobler's hiking function on the course alone
-//   spread       how much runners differ at that point: 3% at the start, growing with the
-//                square of the distance covered to 18% at the finish (fatigue divergence)
-//
-// Candidates and weights:
-//   ATTACK   climb section (or a short climb)                 1.0, x1.3 on the last big climb
-//            late runnable stretch, 2.5 km or more              2.0 (running vs walking)
-//            steepest 2 km of a long descent, second half      0.5 + 0.4 x progress
-//   PREPARE  the 0.8 to 2.5 km of easy ground before a big climb (250 m or more): eat, drink,
-//            let heart rate drop. Worth 40% of what that climb puts in play.
-//   MANAGE   the start: the first 8% of the race (up to the first big climb, unless it starts
-//            within 2 km). Going
-//            out too fast is paid for at the end: worth 0.6% of the finish time.
-//            a wall: the steepest 400 m of a climb at 18% or more. Over-pushing there costs
-//            the rest of the climb: worth 40% of the climb.
-//            the restart: the first 1.5 km of runnable ground after 400 m or more of
-//            descent, where heavy legs want to walk                         2.0
-//            steepest 2 km of a long descent, first half: protect the quads 0.5 + 0.4 x progress
-//
-// The best are kept without overlapping, one per 13 km of race (1 to 7), none under a sixth
-// of the best. Neighbouring sections of the same climb that are both kept merge into one zone.
-//
-// Where it sits in the data flow: plan.js calls keyZones() at the end of buildPlan, with the
-// briefing (climbs, sections, descents), the 100 m elevation profile, the aid stations and a
-// timeAt(km) function built from the central scenario (clockFromTimeline). Before a personal
-// prediction exists, the UI can use toblerClock(profile) for timeAt instead.
-// keyZones() is pure: it reads its inputs and returns a new array, nothing else changes.
-//
-// The algorithm in three steps: (1) collect candidates of every kind with their minutes in
-// play, (2) keep the best ones greedily without overlap, (3) merge neighbours and turn each
-// zone into readable text (describe).
+// keyzones.js: where the race is played.
 
-// Phase of the race from the fraction of distance covered (0 to 1). The 35% / 69% cut-offs
-// are the same as the climb fatigue factor and the heart-rate guide in plan.js.
+// Phase of the race from the fraction of distance covered (0 to 1).
 const LATE = (f) => (f < 0.35 ? "Early in the race" : f < 0.69 ? "Mid-race" : "Late in the race");
-// Spread between runners (as a fraction of time) at a point of the race: 0.03 at the start,
-// 0.03 + 0.15 = 0.18 at the finish, growing with the square of the distance covered.
+// Spread between runners (as a fraction of time) at a point of the race: 0.03 at the start, 0.03 + 0.15 = 0.18 at the finish, growing with the square of the distance covered.
 export const spreadAt = (frac) => 0.03 + 0.15 * frac * frac;
 
-/**
- * timeAt(km) from times known at the profile points (seconds since the start at each point).
- *
- * Inputs: `profile` [[km, ele], ...] and `times` (seconds), one per profile point.
- * Returns a function (a closure: it remembers `profile` and `times`) that takes a km and
- * returns seconds since the start. It finds the two profile points around that km with a
- * binary search, then interpolates linearly between their times.
- */
+/** timeAt(km) from times known at the profile points (seconds since the start at each point). */
 export function clockFromTimeline(profile, times) {
   return (km) => {
     let lo = 1;
@@ -68,13 +19,7 @@ export function clockFromTimeline(profile, times) {
   };
 }
 
-/**
- * Seconds to cover the profile, km by km, from Tobler's hiking function (1993):
- * speed = 6 exp(-3.5 |slope + 0.05|) km/h, fastest at a 5% descent. Scaled x1.4 for a runner.
- * Returns timeAt(km), used when no personal prediction exists yet.
- * `slope` is a fraction (0.1 = 10%), not a percentage. Times are cumulated point to point,
- * then handed to clockFromTimeline like a real prediction.
- */
+/** Seconds to cover the profile, km by km, from Tobler's hiking function (1993): speed = 6 exp(-3.5 |slope + 0.05|) km/h, fastest at a 5% descent. */
 export function toblerClock(profile) {
   const cum = [0];
   for (let i = 1; i < profile.length; i++) {
@@ -86,13 +31,7 @@ export function toblerClock(profile) {
   return clockFromTimeline(profile, cum);
 }
 
-/**
- * Runnable stretches: where the 300 m gradient stays within [lo, hi] %, as [startKm, endKm].
- * In practice the range is given as a test function `ok(gradient %)` returning true or false
- * (for example (g) => Math.abs(g) < 5). The function walks the profile and records each run
- * of consecutive points where `ok` holds. The last profile point never counts as good, so a
- * stretch running to the finish is closed there.
- */
+/** Runnable stretches: where the 300 m gradient stays within [lo, hi] %, as [startKm, endKm]. */
 function stretches(profile, ok) {
   const out = [];
   let start = null;
@@ -103,21 +42,12 @@ function stretches(profile, ok) {
   }
   return out;
 }
-/**
- * Gradient (%) around profile point i, over about 300 m: from one point before to two points
- * after (profile points are 100 m apart), cut short at the ends of the course.
- */
+/** Gradient (%) around profile point i, over about 300 m: from one point before to two points after (profile points are 100 m apart), cut short at the ends of the course. */
 function gradeAt(profile, i) {
   const a = profile[Math.max(0, i - 1)], b = profile[Math.min(profile.length - 1, i + 2)];
   return b[0] > a[0] ? ((b[1] - a[1]) / ((b[0] - a[0]) * 1000)) * 100 : 0;
 }
-/**
- * Steepest window of `lenKm` inside [a, b] (sign +1 up, -1 down): [fromKm, toKm, avg %].
- * For each start point it moves the end point forward until the window is `lenKm` long.
- * The returned average is positive in the asked direction (a 10% descent gives 10).
- * Returns null when [a, b] is shorter than 90% of `lenKm`. The 1e-9 margins absorb
- * floating-point rounding in the km values (0.1 + 0.2 is not exactly 0.3 in JavaScript).
- */
+/** Steepest window of `lenKm` inside [a, b] (sign +1 up, -1 down): [fromKm, toKm, avg %]. */
 function steepest(profile, a, b, lenKm, sign) {
   const pts = profile.filter((p) => p[0] >= a - 1e-9 && p[0] <= b + 1e-9);
   let best = null;
@@ -131,12 +61,7 @@ function steepest(profile, a, b, lenKm, sign) {
   return best;
 }
 
-/**
- * Key zones of a course. `brief` = {totalKm, climbs (with sections), descents}, `profile` =
- * [[km, ele]] every 100 m, `aid` = [{km, name}], `timeAt(km)` = seconds since the start.
- * Returns zones in course order: {n, mode, kind, fromKm, toKm, title, why, how, stakeMin, durMin}.
- * (also `modeLabel`, the mode as a word for display). Times are in minutes.
- */
+/** Key zones of a course. */
 export function keyZones(brief, profile, aid, timeAt) {
   const T = brief.totalKm;
   // Candidates: {mode, kind, fromKm, toKm, durMin, frac, stakeMin, ...extra details}.
@@ -152,18 +77,13 @@ export function keyZones(brief, profile, aid, timeAt) {
   // Minutes in play on [a, b] with weight w: the formula of the header.
   const inPlay = (a, b, w) => dur(a, b) * spreadAt(fracOf(a, b)) * w;
 
-  // Big climbs: 80 m of gain or more. The "last big climb" is the last one that starts after
-  // 40% of the race and gains at least 40% of the biggest. [...big].reverse() copies before
-  // reversing, because reverse() changes the array it is called on.
+  // Big climbs: 80 m of gain or more.
   const big = brief.climbs.filter((c) => c.gain >= 80);
   const maxGain = Math.max(0, ...big.map((c) => c.gain));
   const lastBig = [...big].reverse().find((c) => c.gain >= 0.4 * maxGain && c.startKm > T * 0.4);
   const easy = stretches(profile, (g) => g > -8 && g < 6); // runnable or gently down
 
   // MANAGE: the start, until the first big climb at most.
-  // (a climb straight from the start line is part of the start: do not race up it)
-  // The start zone covers the first 8% of the race, shortened to end at the foot of the first
-  // big climb, unless that climb starts within 2 km. Worth 0.6% of the whole race time.
   const foot = big.length ? big[0].startKm : T;
   const startEnd = foot >= 2 ? Math.min(foot, T * 0.08) : T * 0.08;
   add("manage", "start", 0, startEnd, 0.006 * dur(0, T));
@@ -178,7 +98,6 @@ export function keyZones(brief, profile, aid, timeAt) {
     // PREPARE: easy ground just before the foot of a big climb.
     if (c.gain >= 250) {
       // The easy stretch that reaches the foot of the climb (within 150 m) and starts before it.
-      // It is cut to the last 2.5 km, and kept only if at least 800 m long.
       const before = easy.find(([a, b]) => b >= c.startKm - 0.15 && a < c.startKm);
       if (before) {
         const from = Math.max(before[0], c.startKm - 2.5);
@@ -186,14 +105,11 @@ export function keyZones(brief, profile, aid, timeAt) {
       }
     }
     // MANAGE: the wall, where over-pushing ruins the rest of the climb.
-    // Only on climbs of 1.5 km or more, and only if their steepest 400 m average 18% or more.
     const wall = steepest(profile, c.startKm, c.endKm, 0.4, 1);
     if (wall && wall[2] >= 18 && c.lenM >= 1500) add("manage", "wall", wall[0], wall[1], 0.4 * climbStake, { climb: c, grade: wall[2] });
   });
 
-  // Descents of 250 m or more. Their steepest 2 km (or all of it when shorter than 2.5 km) is
-  // a candidate: ATTACK in the second half of the race, MANAGE (protect the quads) in the first.
-  // The weight grows from 0.5 at the start to 0.9 at the finish.
+  // Descents of 250 m or more.
   brief.descents.filter((d) => d.loss >= 250).forEach((d) => {
     const f = fracOf(d.startKm, d.endKm);
     const w = 0.5 + 0.4 * f;
@@ -201,8 +117,7 @@ export function keyZones(brief, profile, aid, timeAt) {
     if (part) add(f > 0.5 ? "attack" : "manage", "descent", part[0], part[1], inPlay(part[0], part[1], w), { desc: d, grade: part[2], whole: part[0] === d.startKm && part[1] === d.endKm });
     // MANAGE: restarting to run after a long descent.
     if (d.loss >= 400) {
-      // Ground within +/-6% that starts by the bottom (150 m margin) and lasts beyond 1 km
-      // after it. The zone is its first 1.5 km at most.
+      // Ground within +/-6% that starts by the bottom (150 m margin) and lasts beyond 1 km after it.
       const after = stretches(profile, (g) => Math.abs(g) < 6).find(([a, b]) => a <= d.endKm + 0.15 && b > d.endKm + 1);
       if (after) add("manage", "restart", d.endKm, Math.min(after[1], d.endKm + 1.5), inPlay(d.endKm, Math.min(after[1], d.endKm + 1.5), 2), { desc: d });
     }
@@ -211,9 +126,7 @@ export function keyZones(brief, profile, aid, timeAt) {
   // ATTACK: long runnable stretches after the first third, where runners who can still run pull away.
   stretches(profile, (g) => Math.abs(g) < 5).filter(([a, b]) => b - a >= 2.5 && a >= T / 3).forEach(([a, b]) => add("attack", "run", a, b, inPlay(a, b, 2)));
 
-  // Selection: how many zones (one per 13 km, between 1 and 7), then a greedy pick: sort by
-  // minutes in play, best first, and keep each one that does not overlap one already kept,
-  // until we have enough or the candidates fall under a sixth of the best.
+  // Selection: how many zones (one per 13 km, between 1 and 7), then a greedy pick: sort by minutes in play, best first, and keep each one that does not overlap one already kept...
   const want = Math.max(1, Math.min(7, Math.round(T / 13)));
   cands.sort((a, b) => b.stakeMin - a.stakeMin);
   const best = cands.length ? cands[0].stakeMin : 0;
@@ -241,13 +154,7 @@ export function keyZones(brief, profile, aid, timeAt) {
 // Display word for each mode.
 const MODE = { attack: "Attack", prepare: "Prepare", manage: "Manage" };
 
-/**
- * Turn a selected zone into the text the runner reads.
- * Inputs: zone `z` (a candidate from keyZones, possibly merged), its number `n`, the aid
- * stations and the profile. Returns {n, mode, modeLabel, kind, fromKm, toKm, title, why, how,
- * stakeMin, durMin}: `title` names the zone, `why` says what is at stake, `how` how to run it.
- * Minutes are rounded and at least 1. One branch per kind of zone.
- */
+/** Turn a selected zone into the text the runner reads. */
 function describe(z, n, aid, profile) {
   const stake = Math.max(1, Math.round(z.stakeMin));
   const dur = Math.max(1, Math.round(z.durMin));
@@ -307,10 +214,7 @@ function describe(z, n, aid, profile) {
   return { n, mode: z.mode, modeLabel: MODE[z.mode], kind: z.kind, fromKm: z.fromKm, toKm: z.toKm, title, why, how, stakeMin: stake, durMin: dur };
 }
 
-/**
- * Elevation (m) at any km, interpolated between the two surrounding profile points.
- * A simple forward scan (zones are few, so speed does not matter here).
- */
+/** Elevation (m) at any km, interpolated between the two surrounding profile points. */
 function zoneEle(profile, km) {
   let i = 1;
   while (i < profile.length - 1 && profile[i][0] < km) i++;

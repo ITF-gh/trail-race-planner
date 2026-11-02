@@ -1,8 +1,4 @@
-/* Look: halfway between the mountains and extreme sports. Midnight-blue base, each section
-   on its own colour band with slanted edges (01 night blue, 02 forest, 03 dusk), signal red
-   and sun yellow for energy, bold italic condensed type. Photo slots (hero and one banner per
-   section) read --photo-* custom properties and fall back to gradients when no photo is set.
-   Everything reflows to the page width; only the elevation profile may scroll sideways on a phone. */
+/* Look: halfway between the mountains and extreme sports. */
 :root{
   --bg:#0a1530; --surface:rgba(4,10,24,.5); --surface-2:rgba(255,255,255,.07); --fg:#f5f7fc; --muted:#a4b3cf; --line:#263a66; --area:rgba(255,255,255,.10);
   --accent:#ff3048; --accent-ink:#ffffff; --sun:#ffc928; --gold:#ffbe1e; --focus:#ffc928;
@@ -163,8 +159,7 @@ button,.btn{font:inherit;cursor:pointer}
 .pace .bars .fr{background:var(--accent)}
 .pace .bars .ti{background:color-mix(in srgb,var(--fg) 35%,transparent)}
 .pace .lab{line-height:1.2}
-/* The values are the main information of the chart: fresh pace big and red like its bar, tired
-   pace in plain white, the fade as a small tag (orange from +15%). */
+/* The values are the main information of the chart: fresh pace big and red like its bar, tired pace in plain white, the fade as a small tag (orange from +15%). */
 .pace .num{display:flex;align-items:baseline;justify-content:flex-end;gap:10px;font-variant-numeric:tabular-nums;text-align:right}
 .pace .num .pf{font-family:var(--f-display);font-size:22px;font-weight:800;font-style:italic;color:var(--accent);min-width:3.2ch}
 .pace .num .pt{font-family:var(--f-display);font-size:17px;font-weight:700;color:var(--fg);min-width:3.2ch}
@@ -262,8 +257,7 @@ details.adv summary{cursor:pointer;font-family:var(--f-display);font-weight:700;
 }
 
 /* in-section jump links */
-/* No boxes: plain links signed with the small red flag of the section sub-titles, in the same
-   italic display type, so they read as part of the page rather than as buttons. */
+/* No boxes: plain links signed with the small red flag of the section sub-titles, in the same italic display type, so they read as part of the page rather than as buttons. */
 .jumps{display:flex;flex-wrap:wrap;gap:6px 22px;margin:0 0 18px}
 .jumps a{display:inline-flex;align-items:center;gap:8px;padding:4px 0;color:var(--fg);text-decoration:none;font-family:var(--f-display);font-weight:700;font-style:italic;text-transform:uppercase;letter-spacing:.08em;font-size:13.5px;background:none;border:0}
 .jumps a::before{content:"";width:14px;height:4px;background:var(--accent);transform:skewX(-30deg);flex:none}

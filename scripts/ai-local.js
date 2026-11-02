@@ -1,24 +1,4 @@
-#!/usr/bin/env node
-// ai-local.js: try the Prep my race AI call on your own computer, without the online account.
-//
-//   node scripts/ai-local.js --race race.gpx --runs run1.gpx --runs run2.gpx
-//        [--history my-trail-runs.json] [--aid "16.5 Le Moulin 3" ...] [--start 06:00]
-//        [--target 7:30] [--goal target|finish|best] [--risk prudent|balanced|bold]
-//        [--notes "..."] [--question "..."] [--max-hr 188] [--rest-hr 48] [--weight 66]
-//        [--demo] [--dry] [--fake] [--force] [--model gpt-4o-mini] [--effort medium]
-//
-// What it does, in the same order as the app will:
-//   1. build the calculated plan from the GPX files (the same core as the app and cli.js)
-//   2. run the code checks of the Ask the AI window (core/aichecks.js); a warning stops here
-//      unless --force (the "Send anyway" button)
-//   3. build the INPUT object and the ONE request (core/aiprep.js)
-//   4. --dry: stop there and write the prompt; --fake: a made-up answer made by code; otherwise
-//      call OpenAI with the key from OPENAI_API_KEY or from a file .env.local at the repo root
-//   5. read the answer and the tokens, run the referee and rebuild the plan from the AI times
-//   6. write everything to ai-runs/<date-time>/ and print a summary
-//
-// The key never leaves your computer except in the call to OpenAI, and is never written to the
-// output files. .env.local and ai-runs/ are ignored by git.
+// /usr/bin/env node ai-local.js: try the Prep my race AI call on your own computer...
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -53,8 +33,7 @@ if (o.help || (!o.demo && (!o.race || !o.runs))) {
 const hms = (s) => (s === null || s === undefined ? "-" : `${s < 0 ? "-" : ""}${Math.floor(Math.abs(s) / 3600)}:${String(Math.floor((Math.abs(s) % 3600) / 60)).padStart(2, "0")}:${String(Math.round(Math.abs(s) % 60)).padStart(2, "0")}`);
 const num = (v) => (v ? Number(v) : null);
 
-// 1. The calculated plan. --demo uses the app's made-up ultra and runs (and the demo profile's
-// stored runs as history) so the whole chain can be tried without any file.
+// 1.
 const raceXml = o.demo && !o.race ? makeDemoRaceGpx(DEMO_ULTRA_PROFILE, { name: "Ultra des Crêtes 78K", startEle: 650, loop: true, center: [45.05, 5.7] }) : readFileSync(o.race, "utf8");
 const runXml = o.demo && !o.runs
   ? [makeDemoEffortGpx({ profile: DEMO_LONG_RUN_PROFILE, startIso: "2026-10-11T07:00:00Z" }), makeDemoEffortGpx({ profile: DEMO_LONG_RUN_PROFILE, fatigue: 0.3, startIso: "2026-08-30T07:00:00Z" })]

@@ -1,9 +1,4 @@
-// help.js: the "?" next to each section title. A tap opens a small bubble with what the
-// section shows (the same line as the user guide, src/site/guide.js) and a link to its card in
-// guide.html. One bubble at a time; it closes on a tap outside, on Escape, or on the ×.
-//
-// This is "progressive disclosure": the page stays clean, the help is one tap away, and the
-// full explanation (screenshot, steps, tip) is one more tap away in the guide.
+// help.js: the "?" next to each section title.
 
 import { GUIDE } from "../site/guide.js";
 import { trackEvent } from "./analytics.js";

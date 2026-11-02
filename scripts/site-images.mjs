@@ -1,11 +1,4 @@
-// site-images.mjs: make the PNG icons and the share-preview image (og.jpg) once, from the SVG logo and
-// the hero photo, with a headless browser (Playwright + Chromium). The results are committed in
-// src/site/icons, so the normal build (and GitHub Actions) never needs a browser.
-//
-//   node scripts/site-images.mjs [path/to/playwright/index.mjs]
-//
-// Why PNG copies of an SVG icon: most browsers take the SVG favicon, but iPhones (home-screen
-// icon) and many share previews only read PNG/JPEG.
+// site-images.mjs: make the PNG icons and the share-preview image (og.jpg) once, from the SVG logo and the hero photo, with a headless browser (Playwright + Chromium).
 
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";

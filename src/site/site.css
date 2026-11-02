@@ -1,7 +1,5 @@
 /* ===== site.css: what the site adds around the app ===== */
-/* The footer of every page, the "?" help bubbles of the app, and the static pages (guide,
-   about, privacy, what's new, 404). Built on the app's tokens (--fg, --muted, --line, --sun...),
-   so Night and Sky both work without a second set of colours. */
+/* The footer of every page, the "?" help bubbles of the app, and the static pages (guide, about, privacy, what's new, 404). */
 
 /* ---------- links that are not live yet (SITE.linksLive = false) ---------- */
 .ext-off{color:inherit;text-decoration:underline dotted;text-underline-offset:3px;cursor:help;opacity:.85}

@@ -1,5 +1,4 @@
-// Tune my engine (signed-in users): the saved settings (src/core/profile.js tuneClean) and how they
-// reach the plan (src/core/plan.js tuneEffort and buildPlan's params.tune).
+// Tune my engine (signed-in users): the saved settings (src/core/profile.js tuneClean) and how they reach the plan (src/core/plan.js tuneEffort and buildPlan's params.tune).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { tuneClean, tuneIsDefault, profileClean } from "../src/core/profile.js";

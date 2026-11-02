@@ -1,20 +1,4 @@
 // airace.js: the AI plan in section 04 Your race (Prep my race), and its Calculated / AI switch.
-//
-// The last AI answer for a race is kept in localStorage (key "trp.ai.race"): the INPUT that was
-// sent and the AI's raw OUTPUT, not the rebuilt plan. Each time Your race is drawn, the code
-// takes the whole process again: aiPrepMerge (core/aiprep.js) checks the output against the
-// input and rebuilds a plan with the same shape as the calculated one, so the cockpit (map,
-// section bar, profile, section cards, race script) plays it exactly like the calculated plan.
-//
-// The answer only fits the plan it was made from. When the race or its calculated plan changed
-// since (another GPX, other runs, other settings), the AI side is "stale" and stays off until the
-// runner asks again: the AI's leg times were judged against the old calculation.
-//
-// Prep my run works the same way with its AI coach (core/airun.js): its own answer is kept under
-// "trp.ai.prep_run", checked again by aiRunMerge, and its switch sits above the run's cockpit.
-//
-// Main exports: arUse (make an AI doc the one played), arState (is there an AI plan for this
-// plan, and which), arBarHtml (the switch and the AI summary above the cockpit).
 
 import { aiPrepMerge } from "../core/aiprep.js";
 import { aiRunMerge } from "../core/airun.js";
@@ -30,10 +14,7 @@ const arEsc = (s) => String(s === null || s === undefined ? "" : s).replace(/[&<
 const arCache = { prep_race: { plan: null, at: null, result: null }, prep_run: { plan: null, at: null, result: null } };
 const arMode = (m) => (m === "prep_run" ? "prep_run" : "prep_race");
 
-/**
- * Make an AI doc (aidocs.js) the one its mode plays (doc.mode: "prep_race", the default, plays in
- * Your race; "prep_run" in Prep my run): { id, mode, race, raceName, at, input, output, tokens }.
- */
+/** Make an AI doc (aidocs.js) the one its mode plays (doc.mode: "prep_race", the default, plays in Your race; "prep_run" in Prep my run): { id, mode, race, raceName, at, input, output, tokens }. */
 export function arUse(doc) {
   const mode = arMode(doc.mode);
   const rec = { id: doc.id, mode, race: doc.race, raceName: doc.raceName, at: doc.at, input: doc.input, output: doc.output, tokens: doc.tokens };
@@ -47,13 +28,7 @@ function arLoad(mode) {
   return arMem[mode];
 }
 
-/**
- * The AI side for the calculated `plan` of race (or run) `race`, in `mode` ("prep_race" by default).
- * Returns { state, rec, result }:
- *   state   "none" (no answer for this race), "stale" (an answer made from an older plan),
- *           "empty" (the AI or the referee returned nothing usable), "ok"
- *   result  aiPrepMerge's result when ok: result.plan is the AI plan to play
- */
+/** The AI side for the calculated `plan` of race (or run) `race`, in `mode` ("prep_race" by default). */
 export function arState(plan, race, mode = "prep_race") {
   mode = arMode(mode);
   const rec = arLoad(mode);
@@ -70,14 +45,8 @@ export function arState(plan, race, mode = "prep_race") {
   return { state: result.status === "ok" ? "ok" : "empty", mode, rec, result };
 }
 
-/**
- * HTML of the bar above the cockpit: the Calculated / AI switch, then, with AI on, the AI's
- * headline, its verdict on the target, both finish times, its answer to the question and its
- * strengths and weaknesses. `on`: the AI side is shown. `calcSec`: the calculated finish of the
- * scenario shown, `aiSec` the AI one.
- */
-// The ask button of the bar: the same edelweiss button as everywhere else in the app (account.js
-// acctAiBadge draws the others). data-ar="ask" is read by the bar's own click listener.
+/** HTML of the bar above the cockpit: the Calculated / AI switch, then, with AI on, the AI's headline, its verdict on the target, both finish times, its answer to the question and its strengths and weaknesses. */
+// The ask button of the bar: the same edelweiss button as everywhere else in the app (account.js acctAiBadge draws the others). data-ar="ask" is read by the bar's own click listener.
 const arAsk = (label, sub) => `<button class="ai-badge ar-ask" type="button" data-ar="ask">${AC_SPARK}<span><b>${label}</b><small>${sub}</small></span></button>`;
 
 export function arBarHtml(s, on, calcSec, aiSec) {
@@ -119,10 +88,7 @@ const arSwitch = (on, can) => `<div class="ar-switch" role="group" aria-label="P
     <button type="button" data-ar="ai" class="${on ? "on" : ""}" aria-pressed="${on}"${can ? "" : " disabled"}>✦ AI</button>
   </div>`;
 
-/**
- * The bar above the Prep my run cockpit: the switch, then, with the AI coach on, its session:
- * headline, the exercises (dose, km, clock), its answer, and the why in a fold.
- */
+/** The bar above the Prep my run cockpit: the switch, then, with the AI coach on, its session: headline, the exercises (dose, km, clock), its answer, and the why in a fold. */
 function arRunBarHtml(s, on, calcSec, aiSec) {
   const can = s.state === "ok";
   const ask = (t) => arAsk(t, "coach · exercises");

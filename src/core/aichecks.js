@@ -1,17 +1,4 @@
-// aichecks.js: the checks made by code when the runner clicks "Spend 1 edelweiss" in the Ask the
-// AI window of Prep my race, BEFORE any call to the AI (they are free and instant).
-//
-// Each check gives back a short object { code, level, text, field }:
-//   code   a fixed name, e.g. "empty_dataset" (the server will run the same checks again and
-//          store the codes the runner chose to force)
-//   level  "stop": the call cannot happen (no account, no edelweiss): Fix or Cancel only
-//          "warn": the call can happen but may be wasted: Fix, Send anyway or Cancel
-//   text   the message shown to the runner
-//   field  which part of the window to fix ("race", "runs", "target", "notes", "question"), or
-//          "" when there is nothing to fix in the window
-// The window keeps everything typed, whatever button is pressed.
-//
-// Plain functions with no page access, so the tests run them in Node.
+// aichecks.js: the checks made by code when the runner clicks "Spend 1 edelweiss" in the Ask the AI window of Prep my race, BEFORE any call to the AI (they are free and instant).
 
 /** The runner's goal for the race (the chips of step 3). */
 export const AI_GOALS = [
@@ -28,22 +15,10 @@ export const AI_RISKS = [
 /** Longest free information text, in characters. */
 export const AI_NOTES_MAX = 500;
 
-// Words that ask for something other than an analysis of the race and runs: a web address,
-// code, or the usual ways of trying to change an AI's job. `i` = ignore upper / lower case.
+// Words that ask for something other than an analysis of the race and runs: a web address, code, or the usual ways of trying to change an AI's job.
 const AIC_OFF_TOPIC = /(https?:\/\/|www\.|<\/?[a-z]+>|```|ignore (all |your |the |previous )|system prompt|you are now|pretend|write (me )?(a|an) (poem|story|song|email|letter|post)|translate )/i;
 
-/**
- * The checks for one Prep my race request. `x` describes what the window would send:
- *   race        { km, gain, legs } of the loaded race GPX, or null when none is loaded
- *   gpxRuns     how many GPX files are loaded in "Your runs"
- *   storedRuns  how many stored runs the window selects
- *   targetText  the target time as typed ("7:30"), "" when none
- *   targetSec   that time in seconds, null when it cannot be read
- *   centralSec  the calculated central finish time, null without a plan
- *   notes, question   the runner's texts
- *   cloud       { open, signedIn, balance, demo }: the online account
- * Returns the list of checks that failed, hard stops first; [] means all clear.
- */
+/** The checks for one Prep my race request. */
 export function aiRaceChecks(x) {
   const out = [];
   const add = (code, level, text, field = "") => out.push({ code, level, text, field });
@@ -63,11 +38,7 @@ export function aiRaceChecks(x) {
   return out;
 }
 
-/**
- * The checks for one Prep my run request (the AI coach). `x`: route { km, gain } of the loaded
- * GPX or null, notes, question, cloud { open, signedIn, balance, demo }. Same rules and levels as
- * aiRaceChecks: the account checks are hard stops, the rest are warnings.
- */
+/** The checks for one Prep my run request (the AI coach). */
 export function aiRunChecks(x) {
   const out = [];
   const add = (code, level, text, field = "") => out.push({ code, level, text, field });

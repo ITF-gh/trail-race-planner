@@ -1,24 +1,9 @@
 // markdown.js: render a plan as Markdown (for the CLI, and the "Copy plan" button).
-//
-// Input: the plan object returned by buildPlan() in plan.js. Output: one long
-// Markdown string. The approach is simple: push one line at a time onto an
-// array `L`, then join the lines with newlines at the end. Markdown tables are
-// written as "| a | b |" rows under a "|---|---|" separator row.
 
 import { mmss, hm, clock } from "./format.js";
 import { LEVELS, DESCENT_LABELS } from "./plan.js";
 
-/**
- * The whole plan as Markdown text.
- *
- * `plan` comes from buildPlan(); `scenarioId` picks which scenario ("best",
- * "central" or "cautious") the tables use; an unknown id falls back to central.
- * Sections, in order: summary, effort profile and pace table, checkpoints,
- * aid stations (when any), gels, heart-rate guide (when the effort file had
- * heart rate), climbs (with their sections as extra rows), descents.
- * Times are printed with format.js: clock() for time of day from the start
- * time `st`, hm() for elapsed time, mmss() for paces.
- */
+/** The whole plan as Markdown text. */
 export function planToMarkdown(plan, scenarioId = "central") {
   const sc = plan.scenarios[scenarioId] || plan.scenarios.central;
   const st = plan.startSec;
@@ -52,8 +37,7 @@ export function planToMarkdown(plan, scenarioId = "central") {
     L.push("");
   }
   L.push(`## Gels (every ${plan.params.gelEveryMin} min, moved off climbs and technical descents)`);
-  // Each gel shows why it moved, when it did: the aid station (`at`) wins over
-  // the reason (`where`, such as "top"). Nested ternaries: a ? x : b ? y : z.
+  // Each gel shows why it moved, when it did: the aid station (`at`) wins over the reason (`where`, such as "top").
   for (const g of sc.gels) L.push(`- km ${g.km.toFixed(1)}: ${clock(st, g.sec)}${g.at ? ` (at ${g.at})` : g.where ? ` (${g.where})` : ""}`);
   L.push("");
   if (plan.hrGuide) {
@@ -65,7 +49,6 @@ export function planToMarkdown(plan, scenarioId = "central") {
   L.push(`| # | Km | Length | Gain | Avg | Steepest 100 m | Pace | Clock | Tactic | Difficulty |`);
   L.push(`|---|---|---|---|---|---|---|---|---|---|`);
   // Pace column: duration (s) / length (km) = average s/km on that climb.
-  // LEVELS[c.level] turns the 1 to 4 difficulty level into its word.
   for (const c of plan.climbs) {
     L.push(`| ${c.n} | ${c.startKm.toFixed(2)} | ${Math.round(c.lenM)} m | ${Math.round(c.gain)} m | ${c.avg.toFixed(1)}% | ${Math.round(c.steep)}% | ${mmss(c.dur[sc.id] / (c.lenM / 1000))} | ${clock(st, c.start[sc.id])} | ${c.tactic} | ${LEVELS[c.level]} |`);
     // Sections of a long climb follow their climb, numbered "2.1", "2.2"...

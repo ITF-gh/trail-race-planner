@@ -1,20 +1,4 @@
-// refs.js (ui): the "My references" card next to the file drops of every mode, and the level
-// picker of Prep my run (design review of Prep my run, item 2).
-//
-// The card: three optional boxes, 10K best (mm:ss), half-marathon best (h:mm:ss) and easy pace
-// (m:ss per km), with a line under them saying what they mean (easy pace and its range, from
-// core/refs.js). The same values show in the three modes: they are saved once, in the profile
-// (ui/profile.js profileSetRefs, localStorage on this device), and a "trp-refs" event tells each
-// mode to plan again.
-//
-// The level picker: levels 1 to 5 (Recovery, Easy, Steady, Marathon, Race), shown in Prep my run
-// only once a reference is set (and no target time). A gauge fills from green to red and a round
-// knob slides to the level with a little bounce (a CSS transition whose timing curve overshoots:
-// cubic-bezier with a value above 1); its icon moves: a turtle bobs, a leaf sways, a heart
-// beats, a bolt flashes, a flame flickers. Pure CSS animation, see src/ui/css ".lvl"; the CSS
-// variable --i (0 to 4) places the knob and the end of the fill.
-//
-// Main exports: refsCardHtml(mode), levelPickerHtml(level), initRefs().
+// refs.js (ui): the "My references" card next to the file drops of every mode, and the level picker of Prep my run (design review of Prep my run, item 2).
 
 import { refsRead, refsCalib, refsAny, REF_LEVELS } from "../core/refs.js";
 import { mmss, hms, parseDuration } from "../core/format.js";
@@ -36,11 +20,7 @@ export const RUN_LEVELS = {
   race: { name: "Race", ic: "🔥", tip: "all in, your race level" },
 };
 
-/**
- * Read a box as seconds: the 10K and the easy pace as m:ss ("45:00", "5:30"), the half as h:mm or
- * h:mm:ss ("1:40", "1:40:00"); any three-part time is h:mm:ss (format.js parseDuration). An empty
- * box gives null (the reference is cleared), text that is not a time gives NaN (refused).
- */
+/** Read a box as seconds: the 10K and the easy pace as m:ss ("45:00", "5:30"), the half as h:mm or h:mm:ss ("1:40", "1:40:00"); any three-part time is h:mm:ss (format.js parseDuration). */
 const readBox = (k, text) => {
   const t = String(text || "").trim();
   if (!t) return null;
@@ -57,14 +37,7 @@ function summaryText() {
   return `Easy ${mmss(x.easyPace)}/km (range ${mmss(x.easyRange[0])} to ${mmss(x.easyRange[1])}, Daniels), marathon ${mmss(x.marathonPace)}/km.${own}`;
 }
 
-/**
- * The references line, for one mode ("race", "prep" or "run"): discreet optional text under that
- * mode's file drops, no box and no border (owner's rule), with the values typed straight into the
- * sentence: "Optional 10K __ half __ easy __", in small faint type (owner: minimalist). What they mean is in the tooltip.
- * In Prep my run the target time comes first ("Target __ or ..."), and the level picker follows
- * (#prepLevel, drawn by preprun.js once a reference is set and no target is typed). The values
- * are the saved ones; data-ref names the box, so one listener (initRefs) serves the three lines.
- */
+/** The references line, for one mode ("race", "prep" or "run"): discreet optional text under that mode's file drops, no box and no border (owner's rule), with the values typed straight into the sentence... */
 export function refsCardHtml(mode) {
   const { refs } = profileRefs();
   const prep = mode === "prep";
@@ -75,12 +48,7 @@ export function refsCardHtml(mode) {
       </div>`;
 }
 
-/**
- * The level picker of Prep my run, levels 1 to 5, with `level` selected: a thin line whose
- * coloured fill grows from green to red, five dots to tap, a small coloured knob that slides
- * there, and the level's name (its meaning in the tooltip). Owner: light and simple, so the
- * knob is a plain dot (the icon element stays, hidden by CSS).
- */
+/** The level picker of Prep my run, levels 1 to 5, with `level` selected: a thin line whose coloured fill grows from green to red, five dots to tap, a small coloured knob that slides there, and the level's name... */
 export function levelPickerHtml(level) {
   const i = Math.max(0, REF_LEVELS.indexOf(level));
   const L = RUN_LEVELS[REF_LEVELS[i]];
@@ -95,12 +63,7 @@ export function levelPickerHtml(level) {
 /** The calibration for the engine at `level`, or null without references (see core/refs.js). */
 export const refsCalibNow = (level) => refsCalib(profileRefs().refs, level);
 
-/**
- * Wire the cards and the picker (once, at start-up). Typing in a box saves it when the box is
- * left or Enter is pressed ("change"); a bad value turns the box red and is not saved. A click on
- * a level saves it. Both end with profileSetRefs, whose "trp-refs" event makes each mode plan
- * again; the cards are refreshed here.
- */
+/** Wire the cards and the picker (once, at start-up). */
 export function initRefs() {
   document.addEventListener("change", (ev) => {
     const inp = ev.target.closest && ev.target.closest(".refs-card [data-ref]");

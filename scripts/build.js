@@ -1,27 +1,4 @@
-// build.js: bundle the app into ONE self-contained HTML file, with no dependencies.
-//
-//   npm run build        ->  dist/index.html     (a complete page, open it anywhere)
-//                            dist/fragment.html  (same content without <html>/<head>,
-//                                                 for hosts that wrap the page themselves)
-//
-// What a bundler does, in miniature:
-//   1. Start at src/ui/main.js and follow its `import ... from "./x.js"` lines.
-//   2. Order the files so every file comes after the files it imports.
-//   3. Strip the `import` lines and the `export` keywords (inside one script they
-//      are not needed: everything shares one scope).
-//   4. Wrap the result in a function so nothing leaks into the page.
-// This works because the project follows three rules: one import per line, no
-// renaming of imports with `as`, and no two modules declare the same top-level
-// name. The build checks the last two and stops with a clear message if broken. Tools like esbuild do the
-// same job with far more features; reach for them when the project outgrows this.
-// (The first rule is checked too, for an import list split over several lines.)
-//
-// Besides the page, the build also copies a few files next to it (photos, the Leaflet map
-// library) and refreshes the server functions' copy of src/core/.
-//
-// Most of the work is done with regular expressions (regexes). The `m` flag makes ^ and $
-// match at the start and end of every LINE (not only of the whole text), and the `g` flag
-// finds every match instead of the first one.
+// build.js: bundle the app into ONE self-contained HTML file, with no dependencies. npm run build -> dist/index.html (a complete page, open it anywhere) dist/fragment.html (same content without <html>/<head>...
 
 import { readFileSync, writeFileSync, mkdirSync, cpSync, existsSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -33,35 +10,23 @@ import { CLOUD } from "../src/ui/cloud.js";
 import { createHash } from "node:crypto";
 import { stripJs, stripCss } from "./strip.js";
 
-// The project folder: import.meta.url is this file's address (file:///.../scripts/build.js);
-// turn it into a path, take its folder (scripts/) and go one level up.
+// The project folder: import.meta.url is this file's address (file:///.../scripts/build.js); turn it into a path, take its folder (scripts/) and go one level up.
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const entry = join(root, "src/ui/main.js");
 
-// order: the files in the order they must appear in the bundle (dependencies first).
-// seen:  files already visited, so a file imported by several others is included once
-//        (and an import cycle cannot loop forever). A Set answers "is it in?" quickly.
+// order: the files in the order they must appear in the bundle (dependencies first). seen: files already visited, so a file imported by several others is included once (and an import cycle cannot loop forever).
 const order = [];
 const seen = new Set();
-/**
- * Depth-first walk of the import graph from `file` (an absolute path).
- * It visits every file that `file` imports BEFORE adding `file` itself to `order`
- * (a "post-order" walk), which is exactly what puts each dependency ahead of its users.
- * Side effects: fills `order` and `seen`; throws an Error if a file breaks the import rules.
- */
+/** Depth-first walk of the import graph from `file` (an absolute path). */
 function visit(file) {
   if (seen.has(file)) return;
   seen.add(file);
   const src = readFileSync(file, "utf8");
-  // Rule check 1: a line starting with `import {` that has no closing `}` on the same line
-  // ([^}]* = any characters except `}`, up to the end of the line) is an import split over
-  // several lines, which the line-by-line removal below would break.
+  // Rule check 1: a line starting with `import {` that has no closing `}` on the same line ([^}]* = any characters except `}`, up to the end of the line) is an import split over several lines...
   if (/^import\s*\{[^}]*$/m.test(src)) throw new Error(`${file}: keep each import on one line; the bundler removes import lines one at a time.`);
   // Rule check 2: the word `as` (\b = word boundary) inside the braces of an import.
   if (/^import\s*\{[^}]*\bas\b/m.test(src)) throw new Error(`${file}: do not rename imports with "as"; the bundler removes import lines, so the new name would not exist.`);
-  // Follow each import line. The regex matches a whole line `import ... from "path";` and
-  // captures the path between the quotes as m[1]; resolve() turns it into an absolute path
-  // relative to the importing file's folder.
+  // Follow each import line.
   for (const m of src.matchAll(/^import\s+.*?from\s+["'](.+?)["'];?\s*$/gm)) visit(resolve(dirname(file), m[1]));
   order.push(file);
 }
@@ -69,23 +34,15 @@ visit(entry);
 
 // names: every top-level name seen so far -> the file that declared it, to catch clashes.
 const names = new Map();
-// Turn each file into a piece of the bundle: imports removed, `export` keywords removed,
-// and comments stripped (the source keeps them; the live page does not need them).
-// The French dictionary's address carries a hash of its content (?v=...): the page fetches it with
-// cache: "force-cache", so a browser would otherwise keep an older dictionary after an update.
+// Turn each file into a piece of the bundle: imports removed, `export` keywords removed, and comments stripped (the source keeps them; the live page does not need them).
 const frUrl = `i18n/fr.json?v=${createHash("sha256").update(readFileSync(join(root, "src/i18n/fr.json"))).digest("hex").slice(0, 10)}`;
 const parts = order.map((file) => {
   let src = readFileSync(file, "utf8").replaceAll('"i18n/fr.json"', `"${frUrl}"`);
-  // Delete every import line (same pattern as above). In one shared scope the imported names
-  // already exist, because the files that declare them come earlier in the bundle.
+  // Delete every import line (same pattern as above).
   src = src.replace(/^import\s+.*?from\s+["'].+?["'];?\s*$/gm, "");
-  // Delete the word `export` (and its spaces) in front of a declaration. The (?=...) part is a
-  // "lookahead": it requires `function`, `const`, `let`, `class` or `async function` to follow,
-  // but does not remove them.
+  // Delete the word `export` (and its spaces) in front of a declaration.
   src = src.replace(/^export\s+(?=(async\s+)?(function|const|let|class))/gm, "");
-  // Rule check 3: list the names declared at the start of a line (top-level declarations,
-  // since this code base does not indent them) and refuse a name declared in two files.
-  // [A-Za-z_$][\w$]* is a JavaScript identifier: a letter, _ or $, then letters, digits, _ or $.
+  // Rule check 3: list the names declared at the start of a line (top-level declarations, since this code base does not indent them) and refuse a name declared in two files. [A-Za-z_$][\w$]* is a JavaScript identifier...
   for (const m of src.matchAll(/^(?:async\s+)?(?:function|const|let|class)\s+([A-Za-z_$][\w$]*)/gm)) {
     const name = m[1];
     if (names.has(name)) throw new Error(`Name "${name}" is declared in both ${names.get(name)} and ${file}. Rename one.`);
@@ -93,48 +50,28 @@ const parts = order.map((file) => {
   }
   return stripJs(src);
 });
-// Glue the pieces inside (function(){ ... })(): a function that is defined and called at once
-// (an "IIFE"), so the app's top-level names stay private instead of becoming globals of the page.
-// "use strict" turns on JavaScript's strict mode (as in a module), which turns some silent
-// mistakes into errors. Finally, any text "</script" inside the code (in a string, for example)
-// is written "<\/script": otherwise the browser would think the <script> element ends there.
+// Glue the pieces inside (function(){ ... })(): a function that is defined and called at once (an "IIFE"), so the app's top-level names stay private instead of becoming globals of the page.
 const js = `(function(){\n"use strict";\n${parts.join("\n")}\n})();`.replace(/<\/script/gi, "<\\/script");
 
-// The page's content: the stylesheet inline in <style>, the empty <div id="app"> that the
-// app fills in when it starts, and the bundled code inline in <script>.
-// The styles are the app's (src/ui/css/*.css, one file per part, joined in name order: later files
-// override earlier ones), then the site's (footer, "?" bubbles, the static pages).
-// The fonts (Barlow and Barlow Condensed) are loaded from Google Fonts.
+// The page's content: the stylesheet inline in <style>, the empty <div id="app"> that the app fills in when it starts, and the bundled code inline in <script>.
 const cssDir = join(root, "src/ui/css");
 const appCss = readdirSync(cssDir).filter((f) => f.endsWith(".css")).sort().map((f) => readFileSync(join(cssDir, f), "utf8")).join("");
 const css = stripCss(appCss + "\n" + readFileSync(join(root, "src/site/site.css"), "utf8"));
 const fonts = `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,700;1,800&family=Barlow:wght@400;500;600&display=swap">`;
 const body = `<style>\n${css}\n</style>\n<div class="wrap" id="app"></div>\n<script>\n${js}\n</script>\n`;
 
-// Write the outputs. `recursive: true` creates dist/ (and parents) if missing, and copies
-// whole folders with cpSync.
+// Write the outputs.
 mkdirSync(join(root, "dist"), { recursive: true });
-// The server functions (supabase/functions) check achievements with the very same code as the
-// app, and the AI function builds its OpenAI request with the very same prompt code: they get a
-// copy of src/core in _shared/core (made here and before the tests, not kept in git).
+// The server functions (supabase/functions) check achievements with the very same code as the app, and the AI function builds its OpenAI request with the very same prompt code: they get a copy of src/core in _shared/core...
 await import("./core-copy.js");
 // Photos are separate files (inlining them as base64 would make the page ~1.3x heavier and uncacheable).
 cpSync(join(root, "src/ui/photos"), join(root, "dist/photos"), { recursive: true });
-// Leaflet (the map library, BSD-2 licence) ships next to the page and is loaded only when a map
-// is shown, so the page stays light and the map code works offline.
+// Leaflet (the map library, BSD-2 licence) ships next to the page and is loaded only when a map is shown, so the page stays light and the map code works offline.
 cpSync(join(root, "src/vendor/leaflet"), join(root, "dist/vendor/leaflet"), { recursive: true });
 // The page title comes from SITE (src/site/site.js). In HTML, "&" must be written "&amp;".
 const title = `${SITE.name} · ${SITE.tagline}`;
 const titleHtml = title.replace(/&/g, "&amp;");
-// The Content Security Policy (CSP): a rule list in each page's <head> telling the browser which
-// sites the page may load code, styles, images and data from. Anything else is refused, so even
-// if a booby-trapped text slipped into the page as HTML, its script would not run and could not
-// send your sign-in to another site. Inline <script> blocks are allowed one by one by their
-// SHA-256 fingerprint (a hash of their exact text), computed here at build time: a script that is
-// not ours has another fingerprint. Inline style="" attributes stay allowed (the app and the map
-// draw with them). The hosts come from the app's own settings (CLOUD for the account, ANALYTICS
-// for the visit counter), so the policy follows them. api.openai.com is only reached by the local
-// AI test copy (opened as a file), never by the live site.
+// The Content Security Policy (CSP): a rule list in each page's <head> telling the browser which sites the page may load code, styles, images and data from.
 const origin = (u) => (u ? new URL(u).origin : "");
 const counterHosts = (() => {
   const p = PROVIDERS[ANALYTICS.provider];
@@ -160,16 +97,13 @@ function withCsp(html) {
 
 // fragment.html: the content without <html>/<head>/<body>, for a host page that adds its own.
 writeFileSync(join(root, "dist/fragment.html"), `<title>${titleHtml}</title>\n${fonts}\n${body}`);
-// index.html: a complete page. The viewport meta tag makes it render at phone width on phones;
-// viewport-fit=cover lets it use the whole screen on phones with a notch. headMeta adds the
-// description, icons and share-preview tags.
+// index.html: a complete page.
 writeFileSync(
   join(root, "dist/index.html"),
   withCsp(`<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n<title>${titleHtml}</title>\n${headMeta({ title })}\n${fonts}\n</head>\n<body>\n${body}</body>\n</html>\n`)
 );
 
 // The static pages (guide, about, privacy, what's new, 404) share the app's stylesheet as a file.
-// They count visits the same way as the app, with a plain script tag (they run no app code).
 writeFileSync(join(root, "dist/style.css"), css);
 const prov = PROVIDERS[ANALYTICS.provider];
 let counter = null;
@@ -179,15 +113,12 @@ if (prov && ANALYTICS.site) {
   counter = { name: { goatcounter: "GoatCounter", plausible: "Plausible", cloudflare: "Cloudflare Web Analytics" }[ANALYTICS.provider], tag: `<script async src="${src}"${a}></script>` };
 }
 for (const [file, html] of sitePages({ fonts, counter })) writeFileSync(join(root, "dist", file), withCsp(html));
-// The French version (src/ui/i18n.js swaps the texts): the dictionary as dist/i18n/fr.json, read
-// only when French is picked, and the same i18n.js as a plain script for the static pages (its
-// export keywords removed, wrapped like the app, started once the page is read).
+// The French version (src/ui/i18n.js swaps the texts): the dictionary as dist/i18n/fr.json, read only when French is picked, and the same i18n.js as a plain script for the static pages (its export keywords removed...
 mkdirSync(join(root, "dist/i18n"), { recursive: true });
 writeFileSync(join(root, "dist/i18n/fr.json"), JSON.stringify(JSON.parse(readFileSync(join(root, "src/i18n/fr.json"), "utf8"))));
 const i18nSrc = stripJs(readFileSync(join(root, "src/ui/i18n.js"), "utf8")).replace(/^export /gm, "").replaceAll('"i18n/fr.json"', `"${frUrl}"`);
 writeFileSync(join(root, "dist/i18n.js"), `(function(){\n"use strict";\n${i18nSrc}\nif (i18nLang() === "fr") document.documentElement.classList.add("i18n-wait");\ndocument.addEventListener("DOMContentLoaded", () => i18nInit(document.querySelector(".i18n-slot")));\n})();\n`);
-// Icons, the share-preview image and the guide screenshots (made once by scripts/site-images.mjs
-// and scripts/guide-shots.mjs, kept in src/site).
+// Icons, the share-preview image and the guide screenshots (made once by scripts/site-images.mjs and scripts/guide-shots.mjs, kept in src/site).
 cpSync(join(root, "src/site/icons"), join(root, "dist"), { recursive: true });
 if (existsSync(join(root, "src/site/guide"))) cpSync(join(root, "src/site/guide"), join(root, "dist/guide"), { recursive: true });
 // Report the number of modules and the size of code in KB (characters / 1024).

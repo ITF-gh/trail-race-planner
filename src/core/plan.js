@@ -1,20 +1,4 @@
-// plan.js: put it all together. Race GPX + effort GPX + a few settings => a plan.
-//
-// This is the conductor of the core. buildPlan() calls, in order:
-//   track.js     resample the race GPX onto a 10 m grid
-//   terrain.js   gradients, climbs, descents of the race (and of your run)
-//   effort.js    your pace table, fresh and tired, per gradient band
-//   model.js     cumulative time at every 10 m, for three scenarios
-//   keyzones.js  where the race is played
-// and then adds what a runner reads on race day: a tactic and a clock time for
-// each climb and descent, aid-station stops, gel timing, checkpoints, a
-// heart-rate guide, and the time spent in each gradient band. The UI, the CLI
-// and markdown.js all read the object buildPlan() returns.
-//
-// Other exports: PLAN_DEFAULTS (every setting and its default), the scoring
-// helpers for climbs and descents, splitClimb() (dynamic programming),
-// briefCourse() (the course analysed without a runner), planFromGpx() (a
-// shortcut from GPX text) and judgeTarget() (is a target time realistic?).
+// plan.js: put it all together.
 
 import { parseGpx, resample } from "./track.js";
 import { analyseCourse, BANDS, bandIndex, steepest100 } from "./terrain.js";
@@ -24,11 +8,7 @@ import { predictAll, SCENARIOS, MODEL_DEFAULTS } from "./model.js";
 import { parseClock } from "./format.js";
 import { keyZones, clockFromTimeline } from "./keyzones.js";
 
-/**
- * Every plan setting and its default. A caller passes only what it wants to
- * change; buildPlan merges it over these with object spread.
- * `...MODEL_DEFAULTS` copies terrain, enduranceExp and descentBoost from model.js.
- */
+/** Every plan setting and its default. */
 export const PLAN_DEFAULTS = {
   ...MODEL_DEFAULTS,
   // Start time of day, "HH:MM".
@@ -53,11 +33,7 @@ export const PLAN_DEFAULTS = {
   tzOffsetMin: null, // minutes east of UTC on race day; null = this device's time zone on that date
 };
 
-/**
- * Apply "Tune my engine" (core/profile.js tuneClean, with `on` true) to an effort profile: every
- * pace times (1 + level %), each band's fresh and tired pace times its own (1 + %), then the
- * fresh-to-tired gap times fatigue %. Returns a new effort object; the measured one is unchanged.
- */
+/** Apply "Tune my engine" (core/profile.js tuneClean, with `on` true) to an effort profile: every pace times (1 + level %), each band's fresh and tired pace times its own (1 + %)... */
 export function tuneEffort(effort, tune) {
   const lv = 1 + tune.level / 100;
   const bands = effort.bands.map((b, i) => {
@@ -71,13 +47,7 @@ export function tuneEffort(effort, tune) {
   return { ...effort, bands, flatPace: flat ? flat.fresh : effort.flatPace * lv };
 }
 
-/**
- * Civil dawn and dusk (sun 6 degrees below the horizon: the headlamp goes on or off) on `date`
- * ("YYYY-MM-DD") at `lat`, `lon` (degrees), in seconds of the local day, with the local clock
- * `tzMin` minutes east of UTC. The NOAA solar formulas: the sun's declination and the equation
- * of time from the day of the year, then the hour angle where the sun is 6 degrees down.
- * Returns {dawn, dusk}, or null on a bad date or when the sun never sets or never rises then.
- */
+/** Civil dawn and dusk (sun 6 degrees below the horizon: the headlamp goes on or off) on `date` ("YYYY-MM-DD") at `lat`, `lon` (degrees), in seconds of the local day, with the local clock `tzMin` minutes east of UTC. */
 export function civilTwilight(date, lat, lon, tzMin) {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date || "");
   if (!m || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
@@ -93,28 +63,14 @@ export function civilTwilight(date, lat, lon, tzMin) {
   return { dawn: (noon - 4 * h) * 60, dusk: (noon + 4 * h) * 60 };
 }
 
-/**
- * Read an aid-station list typed by a person, one per line (or separated by ";"):
- *   "8.5 Refuge du Lac 2"   km, name, minutes stopped (optional, default 0)
- *   "12,6 km Col 3 min"     commas, "km" and "min" are fine
- *
- * Returns [{km, name, stopMin}] sorted by km. An array is accepted as is (only sorted).
- * A line with no name gets "Aid 1", "Aid 2"...; lines that do not start with a number are skipped.
- */
+/** Read an aid-station list typed by a person, one per line (or separated by ";"): "8.5 Refuge du Lac 2" km, name, minutes stopped (optional, default 0) "12,6 km Col 3 min" commas, "km" and "min" are fine Returns [{km... */
 export function parseAidStations(text) {
-  // Already structured (from the UI or a test): copy with [...text] so the
-  // caller's array is not reordered, and sort by km.
+  // Already structured (from the UI or a test): copy with [...text] so the caller's array is not reordered, and sort by km.
   if (Array.isArray(text)) return [...text].sort((a, b) => a.km - b.km);
   const out = [];
   // Split on newlines or ";" (one or more in a row, so blank lines vanish).
   for (const line of String(text || "").split(/[\n;]+/)) {
-    // The regex, piece by piece (\s* = optional spaces):
-    //   ^\s*(\d+(?:[.,]\d+)?)        group 1: the km, "8.5" or "8,5"
-    //   \s*(?:km)?                    an optional "km"
-    //   \s*(.*?)                      group 2: the name, as short as possible
-    //   \s*(?:(\d+(?:[.,]\d+)?)       group 3 (optional): a number at the end...
-    //   \s*(?:min|mn|')?)?\s*$        ...optionally followed by "min", "mn" or "'"
-    // The final "i" makes it case-insensitive ("KM", "Min").
+    // The regex, piece by piece (\s* = optional spaces): ^\s*(\d+(?:[.,]\d+)?) group 1: the km, "8.5" or "8,5" \s*(?:km)? an optional "km" \s*(.*?) group 2: the name, as short as possible \s*(?:(\d+(?:[.,]\d+)?) group 3...
     const m = /^\s*(\d+(?:[.,]\d+)?)\s*(?:km)?\s*(.*?)\s*(?:(\d+(?:[.,]\d+)?)\s*(?:min|mn|')?)?\s*$/i.exec(line);
     if (!m) continue;
     // French-style decimals: "12,6" becomes "12.6" before parseFloat.
@@ -131,15 +87,7 @@ export const STARS = ["", "★", "★★", "★★★", "★★★★"];
 // Descent risk words, keyed by descentLevel() (there is no level 3).
 export const DESCENT_LABELS = { 1: "Let it run", 2: "Control", 4: "Brake" };
 
-/**
- * Difficulty score of a climb: gain x steepness factor x fatigue factor.
- *
- * `c` needs avg (%), startKm and delta (m of gain); `totalKm` is the race length.
- *   steepness  average gradient / 8%, kept between 0.5 and 2
- *   fatigue    1.00 in the first 35% of the race, 1.15 up to 69%, 1.35 after
- * Example: 200 m at 8% in the second half: 200 x 1 x 1.15 = 230.
- * The score is a guide for where to save energy, not a physical quantity.
- */
+/** Difficulty score of a climb: gain x steepness factor x fatigue factor. */
 export function climbScore(c, totalKm) {
   const steepness = Math.min(2, Math.max(0.5, c.avg / 8));
   const frac = c.startKm / totalKm;
@@ -150,23 +98,14 @@ export function climbScore(c, totalKm) {
 export function climbLevel(score) {
   return score < 30 ? 1 : score < 60 ? 2 : score < 90 ? 3 : 4;
 }
-/**
- * 4 = brake, 2 = control, 1 = let it run.
- * `d` is a descent with negative avg and steep (%): Brake when the steepest
- * 100 m reaches -20% or the average -12%; Control from -6% average or -15% steepest.
- */
+/** 4 = brake, 2 = control, 1 = let it run. */
 export function descentLevel(d) {
   if (d.steep <= -20 || d.avg <= -12) return 4;
   if (d.avg <= -6 || d.steep <= -15) return 2;
   return 1;
 }
 
-/**
- * The tactic for one climb (or one section), as a short phrase.
- * Inputs: `c` with avg, steep (%) and delta (m); `hikeGrade` your hiking
- * threshold (%); `biggest` true for the climb with the most gain.
- * Rules are checked in order and the first that matches wins.
- */
+/** The tactic for one climb (or one section), as a short phrase. */
 export function climbTactic(c, hikeGrade, biggest) {
   // Average within 2 points of your hiking gradient: hike all of it.
   if (c.avg >= hikeGrade - 2) return "Hike";
@@ -180,27 +119,7 @@ export function climbTactic(c, hikeGrade, biggest) {
 // Descent tactic phrase, keyed by descentLevel().
 const DESCENT_TACTIC = { 1: "Let it run, recover", 2: "Quick steps, stay light", 4: "Brake, short steps" };
 
-/**
- * Split a long climb into sections that each hold a fairly even gradient.
- *
- * The cost of a section is how much its 10 m gradients scatter around the
- * section's own average (a sum of squared deviations), so cuts land where the
- * slope changes character, for example between a runnable ramp and a steep wall.
- * Dynamic programming finds the best cuts for 1, 2, 3... sections; we then keep
- * adding a section only while it pays: it must remove at least `minGainShare`
- * of the one-piece cost AND every pair of neighbouring sections must differ by
- * at least `minDiff` points of average gradient (the weight on gradient change:
- * two sections at 7% and 8% are one section). Each section is at least
- * `minShare` of the climb's length; a climb shorter than `minM` is not split.
- * Returns [[a, b], ...] sample indices, contiguous from the climb's a to b.
- *
- * Inputs: `ele` smoothed elevations (m), `a` and `b` the climb's first and last
- * sample, `step` metres per sample, options {minM, minShare, minDiff, minGainShare}.
- * Dynamic programming in one sentence: the best way to cut the first q steps
- * into j sections is the best way to cut the first p steps into j - 1
- * sections, plus one last section from p to q, for the best p. We fill a
- * table of those answers for j = 1, 2, ..., kMax, then walk back through it.
- */
+/** Split a long climb into sections that each hold a fairly even gradient. */
 export function splitClimb(ele, a, b, step, opts = {}) {
   const { minM = 3000, minShare = 0.15, minDiff = 2, minGainShare = 0.1 } = opts;
   const m = b - a; // number of 10 m steps in the climb
@@ -216,8 +135,7 @@ export function splitClimb(ele, a, b, step, opts = {}) {
     S[i + 1] = S[i] + g;
     Q[i + 1] = Q[i] + g * g;
   }
-  // Cost of a section from step p to step q: sum of squared deviations of its
-  // gradients from their mean, which equals sum(g^2) - (sum(g))^2 / count.
+  // Cost of a section from step p to step q: sum of squared deviations of its gradients from their mean, which equals sum(g^2) - (sum(g))^2 / count.
   const cost = (p, q) => Q[q] - Q[p] - ((S[q] - S[p]) ** 2) / (q - p);
   const mean = (p, q) => (S[q] - S[p]) / (q - p);
   // best[j][q]: lowest cost to cut steps 0..q into j sections; from[j][q]: where the last one starts.
@@ -261,10 +179,7 @@ export function splitClimb(ele, a, b, step, opts = {}) {
   return out;
 }
 
-/**
- * Every 10th sample (one per 100 m on the 10 m grid) plus the last one: the resolution of
- * the profile, the map route and the race-day replay timeline.
- */
+/** Every 10th sample (one per 100 m on the 10 m grid) plus the last one: the resolution of the profile, the map route and the race-day replay timeline. */
 export function coarseIndices(n, every = 10) {
   const idx = [];
   for (let i = 0; i < n; i += every) idx.push(i);
@@ -272,12 +187,7 @@ export function coarseIndices(n, every = 10) {
   return idx;
 }
 
-/**
- * Index of the sample where cumulative time first reaches `sec`.
- * Binary search: `cum` only grows, so we halve the search range each time
- * (about 12 steps for the 2500 samples of a 25 km course, instead of a scan).
- * `(lo + hi) >> 1` is a fast integer division by 2 (a bit shift).
- */
+/** Index of the sample where cumulative time first reaches `sec`. */
 function indexAtTime(cum, sec) {
   let lo = 0;
   let hi = cum.length - 1;
@@ -289,15 +199,7 @@ function indexAtTime(cum, sec) {
   return lo;
 }
 
-/**
- * Match a race climb to the most similar climb in the effort file.
- *
- * Similarity is a weighted sum of differences: 3 points of gradient, 25 m of
- * gain and 400 m of length each count as 1; the lowest total wins.
- * `rs` is the resampled effort run (for its times and heart rate).
- * Returns what you did on that climb {avg, delta, lenM, paceSecPerKm, hr,
- * minutesIn (minutes from the start of the run)}, or null with no climbs.
- */
+/** Match a race climb to the most similar climb in the effort file. */
 function closestEffortClimb(c, effortClimbs, rs) {
   let best = null;
   let bestScore = Infinity;
@@ -321,18 +223,7 @@ function closestEffortClimb(c, effortClimbs, rs) {
   };
 }
 
-/**
- * Race briefing: everything the course alone tells us, before knowing who runs it.
- * Climbs (long ones split into sections) with their difficulty score, and descents
- * with their risk level. Each item keeps `delta` (signed metres) and sample indices a, b.
- *
- * Input: `course` from analyseCourse(), `userParams` overrides of PLAN_DEFAULTS
- * (only the climb-splitting settings are used here).
- * Returns {totalKm, gain, loss, climbs, descents, minClimb}. A climb is {n, label, bump,
- * startKm, endKm, lenM, delta, gain, avg, steep, score, level, a, b, sections}; a
- * section has the same fields with n like "2.1". A descent is {n, startKm,
- * endKm, lenM, delta, loss, avg, steep, level, a, b}.
- */
+/** Race briefing: everything the course alone tells us, before knowing who runs it. */
 export function briefCourse(course, userParams = {}) {
   const params = { ...PLAN_DEFAULTS, ...userParams };
   const total = course.totalKm;
@@ -348,11 +239,6 @@ export function briefCourse(course, userParams = {}) {
     return c;
   };
   // Whole climbs keep the steepest-100 m value analyseCourse already measured.
-  // A climb long enough that also gains enough gets sections from splitClimb.
-  // Climb or bump: a rise is a climb when it gains at least climbShare of the total D+, or
-  // climbFloorM metres whatever the race (so on a hilly race every 100 m rise counts).
-  // Bumps keep their tactic and race-script cue but are not counted or numbered as climbs:
-  // they are numbered on their own ("b1", "b2"...) so a bump never shares a number with a climb.
   const minClimb = Math.min(params.climbShare * course.gain, params.climbFloorM);
   let nc = 0;
   let nb = 0;
@@ -374,26 +260,7 @@ export function briefCourse(course, userParams = {}) {
   return { totalKm: total, gain: course.gain, loss: course.loss, climbs, descents, minClimb };
 }
 
-/**
- * Build the plan from two already-parsed GPX tracks.
- *
- * Inputs: `raceParsed` and `effortParsed` from parseGpx() (the effort can be
- * an array of runs), `userParams` overrides of PLAN_DEFAULTS.
- * Returns the plan:
- *   params        the settings used (with the hiking gradient actually used)
- *   startSec      start time, seconds since midnight
- *   course        {totalKm, gain, loss, climbCount, descentCount,
- *                  profile [[km, ele]] every 100 m, route [[lat, lon]] or null}
- *   effort        the effort profile (see effort.js), without the raw samples
- *   bandUse       km and seconds spent in each gradient band (central, moving time)
- *   hrGuide       three heart-rate phases, or null without a max heart rate in the profile
- *   keyZones      see keyzones.js
- *   aidStations   [{km, name, stopMin, arrive: {best, central, cautious} (s)}]
- *   scenarios     {best, central, cautious}: {id, label, finishSec, factor,
- *                  durationFactor, gels, checkpoints, timeline}
- *   climbs        briefing climbs plus tactic, start / dur per scenario, effortMatch
- *   descents      briefing descents plus tactic and start / dur per scenario
- */
+/** Build the plan from two already-parsed GPX tracks. */
 export function buildPlan(raceParsed, effortParsed, userParams = {}) {
   const params = { ...PLAN_DEFAULTS, ...userParams };
   // 1. Analyse the race, your run(s), and predict the three scenarios.
@@ -405,7 +272,6 @@ export function buildPlan(raceParsed, effortParsed, userParams = {}) {
   // Tune my engine (profile, signed-in runners): your own corrections on top of the measured table.
   if (params.tune) effort = tuneEffort(effort, params.tune);
   // Aid stations: the stop is added to every clock time after the station (step 2 below).
-  // Each station gets `idx`, the 10 m sample nearest to its km.
   const aid = parseAidStations(params.aidStations)
     .filter((a) => a.km >= 0 && a.km <= course.totalKm)
     .map((a) => ({ ...a, idx: Math.min(course.n - 1, Math.round((a.km * 1000) / course.step)) }));
@@ -418,9 +284,7 @@ export function buildPlan(raceParsed, effortParsed, userParams = {}) {
   const preds = predictAll(course, effort, { ...calibParams(params), ...tuned, night, stops: aid.map((a) => ({ idx: a.idx, sec: a.stopMin * 60 })) });
   const rawCentral = preds.central.cum; // moving time only, for the time-per-gradient table
 
-  // 2. Aid stations: add each stop to every time after it.
-  // For each scenario, rebuild `cum` with a running total of stop time
-  // (`extra`) that grows as each station is passed. `k` points to the next station.
+  // 2.
   if (aid.length) {
     for (const sc of SCENARIOS) {
       const p = preds[sc.id];
@@ -434,18 +298,14 @@ export function buildPlan(raceParsed, effortParsed, userParams = {}) {
       preds[sc.id] = { ...p, cum, finishSec: cum[cum.length - 1] };
     }
   }
-  // 3. The hiking gradient: your setting, else learned from cadence, else 15%.
-  // `??` picks the right side only when the left is null or undefined (unlike
-  // `||`, it keeps a real 0).
+  // 3.
   const hikeGrade = params.hikeGrade ?? effort.hikeGrade ?? 15;
   const total = course.totalKm;
   const kmAt = (idx) => (idx * course.step) / 1000;
 
   // Gain of the biggest climb (0 when there are none), to flag "Biggest climb".
   const maxGain = Math.max(...course.climbs.map((c) => c.delta), 0);
-  // Clock offset at sample a and duration from a to b, for each scenario:
-  // {start: {best, central, cautious}, dur: {...}}. Object.fromEntries builds an
-  // object from [key, value] pairs.
+  // Clock offset at sample a and duration from a to b, for each scenario: {start: {best, central, cautious}, dur: {...}}.
   const timing = (a, b) => ({
     start: Object.fromEntries(SCENARIOS.map((s) => [s.id, preds[s.id].cum[a]])),
     dur: Object.fromEntries(SCENARIOS.map((s) => [s.id, preds[s.id].cum[b] - preds[s.id].cum[a]])),
@@ -466,8 +326,7 @@ export function buildPlan(raceParsed, effortParsed, userParams = {}) {
   }));
   const descents = brief.descents.map((d) => ({ ...d, tactic: DESCENT_TACTIC[d.level], ...timing(d.a, d.b) }));
 
-  // 5. Where the gel lands: every N minutes, but never in the middle of a climb or a braking descent.
-  // `segs` = the stretches a gel should avoid: every climb, and the "Brake" descents.
+  // 5.
   const segs = [...climbs.map((c) => ({ ...c, kind: "climb" })), ...descents.filter((d) => d.level === 4).map((d) => ({ ...d, kind: "descent" }))];
   const coarse = coarseIndices(course.n);
   const scenarios = {};
@@ -487,11 +346,7 @@ export function buildPlan(raceParsed, effortParsed, userParams = {}) {
         if (pr.cum[near.idx] > last) gels.push({ km: kmAt(near.idx), sec: pr.cum[near.idx], moved: true, at: near.name });
         continue;
       }
-      // Take it at the top, or at the bottom of the descent; on a climb too long to wait for the
-      // top (more than gelMaxDelayMin away), at the end of the current section, else right there.
-      // A gel moved earlier or later than another one is never taken twice at the same spot.
-      // `soon(j)`: sample j is reached within gelMaxDelayMin of the due time.
-      // `[idx, where] = [x, y]` is destructuring: it sets both variables at once.
+      // Take it at the top, or at the bottom of the descent; on a climb too long to wait for the top (more than gelMaxDelayMin away), at the end of the current section, else right there.
       const inside = segs.find((g) => idx > g.a && idx < g.b);
       let where = null; // why it moved: "top", "bottom", "section", "before descent", or "on the climb"
       if (inside) {
@@ -517,15 +372,7 @@ export function buildPlan(raceParsed, effortParsed, userParams = {}) {
     scenarios[s.id] = { id: s.id, label: s.label, finishSec: pr.finishSec, factor: pr.factor, durationFactor: pr.durationFactor, gels, checkpoints, timeline };
   }
 
-  // 7. Heart-rate guide, from the runner's PROFILE only (heart rate is never read from a GPX
-  // file). Three phases with the same 35% / 69% boundaries as the climb fatigue factor, each a
-  // ceiling that rises as the race goes on. With a resting heart rate too, the ceilings are taken
-  // on the heart-rate reserve (Karvonen: rest + share x (max - rest)), which fits each runner
-  // better; with the max alone, they are a share of the max.
-  //   phase   reserve share   share of max
-  //   early   65%             75%
-  //   middle  72%             80%
-  //   late    80%             86%   ("if legs allow")
+  // 7.
   let hrGuide = null;
   if (params.maxHr) {
     const max = params.maxHr, rest = params.restHr;
@@ -539,8 +386,7 @@ export function buildPlan(raceParsed, effortParsed, userParams = {}) {
     ];
   }
 
-  // 8. Time on each gradient band for the central scenario.
-  // Uses rawCentral (moving time, before aid stops) so stops are not counted as running.
+  // 8.
   const bandUse = BANDS.map((b) => ({ id: b.id, label: b.label, km: 0, sec: 0 }));
   const cc = rawCentral;
   for (let i = 0; i < course.n - 1; i++) {
@@ -551,8 +397,7 @@ export function buildPlan(raceParsed, effortParsed, userParams = {}) {
 
   // 9. Elevation profile every 100 m: [[km, elevation in m], ...].
   const profile = coarse.map((i) => [kmAt(i), course.ele[i]]);
-  // [lat, lon] at the same points as the profile, for the map. Null when the GPX has no positions.
-  // toFixed(6) keeps 6 decimals (about 0.1 m); the leading + turns the text back into a number.
+  // [lat, lon] at the same points as the profile, for the map.
   const route = raceRs.lat ? coarse.map((i) => [+raceRs.lat[i].toFixed(6), +raceRs.lon[i].toFixed(6)]) : null;
 
   return {
@@ -578,9 +423,7 @@ export function buildPlan(raceParsed, effortParsed, userParams = {}) {
     // Night (null without a race date): civil dawn and dusk (s of the day), km in the dark (central).
     night: night ? { dawn: night.dawn, dusk: night.dusk, darkKm: preds.central.darkM / 1000, slowPct: Math.round((params.tune ? params.tune.night / 100 : params.nightSlow) * 100) } : null,
     tuned: Boolean(params.tune),
-    // True when the race is shorter than your runs and no 10K or half time sets your race level:
-    // the plan then runs it at your training pace, so the page asks for those times.
-    // Where the race is played, from your predicted (central) time on each stretch.
+    // True when the race is shorter than your runs and no 10K or half time sets your race level: the plan then runs it at your training pace, so the page asks for those times.
     keyZones: keyZones({ totalKm: total, climbs, descents }, profile, aid, clockFromTimeline(profile, scenarios.central.timeline)),
     aidStations: aid.map((a) => ({
       km: a.km, name: a.name, stopMin: a.stopMin,
@@ -592,9 +435,7 @@ export function buildPlan(raceParsed, effortParsed, userParams = {}) {
   };
 }
 
-// Climbs of the effort run with 10 m of gain or more, computed once per
-// analysed run. A WeakMap is a cache keyed by the object itself; when the
-// object is no longer used, its entry is freed automatically.
+// Climbs of the effort run with 10 m of gain or more, computed once per analysed run.
 const effortClimbCache = new WeakMap();
 /** The climbs of an analysed effort run that can be matched to race climbs (cached). */
 function effortClimbsOf(effortCourse) {
@@ -608,25 +449,12 @@ export function planFromGpx(raceXml, effortXml, params = {}) {
   return buildPlan(parseGpx(raceXml), efforts, params);
 }
 
-/**
- * Check a finish time the runner is aiming for against the three scenarios of the plan.
- * The scenarios already span the likely range (best -3.5%, cautious +3.5% around central); a model
- * like this one is also usually within 5 to 10%, so a target a little faster than the best case
- * is still possible on a great day, but one more than 5% faster than it is not backed by the runs.
- * Returns null without a target, else {targetSec, verdict, ok, vsCentralPct, paceSec, centralPaceSec}:
- *   verdict "out-of-reach" | "ambitious" | "realistic" | "comfortable"; ok = false only out of reach;
- *   vsCentralPct > 0 means the target needs that much faster than the central scenario;
- *   paceSec is the average pace (s/km, stops included) the target needs.
- */
+/** Check a finish time the runner is aiming for against the three scenarios of the plan. */
 export function judgeTarget(plan, targetSec) {
   if (!plan || !Number.isFinite(targetSec) || targetSec <= 0) return null;
   const { best, central, cautious } = plan.scenarios;
   const km = plan.course.totalKm;
-  // A chain of ternaries, read top to bottom: the first true condition wins.
-  //   more than 5% faster than best   out of reach
-  //   faster than best                ambitious
-  //   up to the cautious time         realistic
-  //   slower than cautious            comfortable
+  // A chain of ternaries, read top to bottom: the first true condition wins. more than 5% faster than best out of reach faster than best ambitious up to the cautious time realistic slower than cautious comfortable
   const verdict = targetSec < best.finishSec * 0.95 ? "out-of-reach"
     : targetSec < best.finishSec ? "ambitious"
     : targetSec <= cautious.finishSec ? "realistic"

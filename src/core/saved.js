@@ -1,18 +1,4 @@
-// saved.js: the summary kept when a signed-in runner presses "Save to my account" (Boss's rule,
-// 2026-10-18: saving is a choice, never automatic, and only COMPUTED numbers are kept, never the
-// GPX file). Pure functions, no page code.
-//
-// Three kinds, one per mode:
-//   plan     Prep my race: the race, the three predicted finishes, the target, the sections
-//   session  Prep my run: the same summary, for a run to come
-//   run      Rewind my run: the run summary of the run log (runRecord, core/runrecord.js)
-// A plan or session keeps per section: start and end km, climbing, the time to get there, so a
-// later version can put a run next to the plan it followed (after the feature freeze).
-//
-// No heart rate and no weight (the database refuses them too). A summary is a few KB; the item
-// also carries the packed points to reopen the mode (core/snapshot.js), up to SAVED_MAX_BYTES.
-//
-// Main exports: planSummary, savedCheck, SAVED_KINDS, SAVED_MAX_BYTES.
+// saved.js: the summary kept when a signed-in runner presses "Save to my account" (Boss's rule, 2026-10-18: saving is a choice, never automatic, and only COMPUTED numbers are kept, never the GPX file).
 
 import { raceLegs } from "./script.js";
 
@@ -25,13 +11,7 @@ export const SAVED_KINDS = { plan: "Race plan", session: "Run session", run: "Ru
 // Round to `d` decimals (a number, not text).
 const rnd = (v, d = 0) => (Number.isFinite(v) ? Math.round(v * 10 ** d) / 10 ** d : null);
 
-/**
- * The summary of a plan (buildPlan's object), for kind "plan" or "session".
- * `meta`: { name (the race or run), targetSec (the finish time aimed at, or null) }.
- * Returns { v, name, km, gain, loss, startSec, targetSec, finish: {best, central, cautious},
- * aid, sections: [{ t (title), k (kind), a (start km), b (end km), up, down, s (seconds from
- * the start at the end of the section, central scenario) }] }.
- */
+/** The summary of a plan (buildPlan's object), for kind "plan" or "session". */
 export function planSummary(plan, meta = {}) {
   const S = plan.scenarios || {};
   const fin = (id) => (S[id] ? Math.round(S[id].finishSec) : null);
@@ -56,10 +36,7 @@ export function planSummary(plan, meta = {}) {
   };
 }
 
-/**
- * Check an item before it is sent: { kind, title, data }. Returns "" when fine, else the reason.
- * Mirrors the database rules, so a refusal is explained here instead of failing online.
- */
+/** Check an item before it is sent: { kind, title, data }. */
 export function savedCheck(item) {
   if (!item || !SAVED_KINDS[item.kind]) return "Unknown kind";
   if (!item.title || item.title.length > 80) return "A title of 1 to 80 characters is needed";

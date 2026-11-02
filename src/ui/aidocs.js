@@ -1,15 +1,4 @@
 // aidocs.js: the AI docs, every AI answer kept on this device (account menu > AI docs).
-//
-// One doc per AI call: when, which race and mode, what was sent (the INPUT), what came back
-// (the raw OUTPUT), the tokens, and the summary the referee made of it (status, finish, legs,
-// texts). The raw output is what lets Your race play a doc again later: the code rebuilds the
-// plan from it each time (airace.js), so a doc never holds a plan that could go out of date.
-//
-// Stored in IndexedDB (database "trp-ai-docs", store "docs", one record per id), like the run log
-// of account.js: far roomier than localStorage, and each doc can weigh 50 to 200 KB. Kept on this
-// device only for now; the online account will keep them too once it opens.
-//
-// The helpers never reject: a blocked database resolves with [] or null, and the app goes on.
 
 const AD_DB = "trp-ai-docs", AD_STORE = "docs";
 let adCache = null; // the docs, once read; also the fallback when IndexedDB is blocked

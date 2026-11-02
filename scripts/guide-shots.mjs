@@ -1,13 +1,4 @@
-// guide-shots.mjs: take the screenshots of the user guide from the built app with the demo data,
-// so the guide shows the app exactly as it is. Re-run after a visible change:
-//
-//   npm run build && node scripts/guide-shots.mjs [path/to/playwright/index.mjs]
-//
-// How: a headless Chromium (Playwright) opens dist/ through a tiny local web server, loads the
-// demo or the sample run, scrolls to each section and takes a screenshot. Chromium screenshots
-// are PNG or JPEG only, so the page itself re-encodes each one to WebP (canvas.toDataURL), a
-// format about 30% lighter at the same look. Files land in src/site/guide/<shot>.webp, the
-// names used in src/site/guide.js.
+// guide-shots.mjs: take the screenshots of the user guide from the built app with the demo data, so the guide shows the app exactly as it is.
 
 import { createServer } from "node:http";
 import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync } from "node:fs";

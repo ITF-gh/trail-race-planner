@@ -1,27 +1,4 @@
 // analytics.js: anonymous visit and event counts, through one switchable provider.
-//
-// The planner is a static page: GitHub Pages only hands out files and cannot record anything.
-// To count visits, the page loads a small script from an analytics service, and that script
-// sends one HTTPS request per page view (and per event) to the service, which keeps the counts.
-// All three providers below are cookieless and keep no personal data, so no cookie banner.
-//
-// The rest of the app only ever calls trackEvent("name", "label"). Which service receives it is
-// decided here, in ANALYTICS, so switching provider is a one-line change.
-//
-// Rules for events, so the counts stay useful and private:
-//   - names and labels come from a fixed set in the code, never from what the runner typed or
-//     loaded (no file names, race names or times);
-//   - kebab-case, short: "replay-play", "scenario" + "fast".
-// With no site code (or on localhost, which every provider ignores) nothing is loaded or sent.
-//
-// Design: createAnalytics() is a "factory": it builds a tracker object from a config and an
-// environment (the browser's window and document). The app makes one tracker for the real page
-// at the bottom of this file; the tests make their own with a fake window, so they can check
-// what would be sent without a browser or a network. Events fired before the provider's script
-// has loaded wait in a small queue and are sent when it arrives.
-//
-// Exports: ANALYTICS (the config), PROVIDERS, createAnalytics (the factory), and for the app:
-// analyticsOn, analyticsName, startAnalytics(), trackEvent(name, label), trackOnce(name, label).
 
 export const ANALYTICS = {
   provider: "goatcounter", // "goatcounter", "plausible", "cloudflare", or "" to switch off
@@ -29,13 +6,7 @@ export const ANALYTICS = {
   // domain registered there; cloudflare: the beacon token
 };
 
-// What each provider needs: the script tag to add, and how to send one custom event.
-// send() returns false while the provider's script is not loaded yet, so the event waits.
-// Each provider is an object with two functions:
-//   script(site)            -> { src: script URL, attrs: { attribute: value } } for the <script> tag
-//   send(window, name, label) -> true when sent (or deliberately dropped), false to retry later
-// The provider's script, once loaded, puts its own function on `window` (window.goatcounter,
-// window.plausible); send() checks that function exists before calling it.
+// What each provider needs: the script tag to add, and how to send one custom event. send() returns false while the provider's script is not loaded yet, so the event waits.
 export const PROVIDERS = {
   goatcounter: {
     script: (site) => ({ src: "https://gc.zgo.at/count.js", attrs: { "data-goatcounter": `https://${site}.goatcounter.com/count` } }),
@@ -62,18 +33,10 @@ export const PROVIDERS = {
   },
 };
 
-// Make a name or label safe and tidy: lower case; every run of characters other than a-z and
-// 0-9 becomes one "-" (regex [^a-z0-9]+); no "-" at either end (regex ^-|-$); at most 40
-// characters. "Replay Play!" -> "replay-play". `s || ""` turns undefined or null into "".
+// Make a name or label safe and tidy: lower case; every run of characters other than a-z and 0-9 becomes one "-" (regex [^a-z0-9]+); no "-" at either end (regex ^-|-$); at most 40 characters.
 const slug = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
 
-/**
- * Build a tracker. `env` is the browser (window and document); tests pass a fake one.
- * Returns { start(), event(name, label), once(name, label) }.
- * Also on the returned object: `enabled` (false when switched off: no provider, no site code or
- * no browser) and, after start(), `started`.
- * Nothing is sent before start() has added the provider's script; events wait in the queue.
- */
+/** Build a tracker. */
 export function createAnalytics(config, env) {
   const p = PROVIDERS[config.provider];
   const on = Boolean(p && config.site && env && env.document);
@@ -81,9 +44,7 @@ export function createAnalytics(config, env) {
   const seen = new Set(); // for once()
   let last = ""; // the same event twice within a second (a double click) counts once
   let lastAt = 0;
-  // Send the waiting events in order, oldest first, and stop at the first one the provider
-  // cannot take yet (its script not loaded): that one and the rest stay queued.
-  // ...queue[0] spreads the [name, label] pair into two separate arguments.
+  // Send the waiting events in order, oldest first, and stop at the first one the provider cannot take yet (its script not loaded): that one and the rest stay queued. ...queue[0] spreads the [name...
   const flush = () => {
     while (queue.length && p.send(env.window, ...queue[0])) queue.shift();
   };
@@ -128,8 +89,7 @@ export function createAnalytics(config, env) {
   return api;
 }
 
-// The page's one tracker. Outside a browser (Node running the tests or the build) `window` does
-// not exist, so env is null and the tracker stays off.
+// The page's one tracker.
 const tracker = createAnalytics(ANALYTICS, typeof window === "undefined" ? null : { window, document });
 // For the page's footer or privacy note: whether counting is on, and the service's display name.
 export const analyticsOn = tracker.enabled;

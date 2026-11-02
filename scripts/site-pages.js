@@ -1,14 +1,4 @@
-// site-pages.js: the static pages written next to the app by build.js.
-//
-//   guide.html      the user guide (one chapter per mode, a card per section) and the FAQ
-//   about.html      what the planner is, contact, and a short "How it works" (the full notes stay in docs/HOW_IT_WORKS.md)
-//   privacy.html    what stays on your device, what is counted, what the online account keeps
-//   changelog.html  "What's new", from src/site/changelog.js
-//   404.html        GitHub Pages serves it for any address that does not exist
-//
-// A static page is just a file the host hands out: no server code runs. Each page here gets the
-// same <head> (share preview, icon), the same top bar and footer, and links the stylesheet of the
-// app (style.css, written by build.js) so it looks like the app, in Night or Sky.
+// site-pages.js: the static pages written next to the app by build.js. guide.html the user guide (one chapter per mode, a card per section) and the FAQ about.html what the planner is, contact, and a short "How it works"...
 
 import { SITE, SITE_PHOTOGRAPHERS, siteFooter, extLink, mailLink, SITE_PEAK } from "../src/site/site.js";
 import { GUIDE, FAQ } from "../src/site/guide.js";
@@ -16,11 +6,7 @@ import { CHANGELOG } from "../src/site/changelog.js";
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
-/**
- * The <head> lines every page shares: description for search engines, Open Graph tags (the
- * card WhatsApp, Slack, Facebook... draw when the link is shared; they need absolute URLs),
- * and the icons for the browser tab and the phone home screen.
- */
+/** The <head> lines every page shares: description for search engines, Open Graph tags (the card WhatsApp, Slack, Facebook... draw when the link is shared; they need absolute URLs)... */
 export function headMeta({ title, description = SITE.description, path = "" }) {
   return [
     `<meta name="description" content="${esc(description)}">`,
@@ -256,8 +242,7 @@ export function sitePages({ fonts, counter }) {
     p("about.html", { title: `About · ${SITE.name}`, active: "about", body: aboutBody() }),
     p("privacy.html", { title: `Privacy · ${SITE.name}`, description: `What ${SITE.name} keeps, where, and why: your GPX files never leave your browser.`, body: privacyBody(counter) }),
     p("changelog.html", { title: `What's new · ${SITE.name}`, active: "changelog", body: changelogBody() }),
-    // The 404 page can be served at any depth (/trail-race-planner/a/b/c): <base> makes its
-    // relative links and its stylesheet resolve from the site root anyway.
+    // The 404 page can be served at any depth (/trail-race-planner/a/b/c): <base> makes its relative links and its stylesheet resolve from the site root anyway.
     p("404.html", { title: `Page not found · ${SITE.name}`, base: SITE.base, body: notFoundBody() }),
   ];
 }

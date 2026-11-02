@@ -1,22 +1,4 @@
-// watch.js: the "Watch messages" panel and the course download, shared by two modes:
-// Plan a race (the race-day plan) and Prep my run (any run to come).
-//
-// The planner proposes the messages (core/garmin.js coursePoints); the runner checks them, rewrites
-// any, unticks the unwanted ones and adds their own. Edits are kept in localStorage under a key
-// per course and scenario, so they survive a reload, and the downloads carry that version.
-//
-// Where it sits: race.js (Plan a race) and preprun.js (Prep my run) put watchPanelHtml() in the
-// page, call mountWatch() to wire it, and call downloadCourse() from their download buttons.
-// The file formats themselves (Garmin FIT, GPX) are written in src/core/garmin.js.
-//
-// What is stored: only the runner's EDITS, never the full list. The planner's messages are
-// recomputed from the plan each time and the edits applied on top (editedPoints in garmin.js).
-// So a change of plan (new settings, other scenario) still shows up, with the edits kept.
-// The stored object, as JSON text in localStorage (the browser's small key/value store that
-// survives reloads, for this site only):
-//   names  { id: "new text" }      messages the runner rewrote
-//   off    { id: true }            planner messages unticked (true = do not send)
-//   extra  [{ id, km, name }]      messages the runner added (ids start with "x")
+// watch.js: the "Watch messages" panel and the course download, shared by two modes: Plan a race (the race-day plan) and Prep my run (any run to come).
 
 import { editedPoints, courseFit, courseGpx, POINT_NAME_MAX, CP } from "../core/garmin.js";
 import { secAtKm } from "../core/script.js";
@@ -25,13 +7,11 @@ import { trackEvent } from "./analytics.js";
 
 // Escape text for HTML: each of & < > " (the regex's character set) becomes its entity.
 const wmEsc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-// Read the edits stored under key k: parse the JSON, or {} when there is nothing (`|| "null"`
-// then `|| {}`), when it is not valid JSON, or when the browser blocks storage (the catch).
+// Read the edits stored under key k: parse the JSON, or {} when there is nothing (`|| "null"` then `|| {}`), when it is not valid JSON, or when the browser blocks storage (the catch).
 const wmGet = (k) => { try { return JSON.parse(localStorage.getItem(k) || "null") || {}; } catch (e) { return {}; } };
 // Save the edits under key k, as JSON text. A blocked storage simply keeps nothing.
 const wmSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* storage can be blocked */ } };
-// The word under the arrival time, from the FIT course point type of each message.
-// [CP.generic] in square brackets uses the VALUE of CP.generic (a number) as the key.
+// The word under the arrival time, from the FIT course point type of each message. [CP.generic] in square brackets uses the VALUE of CP.generic (a number) as the key.
 const WM_KIND = { [CP.generic]: "Run", [CP.summit]: "Climb", [CP.valley]: "Descent", [CP.danger]: "Brake" };
 
 /** The messages that go to the watch: the planner's, with the runner's edits saved under `key`. */
@@ -39,24 +19,12 @@ export function watchPoints(plan, sid, key) {
   return editedPoints(plan, sid, wmGet(key));
 }
 
-/**
- * The "Pimp my GPX" sticker (street-art look, src/ui/css .pimp-link) that sits next to the plan's
- * key figures and jumps to the watch messages and the course download at `href`.
- * Returns an HTML string (a link); `sub` is the small line under the title.
- */
+/** The "Pimp my GPX" sticker (street-art look, src/ui/css .pimp-link) that sits next to the plan's key figures and jumps to the watch messages and the course download at `href`. */
 export function pimpBadge(href, sub = "Put this plan on your watch →") {
   return `<a class="pimp-link side" href="${href}"><span class="pl-tag">Bonus</span><b>Pimp my GPX</b><span class="pl-sub">${sub}</span></a>`;
 }
 
-/**
- * The panel's HTML (design review of Prep my run: lighter and cooler). On top, a watch face that
- * previews the message you pick, beside it the count, the download buttons and the small tools;
- * under it, the messages as slim rows (two columns on wide screens): an on/off switch, the km,
- * the message in the watch's own monospace letters and the arrival time. The add row stays
- * folded until "+ Add yours" is pressed. Returns an HTML string.
- * `plan` gives the course length (the highest km you can type); `dl` is the caller's download
- * buttons and status (HTML), placed under the count.
- */
+/** The panel's HTML (design review of Prep my run: lighter and cooler). */
 export function watchPanelHtml(plan, dl = "") {
   return `<div class="panel wm">
     <div class="wm-hero">
@@ -76,19 +44,10 @@ export function watchPanelHtml(plan, dl = "") {
   </div>`;
 }
 
-/**
- * Wire the panel inside `root` (made from watchPanelHtml). say(text) reports a problem.
- * Inputs: plan and sid (the scenario: arrival times differ per scenario), key (the localStorage
- * key of this course and scenario). Returns nothing.
- * Side effects: fills the list, reads and writes localStorage on each edit, sends analytics.
- *
- * Pattern: every change saves the edits, then calls draw(), which rebuilds the whole list from
- * the stored edits. Simple and always consistent; the list is short, so rebuilding is cheap.
- */
+/** Wire the panel inside `root` (made from watchPanelHtml). say(text) reports a problem. */
 export function mountWatch(root, { plan, sid, key, say = () => {} }) {
   const q = (s) => root.querySelector(s);
-  // The watch face: the message of `row` in the watch's letters, its km and arrival time. `buzz`
-  // replays a short shake (the CSS animation wm-buzz), like a watch vibrating on a message.
+  // The watch face: the message of `row` in the watch's letters, its km and arrival time.
   let shown = "";
   const face = q(".wm-face");
   const preview = (row, buzz = true) => {
@@ -111,17 +70,11 @@ export function mountWatch(root, { plan, sid, key, say = () => {} }) {
   /** Rebuild the list of messages from the plan and the stored edits, and wire each row. */
   const draw = () => {
     const ed = wmGet(key);
-    // Two lists: `all` ignores the "off" edits (so an unticked message stays visible, greyed,
-    // and can be ticked again), `on` is the set of ids actually sent to the watch.
+    // Two lists: `all` ignores the "off" edits (so an unticked message stays visible, greyed, and can be ticked again), `on` is the set of ids actually sent to the watch.
     const all = editedPoints(plan, sid, { names: ed.names, kms: ed.kms, extra: ed.extra }); // unticked ones stay listed
     const on = new Set(editedPoints(plan, sid, ed).map((p) => p.id));
     const box = q(".wm-rows");
-    // One row per message: km, arrival clock time (with the kind: "Yours", "Key zone" for ids
-    // like "k1" (regex ^k\d: a "k" then a digit at the start), or the word from WM_KIND), the
-    // editable text with a character counter, and a Keep box (or a remove button for your own).
-    // One slim row per message: on/off switch (or a remove button for your own), km, the editable
-    // text with its character counter (shown while typing), and the arrival time with its kind
-    // ("Yours", "Key zone" for ids like "k1": regex ^k\d, or the word from WM_KIND).
+    // One row per message: km, arrival clock time (with the kind: "Yours", "Key zone" for ids like "k1" (regex ^k\d: a "k" then a digit at the start), or the word from WM_KIND), the editable text with a character counter...
     box.innerHTML = all.map((p) => `<div class="wm-row${on.has(p.id) ? "" : " off"}${p.name.startsWith("!") ? " key" : ""}" data-id="${wmEsc(p.id)}" data-t="${clock(plan.startSec, secAtKm(plan, sid, p.km))}">
       <span class="wm-keep">${p.added ? `<button class="wm-del" type="button" data-del="1" aria-label="Remove" title="Remove">✕</button>` : `<input type="checkbox" role="switch" ${on.has(p.id) ? "checked" : ""} aria-label="Send this message" title="Send this message">`}</span>
       <span class="wm-km"><input type="number" step="0.1" min="0" max="${plan.course.totalKm.toFixed(1)}" value="${p.km.toFixed(1)}" aria-label="Km of this message" title="Move this message: type the km where you want it"></span>
@@ -137,8 +90,7 @@ export function mountWatch(root, { plan, sid, key, say = () => {} }) {
     box.querySelectorAll(".wm-row").forEach((row) => {
       const id = row.dataset.id;
       const inp = row.querySelector(".wm-msg input");
-      // Km: move the message along the course. Your own messages keep their km in `extra`, the
-      // planner's in `kms` by id; an empty box puts a planner message back where it was.
+      // Km: move the message along the course.
       const kmIn = row.querySelector(".wm-km input");
       kmIn.addEventListener("change", () => {
         const v = kmIn.value.trim() === "" ? null : parseFloat(kmIn.value);
@@ -153,9 +105,7 @@ export function mountWatch(root, { plan, sid, key, say = () => {} }) {
       row.addEventListener("focusin", () => preview(row));
       row.addEventListener("pointerdown", () => preview(row));
       inp.addEventListener("input", () => { row.querySelector(".wm-n").textContent = `${inp.value.length}/${POINT_NAME_MAX}`; preview(row, false); });
-      // When the text box is left ("change" event): save. An added message is edited in place in
-      // `extra`; a planner message gets an entry in `names`. { ...(e.names || {}), [id]: text }
-      // copies the existing names and adds or replaces this one.
+      // When the text box is left ("change" event): save.
       inp.addEventListener("change", () => {
         const e = wmGet(key);
         const x = (e.extra || []).find((r) => r.id === id);
@@ -178,8 +128,7 @@ export function mountWatch(root, { plan, sid, key, say = () => {} }) {
       });
     });
   };
-  // Add a message of your own. Its id is "x" + the current time in base 36 (digits and letters),
-  // a short id that is different every time.
+  // Add a message of your own.
   q(".wm-addbtn").addEventListener("click", () => {
     const km = parseFloat(q(".wm-addkm").value), name = q(".wm-addname").value.trim();
     if (!Number.isFinite(km) || !name) { say("Give a km and a message to add."); return; }
@@ -189,8 +138,7 @@ export function mountWatch(root, { plan, sid, key, say = () => {} }) {
     q(".wm-addkm").value = ""; q(".wm-addname").value = "";
     draw();
   });
-  // Keep all / Keep none: tick or untick every planner message at once (your own messages are
-  // always kept; remove them with their ✕). `off` maps each message id to true when unticked.
+  // Keep all / Keep none: tick or untick every planner message at once (your own messages are always kept; remove them with their ✕).
   root.querySelectorAll("[data-keep-all]").forEach((b) => b.addEventListener("click", () => {
     const keep = b.dataset.keepAll === "1";
     const e = wmGet(key);
@@ -203,30 +151,14 @@ export function mountWatch(root, { plan, sid, key, say = () => {} }) {
   draw();
 }
 
-/**
- * Download the course with its messages: "fit" (Garmin) or "gpx" (any brand).
- * track = the GPX points ({lat, lon, ele}). Returns the file name.
- * `name` is the course name (also used for the file name), `points` the messages (from
- * watchPoints), `suffix` an ending for the file name (the scenario id by default; "" for none).
- *
- * How a browser download works without a server: the file content is wrapped in a Blob (a block
- * of bytes in memory), URL.createObjectURL gives it a temporary "blob:" address, and a hidden
- * link with a `download` attribute pointing to it is clicked from the code. The address is
- * released a second later (revokeObjectURL) to free the memory.
- */
+/** Download the course with its messages: "fit" (Garmin) or "gpx" (any brand). track = the GPX points ({lat, lon, ele}). */
 export function downloadCourse(kind, { plan, sid, track, name, points, suffix = sid }) {
   // FIT is a binary format (bytes); GPX is XML text.
   const data = kind === "fit" ? courseFit(plan, sid, track, { name, points }) : courseGpx(plan, sid, track, name, points);
   const blob = new Blob([data], { type: kind === "fit" ? "application/octet-stream" : "application/gpx+xml" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  // A safe file name from the course name, step by step:
-  //   normalize("NFD") splits accented letters into letter + accent mark ("é" -> "e" + "´"),
-  //   the next regex removes those accent marks: its character set is the Unicode range U+0300 to
-  //   U+036F ("combining" accents), typed in the code as the raw, invisible characters,
-  //   /[^\w]+/g turns every run of characters other than letters, digits and _ into one "-",
-  //   /^-|-$/g removes a "-" at the start or the end, then everything goes lower case.
-  // "course" if nothing is left, then "-<suffix>" when there is one, then ".fit" or ".gpx".
+  // A safe file name from the course name, step by step: normalize("NFD") splits accented letters into letter + accent mark ("é" -> "e" + "´"), the next regex removes those accent marks...
   a.download = `${name.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^\w]+/g, "-").replace(/^-|-$/g, "").toLowerCase() || "course"}${suffix ? `-${suffix}` : ""}.${kind}`;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);

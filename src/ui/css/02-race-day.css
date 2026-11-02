@@ -111,9 +111,7 @@ svg .pl-t{fill:var(--sun);font-weight:800;font-size:13px} svg .pl-tn{fill:var(--
 .rp-script li.past button{opacity:.6}
 .rp-script li.on button{border-color:var(--sun);background:rgba(255,201,40,.1);opacity:1}
 .rp-script button:hover{border-color:var(--muted)}
-/* The race-day cockpit: one screen high (under the top bar), everything you need while it plays
-   in one frame. CSS grid with named areas; the map row is 1fr, so the map takes the height that is
-   left and shrinks first on a small screen. The panel scrolls inside itself if it ever overflows. */
+/* The race-day cockpit: one screen high (under the top bar), everything you need while it plays in one frame. */
 .rp-cockpit{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(310px,1fr);grid-template-rows:auto auto auto minmax(0,1fr) auto;
   grid-template-areas:"tot tot" "bar bar" "prof prof" "map hud" "ctl ctl";gap:8px 12px;height:calc(100vh - 64px);height:calc(100svh - 64px);min-height:600px;scroll-margin-top:62px;margin-bottom:18px}
 .rp-cockpit.nomap{grid-template-areas:"tot tot" "bar bar" "prof prof" "hud hud" "ctl ctl"}

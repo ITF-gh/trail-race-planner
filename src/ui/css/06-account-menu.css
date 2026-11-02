@@ -1,6 +1,4 @@
-/* ================= Account menu (src/ui/account.js) =================
-   A see-through account icon at the top right of the hero and a see-through menu that slides
-   down (clip-path grows from the top edge; backdrop-filter blurs the page behind it). */
+/* ================= Account menu (src/ui/account.js) ================= A see-through account icon at the top right of the hero and a see-through menu that slides down (clip-path grows from the top edge... */
 :root{--acct-bg:rgba(6,16,31,.9);--acct-line:rgba(255,255,255,.18);--acct-sep:rgba(255,255,255,.12);--acct-ink:var(--on-pine);--acct-muted:var(--on-pine-muted)}
 html[data-theme="sky"]{--acct-bg:rgba(18,70,140,.86);--acct-line:rgba(255,255,255,.7);--acct-sep:rgba(255,255,255,.35)}
 .acct{position:absolute;z-index:1001;top:40px;right:max(16px,calc(50% - 564px))}

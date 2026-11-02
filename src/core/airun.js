@@ -1,22 +1,4 @@
-// airun.js: the Prep my run AI coach, from the route to the request and back.
-//
-// Prep my race asks the AI to tailor a race plan. Prep my run asks it to prepare a training run
-// at the effort the runner picks (1 recovery to 5 very hard): a pace, a mode and an effort for
-// every section, plus the exercises that suit that effort on the spots of the route (strides on
-// a long flat, hill repeats on a string of climbs...). Version 2 (Boss, 2026-10-23); version 1
-// only placed exercises. The flow is the same as aiprep.js, in five steps:
-//   1. runSpots       the route -> the SPOTS where an exercise fits, found by code with the
-//                     rules of PREP-MY-RUN-RULES.md (long flat, successive climbs, steep climb...)
-//   2. aiRunInput     the plan + the spots + the runner's words + the stored runs -> one INPUT
-//   3. aiRunRequest   INPUT -> the body of ONE OpenAI Responses API call (fixed coach prompt,
-//                     the data as CSV, the strict JSON schema AI_RUN_SCHEMA)
-//   4. aiPrepRead     (aiprep.js, shared) the API's answer -> { output, tokens, error }
-//   5. aiRunMerge     the referee checks the section times and every exercise (dose, warm-up,
-//                     overlap, ranges, injuries, load, the effort asked), then the code rebuilds
-//                     the run's clock from the AI section times and writes the exercises as
-//                     moments of the run script, for the animation
-// The AI decides and explains; the code finds the spots, checks and does every sum.
-// Pure functions, no network and no key, like aiprep.js.
+// airun.js: the Prep my run AI coach, from the route to the request and back. Version 2 (Boss, 2026-10-23); version 1 only placed exercises.
 
 import { raceLegs, secAtKm } from "./script.js";
 import { aiDigest } from "./history.js";
@@ -25,9 +7,7 @@ import { rd, aipClean, aipCsv, aipHms, aipObj, aipArr, aipOrNull, aipPoint, aipR
 /** Version of the Prep my run contract (saved with each call). */
 export const AI_RUN_VERSION = 2;
 
-// The exercises the coach can place, with their label, the spots that accept them and how much
-// faster than the easy pace the work part goes (`f`: 0.8 = 20% faster; a guide, the AI section
-// times set the clock since version 2).
+// The exercises the coach can place, with their label, the spots that accept them and how much faster than the easy pace the work part goes (`f`: 0.8 = 20% faster; a guide...
 export const AIR_EX = {
   strides: { label: "Strides", spots: ["flat", "longflat"], legs: ["flat"], f: 0.78 },
   tempo: { label: "Tempo block", spots: ["longflat"], legs: ["flat"], f: 0.88 },
@@ -46,10 +26,7 @@ const AIR_SPOT = {
 const AIR_WARM_KM = 2, AIR_WARM_SEC = 15 * 60, AIR_COOL_KM = 1;
 // At most 4 exercises, and the hard work at most 25% of the run.
 const AIR_MAX_EX = 4, AIR_MAX_WORK = 0.25;
-/**
- * The effort the runner asks for (Boss, 2026-10-23), 1 to 5: its label, what it means for the
- * AI, and what the referee allows with it (maxEx exercises at most, each at maxExEffort at most).
- */
+/** The effort the runner asks for (Boss, 2026-10-23), 1 to 5: its label, what it means for the AI, and what the referee allows with it (maxEx exercises at most, each at maxExEffort at most). */
 export const AI_RUN_EFFORTS = [
   { code: 1, label: "Recovery", text: "very easy, conversational, walk the steep bits; no exercise", maxEx: 0, maxExEffort: 0 },
   { code: 2, label: "Easy", text: "easy endurance (zone 2); strides at most", maxEx: 1, maxExEffort: 3 },
@@ -64,8 +41,7 @@ export const airEffort = (v) => AI_RUN_EFFORTS[aipClamp(Math.round(Number(v)) ||
 // The tactic line of a section, from the AI's run / hike / mix (same words as Prep my race).
 const AIR_MODE = { run: "Run it", hike: "Power hike it", mix: "Run the easy parts, hike the steep ones" };
 
-// The smoothed grade (%) at each profile point: elevation change over ±200 m, so one noisy
-// 100 m step does not break a flat or a climb in two.
+// The smoothed grade (%) at each profile point: elevation change over ±200 m, so one noisy 100 m step does not break a flat or a climb in two.
 function airGrades(P) {
   return P.map((p, i) => {
     const a = P[Math.max(0, i - 2)], b = P[Math.min(P.length - 1, i + 2)];
@@ -73,8 +49,7 @@ function airGrades(P) {
   });
 }
 
-// The ups of the profile between a low and the next high, with 10 m of hysteresis (a dip
-// smaller than 10 m does not end an up): [{ startKm, endKm, upM }].
+// The ups of the profile between a low and the next high, with 10 m of hysteresis (a dip smaller than 10 m does not end an up): [{ startKm, endKm, upM }].
 function airUps(P) {
   const ups = [];
   let lo = 0, hi = 0, rising = false;
@@ -89,15 +64,7 @@ function airUps(P) {
   return ups;
 }
 
-/**
- * The spots of the route where an exercise fits (PREP-MY-RUN-RULES.md, rules 1 to 8).
- * Input: a plan (prepRunPlan or buildPlan), central scenario. Returns spots in route order:
- *   { id "S1"..., kind (AIR_SPOT key), what (in words), exercises (AIR_EX keys allowed),
- *     startKm, endKm, lenKm, upM, downM, avgPct, steepPct, count (climbs, for "hills"),
- *     atSec (clock at its start), calcSec (time it takes at the planned pace) }
- * Spots are cut to the hard window (after the warm-up, before the cool-down); a spot left
- * with less than 400 m is dropped. Steep descents are kept as "caution" spots, with no exercise.
- */
+/** The spots of the route where an exercise fits (PREP-MY-RUN-RULES.md, rules 1 to 8). */
 export function runSpots(plan) {
   const P = plan.course.profile, total = plan.course.totalKm;
   if (!P || P.length < 3 || !(total > 0)) return [];
@@ -119,8 +86,7 @@ export function runSpots(plan) {
       s = null;
     }
   }
-  // 3. Successive climbs: 3 or more ups of 30 to 150 m within 6 km.
-  // 7. Rolling ground: 3 or more short ups (10 to 30 m, 600 m long at most) within 3 km.
+  // 3.
   const ups = airUps(P);
   const groups = (keep, span, kind) => {
     const list = ups.filter(keep);
@@ -132,9 +98,7 @@ export function runSpots(plan) {
   };
   groups((u) => u.upM >= 30 && u.upM <= 150, 6, "hills");
   groups((u) => u.upM >= 10 && u.upM < 30 && u.endKm - u.startKm <= 0.6, 3, "rolling");
-  // 4-5. Climbs (or their sections, for a long climb split in parts): steady 4 to 10% over 1 km
-  // or more.
-  // Steep: a part averaging 12% or more with pitches of 15% or more (the steepest 100 m).
+  // 4-5.
   plan.climbs.forEach((c) => ((c.sections || []).length ? c.sections : [c]).forEach((x) => {
     const len = x.endKm - x.startKm;
     if (len >= 1 && x.avg >= 4 && x.avg <= 10) raw.push({ kind: "climb", startKm: x.startKm, endKm: x.endKm });
@@ -145,8 +109,7 @@ export function runSpots(plan) {
     if (d.endKm - d.startKm >= 1 && d.avg <= -4 && d.avg >= -10) raw.push({ kind: "descent", startKm: d.startKm, endKm: d.endKm });
     if (d.avg <= -12) raw.push({ kind: "caution", startKm: d.startKm, endKm: d.endKm });
   });
-  // Cut to the hard window (caution spots are kept whole: a safety cue is never "too early"),
-  // drop the duplicates (two climbs giving the same stretch) and describe each spot.
+  // Cut to the hard window (caution spots are kept whole: a safety cue is never "too early"), drop the duplicates (two climbs giving the same stretch) and describe each spot.
   const seen = new Set();
   return raw.map((x) => (x.kind === "caution" ? x : { ...x, startKm: Math.max(x.startKm, lo), endKm: Math.min(x.endKm, hi) }))
     .filter((x) => x.endKm - x.startKm >= 0.4)
@@ -173,11 +136,7 @@ export function runSpots(plan) {
     });
 }
 
-/**
- * The training load from the stored runs, as of `now` (ms): km in the last 7 days against the
- * usual week (mean of the 4 weeks before), and days since the last long run (1.5 times the
- * median run, 15 km at least). heavy = true after a big week or a long run in the last 2 days.
- */
+/** The training load from the stored runs, as of `now` (ms): km in the last 7 days against the usual week (mean of the 4 weeks before), and days since the last long run (1.5 times the median run... */
 export function runLoad(history, now = Date.now()) {
   const list = (history || []).filter((r) => r && Number.isFinite(r.date) && Number.isFinite(r.km) && r.date <= now);
   if (!list.length) return null;
@@ -192,13 +151,7 @@ export function runLoad(history, now = Date.now()) {
   return { weekKm: rd(week, 1), usualWeekKm: rd(usual, 1), longRunKm: rd(long, 1), daysSinceLong, heavy };
 }
 
-/**
- * Build the INPUT of one Prep my run call.
- * Inputs: plan (prepRunPlan or buildPlan, central scenario), opts { name, user: { effort (1 to
- * 5), notes, question }, athlete: { maxHr, restHr, weightKg }, history (stored run records), now (ms) }.
- * race.legs, calc.legs and calc.finishSec.central have the same shape as in Prep my race, so the
- * AI switch (ui/airace.js) can tell when the plan changed since the answer.
- */
+/** Build the INPUT of one Prep my run call. */
 export function aiRunInput(plan, opts = {}) {
   const legs = raceLegs(plan, "central");
   const u = opts.user || {};
@@ -235,8 +188,7 @@ export function aiRunInput(plan, opts = {}) {
   };
 }
 
-// ---------------------------------------------------------------------------------------------
-// The coach prompt: fixed, so it goes first, in `instructions` (cached and given priority).
+// --------------------------------------------------------------------------------------------- The coach prompt: fixed, so it goes first, in `instructions` (cached and given priority).
 
 const AIR_ROLE = `ROLE. You are an experienced trail running coach. A runner will follow this route as a
 training run, at the EFFORT they picked (1 to 5). The app has computed the route in sections
@@ -343,8 +295,7 @@ export function aiRunRequest(input, opts = {}) {
   };
 }
 
-// ---------------------------------------------------------------------------------------------
-// The referee and the rebuild.
+// --------------------------------------------------------------------------------------------- The referee and the rebuild.
 
 // Pain words in the athlete notes (English and French) and the exercises they rule out.
 const AIR_PAIN = [
@@ -352,20 +303,7 @@ const AIR_PAIN = [
   { re: /\b(calf|calves|achilles|mollet\w*|tendon\w*|achille)\b/i, no: ["strides", "power_hike"], what: "calf or Achilles" },
 ];
 
-/**
- * Check the coach's answer against the input and rebuild the run from it.
- * Inputs: plan (the one the input was built from), input (aiRunInput), output (the AI's JSON).
- * Returns { status, reason, plan, legs, exercises, fixes, finishSec, workSec, texts, dataset }:
- *   status      "ok" or "null"; reason when null ("empty_dataset", "out_of_scope", "invalid_answer")
- *   plan        the run as the AI prepared it: central timeline rebuilt from the AI section
- *               times, the exercises in plan.ai.moments (start and end of each), plan.ai.legs
- *   legs        one row per section: calc and AI moving time, difference in %, mode, effort
- *   exercises   the kept exercises, checked: id, spotId, kind, label, startKm, endKm, reps,
- *               workSec, recoverySec, effort, title, how, why, watch, atSec, endSec
- *   fixes       what the referee changed, in words
- *   workSec     the hard work of the session (reps x work), in seconds
- * An answer with zero exercises is fine (an easy run): status ok, the clock is the AI's sections.
- */
+/** Check the coach's answer against the input and rebuild the run from it. */
 export function aiRunMerge(plan, input, output) {
   const nul = (reason, fixes = []) => ({ status: "null", reason, plan: null, exercises: [], fixes, finishSec: null, workSec: 0, texts: null, dataset: null });
   if (!output || !output.check) return nul("invalid_answer");
@@ -377,8 +315,7 @@ export function aiRunMerge(plan, input, output) {
   const total = input.race.totalKm, finish0 = input.calc.finishSec.central;
   const at = (km) => secAtKm(plan, "central", km);
   const E = airEffort(input.user.effort);
-  // 0. Sections: known ids only, once each; a time outside 2:30 to 40:00 per km (moving) is
-  // replaced by the calculated one; at least 90% of the sections answered (as Prep my race).
+  // 0.
   const calc = new Map(input.calc.legs.map((l) => [l.id, l]));
   const ai = new Map();
   for (const l of D.legs || []) {
@@ -450,9 +387,7 @@ export function aiRunMerge(plan, input, output) {
     if (big.reps === 1 && big.workSec === 10) { list = list.filter((e) => e !== big); }
   }
   if (workOf(kept) > workOf(list) + 1 && !heavy) fixes.push(`Hard work cut to ${AIR_MAX_WORK * 100}% of the run at most (now ${Math.round(workOf(list) / 60)} min).`);
-  // 7. Rebuild the clock from the AI section times (never changed by code, owner's rule): inside
-  // each section the calculated time is stretched by aiTime / calcTime, so the shape within a
-  // climb stays and the section lands exactly on the AI time.
+  // 7.
   const P = plan.course.profile, tl = plan.scenarios.central.timeline;
   const legOf = (km) => input.race.legs.findIndex((l) => km >= l.startKm - 1e-9 && km <= l.endKm + 1e-9);
   const ratio = input.race.legs.map((l) => { const c = calc.get(l.id).durSec; const x = ai.has(l.id) ? ai.get(l.id).durSec : c; return c > 0 ? x / c : 1; });
@@ -506,10 +441,7 @@ export function aiRunMerge(plan, input, output) {
   return { status: "ok", reason: null, plan: out, legs: legRows, exercises, fixes, finishSec, workSec: workOf(list), texts, dataset: D };
 }
 
-/**
- * A made-up coach answer for testing without a key: one exercise on each of the first spots of
- * different kinds (at most 3), standard doses, a few texts. Runs the whole chain offline.
- */
+/** A made-up coach answer for testing without a key: one exercise on each of the first spots of different kinds (at most 3), standard doses, a few texts. */
 export function aiRunFake(input) {
   const E = airEffort(input.user.effort);
   const DOSE = { strides: [8, 20, 40, 4], tempo: [1, 900, 0, 3], hill_repeats: [3, 90, 60, 4], uphill_threshold: [2, 300, 120, 4], power_hike: [3, 90, 60, 4], downhill: [3, 60, 60, 3], fartlek: [4, 45, 45, 3] };

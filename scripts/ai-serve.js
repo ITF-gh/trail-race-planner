@@ -1,22 +1,4 @@
-// ai-serve.js: the app in your browser, with the Prep my race AI call working locally.
-//
-//   npm run ai-browser      then open http://localhost:5174
-//
-// The same as `npm run dev` (build, then serve dist/), plus three addresses only this server has:
-//   GET  /local-ai        "a local test server is here", and whether a key was found
-//   POST /local-ai        { request, input, fake }: saves them and, unless fake, sends the request
-//                         to OpenAI with the key, then answers { stamp, response }
-//   POST /local-ai/save   { stamp, output, result }: what the page's referee made of the answer
-// Every test lands in ai-runs/<date-time>-browser/ (input.json, prompt.txt, request.json,
-// response.json, output.json, result.json), like `npm run ai-local`.
-//
-// The key: OPENAI_API_KEY from the environment, else from the file .env.local at the repo root
-// (ignored by git). It stays in this server: the page never sees it, and it is never written to
-// the ai-runs files. Optional OPENAI_MODEL in the same places picks the model.
-//
-// Safety: the server listens on 127.0.0.1 only (this computer, not your network), and the
-// /local-ai addresses refuse any request whose Origin header is not this page. Without that check,
-// any website open in your browser could send requests to localhost and spend your key.
+// ai-serve.js: the app in your browser, with the Prep my race AI call working locally. npm run ai-browser then open http://localhost:5174 The same as `npm run dev` (build, then serve dist/)...
 
 import { spawnSync } from "node:child_process";
 import { createServer } from "node:http";

@@ -1,6 +1,5 @@
 /* ---------- mode: plan a race / review a run (Check my run) ---------- */
-/* One page, three modes: data-mode on <html> hides what belongs to the other ones (no
-   data-mode yet, before the script runs, counts as Prep my race). */
+/* One page, three modes: data-mode on <html> hides what belongs to the other ones (no data-mode yet, before the script runs, counts as Prep my race). */
 html[data-mode="run"] .plan-only,html[data-mode="prep"] .plan-only{display:none!important}
 html:not([data-mode="run"]) .review-only{display:none!important}
 html:not([data-mode="prep"]) .prep-only{display:none!important}
@@ -43,9 +42,7 @@ svg .rv-pin-p text{fill:#fff;font-weight:800;font-size:13px}
 /* the review cue carries a tip: let it run its full length where the panel has room */
 @media (max-width:900px){ .rv-cockpit .rp-cue.rv-cue p em{display:none} .rv-meta{font-size:12.5px;margin-bottom:6px} }
 @media (max-width:640px){ html[data-mode="run"] .tn-sum.review-only,html[data-mode="prep"] .tn-sum.prep-only{display:flex;gap:6px} }
-/* Wide screens: the banner is about 6:1, so a cover photo would show a thin strip with the runner
-   cut in half behind the title. Instead the photo takes the right 64% at its own height, and a dark
-   band hides its left edge; the section's colour banner still shows on the left. */
+/* Wide screens: the banner is about 6:1, so a cover photo would show a thin strip with the runner cut in half behind the title. */
 @media (min-width:900px){
   .sec-head{background:linear-gradient(90deg,rgba(6,16,31,.88),rgba(6,16,31,.35) 70%,rgba(6,16,31,.1)),
     linear-gradient(90deg,transparent 26%,rgba(6,16,31,.96) 36.5%,rgba(6,16,31,0) 54%),
@@ -90,8 +87,7 @@ svg .rv-pin-p text{fill:#fff;font-weight:800;font-size:13px}
 @media (max-width:640px){ .rv-tgt-all .rp-tg th:last-child,.rv-tgt-all .rp-tg td:last-child{display:none} }
 
 /* ---------- section card: strategy line, fixed table columns ---------- */
-/* Under the section title: the section's strategy with its pictogram, then the next section.
-   The moment cue below the card keeps only its title line (the full text is its tooltip). */
+/* Under the section title: the section's strategy with its pictogram, then the next section. */
 .rp-leg-strat{display:flex;align-items:center;gap:8px;min-width:0;margin:2px 0 8px;padding:6px 8px;border-radius:8px;background:rgba(255,255,255,.05);font-size:13px;white-space:nowrap}
 .rp-leg-strat .ic{flex:none;display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--sun);color:#1a1300;font-size:12px;font-weight:800}
 .rp-leg-strat.k-descent .ic{background:#7b8db3;color:#fff} .rp-leg-strat.k-flat .ic{background:rgba(255,255,255,.2);color:var(--fg)}

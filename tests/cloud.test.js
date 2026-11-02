@@ -1,5 +1,4 @@
-// The online account (src/ui/cloud.js) is read-only: sign-in and reads only. No write call may
-// send anything, whatever the settings. fetch is replaced by a fake that records each request.
+// The online account (src/ui/cloud.js) is read-only: sign-in and reads only.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { CLOUD, CL_READONLY, cloudOn, cloudWritable, cloudSendLink, cloudPutRuns, cloudDeleteRuns, cloudClaim, cloudAi, cloudAiOn, cloudSignUp, cloudSendReset } from "../src/ui/cloud.js";

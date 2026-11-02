@@ -1,8 +1,4 @@
-/* ---------- climbs and descents tables (v2.3): one header row, compact rows, a mini profile ----------
-   .rows.tbl is a CSS grid table: every row uses the same column template, so the columns line up
-   and the labels sit once in the header row (.rh) instead of in every row. The per-cell labels
-   (.c .k) stay in the HTML for screen readers but are hidden. .sp holds the small elevation line,
-   drawn in the row's difficulty colour (currentColor). */
+/* ---------- climbs and descents tables (v2.3): one header row, compact rows, a mini profile ---------- .rows.tbl is a CSS grid table: every row uses the same column template... */
 .rows.tbl .row{display:grid;align-items:center;gap:0 12px;padding:3px 10px;flex-wrap:nowrap}
 .rows.tbl.t-route .row{grid-template-columns:34px 80px minmax(92px,1.2fr) repeat(4,minmax(54px,.8fr)) minmax(96px,auto)}
 .rows.tbl.t-plan .row{grid-template-columns:34px 80px minmax(92px,1fr) repeat(3,minmax(54px,.7fr)) minmax(150px,2.6fr) minmax(96px,auto)}
@@ -35,8 +31,7 @@
 .scen-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .scen-row .seg{flex:1 1 auto}
 .ar-note .ar-ask{margin-left:8px;vertical-align:middle}
-/* Your race panel: where you are, always on top of the section box (section % done, course %),
-   and a stronger key-figure list under the clock (D+ done first, then km, then the clock). */
+/* Your race panel: where you are, always on top of the section box (section % done, course %), and a stronger key-figure list under the clock (D+ done first, then km, then the clock). */
 .rp-leg-pct{order:3;margin-left:auto;display:flex;align-items:baseline;gap:4px;white-space:nowrap;font-family:var(--f-display);font-style:italic;flex:none}
 .rp-leg-pct b{font-size:26px;font-weight:800;line-height:.9;color:var(--sun);font-variant-numeric:tabular-nums}
 .rp-leg-pct b.tot{font-size:18px;color:var(--fg);margin-left:8px}
