@@ -15,7 +15,7 @@
 // Both work in Node (tests) and in the browser (the replay plays them back).
 //
 // Where it sits in the data flow: plan.js builds the plan (buildPlan), then the UI
-// (src/ui/replay.js, src/ui/main.js) and Prep my run call the functions below to animate
+// (src/ui/replay.js, src/ui/race.js) and Prep my run call the functions below to animate
 // it. This file only reads the plan; it never changes it and never touches the page.
 //
 // Shapes it relies on (all built in plan.js):

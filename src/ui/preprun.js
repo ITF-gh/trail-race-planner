@@ -9,10 +9,10 @@
 //   a generic estimate from Tobler's hiking function.
 //
 // Where it sits: main.js puts prepHeroHtml() in the page and calls initPrepRun() once at start-up,
-// passing small functions (getRuns, getSettings, cockpit) so this file can read main.js's state
+// passing small functions (getRuns, getSettings, cockpit) so this file can read the page state (appstate.js)
 // without importing it. The data flow on each file drop is:
 //   GPX text -> parseGpx (core/track.js) -> buildPlan (core/plan.js) or prepRunPlan
-//   (core/preprun.js) -> render(): summary, cockpit (replay.js through main.js), watch panel
+//   (core/preprun.js) -> render(): summary, cockpit (replay.js through race.js's mountCockpit), watch panel
 //   (watch.js), download buttons.
 //
 // The AI coach: once a GPX is loaded, a small shiny edelweiss sticker (beside Pimp my GPX) opens the Ask the AI coach window
@@ -46,7 +46,7 @@ const SOURCE = { target: "your target time", runs: "your reference runs", refs: 
 /**
  * Hero text and file drop for the mode (shown only in Prep my run).
  * `brand` is the logo, name and tagline HTML, passed in by main.js. Returns an HTML string. The "prep-only" class
- * lets style.css hide these blocks in the other modes.
+ * lets src/ui/css hide these blocks in the other modes.
  */
 export function prepHeroHtml(brand) {
   return `<div class="hero-row prep-only">
@@ -129,7 +129,7 @@ function glanceHtml(plan) {
  * Wire the mode. getRuns() returns the reference runs loaded in Plan a race (parsed GPX) or [];
  * getSettings() the planner settings (start time, hiking threshold...); onLoaded() runs after each render.
  * cockpit(box, plan, key) draws the race-day cockpit (section bar, map, profile) in `box`; it is
- * main.js's own, so both modes look the same.
+ * race.js's mountCockpit, so both modes look the same.
  * The `= {}` after the braces lets initPrepRun() be called with no argument at all.
  * Returns { rerender, current }: rerender() redraws with fresh settings, current() tells the
  * print export what is on screen.
@@ -147,7 +147,7 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
   try { aiOn = localStorage.getItem("trp.ai.run.on") === "true"; } catch (e) { /* blocked: off */ }
   const st = { parsed: null, name: "", targetSec: 0, plan: null, key: "", source: "" };
   const $p = (s) => document.querySelector(s);
-  // The cockpit (section bar, map, profile, run script) is the race-day one from main.js. Only one
+  // The cockpit (section bar, map, profile, run script) is the race-day one (mountCockpit in race.js, passed in by main.js). Only one
   // can play at a time, so it is built when this mode is on screen and emptied when you leave it.
   // The current mode is stored as data-mode on the <html> element.
   const inMode = () => document.documentElement.dataset.mode === "prep";

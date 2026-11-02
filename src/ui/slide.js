@@ -12,7 +12,7 @@
 //   - Moves are grouped with requestAnimationFrame: at most one redraw per screen frame, however
 //     many moves the finger sends.
 //   - The click the browser fires after a slide is dropped, so a slide is never also a tap.
-// The CSS class "slidable" sets touch-action (see style.css), which tells the phone which finger
+// The CSS class "slidable" sets touch-action (see src/ui/css), which tells the phone which finger
 // moves are ours and which ones still scroll the page.
 
 /**

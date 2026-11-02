@@ -83,11 +83,19 @@ src/core/history.js    the run log: 12-month totals, bests, achievements and cai
 src/core/airun.js      Prep my run AI coach: exercise spots on the route, coach prompt and schema, referee and clock rebuild
 src/core/runrecord.js  one small summary per run
 src/demo.js            made-up GPX files for the demo and the tests
-src/ui/                the browser app (main.js, map.js for the map, replay.js for race day,
-                       review.js for the Rewind my run mode, print.js for the Export A4 pages (print or save as PDF), account.js for the account menu and its IndexedDB store, ailocal.js for the local AI test of npm run ai-browser, cloud.js for the online account, analytics.js for anonymous visit and event counts)
+src/ui/                the browser app: main.js (entry: files, modes, save, start-up), appstate.js (shared state and helpers),
+                       pieces.js (tiles, profile, tables), route.js (01 Your engine, 02 Your route), race.js (03 Your plan,
+                       04 Your race, 05 Your coach, top bar), map.js for the map, replay.js for race day, review.js for the
+                       Rewind my run mode, print.js for the Export A4 pages (print or save as PDF), account.js for the account
+                       menu and its IndexedDB store (acparts.js for its building blocks), ailocal.js for the local AI test of
+                       npm run ai-browser, cloud.js for the online account, analytics.js for anonymous visit and event counts
+src/ui/css/            the stylesheet in 11 parts, joined in name order into dist/style.css (later parts override earlier ones)
 src/vendor/leaflet/    Leaflet 1.9.4, the map library (BSD-2 licence), copied to dist/vendor/
 cli.js                 the command-line tool
-scripts/build.js       bundles the app into dist/index.html, no dependencies
+scripts/build.js       bundles the app into dist/index.html, no dependencies; scripts/strip.js removes the comments
+                       from the live page (the source keeps them); scripts/core-copy.js copies src/core for the server
+                       functions (supabase/functions/_shared/core, made by npm test and npm run build, not in git)
+CLAUDE.md              short code map and rules for AI coding sessions (what not to read whole)
 tests/                 node:test suite on made-up data
 docs/HOW_IT_WORKS.md   the ideas behind it, with the reasoning
 supabase/              online accounts: tables (migrations/), server functions (functions/), SETUP.md

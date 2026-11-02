@@ -180,7 +180,7 @@ const slice = (route, totalKm, a, b) => {
 /**
  * HTML of one marker for Leaflet: an aid-station marker (its name as a
  * tooltip), a labelled badge for the start, a numbered round badge for a km marker.
- * The look comes from the .mk classes in style.css.
+ * The look comes from the .mk classes in src/ui/css.
  */
 function markHtml(m) {
   if (m.kind === "aid") return `<div class="mk mk-aid" title="${m.label}"></div>`;
@@ -240,7 +240,7 @@ function leafletMap(L, el, { route, totalKm, paint = [], marks = [] }) {
   map.on("mouseout", () => map.scrollWheelZoom.disable());
 
   // 4. The course lines. L.polyline draws a line through [lat, lon] points; className hands the
-  // styling (colour, width) to style.css. interactive: false means mouse events pass through.
+  // styling (colour, width) to src/ui/css. interactive: false means mouse events pass through.
   const casing = L.polyline(route, { className: "rt-casing", interactive: false }).addTo(map);
   // The section you are on: a soft glow drawn UNDER the coloured course (added right after the
   // casing, so everything drawn later sits on top), so the section keeps its own colour and only
@@ -251,7 +251,7 @@ function leafletMap(L, el, { route, totalKm, paint = [], marks = [] }) {
   // the mouse along the line (sticky).
   paint.forEach((p) => L.polyline(slice(route, totalKm, p.fromKm, p.toKm), { className: p.cls }).bindTooltip(p.title, { sticky: true }).addTo(map));
   // The focused stretch (a profile zoom, a race-script moment): the route outside it is dimmed by
-  // the "map-dim" class on the box (see style.css), and this group redraws the stretch on top at
+  // the "map-dim" class on the box (see src/ui/css), and this group redraws the stretch on top at
   // full strength: the plain line, then each coloured stretch cut to the window. Empty otherwise.
   const focusGroup = L.layerGroup().addTo(map);
   const drawFocus = (a, b) => {

@@ -5,7 +5,7 @@
 // any, unticks the unwanted ones and adds their own. Edits are kept in localStorage under a key
 // per course and scenario, so they survive a reload, and the downloads carry that version.
 //
-// Where it sits: main.js (Plan a race) and preprun.js (Prep my run) put watchPanelHtml() in the
+// Where it sits: race.js (Plan a race) and preprun.js (Prep my run) put watchPanelHtml() in the
 // page, call mountWatch() to wire it, and call downloadCourse() from their download buttons.
 // The file formats themselves (Garmin FIT, GPX) are written in src/core/garmin.js.
 //
@@ -40,7 +40,7 @@ export function watchPoints(plan, sid, key) {
 }
 
 /**
- * The "Pimp my GPX" sticker (street-art look, style.css .pimp-link) that sits next to the plan's
+ * The "Pimp my GPX" sticker (street-art look, src/ui/css .pimp-link) that sits next to the plan's
  * key figures and jumps to the watch messages and the course download at `href`.
  * Returns an HTML string (a link); `sub` is the small line under the title.
  */

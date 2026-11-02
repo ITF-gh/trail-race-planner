@@ -10,7 +10,7 @@
 // Pimp my GPX (watch messages, .fit/.gpx) is never printed: it belongs on the watch, not on paper.
 //
 // How it works: the document is a <div id="printDoc"> added to <body> and hidden on screen. When
-// the page is printed, CSS (@media print in style.css) hides everything else and shows only it;
+// the page is printed, CSS (@media print in src/ui/css/07-print.css) hides everything else and shows only it;
 // @page sets the A4 size and margins. Black on white for ink, colours only where they carry
 // meaning (difficulty, good/bad). The live map needs internet tiles and does not print well, so
 // the course is drawn as a line sketch instead. The sheet is rebuilt on "beforeprint", so the
@@ -278,7 +278,7 @@ function p4ClimbTable(plan, sid, st) {
  * The Prep my race document. Input (printData in main.js): plan (core/plan.js), sid (the scenario
  * picked), raceName, effort (the analysed reference runs, or null) and settings (target time,
  * hiking threshold, half-life...). Returns HTML in several <section class="p4-part">; the class
- * "p4-new" starts a new page (break-before: page in style.css). Parts:
+ * "p4-new" starts a new page (break-before: page in src/ui/css/07-print.css). Parts:
  *   1. race card: key figures, scenarios, target verdict, profile, course sketch, checkpoints
  *   2. key zones, aid stations, gels, hikes, heart-rate guide
  *   3. the race section by section
