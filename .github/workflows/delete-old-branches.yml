@@ -1,0 +1,22 @@
+# One-time cleanup (Boss's OK, 2026-11-02): delete the old branches listed in .github/old-branches.txt
+# (merged thread branches and old restore points). Run by hand: Actions > "Delete old branches" > Run workflow.
+# Their last commits are listed in the project files (repo-cleanup/deleted-branches-2026-11-02.txt),
+# so any of them can be recreated. Remove this workflow and the list once it has run.
+name: Delete old branches
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  delete:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          while read -r b; do
+            case "$b" in ""|main|restore/v2.2-reference|restore/v2.29-before-cleanup) continue ;; esac
+            git push origin --delete "$b" || echo "already gone: $b"
+          done < .github/old-branches.txt

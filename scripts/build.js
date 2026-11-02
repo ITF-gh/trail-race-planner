@@ -31,6 +31,7 @@ import { SITE } from "../src/site/site.js";
 import { ANALYTICS, PROVIDERS } from "../src/ui/analytics.js";
 import { CLOUD } from "../src/ui/cloud.js";
 import { createHash } from "node:crypto";
+import { stripJs, stripCss } from "./strip.js";
 
 // The project folder: import.meta.url is this file's address (file:///.../scripts/build.js);
 // turn it into a path, take its folder (scripts/) and go one level up.
@@ -69,7 +70,7 @@ visit(entry);
 // names: every top-level name seen so far -> the file that declared it, to catch clashes.
 const names = new Map();
 // Turn each file into a piece of the bundle: imports removed, `export` keywords removed,
-// and a /* path */ comment on top so the bundle stays readable.
+// and comments stripped (the source keeps them; the live page does not need them).
 // The French dictionary's address carries a hash of its content (?v=...): the page fetches it with
 // cache: "force-cache", so a browser would otherwise keep an older dictionary after an update.
 const frUrl = `i18n/fr.json?v=${createHash("sha256").update(readFileSync(join(root, "src/i18n/fr.json"))).digest("hex").slice(0, 10)}`;
@@ -90,7 +91,7 @@ const parts = order.map((file) => {
     if (names.has(name)) throw new Error(`Name "${name}" is declared in both ${names.get(name)} and ${file}. Rename one.`);
     names.set(name, file);
   }
-  return `/* ${file.slice(root.length + 1)} */\n${src}`;
+  return stripJs(src);
 });
 // Glue the pieces inside (function(){ ... })(): a function that is defined and called at once
 // (an "IIFE"), so the app's top-level names stay private instead of becoming globals of the page.
@@ -103,7 +104,7 @@ const js = `(function(){\n"use strict";\n${parts.join("\n")}\n})();`.replace(/<\
 // app fills in when it starts, and the bundled code inline in <script>.
 // The styles are the app's (src/ui/style.css), then the site's (footer, "?" bubbles, the static pages).
 // The fonts (Barlow and Barlow Condensed) are loaded from Google Fonts.
-const css = readFileSync(join(root, "src/ui/style.css"), "utf8") + "\n" + readFileSync(join(root, "src/site/site.css"), "utf8");
+const css = stripCss(readFileSync(join(root, "src/ui/style.css"), "utf8") + "\n" + readFileSync(join(root, "src/site/site.css"), "utf8"));
 const fonts = `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,700;1,800&family=Barlow:wght@400;500;600&display=swap">`;
 const body = `<style>\n${css}\n</style>\n<div class="wrap" id="app"></div>\n<script>\n${js}\n</script>\n`;
 
@@ -112,8 +113,8 @@ const body = `<style>\n${css}\n</style>\n<div class="wrap" id="app"></div>\n<scr
 mkdirSync(join(root, "dist"), { recursive: true });
 // The server functions (supabase/functions) check achievements with the very same code as the
 // app, and the AI function builds its OpenAI request with the very same prompt code: they get a
-// copy of src/core in _shared/core (a test fails if the copy is out of date).
-cpSync(join(root, "src/core"), join(root, "supabase/functions/_shared/core"), { recursive: true });
+// copy of src/core in _shared/core (made here and before the tests, not kept in git).
+await import("./core-copy.js");
 // Photos are separate files (inlining them as base64 would make the page ~1.3x heavier and uncacheable).
 cpSync(join(root, "src/ui/photos"), join(root, "dist/photos"), { recursive: true });
 // Leaflet (the map library, BSD-2 licence) ships next to the page and is loaded only when a map
@@ -180,7 +181,7 @@ for (const [file, html] of sitePages({ fonts, counter })) writeFileSync(join(roo
 // export keywords removed, wrapped like the app, started once the page is read).
 mkdirSync(join(root, "dist/i18n"), { recursive: true });
 writeFileSync(join(root, "dist/i18n/fr.json"), JSON.stringify(JSON.parse(readFileSync(join(root, "src/i18n/fr.json"), "utf8"))));
-const i18nSrc = readFileSync(join(root, "src/ui/i18n.js"), "utf8").replace(/^export /gm, "").replaceAll('"i18n/fr.json"', `"${frUrl}"`);
+const i18nSrc = stripJs(readFileSync(join(root, "src/ui/i18n.js"), "utf8")).replace(/^export /gm, "").replaceAll('"i18n/fr.json"', `"${frUrl}"`);
 writeFileSync(join(root, "dist/i18n.js"), `(function(){\n"use strict";\n${i18nSrc}\nif (i18nLang() === "fr") document.documentElement.classList.add("i18n-wait");\ndocument.addEventListener("DOMContentLoaded", () => i18nInit(document.querySelector(".i18n-slot")));\n})();\n`);
 // Icons, the share-preview image and the guide screenshots (made once by scripts/site-images.mjs
 // and scripts/guide-shots.mjs, kept in src/site).
