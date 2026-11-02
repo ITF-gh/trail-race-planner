@@ -1,27 +1,4 @@
-// i18n.js: the page in English (the default) or in French, switched by two flags next to the
-// account button (and in the top bar of the site pages). Boss, 2026-10-28.
-//
-// How it works: the app keeps writing its texts in English, exactly as before. When French is
-// picked, this file reads the French dictionary (dist/i18n/fr.json, built from src/i18n/fr.json,
-// loaded once, only then) and swaps every English text on the page for its French version: the
-// text pieces between tags, a few attributes (placeholder, title, aria-label, alt), and some whole
-// blocks whose text has bold or links inside (then the block's HTML is swapped as one).
-// A MutationObserver (a browser feature that reports every change to the page) catches each new
-// or changed text, so whatever the app draws later (a replay step, a window, an A4 sheet) is
-// swapped too. The English original is kept on each piece, so going back to English needs no
-// reload and the files already loaded stay.
-//
-// Texts with numbers: "78.3 km · 3,784 m D+" is looked up as "{0} km · {1} m D+", then the
-// numbers go back in, written the French way (78,3 and 3 784). Texts joined with " · ", and texts
-// of several sentences, are also tried part by part. A text missing from the dictionary simply
-// stays in English.
-//
-// The dictionary is ours (a file of this site), so swapping a block's HTML with it is safe: a
-// block is only swapped when its whole content is exactly a key of the dictionary.
-//
-// Exports: i18nLang (the language in use), i18nInit (start: flags, dictionary, observer),
-// i18nFlagsHtml (the two flag buttons). The build also makes dist/i18n.js from this file for the
-// static pages (guide, about...), which run no other app code.
+// i18n.js: the page in English (the default) or in French, switched by two flags next to the account button (and in the top bar of the site pages). Boss, 2026-10-28.
 
 const I18N_KEY = "trp.lang";
 // The flags, drawn in SVG (flag emoji show as two letters on Windows).
@@ -59,8 +36,7 @@ export function i18nFlagsHtml() {
   return `<div class="i18n-flags" role="group" aria-label="Language" translate="no">${["en", "fr"].map((l) => `<button type="button" data-lang="${l}" aria-pressed="${l === i18nCur}" aria-label="${I18N_NAMES[l]}" title="${I18N_NAMES[l]}">${I18N_FLAGS[l]}</button>`).join("")}</div>`;
 }
 
-// A number written the French way: 3,784 -> 3 784 (narrow no-break space), and 78.3 -> 78,3 but
-// only when a unit follows it in the French text (`unit` true): "Climb section 1.2" keeps its dot.
+// A number written the French way: 3,784 -> 3 784 (narrow no-break space), and 78.3 -> 78,3 but only when a unit follows it in the French text (`unit` true): "Climb section 1.2" keeps its dot.
 const i18nNum = (n, unit) => (/^\d{1,3}(,\d{3})+$/.test(n) ? n.replace(/,/g, "\u202f") : unit && /^\d+\.\d+$/.test(n) ? n.replace(".", ",") : n);
 // Put the numbers back into a French template: {0}, {1}... in their order of the English text.
 const i18nFill = (fr, nums) => fr.replace(/\{(\d+)\}/g, (m, i, at) => i18nNum(nums[+i] || "", /^\s?(km|m\b|%|kg|kcal|min|h\b|s\b|\/km|m\/h)/.test(fr.slice(at + m.length)) || /^ à [+-]?\{\d+\}\s?%/.test(fr.slice(at + m.length))));
@@ -72,9 +48,7 @@ function i18nText(s) {
   const nums = [];
   const key = s.replace(I18N_NUM, (m) => `{${nums.push(m) - 1}}`);
   if (nums.length && Object.prototype.hasOwnProperty.call(T, key)) return i18nFill(T[key], nums);
-  // Texts holding a list (the sections of a climb, the bests just beaten): the dictionary's "r"
-  // rules, each a pattern and its French, where {t:N} is part N translated and {l:N} part N read
-  // as a list (split before each "3.1 " number, else at each ", ") with each item translated.
+  // Texts holding a list (the sections of a climb, the bests just beaten): the dictionary's "r" rules, each a pattern and its French, where {t:N} is part N translated and {l:N} part N read as a list...
   for (const [re, out] of i18nDict.r) {
     const m = re.exec(s);
     if (!m) continue;
@@ -88,8 +62,7 @@ function i18nText(s) {
   // A piece that starts with a separator (" · Climb 3" after a bold number): translate the rest.
   const lead = /^([·:,(]\s*)(.+)$/.exec(s);
   if (lead) { const fr = i18nText(lead[2]); if (fr !== null) return lead[1] + fr; }
-  // Long texts built from several pieces: try piece by piece, first the " · " parts, then the
-  // sentences. A piece the dictionary lacks stays in English.
+  // Long texts built from several pieces: try piece by piece, first the " · " parts, then the sentences.
   for (const [cut, glue] of [[" · ", " · "], [/(?<=[.!?])\s+(?=[A-Z0-9])/, " "]]) {
     const parts = s.split(cut);
     if (parts.length < 2) continue;
@@ -99,10 +72,7 @@ function i18nText(s) {
   return null;
 }
 
-/**
- * French HTML for a block, or null. Looked up as is, then with the numbers of its text (never
- * those inside tags, such as a link's address) replaced by {0}, {1}... like i18nText.
- */
+/** French HTML for a block, or null. */
 function i18nHtml(html, H) {
   if (Object.prototype.hasOwnProperty.call(H, html)) return H[html];
   const nums = [];
@@ -246,11 +216,7 @@ async function i18nSet(lang) {
   document.documentElement.classList.remove("i18n-wait");
 }
 
-/**
- * Start: put the flags in `where` (an element; they go first inside it), listen to their
- * clicks, and show French when it was picked before. Messages of window.confirm / alert are
- * swapped too. Safe to call once per page.
- */
+/** Start: put the flags in `where` (an element; they go first inside it), listen to their clicks, and show French when it was picked before. */
 export function i18nInit(where) {
   const lang = i18nLang();
   if (where && !where.querySelector(".i18n-flags")) where.insertAdjacentHTML("afterbegin", i18nFlagsHtml());

@@ -1,6 +1,5 @@
 /* ---------- Links to the profile from the page (data-open-profile, opened by account.js) ---------- */
-/* .to-profile: a link-looking button; .to-profile-line: the line that holds one (under Your runs,
-   at the top of Rewind my run's review). A run that beats an all-time best gets a gold edge. */
+/* .to-profile: a link-looking button; .to-profile-line: the line that holds one (under Your runs, at the top of Rewind my run's review). */
 .to-profile{white-space:nowrap;padding:0;border:0;background:none;color:var(--sun);font:inherit;font-weight:600;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 .to-profile-line{margin-top:6px;font-size:14px;color:var(--muted)}
 #s5body > .to-profile-line{margin:0 0 12px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2)}
@@ -8,8 +7,7 @@
 #s5body > .to-profile-line .to-profile{margin-left:6px}
 
 /* ---------- Rewind my run: moments as notifications and a run script of chips (review 2.10) ---------- */
-/* Same bubbles and chips as the race script; the colour says how it went (green went well, red cost
-   you, grey worth knowing). The latest bubble also carries the moment's comment, on its own lines. */
+/* Same bubbles and chips as the race script; the colour says how it went (green went well, red cost you, grey worth knowing). */
 .rp-notifs li.rv-good .ic,.rs-chip.rv-good .ic,.rs-f.rv-good .ic,.rs-card.rv-good .ic{background:#3fd06a;color:#04210f}
 .rp-notifs li.rv-bad .ic,.rs-chip.rv-bad .ic,.rs-f.rv-bad .ic,.rs-card.rv-bad .ic{background:#ff3048;color:#fff}
 .rp-notifs li.rv-info .ic,.rs-chip.rv-info .ic,.rs-f.rv-info .ic,.rs-card.rv-info .ic{background:rgba(255,255,255,.22);color:var(--fg)}
@@ -38,8 +36,7 @@ html[data-theme="sky"] .rp-notifs li.rv-info .ic,html[data-theme="sky"] .rs-chip
 .rv-next-card:hover i{transform:translateX(5px)}
 @media (max-width:640px){ .rv-next-card{min-height:150px;padding:18px} }
 
-/* Prep my run: Your run at a glance (preprun.js glanceHtml). A vertical road book: time | icon on
-   a rail | what, figures, tactic | duration. Rail colour = the step's difficulty; gold = key zone. */
+/* Prep my run: Your run at a glance (preprun.js glanceHtml). */
 .glance .gl-note{margin:-4px 0 10px}
 .gl-list{list-style:none;margin:0 0 18px;padding:0;max-width:860px}
 .gl-row{--rail:var(--line);display:grid;grid-template-columns:62px 74px 1fr 64px;align-items:start;gap:0 12px;position:relative;padding:8px 10px 8px 0;border-radius:10px}
@@ -89,8 +86,7 @@ html[data-theme="sky"] .gl-row+.gl-row{border-top-color:rgba(0,0,0,.08)}
 .gl-row.on.kz{box-shadow:inset 3px 0 0 var(--gold)}
 html[data-theme="sky"] .gl-row.on{background:rgba(255,255,255,.35)}
 
-/* Account window, My files (2026-10-23): each GPX file you gave the app, tagged RUN (GPS + time,
-   pace, cadence) or ROUTE (GPS only), with the modes it can open in. */
+/* Account window, My files (2026-10-23): each GPX file you gave the app, tagged RUN (GPS + time, pace, cadence) or ROUTE (GPS only), with the modes it can open in. */
 .acct-menu h4{font-size:14px}
 .acct-tag{display:inline-block;flex:none;font-family:var(--f-display);font-weight:800;font-style:italic;text-transform:uppercase;letter-spacing:.08em;font-size:11px;line-height:1;padding:4px 7px 3px;border-radius:6px;color:#06101f}
 .acct-tag.run{background:#3fd06a}
@@ -111,8 +107,7 @@ html[data-theme="sky"] .gl-row.on{background:rgba(255,255,255,.35)}
 .acct-use button:hover,.acct-use button:focus-visible{border-color:var(--sun);color:var(--sun)}
 .acct-panel-in .acct-filelist{padding:0;margin:0}
 .acct-panel-in .acct-files{border:0;padding:6px 0 0}
-/* Signed in: the account name on the left of the button (not on phones, where the mode buttons
-   fill that row). */
+/* Signed in: the account name on the left of the button (not on phones, where the mode buttons fill that row). */
 .acct-name{position:absolute;right:calc(100% + 10px);top:50%;transform:translateY(-50%);max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--f-display);font-weight:700;font-style:italic;text-transform:uppercase;letter-spacing:.06em;font-size:15px;color:var(--sun);text-shadow:0 1px 8px rgba(0,0,0,.5);pointer-events:none}
 .acct-name:empty{display:none}
 @media (max-width:640px){ .acct-name{display:none} }
@@ -124,8 +119,7 @@ html[data-theme="sky"] .gl-row.on{background:rgba(255,255,255,.35)}
 .acct-links .acct-danger{border-color:rgba(255,48,72,.6);color:#ff8090}
 .acct-links .acct-danger:hover{border-color:#ff3048}
 
-/* AI waiting animation (Boss, 2026-10-23): a trail runner runs along a line and nature pops up
-   ahead of them; the loop lasts 14 s (a slow Z2 jog, away to the horizon). Motion off for people who ask their system for less. */
+/* AI waiting animation (Boss, 2026-10-23): a trail runner runs along a line and nature pops up ahead of them; the loop lasts 14 s (a slow Z2 jog, away to the horizon). */
 .ai-wait{display:block;width:100%;max-width:420px;height:auto;margin:6px 0 4px;overflow:visible}
 .ai-wait .aiw-ground{fill:none;stroke:var(--muted);stroke-width:1.4;stroke-linecap:round;stroke-dasharray:1 6;opacity:.7}
 .ai-wait .aiw-trail{fill:var(--muted);opacity:.22}
@@ -167,8 +161,7 @@ html[data-theme="sky"] .gl-row.on{background:rgba(255,255,255,.35)}
 .ai-wait .aiw-i.n6{animation:aiw-pop6 14s ease-out infinite}
 @keyframes aiw-pop6{0%,72%{opacity:0;transform:scale(0)}76%{opacity:1;transform:scale(1.2)}79%,88%{opacity:1;transform:scale(1)}95%,100%{opacity:0;transform:scale(1)}}
 @media (prefers-reduced-motion:reduce){.ai-wait *{animation:none!important}.ai-wait .aiw-i{opacity:1}}
-/* AI switched off (html.ai-off, set by account.js): no "Ask the AI" button anywhere, and the AI
-   bar of a mode only shows when an AI answer is ready to play (an answer kept from before). */
+/* AI switched off (html.ai-off, set by account.js): no "Ask the AI" button anywhere, and the AI bar of a mode only shows when an AI answer is ready to play (an answer kept from before). */
 html.ai-off .ai-badge,html.ai-off .ar-bar:not([data-state="ok"]){display:none}
 .acct-invite{display:inline-block;margin-top:8px;font-size:14px;opacity:.75}
 /* Language flags (i18n.js): next to the account button, and in the site pages' top bar. */

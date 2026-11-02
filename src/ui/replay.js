@@ -1,29 +1,4 @@
-// replay.js: section 04, the race-day replay. Plays the plan back in time: a runner moves
-// along the map and the elevation profile, the clock runs at the predicted pace, and every
-// key moment (climbs, gels, aid stations, key zones) shows a short cue to rehearse.
-//
-// Animation: requestAnimationFrame calls `frame` before each screen refresh (about 60 times
-// a second). Each frame moves race time forward by (real seconds since the last frame x
-// speed), then redraws only what changed: a few text fields, the runner on the map and the
-// cursor on the profile. Nothing is re-rendered from scratch while it plays.
-//
-// Sections: the course is cut into numbered sections (raceLegs: each climb or climb section,
-// each descent, the runnable stretches between). The section you are on is lit up in three
-// places at once (the bar of sections above the map, the map, the profile) and its targets fill
-// the panel next to the map. Those only change when you enter a new section, so draw() compares
-// the section number with the last one and touches the DOM only then.
-//
-// Where it sits: race.js (Plan a race) and preprun.js (Prep my run, through race.js's mountCockpit)
-// call mountReplay() with a finished plan (from src/core/plan.js) and a drawn profile. All the
-// race facts come from src/core/script.js: raceScript (the list of moments), raceStateAt (where
-// the runner is at a given second), raceLegs (the sections). This file only shows them and
-// handles the buttons, the keyboard, the seek bar and clicks on the profile.
-//
-// Time unit: everything runs on "race seconds", seconds since the start gun (rp.sec). The
-// clock of day is that plus plan.startSec (the start time, seconds after midnight).
-//
-// Main exports: mountReplay (build and wire the whole cockpit), stopReplay (stop and clean up),
-// fitPanel and alignBar (two layout helpers also used by other screens).
+// replay.js: section 04, the race-day replay.
 
 import { raceScript, raceStateAt, secAtKm, raceLegs, raceTotals, legAtKm, gainLoss, racePaceLine } from "../core/script.js";
 import { courseMap } from "./map.js";
@@ -31,14 +6,7 @@ import { slidable } from "./slide.js";
 import { mmss, hm, hms, clock } from "../core/format.js";
 import { trackEvent, trackOnce } from "./analytics.js";
 
-/**
- * The panel never scrolls: the "coming next" list keeps only the rows that fit in it.
- * Rows are shown again first, so a taller window gets them back.
- *
- * Input: `list`, the <ul> element inside the .rp-hud panel. Side effect: sets `hidden` on the
- * rows whose bottom edge falls below the panel's inner bottom edge.
- * getBoundingClientRect() gives an element's position and size on screen, in pixels.
- */
+/** The panel never scrolls: the "coming next" list keeps only the rows that fit in it. */
 export function fitPanel(list) {
   // closest() walks up the page from `list` to the first parent matching the selector.
   const hud = list && list.closest(".rp-hud");
@@ -52,23 +20,15 @@ export function fitPanel(list) {
   rows.forEach((li) => { if (li.getBoundingClientRect().bottom > bottom + 1) li.hidden = true; });
 }
 
-// Escape text before putting it in HTML: the regex [&<>"] matches each of those four characters,
-// and each is replaced by its HTML entity, so a name like "A<B" shows as text, not as a tag.
+// Escape text before putting it in HTML: the regex [&<>"] matches each of those four characters, and each is replaced by its HTML entity, so a name like "A<B" shows as text, not as a tag.
 const escR = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-// Replay speeds: v = race seconds per real second. 360 means one race hour (3600 s) plays in
-// 10 real seconds.
+// Replay speeds: v = race seconds per real second. 360 means one race hour (3600 s) plays in 10 real seconds.
 const SPEEDS = [
   { v: 120, label: "1 h in 30 s" },
   { v: 360, label: "1 h in 10 s" },
   { v: 900, label: "1 h in 4 s" },
 ];
-/**
- * Altitude at `km` on the profile, linear between points.
- * P is the profile: [[km, elevation in metres], ...] sorted by km. A simple forward scan finds
- * the first point at or past `km`; the result is interpolated between it and the point before.
- * The clamp (0 to 1) keeps a km outside the profile on its end values; `|| 1` avoids dividing
- * by zero when two points share the same km.
- */
+/** Altitude at `km` on the profile, linear between points. */
 function eleOn(P, km) {
   let i = 1;
   while (i < P.length - 1 && P[i][0] < km) i++;
@@ -78,41 +38,14 @@ function eleOn(P, km) {
 // Length and climb of a section, written out under its title.
 const legData = (l) => `${(l.endKm - l.startKm).toFixed(1)} km · +${Math.round(l.up)} / −${Math.round(l.down)} m`;
 // The symbol shown for each kind of moment or section (the "kind" field from core/script.js).
-// Names of the moment kinds, in the order of the script list's filter buttons.
 const KIND_NAME = { start: "Start", climb: "Climbs", top: "Tops", descent: "Descents", gel: "Gels", aid: "Aid", key: "Key zones", phase: "Race phases", ai: "AI", finish: "Finish" };
 const ICON = { start: "▶", climb: "▲", top: "⛰", descent: "▼", gel: "G", aid: "⛺", phase: "◐", key: "★", ai: "✦", finish: "🏁" };
 
 // Survives re-renders (a scenario switch, a settings change), so the replay keeps its place.
-// It lives at module level (outside any function), so there is one for the whole page.
-//   key      identifies the course being replayed; a new key means a new course: start at 0
-//   sec      current race time, in seconds since the start
-//   playing  true while the animation runs
-//   speed    race seconds per real second (one of SPEEDS)
-//   pauseAt  "Stop at each moment" ticked: pause on every moment of the script
-//   follow   "Follow the runner" ticked: the map keeps the runner in view
-//   raf      id of the pending requestAnimationFrame, to cancel it
-//   map      the map controller from map.js, or null
-//   hideKinds  moment types hidden in the script list
-//   sliding  a finger (or mouse) is sliding one of the bars (slide.js): moments wait until it lets go
-// Set later: last (timestamp of the previous frame, ms) and onKey (the keyboard listener).
 const rp = { key: "", sec: 0, playing: false, speed: 360, pauseAt: false, follow: false, raf: 0, map: null, hideKinds: new Set(), sliding: false };
 
-/**
- * Mount the replay in `box`. `prof` draws the profile: {html, x(km), y(ele)} in SVG units of a
- * viewBox 1000 wide, with a `.pcur` group to move. `mapPaint` / `mapMarks` style the route.
- * `noun` names what plays ("Race", or "Run" in Prep my run).
- * (This block describes mountReplay, further down.)
- */
-/**
- * Line the section bar up with the profile: pad `bar` so its km 0 and its finish sit right above
- * the profile's own km 0 and finish. `x0`/`x1` are those two points in the SVG's viewBox units;
- * getScreenCTM() turns them into screen pixels, whatever size the SVG is drawn at. Runs again
- * whenever the profile is resized (window, phone rotation, a fold opening).
- *
- * getScreenCTM() returns a matrix {a, b, c, d, e, f}: a screen x = a x (SVG x) + e when the
- * SVG is not rotated, so `m.a * x0 + m.e` is the screen x of km 0.
- * Side effect: sets the bar's left and right padding (in px), or clears them.
- */
+/** Mount the replay in `box`. */
+/** Line the section bar up with the profile: pad `bar` so its km 0 and its finish sit right above the profile's own km 0 and finish. */
 export function alignBar(bar, svg, x0, x1) {
   if (!bar || !svg || typeof svg.getScreenCTM !== "function") return;
   const fit = () => {
@@ -133,22 +66,7 @@ export function alignBar(bar, svg, x0, x1) {
 // Each pace line gets its own clip ids (rpPc1Past...), so two profiles on the page never share one.
 let rpPaceN = 0;
 
-/**
- * The pace line on a replay's profile, the same one Rewind my run draws: speed (higher = faster)
- * along the course, scaled between the slow 5% and the fast 5% so one steep wall does not squash
- * the rest, drawn thin and faint, with only the WHOLE current section lit, a dot at the runner and
- * the live pace written next to it. Used by every replay built on mountReplay: Your race (with
- * the calculated plan or the AI one) and Prep my run.
- *
- * How it works: the same SVG path is drawn three times, each copy inside a clipPath (a stencil:
- * only what lies inside its rectangle shows). One rectangle covers the course before the current
- * section, one the section itself (the lit copy), one the rest. Moving the runner only moves and
- * resizes those three rectangles, which is far cheaper than redrawing the line every frame.
- *
- * Inputs: svg, the profile <svg>; cur, its cursor group (the line goes just under it); prof, the
- * geometry from profileView (x, top, base, l, r, W, H); pl, the speeds [{km, v}] (racePaceLine).
- * Returns { draw(km, leg, sec, stopText) } to call on each frame, or null with too little data.
- */
+/** The pace line on a replay's profile, the same one Rewind my run draws: speed (higher = faster) along the course, scaled between the slow 5% and the fast 5% so one steep wall does not squash the rest... */
 function mountPaceLine(svg, cur, prof, pl) {
   const vs = pl.map((p) => p.v).filter((v) => v > 0).sort((a, b) => a - b);
   if (vs.length < 5) return null;
@@ -160,9 +78,7 @@ function mountPaceLine(svg, cur, prof, pl) {
   const d = pl.filter((p) => p.v > 0).map((p, i) => `${i ? "L" : "M"}${x(p.km).toFixed(1)},${paceY(p.v).toFixed(1)}`).join("");
   const id = `rpPc${++rpPaceN}`;
   const clip = (k) => `<clipPath id="${id}${k}"><rect x="${l}" y="0" width="0" height="${H}"/></clipPath>`;
-  // insertAdjacentHTML on an SVG element parses the text as SVG (its parent sets the namespace),
-  // so these become real SVG elements. "beforebegin" puts them just before the cursor: on top of
-  // the profile, under the cursor.
+  // insertAdjacentHTML on an SVG element parses the text as SVG (its parent sets the namespace), so these become real SVG elements.
   cur.insertAdjacentHTML("beforebegin", `<defs>${clip("Past")}${clip("Trail")}${clip("Ahead")}</defs><g class="rv-pace rp-pace">`
     + `<path class="rv-pl ahead" clip-path="url(#${id}Ahead)" d="${d}"/><path class="rv-pl past" clip-path="url(#${id}Past)" d="${d}"/><path class="rv-pl trail" clip-path="url(#${id}Trail)" d="${d}"/>`
     + `<text class="rv-pl-t" x="${W - r - 2}" y="${(yHi + 3).toFixed(1)}" text-anchor="end">${mmss(1000 / vhi)}/km</text><text class="rv-pl-t" x="${W - r - 2}" y="${(yLo + 3).toFixed(1)}" text-anchor="end">${mmss(1000 / vlo)}/km</text>`
@@ -173,8 +89,7 @@ function mountPaceLine(svg, cur, prof, pl) {
   const R = { past: rect("Past"), trail: rect("Trail"), ahead: rect("Ahead") };
   const dot = g.querySelector(".rv-pl-dot");
   const txt = g.querySelector(".rv-pl-v");
-  // Speed at km k, interpolated between the 100 m points (a short walk from the start: 1000
-  // points at most, cheap enough once per frame).
+  // Speed at km k, interpolated between the 100 m points (a short walk from the start: 1000 points at most, cheap enough once per frame).
   const vAt = (k) => { let i = 1; while (i < pl.length - 1 && pl[i].km < k) i++; const a = pl[i - 1], b = pl[i]; const f = Math.max(0, Math.min(1, (k - a.km) / (b.km - a.km || 1))); return a.v + f * (b.v - a.v); };
   return {
     draw(km, leg, sec, stopText) {
@@ -199,21 +114,7 @@ function mountPaceLine(svg, cur, prof, pl) {
   };
 }
 
-/**
- * Build the replay cockpit inside `box` and wire every control (see the block two comments up
- * for `prof`, `mapPaint`, `mapMarks` and `noun`). Other inputs:
- *   plan  the plan from core/plan.js (course, scenarios, aid stations, startSec...)
- *   sid   the scenario shown: "best", "central" or "cautious"
- *   key   an id of the course; the same key as last time keeps the replay where it was
- * Returns nothing. Side effects: replaces box's HTML, creates a map, adds listeners on the
- * document (keyboard, clicks outside the section pop-up), sends analytics events.
- *
- * Structure: (1) compute the data, (2) write the HTML once, (3) keep references to the elements
- * that change, (4) draw() puts the state at rp.sec on screen, (5) frame() advances time while
- * playing, (6) event listeners for buttons, seek bar, sections, script list, profile, keyboard.
- * All the small functions below are closures: they are created inside mountReplay and keep
- * access to its local variables (plan, legs, els...) for as long as the page uses them.
- */
+/** Build the replay cockpit inside `box` and wire every control (see the block two comments up for `prof`, `mapPaint`, `mapMarks` and `noun`). */
 // A running shoe icon (descent risk: 3 shoes Let it run, 2 Control, 1 Brake), filled with currentColor.
 const RP_SHOE = `<svg viewBox="0 0 32 14" aria-hidden="true"><path d="M2.7 9.2C2.3 6.8 2.8 4 4 1.9c.2-.4.7-.5 1-.2l1.1 1.1c1.6 1.6 4 2.1 6 1.1l4.3-2.6c.6-.4 1.4-.3 1.8.3l1 1.5c2.3 2.8 6 4 9.6 4.8 1.6.4 2.6 1.5 2.4 2.5L4.2 10.2c-.8 0-1.4-.4-1.5-1z"/><path d="M2.8 10.9l28.4-1.4c.2 1.2-.6 2.3-2 2.5l-24.1 1.2c-1.2.1-2.2-.9-2.3-2.3z" fill-opacity=".55"/><path d="M5.6 13.6l.6-.8.6.8.6-.8.6.8.6-.8.6.8.6-.8.6.8.6-.8.6.8.6-.9.6.9.6-.9.6.9.6-.9.6.9.6-.9.6.9.6-.9.6.9.6-.9.6.9.6-.9.6.9.6-.9.6.9.6-1 .6.9" stroke="currentColor" stroke-width=".7" fill="none" stroke-linejoin="round"/><path d="M6.4 8.6c4.8-.3 9.4-1.7 13.6-3.9l.9.7C16.6 7.7 11.6 9.4 6.6 9.6z" fill="#fff" fill-opacity=".6"/><path d="M9.6 7.2c3-.3 5.9-1.2 8.5-2.5l.7.5c-2.8 1.5-6 2.5-9.1 2.7z" fill="#fff" fill-opacity=".35"/><path d="M4.2 2.2l1.6 1.6" stroke="#fff" stroke-opacity=".5" stroke-width=".8" stroke-linecap="round"/><path d="M12.8 4.1l1.3 1M14.6 3l1.3 1M16.4 2.1l1.2 1" stroke="#fff" stroke-opacity=".7" stroke-width=".8" stroke-linecap="round"/></svg>`;
 export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, noun = "Race", timeline = "" }) {
@@ -227,34 +128,24 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
   // A scenario switch can make the race shorter: keep the position inside it.
   rp.sec = Math.min(rp.sec, sc.finishSec);
   const hasMap = Boolean(plan.course.route);
-  // The numbered sections: [{i, kind, level, title, label, tactic, startKm, endKm, startSec,
-  // endSec, km, up, down, avg, pace, durSec, keyZone}, ...].
+  // The numbered sections: [{i, kind, level, title, label, tactic, startKm, endKm, startSec, endSec, km, up, down, avg, pace, durSec, keyZone}, ...].
   const legs = raceLegs(plan, sid);
-  // Totals for the four tiles at the top: duration (with the stops, or the finish time in Prep my
-  // run, noun "Run"), distance, paces and elevation.
+  // Totals for the four tiles at the top: duration (with the stops, or the finish time in Prep my run, noun "Run"), distance, paces and elevation.
   const tot = raceTotals(plan, sid);
   const TOT_KM = plan.course.totalKm;
   // A km as a percentage of the course: used to place sections and aid stations on the bar.
   const pct = (km) => `${((km / TOT_KM) * 100).toFixed(3)}%`;
   // CSS classes of a section: its kind, plus its difficulty level (l1..l4) unless it is flat.
   const legCls = (l) => `k-${l.kind}${l.kind === "flat" ? "" : ` l${l.level}`}`;
-  // One of the four target tiles: a key, a big value and an optional small line under it.
-  // cls "geo" marks the course's own figures (distance, elevation), which the AI never changes. A
-  // sub line given as its own <small class="keep"> stays visible where the cockpit hides the others.
+  // One of the four target tiles: a key, a big value and an optional small line under it. cls "geo" marks the course's own figures (distance, elevation), which the AI never changes.
   const totTile = (k, v, sub, cls = "") => `<div class="rp-tot ${cls}"><span class="k">${k}</span><b>${v}</b>${sub ? (sub.startsWith("<small") ? sub : `<small>${sub}</small>`) : ""}</div>`;
 
   // The kinds of moment in this script, in a fixed order, for the filter buttons of the list.
   const kinds = Object.keys(KIND_NAME).filter((k) => script.some((e) => e.kind === k));
-  // Script list: which moments have their card open (indexes in `script`). Like the key zone
-  // chips, the first one is open by default; the others are icons until clicked.
+  // Script list: which moments have their card open (indexes in `script`).
   const open = new Set(script.length ? [0] : []);
 
-  // 2. HTML, written once.
-  // Everything you need while it plays sits in one screen-high "cockpit": race targets, the
-  // section bar, the map, the panel (clock, target vs now, cue), the profile and the controls.
-  // CSS grid places them; the map takes whatever height is left, so it shrinks on small screens.
-  // Below the cockpit: the full race script as a list (one button per moment).
-  // Each section button carries data-i (its index in `legs`) so a click knows which one it is.
+  // 2.
   box.innerHTML = `
   <div class="rp-cockpit${hasMap ? "" : " nomap"}" id="rpCockpit">
   <div class="rp-totals" aria-label="${noun} targets">
@@ -302,8 +193,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
   <div class="rs-chips" id="rpScript" role="group" aria-label="${noun} script moments">${script.map((e, i) => `<button type="button" class="rs-chip k-${e.kind} lv${e.level}" data-i="${i}" data-k="${e.kind}" title="${escR(e.title)} · km ${e.km.toFixed(1)} · ${clock(st, e.sec)}" aria-label="${escR(e.title)}"><span class="ic">${ICON[e.kind] || "•"}</span><small>${e.km.toFixed(0)}</small></button>`).join("")}</div>
   <div class="rs-cards" id="rsCards"></div>`}`;
 
-  // 3. Find the elements once and keep them in `els`, so each frame does not search the page.
-  // $r(selector) is a short name for "the first element in this box matching the CSS selector".
+  // 3.
   const $r = (s) => box.querySelector(s);
   const els = { leg: $r("#rpLeg"), legNow: $r("#rpLegNow"), legPos: $r("#rpLegPos"), legBtns: [...box.querySelectorAll("#rpLegs .lg")], clock: $r("#rpClock"), bar: $r("#rpBar"), km: $r("#rpKm"), up: $r("#rpUp"), now: $r("#rpNow"), next: $r("#rpNext"), cue: $r("#rpCue"), ai: box.querySelector("#rpAi"), play: $r("#rpPlay"), seek: $r("#rpSeek"), cur: $r("#rpProf .pcur"), list: $r("#rpScript") };
   // A window resize changes the room in the panel: fit the "coming next" list again.
@@ -315,23 +205,19 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     rp.map.follow(rp.follow && rp.sec > 0);
   }
 
-  // Profile: a soft band over the section you are on, and a glow drawn UNDER the coloured line
-  // (inserted right after the area fill), so the section keeps its own colours and only shines.
+  // Profile: a soft band over the section you are on, and a glow drawn UNDER the coloured line (inserted right after the area fill), so the section keeps its own colours and only shines.
   const svgEl = $r("#rpProf svg");
   const P = plan.course.profile;
-  // SVG path data ("M x,y L x,y ...": move to the first point, then straight lines) following
-  // the profile from km a to km b, with exact interpolated ends.
+  // SVG path data ("M x,y L x,y ...": move to the first point, then straight lines) following the profile from km a to km b, with exact interpolated ends.
   const linePts = (a, b) => {
     const pts = [[a, eleOn(P, a)], ...P.filter((p) => p[0] > a && p[0] < b), [b, eleOn(P, b)]];
     return pts.map((p, i) => `${i ? "L" : "M"}${prof.x(p[0]).toFixed(1)},${prof.y(p[1]).toFixed(1)}`).join("");
   };
-  // Two SVG groups (<g>) made once and refilled on each section change: legG (the band and the
-  // section number) and glowG (the glow under the line).
+  // Two SVG groups (<g>) made once and refilled on each section change: legG (the band and the section number) and glowG (the glow under the line).
   let legG = null;
   let glowG = null;
   if (svgEl && els.cur) {
-    // SVG elements must be created with their namespace, or the browser treats them as unknown
-    // HTML tags and draws nothing.
+    // SVG elements must be created with their namespace, or the browser treats them as unknown HTML tags and draws nothing.
     const NS = "http://www.w3.org/2000/svg";
     legG = document.createElementNS(NS, "g");
     legG.setAttribute("class", "pleg");
@@ -345,16 +231,11 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     svgEl.querySelectorAll("title").forEach((t) => t.remove());
   }
   const pace = svgEl && els.cur ? mountPaceLine(svgEl, els.cur, prof, racePaceLine(plan, sid)) : null;
-  /**
-   * Light up section number `li` (index in `legs`) everywhere: band and glow on the profile,
-   * scroll of the profile on a phone, glow on the map, and on/past/next classes on the bar.
-   * Called only when the runner enters a new section.
-   */
+  /** Light up section number `li` (index in `legs`) everywhere: band and glow on the profile, scroll of the profile on a phone, glow on the map, and on/past/next classes on the bar. */
   const drawLeg = (li) => {
     const l = legs[li];
     const n = legs[li + 1] || null;
-    // A rectangle from the section's start to its end, over the full height of the profile
-    // (at least 2 units wide so a very short section still shows).
+    // A rectangle from the section's start to its end, over the full height of the profile (at least 2 units wide so a very short section still shows).
     const band = (x, cls) => `<rect class="${cls}" x="${prof.x(x.startKm).toFixed(1)}" y="${prof.top - 4}" width="${Math.max(2, prof.x(x.endKm) - prof.x(x.startKm)).toFixed(1)}" height="${prof.base - prof.top + 4}"/>`;
     if (legG) {
       // lx: middle of the section, where its number is written.
@@ -362,9 +243,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
       legG.innerHTML = band(l, "pl-cur") + `<text class="pl-t" x="${lx.toFixed(1)}" y="${prof.base - 6}" text-anchor="middle">${l.i}</text>`;
       glowG.innerHTML = `<path class="pl-glow" d="${linePts(l.startKm, l.endKm)}"/>`;
     }
-    // On a phone the profile is wider than the screen: bring the section into view.
-    // k converts viewBox units (1000 wide) to scroll pixels; centre on the middle of this
-    // section and the next one, so you also see what comes.
+    // On a phone the profile is wider than the screen: bring the section into view. k converts viewBox units (1000 wide) to scroll pixels; centre on the middle of this section and the next one, so you also see what comes.
     if (profScroll && profScroll.scrollWidth > profScroll.clientWidth + 4) {
       const k = profScroll.scrollWidth / 1000;
       const mid = ((prof.x(l.startKm) + prof.x((n || l).endKm)) / 2) * k;
@@ -377,29 +256,22 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
   // Average gradient with its sign, e.g. "+7.4%" or "-3.0%".
   const gradeTxt = (l) => `${l.avg > 0 ? "+" : ""}${l.avg.toFixed(1)}%`;
   // A runnable stretch says so in its title already: no chip repeating it.
-  // Every section shows its rating as 1 to 4 stars (the word stays in the tooltip): climbs by
-  // difficulty, a runnable stretch 1 star; descents show running shoes by risk instead.
   const legChip = (l) => {
     // Descents: running shoes instead of stars (3 Let it run, 2 Control, 1 Brake).
     if (l.kind === "descent") { const k = l.level >= 4 ? 1 : l.level >= 2 ? 2 : 3; return `<span class="chip st dsc d${k}" title="${escR(l.label)}">${RP_SHOE.repeat(k)}</span>`; }
     const n = l.kind === "flat" ? 1 : Math.max(1, Math.min(4, l.level || 1));
     return `<span class="chip st l${n}" title="${escR(l.label)}">${"★".repeat(n)}<i>${"★".repeat(4 - n)}</i></span>`;
   };
-  // The scrolling box around the profile (used by drawLeg above: it runs only later, after this
-  // line has set the value).
+  // The scrolling box around the profile (used by drawLeg above: it runs only later, after this line has set the value).
   const profScroll = $r("#rpProf .prof-scroll");
 
-  // 4. draw(): put the state at rp.sec on screen. Runs on every frame while playing, so it
-  // compares with what it drew last time (the last* variables) and skips work that would not
-  // change anything. Writing innerHTML is the slow part; textContent and style are cheap.
+  // 4. draw(): put the state at rp.sec on screen.
   let lastLeg = -1;
   let lastCue = -1;
   let lastTl = -1;
   let lastNowHtml = "";
   let lastNextHtml = "";
-  // The panel never scrolls: when the section card, the aid-station line and the moments do not all
-  // fit (a short laptop, a stop at an aid station), the older moments go first, then the rows of
-  // the section table from the bottom up, until it fits. The class "fit-off" hides them.
+  // The panel never scrolls: when the section card, the aid-station line and the moments do not all fit (a short laptop, a stop at an aid station), the older moments go first...
   let lastFit = "";
   const fitHud = () => {
     const hud = els.leg.closest(".rp-hud");
@@ -412,13 +284,11 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     }
   };
   const draw = () => {
-    // s: where the runner is at this second (km, ele, grade, pace, frac of the race done,
-    // aid station if stopped at one, key zone, next gel / aid / climb / key zone...).
+    // s: where the runner is at this second (km, ele, grade, pace, frac of the race done, aid station if stopped at one, key zone, next gel / aid / climb / key zone...).
     const s = raceStateAt(plan, sid, rp.sec);
     // Time since the start is the number that matters on course; the time of day is secondary.
     els.clock.textContent = hms(s.sec);
-    // Under the clock, what matters most first: the climbing done, then the distance, then the
-    // time of day. gainLoss adds up every rise of the profile from the start to the runner.
+    // Under the clock, what matters most first: the climbing done, then the distance, then the time of day. gainLoss adds up every rise of the profile from the start to the runner.
     els.up.innerHTML = `<b>+${Math.round(gainLoss(P, 0, s.km).up)}</b> / ${Math.round(tot.gain)} m D+`;
     // Share of the race done first, then km done / total, on one line (design review 2).
     els.km.innerHTML = `<b class="pct">${Math.round(s.frac * 100)}%</b> · <b>${s.km.toFixed(1)}</b> / ${plan.course.totalKm.toFixed(1)} km`;
@@ -432,9 +302,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
       drawLeg(li);
       const n = legs[li + 1];
       els.leg.className = `rp-leg k-${l.kind} lv${l.level}`;
-      // Target (the plan for this section) next to Now (where the replay is): the Now column is
-      // filled on every frame, the rest only when the section changes.
-      // row(): one table row; `id` names the Now cell so it can be found and updated later.
+      // Target (the plan for this section) next to Now (where the replay is): the Now column is filled on every frame, the rest only when the section changes. row(): one table row...
       const row = (k, target, id) => `<tr><th>${k}</th><td>${target}</td><td class="now" ${id ? `id="${id}"` : ""}>${id ? "" : "–"}</td></tr>`;
       // The section card: number, title, chips, tactic, what comes next, and the target table.
       els.leg.innerHTML = `
@@ -477,30 +345,23 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     // Climbed and dropped since the section started, against what the whole section holds.
     const done = gainLoss(P, l.startKm, Math.max(l.startKm, Math.min(l.endKm, s.km)));
     els.tn.Ele.textContent = `+${Math.round(done.up)} / −${Math.round(done.down)} m`;
-    // Share of the section's distance done, in %. (This `pct` hides the pct() helper above,
-    // inside draw() only.)
+    // Share of the section's distance done, in %.
     const pct = l.km > 0 ? Math.round((Math.min(l.km, Math.max(0, s.km - l.startKm)) / l.km) * 100) : 100;
     els.tn.Pct.innerHTML = `${pct}% <small>${leftKm.toFixed(1)} km left</small>`;
-    // The big % in the card header: on a section of a split climb it is the share of the WHOLE
-    // climb done (design review 2), the table row above keeps the section's own share.
+    // The big % in the card header: on a section of a split climb it is the share of the WHOLE climb done (design review 2), the table row above keeps the section's own share.
     const pa = l.parent;
     els.legPct.textContent = pa ? `${Math.round((Math.min(pa.endKm, Math.max(pa.startKm, s.km)) - pa.startKm) / (pa.endKm - pa.startKm) * 100)}%` : `${pct}%`;
     els.tn.Time.innerHTML = `${inMin} min <small>${leftSec >= 3600 ? hm(leftSec) : `${Math.round(leftSec / 60)} min`} left</small>`;
     // The play button's label: Pause while playing, Replay at the finish, Resume part way, Play at 0.
-    // (a ? b : c ? d : e is a chain of "if a then b, else if c then d, else e".)
     els.play.innerHTML = rp.playing ? "❚❚ Pause" : rp.sec >= sc.finishSec ? "↺ Replay" : rp.sec > 0 ? "▶ Resume" : `▶ Play ${noun === "Race" ? "race day" : "your run"}`;
 
-    // The section card says what you are on; this line only flags a stop or the finish.
-    // aid.arrive[sid] is the arrival second in this scenario; adding the stop gives the time out.
+    // The section card says what you are on; this line only flags a stop or the finish. aid.arrive[sid] is the arrival second in this scenario; adding the stop gives the time out.
     let now = "";
     if (s.aid) now = `<span class="chip aidc">Aid station</span> <b>${escR(s.aid.name)}</b> · out at ${clock(st, s.aid.arrive[sid] + s.aid.stopMin * 60)}`;
     else if (s.sec >= sc.finishSec) now = `<span class="chip l1">Done</span> <b>Finished</b> · ${hm(sc.finishSec)}`;
     if (now !== lastNowHtml) { els.now.innerHTML = now; els.now.hidden = !now; lastNowHtml = now; }
 
-    // "Coming next" list: the key zone you are in (or the next one), the next gel, aid station
-    // and climb. Each line is "" when there is none; join("") glues them, and `||` supplies the
-    // finish line when all four are empty (an empty string counts as false).
-    // until(sec): time from now to that race second, as "12 min" or "1h05".
+    // "Coming next" list: the key zone you are in (or the next one), the next gel, aid station and climb.
     const until = (sec) => { const m = Math.max(0, Math.round((sec - s.sec) / 60)); return m >= 60 ? hm(m * 60) : `${m} min`; };
     const next = [
       s.keyZone ? `<li class="key"><span>★ Key zone ${s.keyZone.n}</span><b>until km ${s.keyZone.toKm.toFixed(1)}</b></li>` : s.nextKey ? `<li><span>Next key zone · ${s.nextKey.n}</span><b>km ${s.nextKey.fromKm.toFixed(1)} · ${clock(st, secAtKm(plan, sid, s.nextKey.fromKm))}</b></li>` : "",
@@ -511,12 +372,9 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     if (next !== lastNextHtml) { els.next.innerHTML = next; lastNextHtml = next; fitPanel(els.next); }
 
     // The cue on screen is the latest moment reached.
-    // The script is sorted by time: scan forward while the moment is not in the future
-    // (0.5 s of tolerance, as moments are reached by seeking to their second + 1).
     let ci = -1;
     for (let i = 0; i < script.length && script[i].sec <= s.sec + 0.5; i++) ci = i;
-    // AI plan only: the AI message box. An AI key moment reached in this section speaks first,
-    // else the AI's note and reason for the section. Redrawn when the section or the moment changes.
+    // AI plan only: the AI message box.
     if (els.ai && (ci !== lastCue || els.ai.dataset.leg !== String(li))) {
       els.ai.dataset.leg = String(li);
       const e = ci >= 0 ? script[ci] : null;
@@ -527,10 +385,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     }
     // While a finger slides a bar the moments wait: they show when it lets go, not all on the way.
     if (ci !== lastCue && !rp.sliding) {
-      // The moments as notifications under the section box, like text messages: the latest on
-      // top, the older ones pushed down and fading. At least the last 3, and every moment that
-      // falls at the same time as the latest one (two moments at the same km are both seen).
-      // Only moments reached while moving forward slide in; a jump back just redraws.
+      // The moments as notifications under the section box, like text messages: the latest on top, the older ones pushed down and fading.
       const shown = [];
       for (let i = ci; i >= 0 && (shown.length < 3 || script[i].sec >= script[ci].sec - 1); i--) shown.push(i);
       const fwd = ci > lastCue;
@@ -563,21 +418,14 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     if (sig !== lastFit) { lastFit = sig; fitHud(); }
   };
 
-  /**
-   * 5. One animation step. `now` is the timestamp the browser passes to every
-   * requestAnimationFrame callback (milliseconds since the page loaded).
-   * dt = real seconds since the last frame, capped at 0.25 s so a tab left in the background
-   * (where the browser stops sending frames) does not jump ahead when it comes back.
-   * On the first frame rp.last is 0, so `rp.last || now` makes dt 0.
-   */
+  /** 5. */
   const frame = (now) => {
     if (!rp.playing) return;
     const dt = Math.min(0.25, (now - (rp.last || now)) / 1000);
     rp.last = now;
     const prev = rp.sec;
     let next = Math.min(sc.finishSec, prev + dt * rp.speed);
-    // "Stop at each moment": if a moment falls between the previous and the new time, stop just
-    // after it (its second + 1, so the same moment is not hit again on Resume) and pulse the cue.
+    // "Stop at each moment": if a moment falls between the previous and the new time, stop just after it (its second + 1, so the same moment is not hit again on Resume) and pulse the cue.
     if (rp.pauseAt) {
       const hit = script.find((e) => e.sec > prev + 0.5 && e.sec <= next);
       if (hit) { next = hit.sec + 1; rp.playing = false; els.cue.classList.add("pulse"); }
@@ -603,17 +451,13 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
   const pause = () => { rp.playing = false; cancelAnimationFrame(rp.raf); draw(); };
   /** Jump to race second `sec` (clamped to the race). */
   const seek = (sec) => { rp.sec = Math.max(0, Math.min(sc.finishSec, sec)); els.cue.classList.remove("pulse"); draw(); };
-  /**
-   * Go to the next moment (dir > 0) or the previous one (dir < 0). Moments are reached at their
-   * second + 1, so "previous" skips the one just reached (it must be more than 1.5 s back).
-   */
+  /** Go to the next moment (dir > 0) or the previous one (dir < 0). */
   const jump = (dir) => {
     const list = dir > 0 ? script.filter((e) => e.sec > rp.sec + 0.5) : script.filter((e) => e.sec < rp.sec - 1.5).reverse();
     if (list[0]) { pause(); seek(list[0].sec + 1); }
   };
 
-  // 6. Event listeners. addEventListener(type, fn) runs fn each time that event happens on the
-  // element. "input" fires continuously while the seek bar is dragged, "change" once at the end.
+  // 6.
   els.play.addEventListener("click", () => { trackEvent(rp.playing ? "replay-pause" : "replay-play"); rp.playing ? pause() : play(); });
   $r("#rpPrev").addEventListener("click", () => { trackEvent("replay-step", "prev"); jump(-1); });
   $r("#rpNextBtn").addEventListener("click", () => { trackEvent("replay-step", "next"); jump(1); });
@@ -624,8 +468,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
   // The "Follow the runner" box exists only when there is a map.
   const fol = $r("#rpFollow");
   if (fol) fol.addEventListener("change", (e) => { rp.follow = e.target.checked; trackEvent("replay-follow", rp.follow ? "on" : "off"); if (rp.map) rp.map.follow(rp.follow); });
-  // A click on a section of the bar jumps there and opens a pop-up with its length and real
-  // metres up and down; a second click on the same section (or a click elsewhere) closes it.
+  // A click on a section of the bar jumps there and opens a pop-up with its length and real metres up and down; a second click on the same section (or a click elsewhere) closes it.
   const legsBox = $r("#rpLegs");
   const tip = document.createElement("div");
   tip.className = "rp-ptip";
@@ -646,8 +489,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     const lb = legsBox.getBoundingClientRect(), bb = b.getBoundingClientRect();
     tip.style.left = `${Math.max(0, Math.min(lb.width - tip.offsetWidth, bb.left - lb.left + bb.width / 2 - tip.offsetWidth / 2))}px`;
     tip.style.top = `${lb.height + 8}px`;
-    // Light that section on the map and dim the rest until Play, at your zoom (no zoom in or
-    // out: the map only slides if the section is out of view).
+    // Light that section on the map and dim the rest until Play, at your zoom (no zoom in or out: the map only slides if the section is out of view).
     if (rp.map) rp.map.focus(l.startKm, l.endKm, { zoom: false });
   };
   els.legBtns.forEach((b) => b.addEventListener("click", () => {
@@ -659,11 +501,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     seek(legs[i].startSec + 1);
     showLeg(i);
   }));
-  // Sliding a finger along the bars moves the runner with it (slide.js). The replay pauses while
-  // the finger is down and plays on when it lets go, if it was playing; the moments fade out
-  // meanwhile (class rp-wait) and come back for the place where it lets go. toKm(f) turns the
-  // position along the bar into a km; on the section bar, the section under the finger also gets
-  // its pop-up.
+  // Sliding a finger along the bars moves the runner with it (slide.js).
   let wasPlaying = false;
   const slideOpts = (toKm, onBar = false) => ({
     onStart: () => { wasPlaying = rp.playing; rp.sliding = true; els.cue.classList.add("rp-wait"); if (rp.playing) pause(); trackEvent("replay-slide"); },
@@ -677,8 +515,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
   });
   slidable(legsBox, slideOpts((f) => f * TOT_KM, true));
   slidable(els.bar.parentElement, slideOpts((f) => f * TOT_KM));
-  // The script list: filter buttons by kind, one icon chip per moment, and the cards of the open
-  // moments below (several can be open). A card's "Go there" moves the replay to that moment.
+  // The script list: filter buttons by kind, one icon chip per moment, and the cards of the open moments below (several can be open).
   if (els.list) {
     const cards = $r("#rsCards");
     const allBtn = $r("#rsAll");
@@ -742,16 +579,13 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
   // Tap or slide on the profile to move the runner there.
   const svg = $r("#rpProf svg");
   if (svg) {
-    // Screen x of the pointer -> x in the profile's 1000-wide viewBox -> km (prof.km does the
-    // last step, as the inverse of prof.x).
+    // Screen x of the pointer -> x in the profile's 1000-wide viewBox -> km (prof.km does the last step, as the inverse of prof.x).
     const toKm = (ev) => {
       const b = svg.getBoundingClientRect();
       const vx = ((ev.clientX - b.left) / b.width) * 1000;
       return prof.km(vx);
     };
-    // A tap jumps there: the pointer must be released less than 8 px from where it went down
-    // (Math.hypot gives the straight-line distance). A slide sideways moves the runner along
-    // with the finger (slidable, as on the bars); an up-and-down move still scrolls the page.
+    // A tap jumps there: the pointer must be released less than 8 px from where it went down (Math.hypot gives the straight-line distance).
     slidable(svg, slideOpts((f) => prof.km(f * 1000)));
     let down = null;
     svg.addEventListener("pointerdown", (ev) => { down = { x: ev.clientX, y: ev.clientY }; });
@@ -762,7 +596,6 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     });
   }
   // Keyboard: space plays or pauses, arrows step between moments (only while the replay is on screen).
-  // Kept in rp.onKey so stopReplay() can remove this exact function later.
   rp.onKey = (ev) => {
     if (!box.isConnected) return;
     const tag = (ev.target.tagName || "").toLowerCase();
@@ -772,8 +605,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     const r = box.getBoundingClientRect();
     if (r.bottom < 0 || r.top > window.innerHeight) return;
     if ([" ", "ArrowLeft", "ArrowRight"].includes(ev.key)) trackOnce("replay-keyboard");
-    // preventDefault() stops the browser's own action (space scrolls the page, arrows move the
-    // seek bar) so the key does only our action. Space on a button is left to the button.
+    // preventDefault() stops the browser's own action (space scrolls the page, arrows move the seek bar) so the key does only our action.
     if (ev.key === " " && tag !== "button") { ev.preventDefault(); rp.playing ? pause() : play(); }
     else if (ev.key === "ArrowRight" && tag !== "input") { ev.preventDefault(); jump(1); }
     else if (ev.key === "ArrowLeft" && tag !== "input") { ev.preventDefault(); jump(-1); }
@@ -783,10 +615,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
   draw();
 }
 
-/**
- * Stop the animation and free the map (before a re-render, or when the plan goes away).
- * Also removes the keyboard listener, so an old replay no longer reacts to keys.
- */
+/** Stop the animation and free the map (before a re-render, or when the plan goes away). */
 export function stopReplay() {
   rp.playing = false;
   cancelAnimationFrame(rp.raf);

@@ -1,12 +1,4 @@
-// guide.js: the user guide, as data. One chapter per mode, one card per section.
-//
-// Two places read it:
-//   - scripts/build.js writes guide.html from it (screenshots, steps, tips, FAQ);
-//   - the app's "?" bubbles (src/ui/help.js) show a section's `what` line and link to its card.
-// So the help in the app and the guide can never say two different things.
-//
-// `sec` is the id of the section in the app (index.html#s1), `shot` the screenshot file in
-// src/site/guide/ (taken by scripts/guide-shots.mjs from the demo data).
+// guide.js: the user guide, as data.
 
 export const GUIDE = [
   {

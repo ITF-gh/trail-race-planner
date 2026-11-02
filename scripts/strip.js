@@ -1,9 +1,4 @@
 // strip.js: remove comments and blank lines from JavaScript and CSS for the live site.
-// The source keeps its comments; the page people download does not need them (about 40% of the code).
-// A small scanner walks the text and skips strings, template literals (with ${...} inside) and
-// regular expressions, so a "//" or "/*" inside them is never taken for a comment.
-// tests/strip.test.js checks tricky cases; when changing this file, also compare the parsed code
-// (an AST) of every file before and after stripping (acorn), as done when it was written.
 
 const REGEX_AFTER = new Set(["return", "typeof", "case", "do", "else", "in", "of", "new", "delete", "void", "throw", "instanceof", "yield", "await"]);
 
@@ -20,10 +15,10 @@ export function stripJs(src) {
     // at the character after a backtick (or after the } closing a ${...}); copy up to the end or the next ${
     while (i < n) {
       const c = src[i];
-      if (c === "\\") { out += src.slice(i, i + 2); i += 2; continue; }
+      if (c === "\\") { out += c + (src[i + 1] === "\n" ? "\u0001" : src[i + 1]); i += 2; continue; }
       if (c === "`") { out += c; i++; prev = "`"; return; }
       if (c === "$" && src[i + 1] === "{") { out += "${"; i += 2; braces.push(depth); depth++; prev = "{"; return; }
-      out += c; i++;
+      out += c === "\n" ? "\u0001" : c; i++;
     }
   };
   while (i < n) {
@@ -91,28 +86,8 @@ export function stripCss(src) {
   return dropBlankLines(out);
 }
 
-// Trailing spaces off every line, then lines left empty removed. Safe in JavaScript only outside
-// template literals, so a line is kept as is when it ends inside one (an odd count of backticks so far).
+// Trailing spaces off every line, then lines left empty removed. Newlines inside template literals were
+// written as \u0001 by stripJs, so the lines of a template are never touched; they are put back here.
 function dropBlankLines(text) {
-  const lines = text.split("\n");
-  const kept = [];
-  let open = false;
-  for (const line of lines) {
-    const next = isOpenTemplate(line, open);
-    if (open || next) kept.push(line);
-    else if (line.trim() !== "") kept.push(line.replace(/[ \t]+$/, ""));
-    open = next;
-  }
-  return kept.join("\n");
-}
-
-// Rough tracker: does a template literal stay open after this line? Backticks inside quotes are rare
-// here; tests/strip.test.js catches any mistake because the parsed code would change.
-function isOpenTemplate(line, open) {
-  let n = 0;
-  for (let k = 0; k < line.length; k++) {
-    if (line[k] === "\\") { k++; continue; }
-    if (line[k] === "`") n++;
-  }
-  return n % 2 === 1 ? !open : open;
+  return text.split("\n").filter((line) => line.trim() !== "").map((line) => line.replace(/[ \t]+$/, "")).join("\n").replaceAll("\u0001", "\n");
 }

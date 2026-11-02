@@ -16,6 +16,7 @@ Keep context small: open only the files a task needs, and search (grep) before r
 - One `import { ... } from "./x.js";` per line, never `as`, no top-level name declared in two files.
 - Never put a comment inside a template literal (it would show on the page).
 - The live build strips comments (scripts/strip.js), so comments cost nothing on the site.
+- Comments stay short (Boss, 2026-11-02): one line for a file, a function or a tricky step; no teaching essays.
 
 ## Map
 - `src/core/` engine, no DOM: track (GPX), terrain (climbs), effort (learn a runner), model (time prediction),

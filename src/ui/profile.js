@@ -1,28 +1,4 @@
-// profile.js: the Account window, a see-through pop-up of its own, opened from the account menu
-// ("My profile"). It holds the runner's presentation (name, flag, a few words, badges), their
-// goals and bests from 5K to 100K, and their heart rates and weight.
-//
-// Storage: in this browser (localStorage), the profile under "trp.profile", the heart rates and
-// weight under "trp.athlete" (the athlete settings also used by the deep dive, the plan and the
-// AI analysis). When signed in to the online account, account.js also saves the profile there
-// (profileData); heart rates and weight never leave the browser.
-//
-// Heart data: the max and resting heart rates typed here are the ONLY heart data the app uses
-// (owner's rule, 2026-10-16). Heart rate recorded in a GPX file is never read (core/track.js).
-// When they change, a "trp-profile" event tells main.js to redraw the plan's heart-rate guide.
-//
-// Where it sits: account.js draws the window with profileHtml() in its pop-up panel and passes
-// it the inputs (profileInput) and the buttons whose data-acct starts with "pf:" (profileAction).
-//
-// Main exports:
-//   profileHeart   { maxHr, restHr } for the plan (null when not set)
-//   profileAthlete { hrMax, hrRest, weight } for the AI analysis (null when not set)
-//   profileWho     { name, flag } for the menu's first line
-//   profileRefs, profileSetRefs   your references (10K, half, easy pace) and the run level
-//   profileData, profileReplace   the profile to save online, and loading the online one
-//   profileTune, profileSetBands  "Tune my engine" for the plan (signed in), the measured table to show
-//   profileHtml    the Account window
-//   profileInput, profileAction   what typing and clicking in it do
+// profile.js: the Account window, a see-through pop-up of its own, opened from the account menu ("My profile").
 
 import { PROFILE_DISTANCES, PROFILE_COUNTRIES, PROFILE_TAGS, PROFILE_LIMITS, flagEmoji, profileClean, profileBests, TUNE_RANGE, TUNE_BAND, tuneClean, tuneIsDefault } from "../core/profile.js";
 import { cloudUser } from "./cloud.js";
@@ -43,8 +19,7 @@ const pfDate = (ms) => new Date(ms).toLocaleDateString(undefined, { day: "numeri
 // The profile in memory, read once (cleaned, so it is always complete).
 let pf = null;
 const pfGet = () => (pf || (pf = profileClean(pfRead(PF_KEY))));
-// Saved cleaned (limits applied); the "trp-profile-save" event lets account.js send it to the
-// online account when one is signed in.
+// Saved cleaned (limits applied); the "trp-profile-save" event lets account.js send it to the online account when one is signed in.
 const pfSave = () => { pfWrite(PF_KEY, profileClean(pf)); document.dispatchEvent(new CustomEvent("trp-profile-save")); };
 
 /** The profile as saved (cleaned): what the online account stores. Heart rates and weight are not in it. */
@@ -70,10 +45,7 @@ export function profileRefs() {
   const p = pfGet();
   return { refs: { ...p.refs }, level: p.level };
 }
-/**
- * Save references and / or the level ({ refs: { k10: 2700 }, level: "race" }; fields left out
- * stay as they are), then announce it with a "trp-refs" event so every mode plans again.
- */
+/** Save references and / or the level ({ refs: { k10: 2700 }, level: "race" }; fields left out stay as they are), then announce it with a "trp-refs" event so every mode plans again. */
 export function profileSetRefs({ refs, level } = {}) {
   const p = pfGet();
   if (refs) p.refs = { ...p.refs, ...refs };
@@ -82,16 +54,12 @@ export function profileSetRefs({ refs, level } = {}) {
   pfSave();
   document.dispatchEvent(new CustomEvent("trp-refs"));
 }
-/**
- * "Tune my engine" for the plan, or null: only for a signed-in runner who switched it on (Boss's
- * rule, 2026-10-28: manual pace by gradient is a deeper feature for registered users).
- */
+/** "Tune my engine" for the plan, or null: only for a signed-in runner who switched it on (Boss's rule, 2026-10-28: manual pace by gradient is a deeper feature for registered users). */
 export function profileTune() {
   const t = pfGet().tune;
   return cloudUser() && t.on ? t : null;
 }
-// The measured pace table of the runs loaded in Prep my race (effort.js bands), to show next to
-// the tuning; main.js gives it after each analysis. null until runs are loaded.
+// The measured pace table of the runs loaded in Prep my race (effort.js bands), to show next to the tuning; main.js gives it after each analysis. null until runs are loaded.
 let pfBands = null;
 /** Remember the measured pace table for the tuning part of the window. */
 export function profileSetBands(bands) { pfBands = bands || null; }
@@ -102,11 +70,7 @@ export function profileWho() {
   return { name: p.name, flag: flagEmoji(p.flag) };
 }
 
-/**
- * The "Tune my engine" part of the Account window (signed in only). Sliders for the engine's
- * settings and a table of the 10 gradient bands, each with a fresh and a tired % on top of your
- * measured pace (shown when runs are loaded in Prep my race).
- */
+/** The "Tune my engine" part of the Account window (signed in only). */
 function tuneHtml() {
   const t = pfGet().tune;
   const R = TUNE_RANGE;
@@ -133,16 +97,7 @@ function tuneHtml() {
     <p class="acct-note">${pfBands ? "Paces in min/km from the runs loaded in Prep my race, before your level and references." : "Load your runs in Prep my race to see the paces next to each %."}</p>`;
 }
 
-/**
- * The Account window. `records` are the run summaries the menu shows (for the bests), `demo`
- * true when they are the demo profile's made-up runs, `fallbackName` the name to show when none
- * is typed ("User1" or "My account"). Four parts:
- *   1. the card: flag (or the first letter of the name), name, badges and the few words
- *   2. Presentation: name, country, about, badges to pick (at most 5)
- *   3. Goals and bests: one row per distance: goal, best (typed, or else from the runs), to go
- *   4. Heart and body: max and resting heart rate, weight (the only heart data the app uses)
- * Every input carries data-pf="..." naming what it changes (see profileInput).
- */
+/** The Account window. */
 export function profileHtml(records, demo, fallbackName) {
   const p = pfGet();
   const a = pfRead(PF_ATHLETE);
@@ -151,8 +106,7 @@ export function profileHtml(records, demo, fallbackName) {
   const flag = flagEmoji(p.flag);
   const L = PROFILE_LIMITS;
   const tagsOn = PROFILE_TAGS.filter((t) => p.tags.includes(t.code));
-  // One row of the goals table. `short` = 5K and 10K, where "18:30" means minutes and seconds;
-  // longer distances read "6:30" as hours and minutes (parseDuration in format.js).
+  // One row of the goals table.
   const goalRow = (d) => {
     const g = p.goals[d.code], lb = logBest[d.code];
     const best = g.best || (lb ? lb.sec : null);
@@ -165,9 +119,7 @@ export function profileHtml(records, demo, fallbackName) {
       <td><input data-pf="best:${d.code}" inputmode="numeric" autocomplete="off" placeholder="${lb ? pfTime(lb.sec) : ph}" value="${g.best ? pfTime(g.best) : ""}">${from}</td>
       <td class="pf-gap">${gap}</td></tr>`;
   };
-  // The other all-time bests found in the runs (the menu's "Bests" link opens the window here):
-  // fastest 1 km, best climbing speed and longest run, each with its date. The 5K and 10K bests
-  // are already in the table above (the same values).
+  // The other all-time bests found in the runs (the menu's "Bests" link opens the window here): fastest 1 km, best climbing speed and longest run, each with its date.
   const B = historySummary(records || []).bests;
   const bestRow = (label, b, f) => (b ? `<div class="acct-row"><span>${label}</span><b>${f(b.value, b.run)} <small>${new Date(b.run.date).toLocaleDateString(undefined, { day: "numeric", month: "short" })}${demo ? " (demo)" : ""}</small></b></div>` : "");
   const more = bestRow("Fastest 1 km", B.best1k, (v) => mmss(v))
@@ -204,12 +156,7 @@ export function profileHtml(records, demo, fallbackName) {
     <div class="acct-actions"><button class="btn ghost" type="button" data-acct="close">Done</button><button class="acct-linkbtn" type="button" data-acct="pf:reset">Reset profile</button></div>`;
 }
 
-/**
- * An input of the window changed. `el` is the input, `final` true on its "change" event (the
- * field was left or Enter pressed), false on each keystroke. Texts are saved as they are typed;
- * times and numbers once the field is left, so "1:2" is not read halfway through "1:25".
- * Returns true when the window should be redrawn (the card or the "to go" column changed).
- */
+/** An input of the window changed. */
 export function profileInput(el, final) {
   const p = pfGet();
   const k = el.dataset.pf;
@@ -249,12 +196,7 @@ export function profileInput(el, final) {
   return false;
 }
 
-/**
- * A button of the window, its data-acct without the "pf:" prefix:
- *   tag:CODE  toggle a badge (at most PROFILE_LIMITS.tags)
- *   reset     forget the presentation and goals (after a confirm; heart rates stay)
- * Returns true when the window should be redrawn.
- */
+/** A button of the window, its data-acct without the "pf:" prefix: tag:CODE toggle a badge (at most PROFILE_LIMITS.tags) reset forget the presentation and goals (after a confirm... */
 export function profileAction(what) {
   const p = pfGet();
   if (what === "tune-on" || what === "tune-reset") {

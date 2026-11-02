@@ -1,36 +1,4 @@
 // account.js: the account icon at the top right of the hero and its see-through menu.
-//
-// The run log lives in this browser, in IndexedDB (a small database every browser has, much
-// roomier than localStorage). Each run you open in Rewind my run, or add as one of your runs in
-// Prep my race, is summarised (src/core/runrecord.js) and stored; sample and demo runs are not.
-// The menu is re-drawn from the stored summaries (src/core/history.js).
-//
-// Signed in (cloud.js, when the online account is set up), the same summaries are also kept in
-// the account, so they follow you to every device, and the account holds your AI tokens (edelweiss):
-// earned with achievements (checked by the server), spent on an AI analysis of the runs you choose.
-//
-// Where it sits: main.js calls initAccount() once at start-up, and calls
-// acctSaveRun() / acctSaveGpx() when a run is opened. Everything else here is private.
-//
-// Main pieces, top to bottom:
-//   acOpen, acTx, acAll        the IndexedDB helpers (open, one transaction, read all)
-//   acctSaveRun/Gpx            store one run summary (and send it to the account when signed in)
-//   AC_TOKEN, AC_SPARK         the token's name and its edelweiss logo (an SVG built in code)
-//   acTokensHtml, acMenuHtml   build the menu's HTML from historySummary()
-//   acAsk... functions         the "Ask the AI" window: which runs, which axis, which question
-//   acRender                   redraw the menu
-//   acClaim, acSync            talk to the account (tokens, two-way sync of runs)
-//   acShowPanel, acStartAi, acStartOnline   the pop-up panel, the AI request, start and polling
-//   acAction, acSignIn         what each menu button does
-//   initAccount                build the icon and menu, wire the clicks and the keyboard
-//
-// IndexedDB's API is old-style: requests report back through onsuccess / onerror callbacks. The
-// helpers below wrap those in Promises so the rest can use async / await, and they never reject:
-// a failure resolves with null, and the app keeps working from its in-memory copy.
-//
-// The HTML of the menu and pop-ups is built as template strings (text between backticks, with
-// ${...} holes filled by values) and put in the page with innerHTML. Every text that comes from a
-// user or from the AI goes through acEsc first, so it can never be read as HTML.
 
 import { parseGpx, resample } from "../core/track.js";
 import { analyseCourse } from "../core/terrain.js";
@@ -57,11 +25,7 @@ const AC_DB = "trp-history", AC_STORE = "runs";
 const AC_FILES = "files", AC_FILES_MAX = 50;
 let acCache = null; // the records, once read; also the fallback when IndexedDB is blocked
 
-/**
- * Open (and on first use create) the database. Resolves to null when the browser blocks it.
- * indexedDB.open(name, 1) asks for version 1; the very first time, the browser fires
- * onupgradeneeded, where the store is created with `id` as its key (one record per run id).
- */
+/** Open (and on first use create) the database. */
 function acOpen() {
   return new Promise((ok) => {
     try {
@@ -76,12 +40,7 @@ function acOpen() {
     } catch (e) { ok(null); }
   });
 }
-/**
- * Run one request in a transaction; resolves with its result (or null on failure).
- * `mode` is "readonly" or "readwrite" (`store`: "runs" by default, or "files"); `make(store)` makes the request (getAll, put, clear...)
- * and returns it (or null when it made several). The result is read once the whole transaction
- * is complete (oncomplete), so the data is surely written. The database is closed each time.
- */
+/** Run one request in a transaction; resolves with its result (or null on failure). */
 async function acTx(mode, make, store = AC_STORE) {
   const db = await acOpen();
   if (!db) return null;
@@ -95,11 +54,7 @@ async function acTx(mode, make, store = AC_STORE) {
     } catch (e) { db.close(); ok(null); }
   });
 }
-/**
- * All stored run summaries, read from the database once and then served from acCache.
- * Summaries saved before the "no heart rate from files" rule may still hold heart data: they are
- * cleaned (recordClean) and written back once, so none stays on the device.
- */
+/** All stored run summaries, read from the database once and then served from acCache. */
 async function acAll() {
   if (!acCache) {
     const raw = (await acTx("readonly", (s) => s.getAll())) || [];
@@ -110,16 +65,7 @@ async function acAll() {
   return acCache;
 }
 
-/**
- * Store the summary of an analysed run (same run twice = one copy).
- * `run` is the analysis from core/review.js, `name` the name to show. Steps: 1. summarise it
- * (runRecord; a run that cannot be summarised is skipped), 2. replace any copy with the same id
- * in the cache and the database, 3. redraw the menu, 4. when signed in, send it to the account
- * and claim any token it earned (offline: it goes with the next sync).
- * Returns what the page can tell the runner: { isNew, count (runs stored), bests (the names of
- * the all-time bests this run beats, [] when none or on the very first run) }, or null when the
- * run could not be summarised.
- */
+/** Store the summary of an analysed run (same run twice = one copy). */
 export async function acctSaveRun(run, name) {
   let rec;
   try { rec = runRecord(run, name); } catch (e) { return null; }
@@ -142,11 +88,7 @@ export async function acctSaveRun(run, name) {
   return { isNew, count: acCache.length, bests };
 }
 
-/**
- * Open the Account window from anywhere in the page (closing the menu), scrolled to one of its
- * parts when `part` names one: "bests" or "heart" (their data-pf-sec in profile.js). Any element
- * with data-open-profile="part" does this on click (one listener in initAccount).
- */
+/** Open the Account window from anywhere in the page (closing the menu), scrolled to one of its parts when `part` names one: "bests" or "heart" (their data-pf-sec in profile.js). */
 export function acctOpenProfile(part = "") {
   if (!acPanel) return;
   acMenu.classList.remove("open");
@@ -160,13 +102,7 @@ export function acctSaveGpx(xml, name) {
   try { acctSaveRun(analyseRun(parseGpx(xml)), name); } catch (e) { /* a route without times, or too short: not a run */ }
 }
 
-/**
- * "My files": keep a GPX file you gave the app (any drop box), so it can be used again from the
- * account menu. A file whose every point has a time is a RUN (GPS + time, pace, cadence); without
- * times it is a ROUTE (GPS only). A run can also be used as a route. Only the points are kept,
- * packed (core/snapshot.js), never heart rate; the same file given twice is kept once (its id is
- * built from its first point and its number of points). At most AC_FILES_MAX: the oldest goes.
- */
+/** "My files": keep a GPX file you gave the app (any drop box), so it can be used again from the account menu. */
 export async function acctKeepFile(xml, label) {
   let parsed;
   try { parsed = parseGpx(xml); } catch (e) { return; }
@@ -200,8 +136,7 @@ let acOpenMenu = () => {};
 let acReopen = null;
 /** main.js gives the function that reopens a saved item ({ kind, title, data }). */
 export function acctOnReopen(fn) { acReopen = fn; }
-// acList: the run summaries the menu and the AI window work on; acDemo: true when they are the
-// demo profile's made-up runs.
+// acList: the run summaries the menu and the AI window work on; acDemo: true when they are the demo profile's made-up runs.
 let acList = [], acDemo = false; // the runs the menu shows (yours, or User1's)
 // The achievements as last drawn in the menu (for the caption line), sorted reached first.
 let acMedals = [];
@@ -213,16 +148,7 @@ function acMedalShow(code) {
   acMenu.querySelectorAll("[data-acct^='medal:']").forEach((b) => b.classList.toggle("pick", b.dataset.acct === `medal:${code}`));
 }
 
-/**
- * HTML of the tokens section of the menu ("AI edelweiss"). `S` is the summary from
- * historySummary(). The count shown is the server's balance when signed in ("…" until the
- * ledger is read), otherwise S.cairns: what the achievements in this browser would earn.
- * The note under it is, in order of priority: a message (signed in), "The AI is reading your
- * race and runs" while an analysis runs, or what tokens are for. Signed out with the account open: a
- * sign-in form.
- * The "Ask the AI" button is only disabled while an analysis runs; the Ask the AI window then
- * says what (if anything) blocks it.
- */
+/** HTML of the tokens section of the menu ("AI edelweiss"). */
 function acTokensHtml(S) {
   const signedIn = cloudOn() && cloudUser();
   const n = signedIn ? (ac.ledger ? acBalance() : "…") : S.cairns;
@@ -230,18 +156,14 @@ function acTokensHtml(S) {
   if (!acAiOn()) note = `The AI is switched off for now: your ${AC_TOKEN.many} wait for it.`;
   if (ac.msg) note = acEsc(ac.msg);
   else if (signedIn && ac.job) note = "The AI is reading your race and runs. It takes about a minute; you can close this menu.";
-  // The sign-in form, only when the account exists but nobody is signed in. data-acct-form names
-  // it for the submit listener in initAccount.
-  // ac.signup switches the same form to "Create an account" (a password is then required).
+  // The sign-in form, only when the account exists but nobody is signed in. data-acct-form names it for the submit listener in initAccount. ac.signup switches the same form to "Create an account"...
   const signin = cloudOn() && !signedIn ? `<form class="acct-signin" data-acct-form="signin">
         <label for="acEmail">${ac.signup ? "Create an account" : "Sign in to collect them"}</label>
         <input id="acEmail" type="email" required autocomplete="email" placeholder="you@example.com" value="${acEsc(ac.email || "")}">
         <div><input id="acPass" type="password" ${ac.signup ? 'required minlength="8" autocomplete="new-password" placeholder="Password, 8 characters or more"' : 'autocomplete="current-password" placeholder="Password (empty: email me a link)"'}><button class="btn ghost" type="submit"${ac.busy ? " disabled" : ""}>${ac.signup ? "Create" : "Sign in"}</button></div>
         <div class="acct-signin-alt">${ac.signup ? `<button class="acct-linkbtn" type="button" data-acct="signin-mode">I have an account</button>` : `<button class="acct-linkbtn" type="button" data-acct="reset">Forgot password?</button>${CLOUD.signup ? `<button class="acct-linkbtn" type="button" data-acct="signup-mode">Create an account</button>` : `<span class="acct-invite">Accounts are by invitation for now.</span>`}`}</div>
       </form>` : "";
-  // The Ask the AI button opens the window of the mode on screen (data-mode on <html>, read at
-  // each redraw, and the menu is redrawn each time it opens): the race plan in Prep my race, the
-  // coach in Prep my run, none in Rewind my run (a pure run detail, no AI there).
+  // The Ask the AI button opens the window of the mode on screen (data-mode on <html>, read at each redraw, and the menu is redrawn each time it opens): the race plan in Prep my race, the coach in Prep my run...
   const mode = document.documentElement.dataset.mode;
   const ask = mode === "run" || !acAiOn() ? "" : `<button class="btn primary acct-ai-ask" type="button" data-acct="${mode === "prep" ? "ai-run-ask" : "ai"}"${ac.job ? " disabled" : ""}>${ac.job ? "Analysing…" : `${AC_SPARK}${mode === "prep" ? "Ask the AI coach" : "Ask the AI"}`}</button>`;
   // data-acct="..." on a button names the action a click runs (see acAction).
@@ -251,23 +173,15 @@ function acTokensHtml(S) {
     </section>`;
 }
 
-/**
- * HTML of the whole menu from `S`, the summary of the stored runs (historySummary in
- * core/history.js): count, bests, last runs, 12-month totals, achievements, tokens.
- * `demo` = true shows the made-up profile (no runs of your own yet).
- * Sections: who (name and where the runs are), then either an empty-log note, or the 12-month
- * totals, last runs and all the achievements as small icons; then tokens and the action links.
- */
+/** HTML of the whole menu from `S`, the summary of the stored runs (historySummary in core/history.js): count, bests, last runs, 12-month totals, achievements, tokens. */
 function acMenuHtml(S, demo = false) {
   const user = cloudOn() && cloudUser();
   // The line under the name: demo profile, signed-in email, or runs on this device only.
   const where = demo ? `Demo profile · ${S.count} sample runs` : user ? `${acEsc(user.email)} · ${S.count} run${S.count === 1 ? "" : "s"}${cloudWritable() ? " synced" : " · profile synced"}` : `${S.count || "No"} run${S.count === 1 ? "" : "s"} on this device`;
-  // The name and flag typed in the Account window, else User1 (demo) or "My account". The
-  // "Account" button opens that window (profile.js).
+  // The name and flag typed in the Account window, else User1 (demo) or "My account".
   const me = profileWho();
   const who = `<section class="acct-who"><div><b>${me.flag ? `${me.flag} ` : ""}${acEsc(me.name || (demo ? DEMO_USER : "My account"))}</b><small>${where}</small></div><button class="btn ghost acct-prof" type="button" data-acct="profile">Account</button></section>`;
-  // The links at the bottom: bests (when there are runs), export and delete (own runs only),
-  // sign out and delete account (signed in only).
+  // The links at the bottom: bests (when there are runs), export and delete (own runs only), sign out and delete account (signed in only).
   const links = `<section class="acct-links">${S.count ? `<button type="button" data-acct="bests">Bests</button>` : ""}${S.count && !demo ? `<button type="button" data-acct="export">Export</button><button type="button" data-acct="clear">Delete runs</button>` : ""}${user ? `<button type="button" data-acct="signout">Sign out</button>` : ""}</section>`;
   if (!S.count) {
     return `${who}
@@ -276,11 +190,7 @@ function acMenuHtml(S, demo = false) {
   }
   // Big climbing totals in thousands: 12345 m -> "12.3k".
   const gainK = S.year.gain >= 10000 ? `${(S.year.gain / 1000).toFixed(1)}k` : acNum(S.year.gain);
-  // Achievements reached first, then the closest to being reached. The sort compares `done`
-  // (true counts as 1, false as 0), then `progress` (0 to 1) when `done` is equal. [...x] copies
-  // the array first, so the summary's own list is not reordered. Each medal is a button: lit when
-  // reached, grey with a progress bar when not. A tap (phone), hover or keyboard focus writes its
-  // name, how to earn it and its progress in the caption line under the icons (acMedalCap).
+  // Achievements reached first, then the closest to being reached.
   const medals = [...S.achievements].sort((a, b) => b.done - a.done || b.progress - a.progress);
   acMedals = medals;
   return `${who}
@@ -296,56 +206,29 @@ function acMenuHtml(S, demo = false) {
     ${links}`;
 }
 
-// The AI window, Prep my race version: the runner sees the target race (from the race GPX), picks
-// their old runs (the GPX files of "Your runs" plus a choice of the runs stored in the account)
-// and gives their own input (goal, target time, risk, free information, question).
-// Its state, kept between openings of the window (nothing typed is lost, whatever is clicked):
-//   mode      "dates" (a date range) or "runs" (stored runs ticked one by one)
-//   from, to  the range, as ms at midnight UTC of the first and last day (both days included);
-//             null until the window first opens, then the last 90 days
-//   ids       a Set of the ticked run ids (a Set holds each value once, quick to test)
-//   goal      a code from AI_GOALS (aichecks.js): "finish", "target" or "best"
-//   risk      a code from AI_RISKS: "prudent", "balanced" or "bold"
-//   target    the target time as typed ("7:30"); null until the window first opens, then the
-//             plan's own target time
-//   notes     free information about the runner or the race, "" when none
-//   question  the runner's own question, "" when none
-//   checks    the failed checks shown after a click on "Spend", or null when none are shown
+// The AI window, Prep my race version: the runner sees the target race (from the race GPX), picks their old runs (the GPX files of "Your runs" plus a choice of the runs stored in the account) and gives their own input...
 const acAsk = { mode: "dates", from: null, to: null, ids: new Set(), goal: "target", risk: "balanced", target: null, notes: "", question: "", checks: null };
 // The Prep my run window (the AI coach) asks less: free information and a question, both optional.
 const acRunAsk = { effort: AI_RUN_EFFORT_DEFAULT, notes: "", question: "", checks: null };
-// What the page knows about the run to come, given by main.js (getRun): { name, km, gain, climbs,
-// spots, plan, key } or null before a GPX is loaded.
+// What the page knows about the run to come, given by main.js (getRun): { name, km, gain, climbs, spots, plan, key } or null before a GPX is loaded.
 let acGetRun = () => null;
 // The stored runs the coach reads: the last 6 weeks (its load and trend), at most 60.
 const acRunRuns = () => aiSelect(acList, { to: acToday(), from: acToday() - 42 * 86400000 }).slice(0, 60);
-// What the page knows about the race being prepared, given by main.js to initAccount (getRace):
-// { race: { name, km, gain, legs, aid } or null, gpxRuns, targetText, centralSec }.
+// What the page knows about the race being prepared, given by main.js to initAccount (getRace): { race: { name, km, gain, legs, aid } or null, gpxRuns, targetText, centralSec }.
 let acGetRace = () => ({ race: null, gpxRuns: 0, targetText: "", centralSec: null, plan: null });
-// The local test mode (ailocal.js): { key, model, fake } when the page comes from npm run
-// ai-browser on this computer, else null. `fake` = the last click asked for the fake answer.
+// The local test mode (ailocal.js): { key, model, fake } when the page comes from npm run ai-browser on this computer, else null.
 let acLocal = null;
-// Can the AI be asked here? The online AI is switched on (CLOUD.ai), or the local test server
-// answers. When not, <html> gets the class ai-off and every "Ask the AI" button is hidden (CSS),
-// so no button leads to a window that can only say "blocked".
+// Can the AI be asked here?
 const acAiOn = () => cloudAiOn() || Boolean(acLocal);
 const acAiShow = () => document.documentElement.classList.toggle("ai-off", !acAiOn());
-/**
- * What is sent to the server as the `ask`: the stored runs (ticked ids or the date range), the
- * goal, target time, risk, free information and question, and `forced`: the codes of the
- * warnings the runner chose to send anyway. `focus: "race"` keeps the server of today working
- * (it reads only the runs, the focus and the question). The server cleans it all again.
- */
+/** What is sent to the server as the `ask`: the stored runs (ticked ids or the date range), the goal, target time, risk, free information and question, and `forced`... */
 function acAskPayload(forced = []) {
   const runs = acAsk.mode === "runs" ? { ids: [...acAsk.ids] } : { from: acAsk.from, to: acAsk.to };
   return { ...runs, mode: "prep_race", focus: "race", goal: acAsk.goal, risk: acAsk.risk, targetSec: parseDuration(acAsk.target), notes: acAsk.notes, question: acAsk.question, forced };
 }
 /** The stored runs the window currently selects (aiSelect: the same rule as on the server). */
 const acAskRuns = () => aiSelect(acList, acAskPayload());
-/**
- * The code checks of a click on "Spend" (aiRaceChecks in core/aichecks.js), from what the window
- * and the page hold now. Returns the failed checks, hard stops first ([] = all clear).
- */
+/** The code checks of a click on "Spend" (aiRaceChecks in core/aichecks.js), from what the window and the page hold now. */
 function acAskChecks() {
   const R = acGetRace();
   const signedIn = Boolean(cloudOn() && cloudUser());
@@ -365,19 +248,7 @@ function acAskSummary() {
   const span = runs.length ? `, ${acDate(Math.min(...runs.map((r) => r.date)))} to ${acDate(Math.max(...runs.map((r) => r.date)))}` : "";
   return `<b>${runs.length} stored run${runs.length === 1 ? "" : "s"} · ${acNum(km)} km</b>${span}`;
 }
-/**
- * HTML of the Ask the AI window for Prep my race, five steps:
- *   1. Target race: what the race GPX gives (name, km, climbing, sections, aid stations), or a
- *      link to load it.
- *   2. Your old runs: how many GPX files are in "Your runs", then the stored runs to use (a date
- *      range or runs ticked one by one).
- *   3. Your goal: goal chips, target time, risk chips.
- *   4. Free information and 5. Your question: optional texts.
- * Then what is sent and what is not, and either the "Spend 1 edelweiss" and Cancel buttons, or,
- * after a click on Spend that failed a check, the box of checks with Fix and retry, Send anyway
- * (only when no check is a hard stop) and Cancel.
- * Every element a check can point at carries data-field, so "Fix and retry" can scroll to it.
- */
+/** HTML of the Ask the AI window for Prep my race, five steps: 1. */
 function acAskHtml() {
   const R = acGetRace();
   // First opening: the last 90 days (86400000 ms = one day), and the plan's own target time.
@@ -445,12 +316,7 @@ function acRunChecks() {
     cloud: acLocal ? { open: true, signedIn: true, balance: 1 } : { open: cloudAiOn(), signedIn, balance: acBalance(), demo: acDemo },
   });
 }
-/**
- * HTML of the Ask the AI coach window (Prep my run). The run is already loaded, so it only shows
- * what the coach reads (the route, the spots the app found, the stored runs of the last 6 weeks)
- * and asks two optional texts: free information and a question. Then the same buttons and box
- * of checks as the Prep my race window, with "run-" actions.
- */
+/** HTML of the Ask the AI coach window (Prep my run). */
 function acRunHtml() {
   const R = acGetRun();
   const runs = acRunRuns();
@@ -486,20 +352,13 @@ function acRunHtml() {
     ${box}`;
 }
 
-/**
- * Refresh the count of stored runs without redrawing the window (keeps the cursor where it is).
- * Used while the runner types or ticks: redrawing the whole window would reset the text field.
- */
+/** Refresh the count of stored runs without redrawing the window (keeps the cursor where it is). */
 function acAskRefresh() {
   // querySelector finds the first element matching a CSS selector; null when there is none.
   const c = acPanel.querySelector(".acct-ask-count");
   if (c) c.innerHTML = acAskSummary();
 }
-/**
- * A field of the Ask the AI window changed (`el` is the input). Its data-ask attribute says which:
- * target, notes, question (texts), from / to (a date field) or run (a checkbox). Updates acAsk,
- * then the count.
- */
+/** A field of the Ask the AI window changed (`el` is the input). */
 function acAskInput(el) {
   const k = el.dataset.ask;
   if (k === "question" || k === "notes" || k === "target") acAsk[k] = el.value;
@@ -513,10 +372,7 @@ function acAskInput(el) {
   else if (k === "run") { if (el.checked) acAsk.ids.add(el.value); else acAsk.ids.delete(el.value); }
   acAskRefresh();
 }
-/**
- * Redraw the Ask the AI window, keeping its scroll position. `field` (optional) is a data-field
- * name: the window then scrolls to that element and puts the focus in it when it is a field.
- */
+/** Redraw the Ask the AI window, keeping its scroll position. */
 function acAskShow(field = "") {
   const box = acPanel.querySelector(".acct-panel-in");
   const top = box && !acPanel.hidden ? box.scrollTop : 0;
@@ -535,9 +391,7 @@ function acAskShow(field = "") {
 let acEl = null, acMenu = null, acPanel = null;
 
 /** Redraw the menu from the stored runs (or from the demo runs when there are none). */
-/**
- * Signed in (owner's rule, 2026-10-23): the account name shows next to the account button (the name typed in the Account window, else the start of the email).
- */
+/** Signed in (owner's rule, 2026-10-23): the account name shows next to the account button (the name typed in the Account window, else the start of the email). */
 function acSignedBadge() {
   const user = cloudOn() && cloudUser();
   acEl.classList.toggle("signed", Boolean(user));
@@ -548,31 +402,21 @@ async function acRender() {
   if (!acMenu) return;
   acSignedBadge();
   const mine = await acAll();
-  // No run of your own yet (and not signed in): show the demo profile User1 and its made-up runs,
-  // so the menu is never empty. Your first saved run replaces it.
+  // No run of your own yet (and not signed in): show the demo profile User1 and its made-up runs, so the menu is never empty.
   acDemo = !mine.length && !(cloudOn() && cloudUser());
   acList = acDemo ? demoRecords() : mine;
   ac.docs = await aiDocsAll();
   acMenu.innerHTML = acMenuHtml(historySummary(acList), acDemo);
 }
 
-/**
- * Ask the server for the tokens of the achievements reached, then read the ledger.
- * The server checks the achievements itself (the browser cannot be trusted to grant tokens);
- * a failed claim is ignored and the ledger is read anyway.
- */
+/** Ask the server for the tokens of the achievements reached, then read the ledger. */
 async function acClaim() {
   // Read-only account: no claim (it would write the ledger), the ledger is only read.
   if (cloudWritable()) await cloudClaim().catch(() => null);
   ac.ledger = await cloudLedger();
 }
 
-/**
- * Signed in: send the runs the account does not have, fetch the ones this device lacks, then tokens.
- * Runs are matched by id (a Set gives a fast "do we have this id?" test). Runs are only added,
- * never removed, so the result on both sides is the union of the two lists.
- * Any failure leaves the local runs untouched and shows a short message.
- */
+/** Signed in: send the runs the account does not have, fetch the ones this device lacks, then tokens. */
 async function acSync() {
   if (!cloudOn() || !cloudUser()) return;
   try {
@@ -603,17 +447,12 @@ async function acSync() {
   acRender();
 }
 
-/**
- * "Save to my account" (main.js): keep one item ({ kind, title, data }, core/saved.js) in the
- * online account. Signed out: opens the menu on the sign-in form instead. Returns { ok, msg },
- * msg being the short line shown beside the button.
- */
+/** "Save to my account" (main.js): keep one item ({ kind, title, data }, core/saved.js) in the online account. */
 export async function acctSaveItem(item) {
   if (!cloudOn()) return { ok: false, msg: "The online account is not open yet." };
   if (!cloudUser()) {
     ac.msg = "Sign in to save plans and runs to your account.";
-    // After this click has finished bubbling, or the "click outside closes the menu" listener
-    // would close it again at once.
+    // After this click has finished bubbling, or the "click outside closes the menu" listener would close it again at once.
     setTimeout(() => acOpenMenu(true), 0);
     return { ok: false, msg: "Sign in first (account icon, top right)." };
   }
@@ -629,11 +468,7 @@ export async function acctSaveItem(item) {
   }
 }
 
-/**
- * Saving the profile online. Each change in the Account window fires "trp-profile-save"
- * (profile.js); while signed in, the profile is sent 800 ms after the last change, so typing a
- * name sends one request, not one per letter. acProfileFlush sends a waiting change at once.
- */
+/** Saving the profile online. */
 let acPfTimer = 0;
 async function acProfilePush() {
   acPfTimer = 0;
@@ -651,30 +486,19 @@ document.addEventListener("trp-profile-save", () => {
   acPfTimer = setTimeout(acProfilePush, 800);
 });
 
-/**
- * The see-through pop-up panel: the Ask the AI window, the AI answer or the Account window.
- * `html` is the content, `label` the name screen readers announce. A close button is added and
- * gets the keyboard focus, so the Escape and Enter keys work at once.
- */
+/** The see-through pop-up panel: the Ask the AI window, the AI answer or the Account window. */
 function acShowPanel(html, label = "AI analysis", cls = "") {
   acPanel.innerHTML = `<div class="acct-panel-in${cls ? ` ${cls}` : ""}" role="dialog" aria-modal="true" aria-label="${label}"><button class="acct-x" type="button" data-acct="close" aria-label="Close">×</button>${html}</div>`;
   acPanel.hidden = false;
   const x = acPanel.querySelector(".acct-x");
   if (x) x.focus();
 }
-/**
- * "Spend 1 edelweiss" in the Prep my race window: the local test when the page runs on this
- * computer (acStartLocal), else the online AI (acStartOnline).
- */
+/** "Spend 1 edelweiss" in the Prep my race window: the local test when the page runs on this computer (acStartLocal), else the online AI (acStartOnline). */
 function acStartAi(forced = []) {
   return acLocal ? acStartLocal(forced) : acStartOnline("prep_race", forced);
 }
 
-/**
- * Send one request to the account's AI and wait for the answer: cloudAi starts it (the server
- * spends the edelweiss), then the job row is read every 4 s until it is done or failed, for up to
- * 6 minutes (90 x 4 s). Resolves to the finished row, or { status: "running" } after 6 minutes.
- */
+/** Send one request to the account's AI and wait for the answer: cloudAi starts it (the server spends the edelweiss), then the job row is read every 4 s until it is done or failed, for up to 6 minutes (90 x 4 s). */
 async function acAskServer(mode, input) {
   const { job } = await cloudAi(mode, input);
   trackEvent("ai-start");
@@ -690,11 +514,7 @@ async function acAskServer(mode, input) {
   return { status: "running" };
 }
 
-/**
- * The online AI (CLOUD.ai on, signed in): Prep my race (mode "prep_race") or the AI coach of
- * Prep my run ("prep_run"), with the same input as the local test. The answer is kept as an AI doc
- * on this device and played at once when usable, like the local test; the server keeps it too.
- */
+/** The online AI (CLOUD.ai on, signed in): Prep my race (mode "prep_race") or the AI coach of Prep my run ("prep_run"), with the same input as the local test. */
 async function acStartOnline(mode, forced = []) {
   const run = mode === "prep_run";
   const a = profileAthlete();
@@ -718,11 +538,7 @@ async function acStartOnline(mode, forced = []) {
   acRender();
 }
 
-/**
- * Keep an AI answer as an AI doc on this device (aidocs.js), and play it at once when usable
- * (main.js and preprun.js listen to trp-ai-use). `r` is what aiLocalRun or aiOnlineRun returned.
- * A call that never reached the model (a wrong key, nothing billed) is not kept.
- */
+/** Keep an AI answer as an AI doc on this device (aidocs.js), and play it at once when usable (main.js and preprun.js listen to trp-ai-use). */
 async function acKeepDoc(mode, key, name, r) {
   if (r.error || !(r.read.output || r.read.tokens.total)) return;
   const m = r.result;
@@ -735,11 +551,7 @@ async function acKeepDoc(mode, key, name, r) {
   if (m.status === "ok") document.dispatchEvent(new CustomEvent("trp-ai-use", { detail: doc }));
 }
 
-/**
- * The local test (ailocal.js): the same ask, sent to the local server instead of the account.
- * The panel says it is working, then shows the result: the referee's verdict, the rebuilt finish,
- * every leg compared, the texts and the tokens.
- */
+/** The local test (ailocal.js): the same ask, sent to the local server instead of the account. */
 async function acStartLocal(forced) {
   const R = acGetRace();
   const fake = acLocal.fake;
@@ -756,11 +568,7 @@ async function acStartLocal(forced) {
   acShowPanel(aiLocalHtml(r), "Local AI test", "acct-local");
 }
 
-/**
- * The Prep my run test (the AI coach): the same chain as acStartLocal with the run's plan and
- * the two texts. Every answer is kept as an AI doc (mode "prep_run"); a usable one plays in Prep
- * my run at once (preprun.js listens to trp-ai-use). Online: acStartOnline.
- */
+/** The Prep my run test (the AI coach): the same chain as acStartLocal with the run's plan and the two texts. */
 async function acStartRun(forced = []) {
   if (!acLocal) return acStartOnline("prep_run", forced);
   const R = acGetRun();
@@ -781,8 +589,7 @@ async function acDocShow(id) {
   const d = await aiDocsGet(id);
   if (!d) return;
   const download = URL.createObjectURL(new Blob([JSON.stringify(d, null, 2)], { type: "application/json" }));
-  // A Prep my race doc for the race on screen, made from the same plan: checked again by today's
-  // referee, so the doc shows exactly what Your race plays (an older doc kept an older summary).
+  // A Prep my race doc for the race on screen, made from the same plan: checked again by today's referee, so the doc shows exactly what Your race plays (an older doc kept an older summary).
   let result = d.result;
   const R = d.mode === "prep_run" ? null : acGetRace();
   const calc = d.input && d.input.calc && d.input.calc.finishSec;
@@ -792,11 +599,7 @@ async function acDocShow(id) {
   acShowPanel(aiLocalHtml({ docId: d.id, when: acDate(Date.parse(d.at)), input: d.input, read: { tokens: d.tokens, output: d.output }, result, stamp: d.at.slice(0, 19).replace(/[:T]/g, "-"), download }), "AI doc", "acct-local");
 }
 
-/**
- * The small edelweiss sticker that opens an Ask the AI window, set beside the Pimp my GPX
- * sticker: mode "race" (Prep my race) or "run" (Prep my run, the AI coach). Its clicks are
- * caught by one listener in initAccount (data-ai-ask), so it works wherever it is drawn.
- */
+/** The small edelweiss sticker that opens an Ask the AI window, set beside the Pimp my GPX sticker: mode "race" (Prep my race) or "run" (Prep my run, the AI coach). */
 export function acctAiBadge(mode) {
   return `<button class="ai-badge" type="button" data-ai-ask="${mode}" aria-label="Ask the AI ${mode === "run" ? "coach" : "for a race plan"}">${AC_SPARK}<span><b>Ask the AI</b><small>${mode === "run" ? "coach · my run" : "race plan"}</small></span></button>`;
 }
@@ -805,11 +608,7 @@ export function acctOpenAsk() { acAction("ai"); }
 /** Open the Ask the AI coach window (the edelweiss button of Prep my run). */
 export function acctOpenRunAsk() { acAction("ai-run-ask"); }
 
-/**
- * Open (or redraw) the Account window in the pop-up panel. `keep` = true keeps the scroll
- * position, so a redraw after a change does not jump back to the top. The menu is redrawn too,
- * since its first line shows the profile's name and flag.
- */
+/** Open (or redraw) the Account window in the pop-up panel. */
 function acProfile(keep = false) {
   if (!keep) ac.dataMsg = ""; // a fresh opening shows no old message
   const box = acPanel.querySelector(".acct-panel-in");
@@ -827,32 +626,10 @@ function acProfile(keep = false) {
   if (keep) acRender();
 }
 
-/**
- * Run the action named `what` (the data-acct attribute of the button clicked):
- *   export      download all stored run summaries as a JSON file
- *   clear       delete all runs (after a confirm), here and in the account
- *   signout     sign out and forget the account data in memory
- *   delete      delete the online account (after a confirm)
- *   ai          open the Ask the AI window (Prep my race)
- *   mode:X      in that window, switch to "dates" or "runs"
- *   range:N     set the range to the last N days (0 = everything)
- *   goal:X      choose the goal; risk:X the risk (only the chips change)
- *   goto:ID     close the window and scroll to the page element ID (a drop zone for a GPX)
- *   go          run the code checks (aichecks.js): all clear starts the analysis, otherwise the
- *               window shows the checks; fix = hide them and go to the first field to fix;
- *               force = start anyway with the warnings (never with a hard stop)
- *   bests       open the Account window on the bests
- *   profile     open the Account window (profile.js); pf:X are its own buttons
- *   last        show the last result; close = hide the pop-up
- * "mode:" and "range:" redraw the window; "goal:" and "risk:" only move the highlight. What is
- * typed is kept either way: it lives in acAsk, not in the page.
- */
+/** Run the action named `what` (the data-acct attribute of the button clicked): export download all stored run summaries as a JSON file clear delete all runs (after a confirm)... */
 async function acAction(what) {
   if (what === "export") {
-    // Same download trick as the course files: a Blob, a temporary blob: address, a link clicked
-    // from the code. JSON.stringify(x, null, 1) indents the JSON by one space, readable by eye.
-    // Everything the app keeps about you: profile, run log, My files, AI answers, and (signed in)
-    // the account's email and saved items.
+    // Same download trick as the course files: a Blob, a temporary blob: address, a link clicked from the code.
     const user = cloudOn() && cloudUser();
     const data = { app: "prep-my-race", exported: new Date().toISOString(), account: user ? { email: user.email } : null, profile: profileData(), runs: await acAll(), files: await acFilesAll(), aiDocs: await aiDocsAll(), saved: user ? ac.saved || [] : [] };
     const blob = new Blob([JSON.stringify(data, null, 1)], { type: "application/json" });
@@ -864,8 +641,7 @@ async function acAction(what) {
     trackEvent("history-export");
   } else if (what === "clear") {
     const user = cloudOn() && cloudUser();
-    // window.confirm shows the browser's OK / Cancel box and returns true on OK. The last part
-    // (signed in only) says that the tokens already earned are kept.
+    // window.confirm shows the browser's OK / Cancel box and returns true on OK.
     if (!window.confirm(`Delete all the runs stored ${user ? "on this device and in your account" : "on this device"}? Your stats, records and achievements start again from zero.${user ? ` ${AC_TOKEN.many[0].toUpperCase() + AC_TOKEN.many.slice(1)} you already have stay yours.` : ""}`)) return;
     if (user) { try { await cloudDeleteRuns(); } catch (e) { ac.msg = e.message === CL_READONLY ? "Runs deleted on this device only: the online account keeps only your profile for now." : "Could not reach your account: runs deleted on this device only."; } }
     acCache = [];
@@ -909,8 +685,7 @@ async function acAction(what) {
     try { await cloudSavedDelete(id); ac.saved = ac.saved.filter((x) => x.id !== id); } catch (e) { window.alert(`Could not delete it: ${e.message}`); }
     acProfile(true);
   } else if (what === "signout") {
-    // Send a profile change still waiting, then forget the profile here: it is kept in the
-    // account, and the next person signing in on this browser starts from a blank one.
+    // Send a profile change still waiting, then forget the profile here: it is kept in the account, and the next person signing in on this browser starts from a blank one.
     await acProfileFlush();
     profileReplace({});
     await cloudSignOut();
@@ -968,21 +743,18 @@ async function acAction(what) {
     const sp = document.getElementById("s-prep");
     if (sp) sp.scrollIntoView({ behavior: "smooth" });
   } else if (what.startsWith("mode:")) {
-    // what.slice(5) drops "mode:". Switching to "runs" with nothing ticked yet ticks the runs of
-    // the current date range, so the list starts from the same selection.
+    // what.slice(5) drops "mode:".
     acAsk.mode = what.slice(5);
     if (acAsk.mode === "runs" && !acAsk.ids.size) aiSelect(acList, { from: acAsk.from, to: acAsk.to }).forEach((r) => acAsk.ids.add(r.id));
     acAskShow();
   } else if (what.startsWith("range:")) {
-    // what.slice(6) drops "range:"; Number turns "28" into 28. "Everything" (0) starts at the
-    // oldest run (or today when there is none).
+    // what.slice(6) drops "range:"; Number turns "28" into 28.
     const d = Number(what.slice(6));
     acAsk.to = acToday();
     acAsk.from = d ? acAsk.to - d * 86400000 : Math.min(acAsk.to, ...acList.map((r) => r.date));
     acAskShow();
   } else if (what.startsWith("goal:") || what.startsWith("risk:")) {
-    // Only the chips change: toggle the "on" class on the one whose data-acct matches.
-    // [data-acct^="goal:"] in the selector means "starts with goal:".
+    // Only the chips change: toggle the "on" class on the one whose data-acct matches. [data-acct^="goal:"] in the selector means "starts with goal:".
     const [k, v] = what.split(":");
     acAsk[k] = v;
     acPanel.querySelectorAll(`[data-acct^="${k}:"]`).forEach((b) => b.classList.toggle("on", b.dataset.acct === what));
@@ -1052,11 +824,7 @@ async function acAction(what) {
   }
 }
 
-/**
- * The sign-in form was sent: with a password, sign in at once; without one, ask for a sign-in link
- * for the typed email. The button is greyed out meanwhile (ac.busy) and the outcome shows in the
- * tokens section.
- */
+/** The sign-in form was sent: with a password, sign in at once; without one, ask for a sign-in link for the typed email. */
 /** Save a new password for the signed-in user (Account window, Sign-in and data). */
 async function acNewPassword(pass) {
   if (!pass || pass.length < 8) { ac.dataMsg = "The password needs 8 characters or more."; acProfile(true); return; }
@@ -1087,18 +855,7 @@ async function acSignIn(form) {
   acRender();
 }
 
-/**
- * Add the icon and the menu to the page.
- * Side effects: adds the account element to <body>, listens to clicks, form submits, typing in
- * the Ask the AI window and the Escape key, and, when the page was opened from a sign-in link,
- * finishes the sign-in.
- *
- * Event delegation: instead of one listener per menu button (the menu is redrawn often, which
- * would drop them), ONE listener on the wrapper catches every click and looks up the nearest
- * element with a data-acct attribute (e.target.closest). Redrawing the menu needs no re-wiring.
- * `opts.getRace` (from main.js) tells the Ask the AI window about the race being prepared:
- * a function returning { race: { name, km, gain, legs, aid } or null, gpxRuns, targetText, centralSec }.
- */
+/** Add the icon and the menu to the page. */
 export async function initAccount(opts = {}) {
   if (opts.getRace) acGetRace = opts.getRace;
   if (opts.getRun) acGetRun = opts.getRun;
@@ -1107,8 +864,7 @@ export async function initAccount(opts = {}) {
   aiLocalProbe().then((x) => { acLocal = x; acAiShow(); });
   acEl = document.createElement("div");
   acEl.className = "acct";
-  // The round button (a person icon in SVG: a circle head and a curved path for the shoulders),
-  // the menu (filled by acRender) and the hidden pop-up panel.
+  // The round button (a person icon in SVG: a circle head and a curved path for the shoulders), the menu (filled by acRender) and the hidden pop-up panel.
   acEl.innerHTML = `
     <span class="acct-name" aria-hidden="true"></span>
     <button class="acct-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="My account">
@@ -1121,8 +877,7 @@ export async function initAccount(opts = {}) {
   const btn = acEl.querySelector(".acct-btn");
   acMenu = acEl.querySelector(".acct-menu");
   acPanel = acEl.querySelector(".acct-panel");
-  // Open or close the menu. aria-expanded tells screen readers its state. Opening redraws it
-  // and, when signed in (and no analysis is running), syncs with the account.
+  // Open or close the menu. aria-expanded tells screen readers its state.
   const set = (open) => {
     acOpenMenu = set;
     acMenu.classList.toggle("open", open);
@@ -1130,8 +885,7 @@ export async function initAccount(opts = {}) {
     if (open) { acRender(); trackEvent("account-open"); if (cloudOn() && cloudUser() && !ac.job) acSync(); }
   };
   acOpenMenu = set;
-  // stopPropagation(): the click stops here, so the document listener below (which closes the
-  // menu on any outside click) does not see it.
+  // stopPropagation(): the click stops here, so the document listener below (which closes the menu on any outside click) does not see it.
   btn.addEventListener("click", (e) => { e.stopPropagation(); set(!acMenu.classList.contains("open")); });
   // The Account window replaces the menu on screen: the menu closes when it opens.
   acEl.addEventListener("click", (e) => { const b = e.target.closest("[data-acct]"); if (!b) return; if (b.dataset.acct === "profile" || b.dataset.acct === "bests" ) set(false); acAction(b.dataset.acct); });
@@ -1154,13 +908,9 @@ export async function initAccount(opts = {}) {
     if (e.target.dataset.ask) acAskInput(e.target);
     else if (e.target.dataset.pf && profileInput(e.target, false)) acProfile(true);
   });
-  // "change" fires when a field of the Account window is left (or a list choice made): times and
-  // numbers are read then, and the window redrawn when the card or the "to go" column changed.
-  // The redraw waits a moment (setTimeout 0): a Tab press fires "change" before the focus moves
-  // to the next field, and redrawing at once would lose where the focus is going.
+  // "change" fires when a field of the Account window is left (or a list choice made): times and numbers are read then, and the window redrawn when the card or the "to go" column changed.
   acPanel.addEventListener("change", (e) => { if (e.target.dataset && e.target.dataset.pf && profileInput(e.target, true)) setTimeout(() => acProfile(true), 0); });
-  // The edelweiss stickers of the modes (acctAiBadge) open their Ask the AI window, and the
-  // profile links of the page (data-open-profile) the Account window.
+  // The edelweiss stickers of the modes (acctAiBadge) open their Ask the AI window, and the profile links of the page (data-open-profile) the Account window.
   document.addEventListener("click", (e) => {
     const b = e.target.closest && e.target.closest("[data-ai-ask]");
     if (b) acAction(b.dataset.aiAsk === "run" ? "ai-run-ask" : "ai");
@@ -1168,7 +918,6 @@ export async function initAccount(opts = {}) {
     if (pl) { e.preventDefault(); acctOpenProfile(pl.dataset.openProfile); }
   });
   // Any click outside the account element closes the menu.
-  // (A target the menu just redrew is no longer in the page: isConnected is false, so it is skipped.)
   document.addEventListener("click", (e) => { if (e.target.isConnected && !acEl.contains(e.target)) set(false); });
   // A GPX file given to any drop box (event "trp-gpx" from main.js, preprun.js, review.js) joins My files.
   document.addEventListener("trp-gpx", (e) => acctKeepFile(e.detail.xml, e.detail.label));
@@ -1180,8 +929,6 @@ export async function initAccount(opts = {}) {
   });
   acRender();
   // Back from a sign-in link: keep the session, sync, and show the menu so the user sees it worked.
-  // Back from an email link: a Forgot password link opens the Account window on the new
-  // password; any other link (sign-in, confirm the account) opens the menu.
   const link = await cloudFromUrl();
   if (link === "recovery") { ac.recovery = true; trackEvent("signin", "recovery"); acctOpenProfile("data"); }
   else if (link) { trackEvent("signin", link); set(true); }

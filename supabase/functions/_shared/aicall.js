@@ -1,22 +1,4 @@
-// aicall.js: one AI request of the app (Prep my race or the Prep my run coach), on the server, as
-// plain functions so the tests can run them in Node with a fake database and a fake OpenAI. The
-// Deno entry point (ai-analyse/index.ts) only plugs in the real Supabase client and fetch().
-//
-// The work is split as in the local test (src/ui/ailocal.js):
-//   browser  builds the INPUT from its plan (aiPrepInput / aiRunInput), sends it here, then runs
-//            the referee and the rebuild on the answer (aiPrepMerge / aiRunMerge)
-//   server   (this file) checks, spends one edelweiss, builds the ONE OpenAI request with the
-//            app's own prompt code (a copy of src/core in ./core), calls OpenAI with the key that
-//            only the server knows, and keeps the answer in the ai_jobs row
-// The browser never chooses the prompt, the model or the size of the answer: only the data.
-//
-// Two steps, so the browser never waits on an open connection for minutes:
-//   aiBegin   checks, job row "running", edelweiss spent -> answers at once with the job id
-//   aiFinish  the OpenAI call in the background, then the job row "done" or "failed"
-// The browser polls the job row (cloudJob) until it changes.
-//
-// Edelweiss rule (Boss, 2026-10-16): spent once the call is made. Given back only when OpenAI
-// never answered (nothing was billed: network down, wrong key, OpenAI down).
+// aicall.js: one AI request of the app (Prep my race or the Prep my run coach), on the server, as plain functions so the tests can run them in Node with a fake database and a fake OpenAI. Edelweiss rule (Boss, 2026-10-16): spent once the call is made.
 
 import { aiPrepRequest, aiPrepRead, AI_PREP_MODEL } from "./core/aiprep.js";
 import { aiRunRequest } from "./core/airun.js";
@@ -30,11 +12,7 @@ export const AI_INPUT_MAX = 400000;
 // A job still "running" after this long is treated as stuck, and no longer blocks a new one.
 const AI_STUCK_MS = 6 * 60000;
 
-/**
- * A copy of `x` without any heart rate or body weight (keys starting with athlete, hr, maxhr,
- * resthr, heart or weight, at any depth): what is kept online in the ai_jobs row. Heart rate and
- * weight are never stored online (Boss's rule); they only travel to OpenAI for the one call.
- */
+/** A copy of `x` without any heart rate or body weight (keys starting with athlete, hr, maxhr, resthr, heart or weight, at any depth): what is kept online in the ai_jobs row. Heart rate and weight are never stored online (Boss's rule); they only travel to OpenAI for the one call. */
 export function aiNoBody(x) {
   if (Array.isArray(x)) return x.map(aiNoBody);
   if (!x || typeof x !== "object") return x;
@@ -43,14 +21,7 @@ export function aiNoBody(x) {
   return out;
 }
 
-/**
- * First step. Inputs (one object): db (see makeDb in server.ts), userId, mode ("prep_race" or
- * "prep_run"), input (the app's AI input for that mode), hasKey (is the OpenAI key set on the
- * server?), now (ms), newId (makes the job's uuid).
- * Returns { status, error } or { status: 202, job, request }:
- *   400 unknown mode or no input, 413 input too large, 503 the AI is not switched on (no key),
- *   409 a request already running, 402 no edelweiss left (nothing spent in all these cases).
- */
+/** First step. */
 export async function aiBegin({ db, userId, mode, input, hasKey, now = Date.now(), newId }) {
   if (!Object.prototype.hasOwnProperty.call(AI_MODES, mode)) return { status: 400, error: "Unknown AI mode." };
   if (!input || typeof input !== "object" || Array.isArray(input)) return { status: 400, error: "Nothing to send." };
@@ -69,14 +40,7 @@ export async function aiBegin({ db, userId, mode, input, hasKey, now = Date.now(
   return { status: 202, job: id, request };
 }
 
-/**
- * Second step. Inputs (one object): db, callOpenAI (request -> the API's JSON answer, so the tests
- * pass a fake), userId, job and request (from aiBegin), mode, input.
- * Side effects: the job row gets status "done" with result { mode, input (no heart, no weight),
- * output, tokens } and the token counts, or "failed" with the reason. When OpenAI never answered
- * (zero tokens billed) the edelweiss comes back (+1 "refund", once per job).
- * Returns the saved row patch.
- */
+/** Second step. */
 export async function aiFinish({ db, callOpenAI, userId, job, request, mode, input }) {
   let res;
   try { res = await callOpenAI(request); } catch (e) { res = { error: { message: `OpenAI could not be reached (${(e && e.message) || e}).` } }; }

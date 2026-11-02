@@ -1,5 +1,4 @@
-// changelog.js: the "What's new" list, newest first, in runner's words (the git log has the
-// technical detail). The first entry is the current version: the footer shows it on every page.
+// changelog.js: the "What's new" list, newest first, in runner's words (the git log has the technical detail).
 
 export const CHANGELOG = [
   { v: "2.29", date: "2026-10-29", items: [

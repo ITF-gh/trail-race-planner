@@ -1,22 +1,4 @@
-// ailocal.js: the local test mode of the Ask the AI windows (Prep my race, and the AI coach of
-// Prep my run with mode "prep_run", core/airun.js), in the browser.
-//
-// Only when the page is opened from `npm run ai-browser` (scripts/ai-serve.js) on this computer:
-// that small server answers GET /local-ai, and the window then sends the request to it instead of
-// the online account. The live site never has it, so this file does nothing there.
-//
-// The work is split the same way as it will be online:
-//   browser  builds the INPUT and the ONE request (core/aiprep.js), then, with the answer, runs
-//            the referee and the rebuild (aiPrepMerge) and shows the result
-//   server   adds the OpenAI key (from .env.local, it never reaches the page), makes the call,
-//            and saves every step in ai-runs/<date-time>/ for later reading
-// A "fake answer" (aiPrepFake, made by code) runs the whole chain without a key and for free.
-//
-// Second way, with nothing to install: the built page opened as a file (double-click on
-// index.html of the test folder, address file:///...). There is no server, so the runner types
-// the key in the window: it stays in this tab's memory only (never saved, never in the page's
-// storage, gone when the tab closes) and goes straight to OpenAI, whose API accepts calls from
-// a browser. The test is then offered as a download instead of being saved in ai-runs/.
+// ailocal.js: the local test mode of the Ask the AI windows (Prep my race, and the AI coach of Prep my run with mode "prep_run", core/airun.js), in the browser.
 
 import { aiPrepInput, aiPrepRequest, aiPrepRead, aiPrepMerge, aiPrepFake, AI_PREP_MODEL } from "../core/aiprep.js";
 import { aiRunInput, aiRunRequest, aiRunMerge, aiRunFake, AI_RUN_EFFORTS } from "../core/airun.js";
@@ -25,10 +7,7 @@ import { hms, hm } from "../core/format.js";
 // Escape text for HTML (& < > " become entities): AI texts are never read as HTML.
 const alEsc = (s) => String(s === null || s === undefined ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
-/**
- * Is the local test server there? Only asked on localhost / 127.0.0.1 (the live site skips it).
- * Resolves to { key, model } (key: true when .env.local holds an OpenAI key) or null.
- */
+/** Is the local test server there? */
 export async function aiLocalProbe() {
   if (typeof location === "undefined") return null;
   // Opened as a file: the direct way, the key is typed in the window.
@@ -43,10 +22,7 @@ export async function aiLocalProbe() {
   }
 }
 
-/**
- * The direct way: the one call from this page to OpenAI, with the key typed in the window.
- * Resolves to the API's answer (or { error } when the network fails), like the server's.
- */
+/** The direct way: the one call from this page to OpenAI, with the key typed in the window. */
 async function alDirect(request, apiKey) {
   try {
     const r = await fetch("https://api.openai.com/v1/responses", {
@@ -68,13 +44,7 @@ const AL_MODES = {
 // What a test file and the local server keep of a result (everything but the rebuilt plan).
 const alKeep = (m, tokens) => ({ status: m.status, reason: m.reason, tokens, finishSec: m.finishSec, finishes: m.finishes, aiFinishSec: m.aiFinishSec, fixes: m.fixes, legs: m.legs, aid: m.aid, exercises: m.exercises, workSec: m.workSec, texts: m.texts });
 
-/**
- * Run one local test. `x` = { mode ("prep_race" by default, or "prep_run"), plan, raceName,
- * user, athlete, history, fake, model, direct, apiKey }.
- * Returns { input, read, result, stamp } (result is aiPrepMerge's), or { error } when nothing
- * could be sent. One POST sends the request (the server calls OpenAI, or not when fake); a second
- * one sends back what the referee made of it, so the folder holds the whole story.
- */
+/** Run one local test. */
 export async function aiLocalRun(x) {
   const mode = x.mode === "prep_run" ? "prep_run" : "prep_race", M = AL_MODES[mode];
   if (!x.plan) return { error: mode === "prep_run" ? "Load the GPX of your run first: the route is what the AI coach reads." : "Load a race GPX and at least one run in Your runs first: the plan is what the AI reads." };
@@ -105,14 +75,7 @@ export async function aiLocalRun(x) {
   return { input, read, result, stamp: res.stamp || "" };
 }
 
-/**
- * The online way (the live site, signed in, CLOUD.ai on): the same chain, with the server in the
- * middle. `x` as aiLocalRun; `ask(mode, input)` sends the input to the account and resolves to the
- * finished job row { status, result: { output, tokens }, error } (account.js: cloudAi, then it
- * polls cloudJob). The server spends the edelweiss, builds the request and calls OpenAI; this page
- * runs the referee and the rebuild, as in the local test.
- * Returns { input, read, result, online: true }, or { online: false, error } when nothing came back.
- */
+/** The online way (the live site, signed in, CLOUD.ai on): the same chain, with the server in the middle. */
 export async function aiOnlineRun(x, ask) {
   const mode = x.mode === "prep_run" ? "prep_run" : "prep_race", M = AL_MODES[mode];
   if (!x.plan) return { online: false, error: mode === "prep_run" ? "Load the GPX of your run first: the route is what the AI coach reads." : "Load a race GPX first: the plan is what the AI reads." };

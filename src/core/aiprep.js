@@ -1,20 +1,4 @@
 // aiprep.js: the Prep my race AI call, from the plan to the request and back.
-//
-// The design (project thread "AI prompt", PREP-MY-RACE-SCHEMA.md) in four steps:
-//   1. aiPrepInput    the plan already calculated by the app + the runner's input -> one INPUT
-//                     object (race sections, engine learned from the GPX runs, stored run
-//                     history, the runner's goal, notes and question, the calculated plan)
-//   2. aiPrepRequest  INPUT -> the body of ONE OpenAI Responses API call: fixed instructions
-//                     (role, the in-prompt check, scope, task), the data as CSV tables, and the
-//                     strict JSON schema the answer must follow (AI_PREP_SCHEMA)
-//   3. aiPrepRead     the API's answer -> { output, tokens, error }: the AI's JSON and the token
-//                     counts by type, read from the API's own usage report (the model cannot
-//                     count its own tokens)
-//   4. aiPrepMerge    the plan + the AI output -> the "referee" checks, then the AI plan: the
-//                     same shape as buildPlan's, rebuilt by code from the AI's section times
-//                     (the AI decides, the code does every sum)
-// Pure functions, no network and no files: the local tester (scripts/ai-local.js) and, later,
-// the server call them. Nothing here holds or sees an API key.
 
 import { raceLegs, secAtKm } from "./script.js";
 import { aiDigest } from "./history.js";
@@ -26,14 +10,10 @@ export const AI_PREP_NOTES_MAX = 500, AI_PREP_QUESTION_MAX = 300;
 
 // Round to d decimals (0 by default), keeping null for a missing value.
 export const rd = (v, d = 0) => (v === null || v === undefined || !Number.isFinite(v) ? null : Math.round(v * 10 ** d) / 10 ** d);
-// Clean a text typed by the runner: control characters become spaces, runs of spaces one space.
-// eslint-disable-next-line no-control-regex
+// Clean a text typed by the runner: control characters become spaces, runs of spaces one space. eslint-disable-next-line no-control-regex
 export const aipClean = (s, max) => (typeof s === "string" ? s.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, max) : "");
 
-/**
- * The steepest 100 m of a leg, from the briefing climb, climb section or descent it comes from
- * (raceLegs keeps `kind` and `n`); null for a runnable leg.
- */
+/** The steepest 100 m of a leg, from the briefing climb, climb section or descent it comes from (raceLegs keeps `kind` and `n`); null for a runnable leg. */
 function aipSteep(plan, leg) {
   if (leg.kind === "descent") { const d = plan.descents.find((x) => x.n === leg.n); return d ? d.steep : null; }
   if (leg.kind !== "climb") return null;
@@ -45,16 +25,7 @@ function aipSteep(plan, leg) {
   return null;
 }
 
-/**
- * Build the INPUT object of one Prep my race call.
- * Inputs:
- *   plan     from buildPlan (the race GPX and the GPX files of "Your runs", already analysed)
- *   opts     { raceName, user: { targetSec, goal, risk, notes, question, forced },
- *              athlete: { maxHr, restHr, weightKg }, history: run summaries stored in the
- *              account (the records of history.js, e.g. from the app's JSON export) }
- * Returns the object described in PREP-MY-RACE-SCHEMA.md, section 1. Legs are named L1..Ln in
- * course order, the same as the section bar.
- */
+/** Build the INPUT object of one Prep my race call. */
 export function aiPrepInput(plan, opts = {}) {
   const legs = raceLegs(plan, "central");
   const u = opts.user || {};
@@ -100,11 +71,7 @@ export function aiPrepInput(plan, opts = {}) {
   };
 }
 
-// ---------------------------------------------------------------------------------------------
-// The prompt. Blocks 1 to 3 never change, so they go first and in `instructions` (developer
-// level): OpenAI caches a repeated start of 1,024 tokens or more and bills it cheaper, and the
-// model gives developer instructions priority over the user part. The data and the runner's
-// words go in `input`, the runner's words last and inside tags.
+// --------------------------------------------------------------------------------------------- The prompt.
 
 const AIP_ROLE = `ROLE. You are an experienced trail and ultra running coach and a sports data analyst. You
 tailor a race plan to one athlete, from numbers the app has already computed.`;
@@ -160,8 +127,7 @@ const AIP_TASK = `TASK. Build a race plan tailored to this athlete for this cour
 /** The fixed instructions (blocks 1 to 3), exported so the tests and the server use the same text. */
 export const AI_PREP_INSTRUCTIONS = [AIP_ROLE, AIP_CHECK, AIP_TASK].join("\n\n");
 
-// A list of objects as CSV: a header line from `cols`, one line per row. Commas inside a value
-// are replaced by semicolons, so a value never splits a column.
+// A list of objects as CSV: a header line from `cols`, one line per row.
 export const aipCsv = (rows, cols) => [cols.join(","), ...rows.map((r) => cols.map((c) => (r[c] === null || r[c] === undefined ? "" : String(r[c]).replace(/,/g, ";"))).join(","))].join("\n");
 // Seconds as h:mm:ss, for the lines a person may read in the prompt.
 export const aipHms = (s) => (s ? `${Math.floor(s / 3600)}:${String(Math.floor((s % 3600) / 60)).padStart(2, "0")}:${String(Math.round(s % 60)).padStart(2, "0")}` : "none");
@@ -200,10 +166,7 @@ export function aiPrepData(x) {
   ].join("\n");
 }
 
-// ---------------------------------------------------------------------------------------------
-// The answer's shape. Strict mode: every object lists all its fields in `required` and sets
-// additionalProperties false; a field that may be empty is "this shape or null" (aipOrNull).
-// Length and range limits are checked afterwards by code (aiPrepMerge), not by the schema.
+// --------------------------------------------------------------------------------------------- The answer's shape.
 
 export const aipObj = (props) => ({ type: "object", additionalProperties: false, required: Object.keys(props), properties: props });
 export const aipArr = (items) => ({ type: "array", items });
@@ -235,19 +198,10 @@ export const AI_PREP_SCHEMA = aipObj({
 /** The default model (cheapest that follows a strict JSON schema), and the ones the test window offers. */
 export const AI_PREP_MODEL = "gpt-4o-mini";
 export const AI_PREP_MODELS = ["gpt-4o-mini", "gpt-5.4-mini"];
-/**
- * A "reasoning" model (gpt-5 family, o-series) thinks before it answers: it takes a reasoning
- * effort, and its thinking is billed as output tokens. Others (gpt-4o-mini) answer at once and
- * refuse the reasoning parameter, so it is only sent to reasoning models.
- */
+/** A "reasoning" model (gpt-5 family, o-series) thinks before it answers: it takes a reasoning effort, and its thinking is billed as output tokens. */
 export const aipReasons = (model) => /^(o\d|gpt-5)/.test(model);
 
-/**
- * The body of the one OpenAI Responses API call (POST https://api.openai.com/v1/responses).
- * opts: { model (default AI_PREP_MODEL), effort (reasoning models only: "low", "medium" or
- * "high"), maxOutput (output token ceiling: 32,000 for a reasoning model, else 16,000, the most
- * gpt-4o-mini can write) }. `store: false` asks OpenAI not to keep the answer for later reuse.
- */
+/** The body of the one OpenAI Responses API call (POST https://api.openai.com/v1/responses). opts: { model (default AI_PREP_MODEL), effort (reasoning models only: "low", "medium" or "high"), maxOutput... */
 export function aiPrepRequest(input, opts = {}) {
   const model = opts.model || AI_PREP_MODEL;
   const thinks = aipReasons(model);
@@ -262,13 +216,7 @@ export function aiPrepRequest(input, opts = {}) {
   };
 }
 
-/**
- * Read the API's answer (the parsed JSON of the HTTP response).
- * Returns { output, tokens, error }:
- *   output  the AI's JSON (check, dataset, texts), or null
- *   tokens  part 3, from the API's `usage` report: input, inputCached, output, reasoning, total
- *   error   "" when fine, else why there is no usable output (refused, cut short, not JSON)
- */
+/** Read the API's answer (the parsed JSON of the HTTP response). */
 export function aiPrepRead(res, requestType = "prep_race") {
   const u = (res && res.usage) || {};
   const tokens = {
@@ -288,36 +236,19 @@ export function aiPrepRead(res, requestType = "prep_race") {
   try { return { output: JSON.parse(text), tokens, error: "" }; } catch (e) { return { output: null, tokens, error: "The answer is not JSON." }; }
 }
 
-// ---------------------------------------------------------------------------------------------
-// The referee and the rebuild: the code takes the whole process again.
+// --------------------------------------------------------------------------------------------- The referee and the rebuild: the code takes the whole process again.
 
 export const aipClamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
-/**
- * Check the AI output against the input and rebuild the plan from it.
- * Inputs: plan (from buildPlan, the one the input was built from), input (aiPrepInput), output
- * (the AI's JSON).
- * Returns { status, reason, plan, legs, aid, fixes, finishSec, finishes, aiFinishSec, texts, dataset }:
- *   status   "ok" or "null"; reason when null ("empty_dataset", "out_of_scope", "invalid_answer")
- *   plan     the AI plan: same shape as buildPlan's, central timeline rebuilt from the AI leg
- *            times, best / cautious from the AI factors, aid stops from the AI (null when null)
- *   legs     one row per leg: calc and AI moving time, difference in %, mode, effort, mark
- *            (true when they differ by more than 3%: the edelweiss mark), why
- *   fixes    what the referee changed, in words (dropped ids, values out of range, cut texts)
- *   finishSec      the AI central finish computed by code (sum of legs and stops)
- *   finishes       { best, central, cautious }: the finish of each scenario, as Your race shows it
- *   aiFinishSec    the finish the AI wrote itself, shown as written
- */
+/** Check the AI output against the input and rebuild the plan from it. */
 export function aiPrepMerge(plan, input, output) {
   const nul = (reason, fixes = []) => ({ status: "null", reason, plan: null, legs: [], aid: [], fixes, finishSec: null, finishes: null, aiFinishSec: null, texts: null, dataset: null });
   if (!output || !output.check) return nul("invalid_answer");
-  // An "empty" verdict on a dataset that has legs is the AI's mistake, not the runner's: it counts
-  // as an invalid answer (first gpt-4o-mini test: 11 legs, answered "empty_dataset").
+  // An "empty" verdict on a dataset that has legs is the AI's mistake, not the runner's: it counts as an invalid answer (first gpt-4o-mini test: 11 legs, answered "empty_dataset").
   if (output.check.reason === "empty_dataset" && input.race.legs.length && input.race.totalKm > 0) return nul("invalid_answer", [`The AI said the dataset was empty, but it has ${input.race.legs.length} legs over ${input.race.totalKm} km.`]);
   if (output.check.status === "null" || !output.dataset) return nul(output.check.reason || "invalid_answer");
   const D = output.dataset, fixes = [];
-  // 1. Legs: known ids only, once each; a time outside 2:30 to 40:00 per km (moving) is replaced
-  // by the calculated one. Legs the AI left out keep their calculated time.
+  // 1.
   const calc = new Map(input.calc.legs.map((l) => [l.id, l]));
   const geo = new Map(input.race.legs.map((l) => [l.id, l]));
   const ai = new Map();
@@ -341,10 +272,7 @@ export function aiPrepMerge(plan, input, output) {
     if (!(s.stopMin >= 0 && s.stopMin <= 60)) { fixes.push(`Aid ${s.id}: ${s.stopMin} min is outside 0 to 60, the typed stop is kept.`); continue; }
     stops[k] = s.stopMin;
   }
-  // 3. Rebuild the central timeline (the clock every 100 m, stops included, that every screen
-  // reads). Inside each leg the calculated MOVING time is stretched by aiTime / calcTime, so the
-  // shape within a climb stays the same and the leg lands exactly on the AI time; then the AI
-  // stops are added after each station.
+  // 3.
   const P = plan.course.profile, tl = plan.scenarios.central.timeline;
   const aidKm = plan.aidStations.map((s) => s.km), calcStop = plan.aidStations.map((s) => s.stopMin * 60);
   const stopsBefore = (km, list) => aidKm.reduce((t, a, k) => t + (a < km - 1e-9 ? list[k] : 0), 0);
@@ -385,8 +313,7 @@ export function aiPrepMerge(plan, input, output) {
   const aid = input.race.aid.map((s, k) => ({ ...s, aiStopMin: stops[k], arriveSec: out.aidStations[k].arrive.central }));
   // 6. Texts: watch texts cut to 24 characters, the rest kept as written (shown escaped).
   const texts = T ? { ...T, watchTexts: (T.watchTexts || []).map((w) => ({ ...w, text: String(w.text).slice(0, 24) })) } : null;
-  // The AI's own finish is shown as it wrote it, never used to change its legs: the plan is the
-  // AI's legs and stops, added up by code (owner's rule, 2026-10-23).
+  // The AI's own finish is shown as it wrote it, never used to change its legs: the plan is the AI's legs and stops, added up by code (owner's rule, 2026-10-23).
   const aiFinishSec = D.target && Number.isFinite(D.target.finishSec) ? D.target.finishSec : null;
   // The finish of each scenario, as Your race shows them (its scenario buttons).
   const finishes = Object.fromEntries(AIP_SIDS.map((id) => [id, out.scenarios[id].finishSec]));
@@ -400,17 +327,7 @@ const AIP_MODE = { run: "Run it", hike: "Power hike it", mix: "Run the easy part
 // The title of a key moment, from its kind.
 const AIP_MOMENT = { push: "Push here", hold: "Hold back", eat: "Eat here", caution: "Careful", decision: "Decision point" };
 
-/**
- * Everything Your race reads that hangs on the clock or on the AI's choices, rebuilt on the AI
- * plan `out` (changed in place). Called by aiPrepMerge once the timelines and the aid stops exist.
- *   climbs, sections, descents   their start and duration per scenario, read again on the AI clock
- *   checkpoints                  the same km, the AI clock
- *   gels                         from dataset.fuel.items (leg + where in it); the calculated gels
- *                                stay when the AI gave none
- *   out.ai.legs                  per leg id: mode, effort, tactic line, the AI note and its reason;
- *                                raceLegs (script.js) attaches them to each section
- *   out.ai.moments               the AI key moments with their cue; raceScript adds them
- */
+/** Everything Your race reads that hangs on the clock or on the AI's choices, rebuilt on the AI plan `out` (changed in place). */
 function aipRace(out, plan, input, D, T, ai, why, fixes) {
   const per = (f) => Object.fromEntries(AIP_SIDS.map((id) => [id, f(id)]));
   const timing = (x) => ({ start: per((id) => secAtKm(out, id, x.startKm)), dur: per((id) => secAtKm(out, id, x.endKm) - secAtKm(out, id, x.startKm)) });
@@ -453,10 +370,7 @@ function aipRace(out, plan, input, D, T, ai, why, fixes) {
   });
 }
 
-/**
- * A made-up AI answer for testing without a key: climbs 5% faster, descents 5% slower, runnable
- * legs as calculated, the typed stops, a few texts. Lets the whole pipeline run offline.
- */
+/** A made-up AI answer for testing without a key: climbs 5% faster, descents 5% slower, runnable legs as calculated, the typed stops, a few texts. */
 export function aiPrepFake(input) {
   const f = { climb: 0.95, descent: 1.05, flat: 1 };
   const calc = new Map(input.calc.legs.map((l) => [l.id, l]));

@@ -1,6 +1,4 @@
-// The server functions' logic (supabase/functions/_shared/cairns.js and aicall.js) with a fake
-// database and a fake OpenAI: cairns are paid once, impossible runs do not count, an AI request
-// spends one edelweiss and gives it back only when OpenAI never answered.
+// The server functions' logic (supabase/functions/_shared/cairns.js and aicall.js) with a fake database and a fake OpenAI: cairns are paid once, impossible runs do not count...
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -81,9 +79,7 @@ test("the profile and saved items are the only tables the app may write, without
   for (const op of ["select using", "insert with check", "update using"]) assert.match(sql, new RegExp(`on public\\.profiles for ${op} \\(user_id = auth\\.uid\\(\\)\\)`));
   assert.match(sql, /profiles_no_body check/);
   const js = readFileSync(new URL("../src/ui/cloud.js", import.meta.url), "utf8");
-  // 7 sign-in calls (password, link, sign-out, refresh, sign-up, forgot password, new password),
-  // the profile save, saving or deleting a saved item, deleting the account, and one AI request
-  // (only when CLOUD.ai is on): nothing else writes.
+  // 7 sign-in calls (password, link, sign-out, refresh, sign-up, forgot password, new password), the profile save, saving or deleting a saved item, deleting the account, and one AI request (only when CLOUD.ai is on)...
   assert.equal([...js.matchAll(/method: "(POST|PATCH|PUT|DELETE)"/g)].length, 12);
   assert.match(js, /CL_DELETE = "\/functions\/v1\/delete-account"/);
   const sv = readFileSync(new URL("../supabase/migrations/20261018170000_saved_items.sql", import.meta.url), "utf8");

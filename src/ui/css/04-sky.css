@@ -1,6 +1,4 @@
-/* ================= Sky mode (html[data-theme=sky]) =================
-   The same layout in daylight: sky blues, cloud white, sunrise coral and amber. Most of the page
-   follows the colour tokens; the rules after them fix the spots that were painted for the night. */
+/* ================= Sky mode (html[data-theme=sky]) ================= The same layout in daylight: sky blues, cloud white, sunrise coral and amber. */
 html[data-theme="sky"]{
   --bg:#f3f8ff; --surface:rgba(255,255,255,.78); --surface-2:rgba(20,90,180,.06); --fg:#0f2747; --muted:#52698a; --line:#c9dbef; --area:rgba(40,120,210,.14);
   --accent:#f0503a; --sun:#e98a00; --gold:#f0a400; --focus:#1f6fd1;

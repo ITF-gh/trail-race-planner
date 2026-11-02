@@ -1,40 +1,11 @@
-// insights.js: the "Deep dive" of Rewind my run (once called Check my run). Numbers a coach would ask for after a run, several
-// of them with a setting you can change (a distance, a band width, your max heart rate...).
-//
-// Everything starts from the arrays analyseRun already built, one value per 10 m sample:
-//   T  elapsed seconds, M moving seconds (running total), ele, grade (%), hr, cad.
-// Most answers are "group the samples by something and add up": group by gradient band, by pace
-// bin, by heart-rate zone. A few are "slide a window and keep the best": the best effort for any
-// distance. And the scatter explorer works on 100 m chunks, small enough to show detail, big
-// enough to smooth out GPS noise.
-//
-// Where it sits: review.js analyseRun builds the `run` object; src/ui/insights.js calls the
-// functions below with it and draws the tables and charts. Pure maths: no page, no storage.
-//
-// Main exports:
-//   bestEffort, bestCurve   fastest stretch for a distance, and the pace-distance curve
-//   gradeBands              pace, GAP, heart rate, cadence per gradient band
-//   hrZones                 time in heart-rate zones Z1..Z5, and the TRIMP training load
-//   runChunks, paceHistogram, fitLine   the 100 m points of the scatter explorer, the pace
-//                           histogram, and a least-squares line with Pearson's r
-//   paceHeatmap             pace per gradient band per slice of the run (the heat map)
-//   runKpis                 the ~20 headline numbers ("Key numbers")
-//   climbTable              one row per climb and descent
-//
-// "Group and add up" uses a Map (a dictionary): the key is the group number (a gradient band,
-// a pace bin), the value an object of running sums. Averages are taken at the end, weighted by
-// moving time: sum(value x seconds) / sum(seconds).
+// insights.js: the "Deep dive" of Rewind my run (once called Check my run).
 
 import { minettiCost, effortFactor } from "./review.js";
 
 const IN_HIKE_CAD = 145; // steps per minute: below it you were hiking (same rule as the review)
 const IN_CHUNK_M = 100; // the scatter explorer and the pace histogram use 100 m chunks
 
-/**
- * Moving seconds, heart rate and cadence of sample i (the 10 m that end at i).
- * Returns {mv (moving s, from the running total M), hr (bpm or null), cad (steps per minute,
- * already doubled for per-foot watches, or null), g (gradient %)}. i must be 1 or more.
- */
+/** Moving seconds, heart rate and cadence of sample i (the 10 m that end at i). */
 function inSample(run, i) {
   const mv = run.M[i] - run.M[i - 1];
   const hr = run.hr && run.hr[i] ? run.hr[i] : null;
@@ -42,15 +13,7 @@ function inSample(run, i) {
   return { mv, hr, cad, g: run.grade[i] };
 }
 
-/**
- * Best effort over `m` metres: the stretch of that length that took the least time on the clock
- * (a stop inside it counts, like in a race). One pass with a window of m / 10 samples.
- *
- * Inputs: the run, a distance in metres. Returns {m (the distance actually used: a whole
- * number of samples), sec, pace (s/km), km and toKm (where), startSec}, or null when the run
- * is shorter. T[i + w] - T[i] is the time from sample i to sample i + w: one subtraction per
- * position, so the scan is fast even on a 100 km run.
- */
+/** Best effort over `m` metres: the stretch of that length that took the least time on the clock (a stop inside it counts, like in a race). */
 export function bestEffort(run, m) {
   const w = Math.max(1, Math.round(m / run.step));
   if (w >= run.n) return null;
@@ -60,12 +23,7 @@ export function bestEffort(run, m) {
   return { m: dist, sec: bestT, pace: (bestT / dist) * 1000, km: (best * run.step) / 1000, toKm: ((best + w) * run.step) / 1000, startSec: run.T[best] };
 }
 
-/**
- * Best efforts on a ladder of distances up to the whole run: the pace-distance curve.
- * The ladder holds classic race distances (21097 m is a half marathon, 42195 m a marathon).
- * Only the ones shorter than the run are tried; the whole run is added last as the longest point.
- * `.filter(Boolean)` drops any null result. Returns a list of bestEffort objects, shortest first.
- */
+/** Best efforts on a ladder of distances up to the whole run: the pace-distance curve. */
 export function bestCurve(run) {
   const ladder = [100, 200, 400, 800, 1000, 1500, 2000, 3000, 5000, 10000, 15000, 21097, 30000, 42195, 50000, 75000, 100000];
   const max = (run.n - 1) * run.step;
@@ -74,15 +32,7 @@ export function bestCurve(run) {
   return list;
 }
 
-/**
- * Time, pace, grade-adjusted pace, heart rate and cadence per gradient band `width` % wide
- * (-2.5..2.5 for 5%, centred on flat). Moving time only.
- *
- * Returns one object per band that has data, steepest descent first: {from, to, mid (%), km,
- * sec, share (of moving time), pace, gap (s/km), hr, cad, hikeShare (0..1), vam (m/h on
- * climbing bands), descentRate (m/h on descending bands), when (0..1: how far into the run the
- * time on that band was spent, on average, weighted by moving time)}.
- */
+/** Time, pace, grade-adjusted pace, heart rate and cadence per gradient band `width` % wide (-2.5..2.5 for 5%, centred on flat). */
 export function gradeBands(run, width = 5) {
   const bands = new Map();
   // 1. Walk every 10 m sample and add it to its band.
@@ -90,7 +40,6 @@ export function gradeBands(run, width = 5) {
     const s = inSample(run, i);
     if (s.mv <= 0) continue;
     // Band number: the gradient (clamped to -45..+45%) divided by the width and rounded.
-    // With width 5: -2.5..+2.5% is band 0, +2.5..+7.5% is band 1, -7.5..-2.5% is band -1.
     const k = Math.round(Math.max(-45, Math.min(45, s.g)) / width);
     // First sample in this band: create its running sums and store them in the Map.
     let b = bands.get(k);
@@ -104,8 +53,7 @@ export function gradeBands(run, width = 5) {
     const d = run.ele[i] - run.ele[i - 1];
     if (d > 0) b.up += d; else b.down -= d;
   }
-  // 2. Turn the sums into averages. `[...bands.values()]` copies the Map's values into an array
-  // (spread) so it can be sorted by band number. `|| 1` avoids dividing by zero.
+  // 2.
   const total = run.movingSec || 1;
   return [...bands.values()].sort((a, b) => a.k - b.k).map((b) => ({
     from: b.from, to: b.to, mid: b.k * width, km: b.m / 1000, sec: b.sec, share: b.sec / total,
@@ -117,17 +65,7 @@ export function gradeBands(run, width = 5) {
   }));
 }
 
-/**
- * Time in the five classic heart-rate zones, as % of max heart rate: Z1 under 60%, Z2 60-70,
- * Z3 70-80, Z4 80-90, Z5 over 90. Plus TRIMP, Banister's training impulse: each minute weighted
- * by how far your heart rate sits between rest and max, growing exponentially with it
- * (minutes x HRr x 0.64 x e^(1.92 x HRr), the coefficients Banister fitted for men; women's
- * are 0.86 and 1.67).
- *
- * Inputs: the run, max and resting heart rate (bpm), female (true/false). Returns null without
- * heart-rate data or a max, else {zones: [{z, name, sec, share, fromBpm, toBpm}], trimp, hrSec}.
- * HRr ("heart-rate reserve" fraction) = (HR - rest) / (max - rest), clamped to 0..1.
- */
+/** Time in the five classic heart-rate zones, as % of max heart rate: Z1 under 60%, Z2 60-70, Z3 70-80, Z4 80-90, Z5 over 90. */
 export function hrZones(run, hrMax, hrRest = 60, female = false) {
   if (!run.hasHr || !(hrMax > 0)) return null;
   const edges = [0.6, 0.7, 0.8, 0.9];
@@ -149,8 +87,7 @@ export function hrZones(run, hrMax, hrRest = 60, female = false) {
     trimp += (s.mv / 60) * r * ka * Math.exp(kb * r);
   }
   const names = ["Z1 Recovery", "Z2 Endurance", "Z3 Tempo", "Z4 Threshold", "Z5 Max"];
-  // Lower and upper edges of each zone as a fraction of max: lo = [0, 0.6, 0.7, 0.8, 0.9],
-  // hi = [0.6, 0.7, 0.8, 0.9, Infinity]. Z5 has no upper bpm (toBpm null).
+  // Lower and upper edges of each zone as a fraction of max: lo = [0, 0.6, 0.7, 0.8, 0.9], hi = [0.6, 0.7, 0.8, 0.9, Infinity].
   const lo = [0, ...edges], hi = [...edges, Infinity];
   return {
     zones: zones.map((sec, z) => ({ z: z + 1, name: names[z], sec, share: hrSec > 0 ? sec / hrSec : 0, fromBpm: Math.round(lo[z] * hrMax), toBpm: hi[z] === Infinity ? null : Math.round(hi[z] * hrMax) - 1 })),
@@ -158,12 +95,7 @@ export function hrZones(run, hrMax, hrRest = 60, female = false) {
   };
 }
 
-/**
- * One point per 100 m: where, when, how steep, how fast, heart and feet. For the scatter explorer.
- * Returns [{km (middle of the chunk), startSec, ele (m), grade (%), pace, gap (s/km), hr, cad,
- * speed (km/h: m/s x 3.6), frac (share of the elapsed time, 0..1, used to colour the dot)}].
- * Chunks with no moving time (a full stop) are skipped.
- */
+/** One point per 100 m: where, when, how steep, how fast, heart and feet. */
 export function runChunks(run) {
   const w = Math.max(1, Math.round(IN_CHUNK_M / run.step));
   const out = [];
@@ -181,14 +113,7 @@ export function runChunks(run) {
   return out;
 }
 
-/**
- * Moving time per pace bin `binSec` seconds wide, from the 100 m chunks. Very slow chunks (over 20:00/km) are left out.
- *
- * Inputs: the run, the bin width in seconds of pace (15 = bins 5:00-5:15, 5:15-5:30...), and
- * optionally the chunk list (a default parameter: runChunks(run) is only computed when the
- * caller does not pass one). Returns {bins: [{from, to (s/km), sec, share}], total (s)}, with
- * empty bins kept between the fastest and the slowest so the histogram has no holes.
- */
+/** Moving time per pace bin `binSec` seconds wide, from the 100 m chunks. */
 export function paceHistogram(run, binSec = 15, list = runChunks(run)) {
   const bins = new Map();
   let total = 0;
@@ -215,18 +140,7 @@ export const HEAT_BANDS = [
   { from: 10, to: Infinity, label: "> +10%" },
 ];
 
-/**
- * The pace heat map: the run cut into `cols` equal slices of distance (10 = every 10% of the run)
- * and each 100 m chunk put in its gradient band (HEAT_BANDS) and its slice. A cell holds the
- * distance and moving time there, so its pace = time / distance.
- *
- * `ratio` compares the cell's pace with the band's pace over the whole run: under 1 = faster than
- * your other moments on that gradient, over 1 = slower. Chunks slower than 30:00/km (a pause
- * that GPS still saw as moving) are left out.
- *
- * Returns {cols, maxM (the biggest cell, in m), bands: [{label, from, to, m, pace, cells: [cell or
- * null]}]}, cell = {m, sec, pace, ratio, startSec (where the cell's first chunk starts, to replay it)}.
- */
+/** The pace heat map: the run cut into `cols` equal slices of distance (10 = every 10% of the run) and each 100 m chunk put in its gradient band (HEAT_BANDS) and its slice. */
 export function paceHeatmap(run, cols = 10, list = runChunks(run)) {
   const total = run.totalKm || 1;
   const bands = HEAT_BANDS.map((b) => ({ ...b, m: 0, sec: 0, cells: Array.from({ length: cols }, () => null) }));
@@ -246,16 +160,7 @@ export function paceHeatmap(run, cols = 10, list = runChunks(run)) {
   return { cols, maxM, bands };
 }
 
-/**
- * Pearson correlation and least-squares line of y on x, for the scatter explorer.
- *
- * Inputs: two arrays of numbers of the same length. Returns {slope, intercept, r}, or null
- * with fewer than 3 points or when all x (or all y) are equal.
- * Least squares: the line y = slope x x + intercept that makes the sum of squared vertical
- * gaps smallest. With mx, my the means: slope = sum(dx x dy) / sum(dx^2), intercept = my -
- * slope x mx. Pearson's r = sum(dx x dy) / sqrt(sum(dx^2) x sum(dy^2)), from -1 to +1: how
- * well the dots follow a straight line (0 = not at all).
- */
+/** Pearson correlation and least-squares line of y on x, for the scatter explorer. */
 export function fitLine(xs, ys) {
   const n = xs.length;
   if (n < 3) return null;
@@ -269,24 +174,12 @@ export function fitLine(xs, ys) {
   return { slope, intercept: my - slope * mx, r: sxy / Math.sqrt(sxx * syy) };
 }
 
-/**
- * The headline numbers. `athlete` = {weight (kg), hrMax, hrRest, female}: the energy needs a
- * weight, the heart-rate numbers need a max and a resting heart rate. Each KPI: {key, group,
- * label, value, unit, hint}.
- *
- * Defaults when a setting is missing: 70 kg, the run's own peak heart rate as max, 60 bpm at
- * rest. unit tells the UI how to format the value: "dur" (seconds), "n" (count), "%" (a
- * fraction, 0.25 = 25%), "pace" (s/km), "ratio", "m/km", "m/h", "spm", "m", "num", "num0",
- * "kcal". KPIs without a value (no heart rate, no cadence...) are left out of the list.
- */
+/** The headline numbers. */
 export function runKpis(run, athlete = {}) {
   const weight = athlete.weight || 70;
   const hrMax = athlete.hrMax || run.hrMax || null;
   const hrRest = athlete.hrRest || 60;
-  // 1. One pass over the samples. Gradients of +3% or more count as climbing, -3% or less as
-  // descending, the rest as flat. Energy (J) = Minetti cost (J/kg/m) x weight (kg) x 10 m; it is
-  // added before the `continue`, so samples that held a stop count too. Cadence 145 spm and up is
-  // running, below is hiking.
+  // 1.
   let climbSec = 0, flatSec = 0, descSec = 0, upOnClimbs = 0, downOnDesc = 0, energyJ = 0;
   let runSec = 0, runM = 0, runCadSec = 0, runCadSum = 0, hikeSec = 0, cadSec = 0;
   for (let i = 1; i < run.n; i++) {
@@ -306,8 +199,7 @@ export function runKpis(run, athlete = {}) {
   const runCad = runCadSec > 0 ? runCadSum / runCadSec : null;
   // Stride length while running: metres per minute divided by steps per minute.
   const stride = runCad && runSec > 0 ? ((runM / runSec) * 60) / runCad : null;
-  // Efficiency factor: grade-adjusted speed (m/min) per heartbeat per minute.
-  // 60000 / gapPace turns a pace in s/km into a speed in m/min.
+  // Efficiency factor: grade-adjusted speed (m/min) per heartbeat per minute. 60000 / gapPace turns a pace in s/km into a speed in m/min.
   const ef = run.hasHr && run.gapPace && run.hrAvg ? (60000 / run.gapPace) / run.hrAvg : null;
   const z = hrMax ? hrZones(run, hrMax, hrRest, athlete.female) : null;
   const h = run.halves;
@@ -339,12 +231,7 @@ export function runKpis(run, athlete = {}) {
   return list.filter((k) => k.value !== null && k.value !== undefined && Number.isFinite(k.value));
 }
 
-/**
- * Climbs and descents of the run with their numbers, for the table.
- * One row per non-runnable section of analyseRun: position, D+/D-, average gradient, moving
- * time, pace, GAP, heart rate, cadence, hiked share, VAM (climbs) or descent rate in m/h
- * (descents), and the verdict against your average for that kind of ground.
- */
+/** Climbs and descents of the run with their numbers, for the table. */
 export function climbTable(run) {
   return run.legs.filter((l) => l.kind !== "flat").map((l) => ({
     i: l.i, kind: l.kind, title: l.title, label: l.label, startKm: l.startKm, endKm: l.endKm, km: l.km, startSec: l.startSec,

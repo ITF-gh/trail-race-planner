@@ -1,5 +1,4 @@
 // route.js: sections 01 Your engine (renderEngine) and 02 Your route (renderBriefing) of Prep my race.
-// Split out of main.js (2026-11-02).
 
 import { briefCourse, PLAN_DEFAULTS, parseAidStations } from "../core/plan.js";
 import { starChip } from "./chips.js";
@@ -11,23 +10,15 @@ import { $, state, esc } from "./appstate.js";
 import { empty, tile, jumps, segListHtml, wireSegTabs, mapStyle, profileView, elevAt } from "./pieces.js";
 
 /* ---------- 01 your engine ---------- */
-/**
- * Section 01 Engine: what your own runs say about you. Reads state.effort.info from
- * core/effort.js and writes into #s1body: key figure tiles (how you move: flat pace, cadence,
- * climbing paces, climb rate) and a bar chart of your pace on each gradient band, fresh and tired.
- */
+/** Section 01 Engine: what your own runs say about you. */
 export function renderEngine() {
   const box = $("#s1body");
   if (!state.effort) { box.innerHTML = empty(`<b>Drop one of your runs above</b> (or press Try the demo) to see your pace on every gradient.`); return; }
   const e = state.effort.info;
   const bands = e.bands;
-  // The band with the best climb rate (VAM, vertical metres per hour), counting only bands with
-  // a real climb rate (over 50 m/h) that were measured rather than estimated. sort() puts the
-  // highest first, [0] takes it (undefined if none qualify).
+  // The band with the best climb rate (VAM, vertical metres per hour), counting only bands with a real climb rate (over 50 m/h) that were measured rather than estimated. sort() puts the highest first, [0] takes it...
   const steep = bands.filter((b) => b.vam && b.vam > 50 && b.source !== "estimated").sort((a, b) => b.vam - a.vam)[0];
-  // The key figures are about how you move, not about the run itself (its length and duration
-  // say nothing without context): flat pace, cadence, a gentle and a steep climb, best climb rate.
-  // band(id): one gradient band of BANDS (core/terrain.js); fadeTxt: how much slower tired is.
+  // The key figures are about how you move, not about the run itself (its length and duration say nothing without context): flat pace, cadence, a gentle and a steep climb, best climb rate. band(id)...
   const band = (id) => bands.find((b) => b.id === id);
   const fadeTxt = (b) => `tired ${mmss(b.tired)} · +${((b.tired / b.fresh - 1) * 100).toFixed(0)}%`;
   const gentle = band("u1"), steepB = band("u4");
@@ -39,7 +30,6 @@ export function renderEngine() {
     tile("Best climb rate", steep ? `${Math.round(steep.vam)}<small>m/h</small>` : "–", steep ? steep.label : "not enough climbing"),
   ].join("");
   // Bars are drawn as a share of the slowest pace on the page, so the longest bar fills the row.
-  // Pace is in seconds per km: a longer bar is slower. `fade` is how much slower tired is, in %.
   const maxPace = Math.max(...bands.map((b) => b.tired));
   const rows = bands.map((b) => {
     const fade = (b.tired / b.fresh - 1) * 100;
@@ -59,16 +49,10 @@ export function renderEngine() {
       <p class="note">"Estimated" bands had under a minute of data in your run, so they use typical ratios to your flat pace.</p>
     </div>`;
 }
-// The two Leaflet maps currently shown. They are kept so the next render can destroy() them
-// first: a map left behind would keep its event listeners and memory.
+// The two Leaflet maps currently shown.
 let briefMap = null;
 
-/**
- * Section 02 Course: the race on its own, before knowing who runs it. Writes into #s2body:
- * key figures, a map, a zoomable elevation profile, the key zones, and the climbs and descents
- * tables. Needs only state.race. Side effects: replaces briefMap, reads and sets state.bwin
- * (zoom window) and state.btab (which tab is open), adds listeners to the new elements.
- */
+/** Section 02 Course: the race on its own, before knowing who runs it. */
 export function renderBriefing() {
   const box = $("#s2body");
   if (briefMap) { briefMap.destroy(); briefMap = null; }
@@ -101,12 +85,9 @@ export function renderBriefing() {
     ${segListHtml(brief, P, state.btab, state.settings.splitClimbM)}`;
   wireSegTabs(box, (t) => { state.btab = t; trackEvent("briefing-tab", t === "c" ? "climbs" : "descents"); });
 
-  // The map: the route coloured like the profile. `...mapStyle(...)` spreads paint and marks into
-  // the options object.
+  // The map: the route coloured like the profile.
   briefMap = courseMap($("#briefMap"), { route: state.race.route, totalKm: brief.totalKm, ...mapStyle(brief, aid, zones, true) });
-  // The profile, drawn for the whole course or for the zoom window. Hover (or touch) it for a cursor
-  // there and a dot at the same km on the map; drag across it (like Strava) to zoom on that stretch.
-  // drawProf is an arrow function kept in a variable so it can call itself again after a zoom.
+  // The profile, drawn for the whole course or for the zoom window.
   const drawProf = () => {
     const view = profileView(P, brief, null, zones, { win: state.bwin, inner: false, labels: true });
     const host = $("#briefProfSvg");
@@ -114,20 +95,15 @@ export function renderBriefing() {
     $("#profReset").hidden = !state.bwin;
     const svg = host.querySelector("svg");
     const cur = svg.querySelector(".pcur");
-    // kmAt(ev): the km under the pointer. getBoundingClientRect gives the SVG's size on screen in
-    // pixels; the pointer's share of that width, times 1000 (the viewBox width), is the SVG x.
+    // kmAt(ev): the km under the pointer. getBoundingClientRect gives the SVG's size on screen in pixels; the pointer's share of that width, times 1000 (the viewBox width), is the SVG x.
     const kmAt = (ev) => { const b = svg.getBoundingClientRect(); return view.km(((ev.clientX - b.left) / b.width) * 1000); };
-    // The selection rectangle shown while dragging. SVG elements must be created with their
-    // namespace (createElementNS), not createElement, or the browser does not draw them.
+    // The selection rectangle shown while dragging.
     const sel = document.createElementNS("http://www.w3.org/2000/svg", "rect");
     sel.setAttribute("class", "psel"); sel.setAttribute("y", String(view.top)); sel.setAttribute("height", String(view.base - view.top)); sel.style.display = "none";
     svg.appendChild(sel);
     // from: the km where the drag started, or null when no drag is going on.
     let from = null;
-    // show(ev): move the cursor line and dot to the pointer, move the runner dot on the map to
-    // the same km, and during a drag stretch the selection from `from` to here.
-    // The small pop-up window over a climb: name, then km, length, D+ and average gradient
-    // (data-tip, written by profileView as "name|km|length|D+|avg|level").
+    // show(ev): move the cursor line and dot to the pointer, move the runner dot on the map to the same km, and during a drag stretch the selection from `from` to here.
     const pop = $("#profPop");
     const wrap = $("#briefProf");
     const tipAt = (ev) => {
@@ -153,8 +129,7 @@ export function renderBriefing() {
         sel.style.display = ""; sel.setAttribute("x", view.x(a).toFixed(1)); sel.setAttribute("width", Math.max(0, view.x(b) - view.x(a)).toFixed(1));
       }
     };
-    // Pointer events cover mouse, pen and touch in one API. setPointerCapture keeps sending the
-    // events to the SVG even if the finger or mouse leaves it during the drag.
+    // Pointer events cover mouse, pen and touch in one API. setPointerCapture keeps sending the events to the SVG even if the finger or mouse leaves it during the drag.
     svg.addEventListener("pointermove", show);
     svg.addEventListener("pointerdown", (ev) => { from = kmAt(ev); svg.setPointerCapture(ev.pointerId); show(ev); });
     svg.addEventListener("pointercancel", () => { from = null; sel.style.display = "none"; });

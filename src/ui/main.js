@@ -1,43 +1,4 @@
-// main.js: the browser app. Reads two GPX files locally (nothing is uploaded),
-// calls the same core modules as the CLI, and draws the result in sections:
-//   01 Your engine     what your own runs say about you (effort GPX only)
-//   02 Your route      what the course says, before knowing who runs it (race GPX only)
-//   03 Your plan       both files plus your settings: clock times, tactics, gels
-//   04 Your race       the plan played back in time on the map and profile, to rehearse it
-//   05 Your coach      the plan as watch messages (Pimp my GPX)
-// Three modes share the page, picked by the switch on top and kept in the address (?mode=):
-//   Prep my race  (plan, default)  the sections above, plus a targeted duration to check
-//   Prep my run   (?mode=prep)     a GPX of a run to come, given back with details (section s-prep, ui/preprun.js)
-//   Rewind my run (?mode=run)      a run you just did, replayed with its key moments (ui/review.js)
-// A data-mode attribute on <html> hides what belongs to the other modes (.plan-only,
-// .prep-only, .review-only).
-// Each section renders as soon as the files it needs are loaded. A sticky bar on top jumps
-// between sections and shows which one you are reading.
-//
-// Where it sits in the data flow:
-//   GPX file (dropped or chosen) -> core/track.js parseGpx + resample (one sample every 10 m)
-//   -> core/terrain.js analyseCourse (race) and core/effort.js analyseEffort (your runs)
-//   -> core/plan.js buildPlan (both together, with the settings form)
-//   -> the render* functions of route.js and race.js, which write HTML into the page.
-// Other UI modules do the heavy drawing: map.js (Leaflet map), replay.js (the rehearsal
-// cockpit), watch.js (watch messages and course files), preprun.js, review.js, print.js.
-// This file is the conductor: it wires the buttons and inputs and calls compute() whenever
-// something changes. The shared `state` lives in appstate.js; the sections are drawn by
-// route.js (01, 02) and race.js (03, 04, 05), with the shared building blocks in pieces.js.
-//
-// Ideas used in this file, in plain words:
-// - Template literals: most HTML is built as text with `...${value}...` and then put into the
-//   page with element.innerHTML = text. esc() protects any text that came from a file.
-// - localStorage: the browser's small key-value store, used to remember settings, the theme,
-//   the chosen scenario and the plan-versus-actual times on this device only.
-// - Event listeners and event delegation: addEventListener("click", ...) runs a function on a
-//   click. A listener on `document` (at the bottom of the file) catches clicks anywhere and then
-//   checks what was clicked, so elements drawn later need no listener of their own.
-// - SVG: the elevation profile is an SVG drawing built from text. A path's "d" attribute is a
-//   list of pen moves: M x,y moves the pen, L x,y draws a straight line, Z closes the shape.
-// - IntersectionObserver and requestAnimationFrame: browser tools to react to scrolling cheaply.
-// - CustomEvent: this file announces "trp-theme" and "trp-mode" on `document` so other modules
-//   can follow a theme or mode change without importing this file.
+// main.js: the browser app.
 
 import { parseGpx, resample } from "../core/track.js";
 import { analyseCourse } from "../core/terrain.js";
@@ -72,23 +33,13 @@ import { renderDday, renderReplay, renderPimp, renderNav, mountCockpit, raceKey 
 const PEAK = `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M2 27 12 9l5 8 4-5 9 15z" fill="currentColor"/><path d="m12 9 2.6 4.6L12 12l-2 2.2z" fill="#fff" opacity=".85"/></svg>`;
 // The logo, the name and the short line beside it, the same in every mode (the line is the site's tagline).
 const BRAND = `${PEAK}Prep my race <span class="brand-desc">${SITE.tagline.replace("&", "&amp;")}</span>`;
-// Photos come from Pexels (free licence: use and edit allowed, credit appreciated). The files sit
-// in src/ui/photos and are copied next to index.html at build; src/ui/css points the slots at them.
-// Plan mode keeps the nature and adventure look; "Review a run" mode gets sport shots. No face is
-// recognisable in any of them: people are seen from behind, far away or as silhouettes.
+// Photos come from Pexels (free licence: use and edit allowed, credit appreciated).
 /* ---------- Sky mode: a bright theme, blue skies, white and sunrise tones ---------- */
 // Night is the default; the choice of Sky is kept in this browser.
 const THEME_KEY = "trp.theme";
 /** The theme to start with: "sky" if this browser saved it, otherwise "night". */
-/**
- * One "Export A4" box per printable section (design review 2): a small fold-out with a tick box per
- * part of the sheet (P4_EXPORTS in ui/print.js; unticked parts are not printed) and the button that
- * opens the print dialog (print, or Save as PDF). `key` is the entry of P4_EXPORTS.
- */
-/**
- * "Save to my account" (Boss, 2026-10-18): keeps the computed summary of what is on screen in the
- * online account, only when the runner presses it. `kind` is plan, session or run (core/saved.js).
- */
+/** One "Export A4" box per printable section (design review 2): a small fold-out with a tick box per part of the sheet (P4_EXPORTS in ui/print.js; unticked parts are not printed) and the button that opens the print dialog... */
+/** "Save to my account" (Boss, 2026-10-18): keeps the computed summary of what is on screen in the online account, only when the runner presses it. */
 const saveBox = (kind) => `<div class="savex"><button class="btn sm ghost" type="button" data-save="${kind}">☁ Save to my account</button><span class="savex-msg" role="status"></span></div>`;
 function a4Box(key) {
   const ex = P4_EXPORTS[key];
@@ -100,12 +51,7 @@ function a4Box(key) {
 function initialTheme() {
   return store.get(THEME_KEY) === "sky" ? "sky" : "night";
 }
-/**
- * Apply a theme ("sky" or "night"). Side effects: sets data-theme on <html> (src/ui/css switches
- * its colours on that attribute) and updates the theme button's text, tooltip and aria-pressed
- * (aria-pressed tells screen readers whether a toggle button is on). The button does not exist
- * yet on the first call (the page is built further down), hence the `if (b)`.
- */
+/** Apply a theme ("sky" or "night"). */
 function applyTheme(t) {
   document.documentElement.dataset.theme = t;
   const b = document.getElementById("themeBtn");
@@ -115,8 +61,6 @@ function applyTheme(t) {
 applyTheme(initialTheme());
 
 // PHOTOS: who took each banner photo and its Pexels page, used for the credit links.
-// Keys: hero / heroRun / heroRewind (top banner in Prep my race / Prep my run / Rewind my run),
-// s1..s6 (section banners).
 const PHOTOS = {
   hero: { by: "Artem Meletov", url: "https://www.pexels.com/photo/person-standing-on-mountain-peak-above-clouds-8910505/" },
   heroRun: { by: "Cara Denison", url: "https://www.pexels.com/photo/silhouette-of-jogger-at-sunset-in-park-34730429/" },
@@ -130,11 +74,7 @@ const PHOTOS = {
 };
 /** credit(key, cls): the small "Photo: name / Pexels" link for one photo, as HTML text. */
 const credit = (key, cls = "") => `<a class="photo-credit${cls ? " " + cls : ""}" href="${PHOTOS[key].url}" target="_blank" rel="noopener">Photo: ${PHOTOS[key].by} / Pexels</a>`;
-/**
- * head(num, kicker, title, key): the banner at the top of each section, as HTML text: its number,
- * a one-line kicker, the title and the photo credit. `key` defaults to "s" + the number
- * (Number("01") is 1, so section "01" uses PHOTOS.s1); a key with no photo gives no credit.
- */
+/** head(num, kicker, title, key): the banner at the top of each section, as HTML text: its number, a one-line kicker, the title and the photo credit. */
 const head = (num, kicker, title, key = "s" + Number(num)) => `<header class="sec-head"><div class="sec-num">${num}</div><div class="sec-kicker">${kicker}</div><h2>${title}</h2>${PHOTOS[key] ? credit(key) : ""}</header>`;
 // NAV: the links of the sticky top bar, each [section id, number shown, title].
 const NAV = [["s1", "01", "Engine"], ["s2", "02", "Route"], ["s3", "03", "Plan"], ["s4", "04", "Race"], ["s-pimp", "05", "Coach"], ["s-prep", "◆", "Prep my run"], ["s5", "▶", "Recap"], ["s6", "▶▶", "Deep dive"]];
@@ -142,16 +82,10 @@ const NAV = [["s1", "01", "Engine"], ["s2", "02", "Route"], ["s3", "03", "Plan"]
 const MODES = [["plan", "Prep my race", "plan-only"], ["prep", "Prep my run", "prep-only"], ["run", "Rewind my run", "review-only"]];
 /** Which mode class a nav link gets, so it only shows in its own mode (see MODES). */
 const navClass = (id) => (id === "s5" || id === "s6" ? "review-only" : id === "s-prep" ? "prep-only" : "plan-only");
-// MODE_SEG: the three-button mode switch on top. Each button carries data-mode, which the
-// listener near setMode() reads. `.map(...).join("")` turns the list into one HTML string.
+// MODE_SEG: the three-button mode switch on top.
 const MODE_SEG = `<div class="seg mode-seg" role="group" aria-label="Mode">${MODES.map(([m, label]) => `<button type="button" data-mode="${m}">${label}</button>`).join("")}</div>`;
 
-/*
- * The whole page skeleton, written once into <div id="app"> in index.html. It holds the hero
- * (file drops for each mode), the sticky navigation and one <section> per part of the app,
- * each with an empty "...body" div that the render functions fill later. Classes plan-only,
- * prep-only and review-only make each part show in its own mode only.
- */
+/* The whole page skeleton, written once into <div id="app"> in index.html. */
 $("#app").innerHTML = `
 <header class="hero" id="top">
   ${credit("hero", "plan-only")}${credit("heroRun", "prep-only")}${credit("heroRewind", "review-only")}
@@ -299,18 +233,10 @@ $("#app").innerHTML = `
 ${siteFooter({ analytics: analyticsOn ? analyticsName : "" })}
 `;
 
-// FIELDS: the ids of the settings inputs. Each one, when changed, re-reads the form and
-// recomputes the plan (see the forEach just after writeSettings()).
+// FIELDS: the ids of the settings inputs.
 /* ---------- settings form ---------- */
 const FIELDS = ["startTime", "raceDate", "targetTime", "terrain", "form", "gelEveryMin", "aidStations", "checkpointKm", "hikeGrade", "enduranceExp", "halfLifeDays", "descentBoost"];
-/**
- * Fill the settings form from state.settings (used once at start-up, with saved values).
- * `??` (nullish coalescing) gives the right side only when the left is null or undefined, so a
- * missing hiking threshold shows an empty box while a real 0 would stay 0.
- * descentBoost is kept as a fraction (0.05) but shown as a percentage (5).
- * Aid stations can be saved as a list of objects or as the raw text; both are shown as text,
- * one "km name minutes" per line.
- */
+/** Fill the settings form from state.settings (used once at start-up, with saved values). */
 function writeSettings() {
   const s = state.settings;
   $("#startTime").value = s.startTime;
@@ -326,13 +252,7 @@ function writeSettings() {
   $("#aidStations").value = Array.isArray(s.aidStations) ? s.aidStations.map((a) => `${a.km} ${a.name} ${a.stopMin}`).join("\n") : s.aidStations || "";
   $("#halfLifeDays").value = s.halfLifeDays;
 }
-/**
- * Read the settings form back into state.settings and save it in this browser.
- * n(id) reads a number input: parseFloat turns the text into a number, and NaN (empty or not
- * a number) becomes null. `x || 45` falls back to a default when the box is empty (or 0);
- * `??` only when it is null, so the endurance exponent can be set to any valid number.
- * The aid stations stay as raw text here; core/plan.js parseAidStations reads them.
- */
+/** Read the settings form back into state.settings and save it in this browser. n(id) reads a number input: parseFloat turns the text into a number, and NaN (empty or not a number) becomes null. */
 function readSettings() {
   const n = (id) => { const v = parseFloat($("#" + id).value); return Number.isFinite(v) ? v : null; };
   state.settings = {
@@ -352,9 +272,7 @@ function readSettings() {
   };
   store.set("trp.settings", state.settings);
 }
-// Put saved settings into the form, then listen to every field: a change re-reads the form,
-// counts the event (anonymous analytics) and rebuilds everything. A new half-life changes the
-// weight of each run, so the runs are analysed again (setRuns) before compute().
+// Put saved settings into the form, then listen to every field: a change re-reads the form, counts the event (anonymous analytics) and rebuilds everything.
 writeSettings();
 FIELDS.forEach((id) => $("#" + id).addEventListener("change", () => {
   readSettings();
@@ -374,23 +292,13 @@ $("#themeBtn").addEventListener("click", () => {
 
 
 /* ---------- files ---------- */
-/**
- * Show a status message under a drop box. which: "race" or anything else for the runs box.
- * html: the message (HTML text). ok: true adds the "done" class (src/ui/css marks the box as filled).
- */
+/** Show a status message under a drop box. which: "race" or anything else for the runs box. html: the message (HTML text). ok: true adds the "done" class (src/ui/css marks the box as filled). */
 function setStatus(which, html, ok) {
   $(which === "race" ? "#stRace" : "#stEffort").innerHTML = html;
   $(which === "race" ? "#dropRace" : "#dropEffort").classList.toggle("done", Boolean(ok));
 }
 
-/**
- * Load the race GPX from its text (xml) and a display label (the file name).
- * Steps: 1. parse the GPX points; 2. resample them to one point every 10 m; 3. analyse the
- * course (smoothed elevation, gradient, climbs, descents); 4. keep a lighter copy for drawing:
- * coarseIndices picks a subset of sample indices, giving the profile as [km, altitude m] and
- * the route as [lat, lon]. course.step is the sample spacing in metres, so i * step / 1000 is km.
- * Side effects: sets state.race (or null on error), writes the status line, calls compute().
- */
+/** Load the race GPX from its text (xml) and a display label (the file name). */
 function loadRace(xml, label) {
   try {
     const parsed = parseGpx(xml);
@@ -409,11 +317,7 @@ function loadRace(xml, label) {
   compute();
 }
 
-/**
- * Add runs to the reference set. Each new file joins the ones already loaded.
- * files: [{xml, label}]. A file that cannot be parsed is listed as an error and skipped.
- * `[...state.effort.runs]` (spread) copies the array, so the old list is not changed in place.
- */
+/** Add runs to the reference set. */
 /** Add runs to the reference set. Each new file joins the ones already loaded. */
 function loadEfforts(files) {
   const runs = state.effort ? [...state.effort.runs] : [];
@@ -423,13 +327,7 @@ function loadEfforts(files) {
   }
   setRuns(runs, bad);
 }
-/**
- * Replace the whole set of reference runs and analyse them together.
- * runs: [{name, parsed}]; bad: error messages to show (files that failed to load).
- * analyseEffort weighs each run by its age (half-life in days, see docs/HOW_IT_WORKS.md section 3)
- * and returns per-run info (date, km, weight 0..1) plus the pace table by gradient band.
- * Side effects: sets state.effort, shows or hides the Clear button, writes the status, compute().
- */
+/** Replace the whole set of reference runs and analyse them together. runs: [{name, parsed}]; bad: error messages to show (files that failed to load). analyseEffort weighs each run by its age (half-life in days... */
 function setRuns(runs, bad = []) {
   state.effort = null;
   $("#clearRuns").hidden = !runs.length;
@@ -448,15 +346,7 @@ function setRuns(runs, bad = []) {
   compute();
 }
 
-/**
- * Make a drop box accept files, both by drag and drop and by its "Add GPX" button.
- * boxId / inputId: CSS selectors of the box and of its <input type="file">.
- * loader: called with [{xml, label}] once every file has been read as text.
- * Files are read in the browser (File.text()), nothing is uploaded. Promise.all waits for all
- * the files at once; `await` pauses this async function until they are read. A file that cannot
- * be read gives "" (catch), which parseGpx then reports as an error.
- * The regex /\.gpx$/i matches ".gpx" at the end of the name, any case; it is removed for the label.
- */
+/** Make a drop box accept files, both by drag and drop and by its "Add GPX" button. boxId / inputId: CSS selectors of the box and of its <input type="file">. loader: called with [{xml... */
 function wireDrop(boxId, inputId, loader) {
   const box = $(boxId);
   const input = $(inputId);
@@ -471,8 +361,7 @@ function wireDrop(boxId, inputId, loader) {
     input.value = ""; // so choosing the same file again still triggers a change
   };
   input.addEventListener("change", () => handle(input.files));
-  // Drag and drop: preventDefault() on dragover tells the browser this box accepts a drop (the
-  // default would be to open the file in the tab). The "over" class highlights the box meanwhile.
+  // Drag and drop: preventDefault() on dragover tells the browser this box accepts a drop (the default would be to open the file in the tab).
   box.addEventListener("dragover", (e) => { e.preventDefault(); box.classList.add("over"); });
   box.addEventListener("dragleave", () => box.classList.remove("over"));
   box.addEventListener("drop", (e) => { e.preventDefault(); box.classList.remove("over"); handle(e.dataTransfer.files); });
@@ -486,45 +375,35 @@ $("#clearRuns").addEventListener("click", () => { trackEvent("runs-clear"); stat
 // "Try the demo": load made-up runs and a made-up race from src/demo.js, as if they were dropped.
 $("#demo").addEventListener("click", () => {
   trackEvent("demo");
-  // A made-up mountain ultra (78 km, 3,800 m up, seven aid stations) and two made-up 30 km
-  // mountain long runs six weeks apart, so the weighting shows. Aid stations and start time
-  // are filled in unless you typed your own.
+  // A made-up mountain ultra (78 km, 3,800 m up, seven aid stations) and two made-up 30 km mountain long runs six weeks apart, so the weighting shows.
   state.effort = null;
   state.ownRuns = false;
   loadEfforts([
     { xml: makeDemoEffortGpx({ profile: DEMO_LONG_RUN_PROFILE, startIso: "2026-10-11T07:00:00Z" }), label: "Demo mountain long run (made up)" },
     { xml: makeDemoEffortGpx({ profile: DEMO_LONG_RUN_PROFILE, fatigue: 0.3, startIso: "2026-08-30T07:00:00Z" }), label: "Demo older long run (made up)" },
   ]);
-  // Only fill the demo aid stations when the box is empty or still holds this example text
-  // (the same two stations as the placeholder), so stations you typed are never overwritten.
+  // Only fill the demo aid stations when the box is empty or still holds this example text (the same two stations as the placeholder), so stations you typed are never overwritten.
   const aid = $("#aidStations").value.trim();
   if (!aid || aid === "8.5 Refuge du Lac 2\n16 Ferme des Crêtes 3") {
     $("#aidStations").value = DEMO_ULTRA_AID;
     if ($("#startTime").value === PLAN_DEFAULTS.startTime) $("#startTime").value = "06:00";
     readSettings();
   }
-  // The course is drawn as a loop over the Vercors so the map has something to show; the
-  // profile does not match the real ground there.
+  // The course is drawn as a loop over the Vercors so the map has something to show; the profile does not match the real ground there.
   loadRace(makeDemoRaceGpx(DEMO_ULTRA_PROFILE, { name: "Ultra des Crêtes 78K", startEle: 650, loop: true, center: [45.05, 5.7] }), "Ultra des Crêtes 78K (made up)");
   $("#s1").scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
-/**
- * compute(): the heart of the page. Build the plan if both files are there, then redraw every
- * plan-mode section. Called after any change (file loaded, setting changed, theme changed).
- * Each render function draws an "empty" hint when what it needs is missing.
- */
+/** compute(): the heart of the page. */
 /* ---------- compute ---------- */
 function compute() {
   state.plan = null;
   $("#planErr").innerHTML = "";
   if (state.race && state.effort) {
     try {
-      // Your runs alone set the level (Boss, 2026-10-29: a road best can be old and says nothing
-      // of the training around it); "Form on race day" (settings.form) is your own say.
+      // Your runs alone set the level (Boss, 2026-10-29: a road best can be old and says nothing of the training around it); "Form on race day" (settings.form) is your own say.
       state.plan = buildPlan(state.race.parsed, state.effort.runs.map((r) => r.parsed), { ...state.settings, ...profileHeart(), tune: profileTune() });
       // The regex /\(made up\)$/ matches "(made up)" at the end of the name: the demo's label.
-      // Once per visit: did this visitor get a plan, from the demo or from their own files?
       trackOnce("plan-built", /\(made up\)$/.test(state.race.name) ? "demo" : "own");
     } catch (e) {
       $("#planErr").innerHTML = `<div class="err">${esc(e.message)}</div>`;
@@ -548,8 +427,7 @@ $("#s4ai").addEventListener("click", (ev) => {
   trackEvent("ai-switch", what);
   renderReplay();
 });
-// An AI doc to play (a new answer, or one picked in the account menu's AI docs): Your race
-// plays it, with the AI switch on.
+// An AI doc to play (a new answer, or one picked in the account menu's AI docs): Your race plays it, with the AI switch on.
 document.addEventListener("trp-ai-use", (ev) => {
   // Prep my run docs are played by preprun.js.
   if (ev.detail && ev.detail.mode === "prep_run") return;
@@ -559,8 +437,7 @@ document.addEventListener("trp-ai-use", (ev) => {
   store.set("trp.ai.on", true);
   renderReplay();
 });
-// wireNav runs once at start-up: (function () { ... })() is a function called at once, which
-// keeps its variables (links, bar, queued) private instead of adding them to the whole file.
+// wireNav runs once at start-up: (function () { ... })() is a function called at once, which keeps its variables (links, bar, queued) private instead of adding them to the whole file.
 (function wireNav() {
   const links = [...document.querySelectorAll(".tn-links a")];
   links.forEach((a) => a.addEventListener("click", () => trackEvent("nav", a.dataset.sec)));
@@ -572,10 +449,7 @@ document.addEventListener("trp-ai-use", (ev) => {
     const box = a.parentElement;
     if (on && (a.offsetLeft < box.scrollLeft || a.offsetLeft + a.offsetWidth > box.scrollLeft + box.clientWidth)) box.scrollTo({ left: a.offsetLeft - 8 });
   });
-  // IntersectionObserver: the browser calls back when an observed element enters or leaves an
-  // area. rootMargin "-45% 0px -50% 0px" shrinks that area to a band from 45% to 50% down the
-  // window, so a section becomes "active" when it crosses the middle of the screen.
-  // The `in window` check skips it on very old browsers that lack it.
+  // IntersectionObserver: the browser calls back when an observed element enters or leaves an area. rootMargin "-45% 0px -50% 0px" shrinks that area to a band from 45% to 50% down the window...
   if ("IntersectionObserver" in window) {
     const io = new IntersectionObserver((entries) => {
       // Which sections a visit actually reaches, counted once each per visit.
@@ -585,8 +459,7 @@ document.addEventListener("trp-ai-use", (ev) => {
   }
   // Reading progress along the page: a thin bar under the navigation.
   const bar = $("#tnProg");
-  // Scroll events fire many times per frame. `queued` plus requestAnimationFrame (run once before
-  // the next screen paint) makes sure the bar is updated at most once per frame (throttling).
+  // Scroll events fire many times per frame.
   let queued = false;
   const onScroll = () => {
     if (queued) return;
@@ -605,22 +478,14 @@ document.addEventListener("trp-ai-use", (ev) => {
   onScroll();
 })();
 /* ---------- mode: prep my race, prep my run, check my run ---------- */
-// The mode lives in the address (?mode=prep or ?mode=run; none for Prep my race), so a link or a
-// refresh opens the same one. Other modules can follow the switch through the "trp-mode" event.
-// modeOf(m): m if it is one of the three mode ids, else "plan". some() is true if any item matches.
+// The mode lives in the address (?mode=prep or ?mode=run; none for Prep my race), so a link or a refresh opens the same one.
 const modeOf = (m) => (MODES.some(([id]) => id === m) ? m : "plan");
-/**
- * Switch the page to a mode ("plan", "prep" or "run"). track: count the switch in analytics
- * (false for the first call at start-up). Side effects: sets data-mode on <html> (CSS then
- * shows only that mode's parts), presses the right switch button, stops or starts the
- * animations, rewrites the address and fires a "trp-mode" event for other modules.
- */
+/** Switch the page to a mode ("plan", "prep" or "run"). track: count the switch in analytics (false for the first call at start-up). */
 function setMode(mode, track = true) {
   const m = modeOf(mode);
   document.documentElement.dataset.mode = m;
   document.querySelectorAll("button[data-mode]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === m)));
-  // One cockpit plays at a time (replay.js keeps a single animation and map), and its ids are
-  // fixed: leaving Prep my race empties the race one, renderReplay builds it again on the way back.
+  // One cockpit plays at a time (replay.js keeps a single animation and map), and its ids are fixed: leaving Prep my race empties the race one, renderReplay builds it again on the way back.
   if (m !== "plan") { stopReplay(); $("#s4body").innerHTML = ""; }
   if (m !== "run") pauseRun();
   if (m === "plan") renderReplay();
@@ -635,9 +500,7 @@ function setMode(mode, track = true) {
 }
 // Every button with data-mode (the switch on top and the shortcuts in the bar) switches mode.
 document.querySelectorAll("button[data-mode]").forEach((b) => b.addEventListener("click", () => { setMode(b.dataset.mode); window.scrollTo({ top: 0 }); }));
-// Rewind my run mode (ui/review.js). When a run is loaded: save it in the run log (not the
-// sample) and say so at the top of the review, with a link to the profile and any all-time best
-// it beats; then put a button with its distance and duration in the top bar.
+// Rewind my run mode (ui/review.js).
 initRunMode({ onLoaded: (run, { sample, name } = {}) => {
   if (!sample) {
     acctSaveRun(run, name).then((r) => {
@@ -653,16 +516,9 @@ initRunMode({ onLoaded: (run, { sample, name } = {}) => {
 } });
 
 /* ---------- Save to my account: the whole mode, to reopen it later and still work ---------- */
-// One Save button per mode (Boss, 2026-10-18: "like saving the page"). A save keeps:
-//   summary   the numbers shown in the Account window list (core/saved.js, or the run summary)
-//   snap      what the mode needs to compute everything again: the points it read (packed by
-//             core/snapshot.js, never the file itself and never heart rate) and its settings,
-//             gzipped and written as base64 text
-// Reopening feeds the points back through each mode's own loader, as if the files were dropped,
-// so the target, the settings and the scenario can all be changed again.
+// One Save button per mode (Boss, 2026-10-18: "like saving the page").
 
-// gzip a value (as JSON) into base64 text, and back. CompressionStream is the browser's built-in
-// gzip; base64 turns the bytes into plain text the database can hold.
+// gzip a value (as JSON) into base64 text, and back.
 async function gzPack(value) {
   const stream = new Blob([JSON.stringify(value)]).stream().pipeThrough(new CompressionStream("gzip"));
   const bytes = new Uint8Array(await new Response(stream).arrayBuffer());
@@ -676,8 +532,7 @@ async function gzUnpack(b64) {
   const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
   return JSON.parse(await new Response(stream).text());
 }
-// Settings worth keeping with a race plan: everything of the form, never heart rates (those
-// come from the profile and stay in the browser).
+// Settings worth keeping with a race plan: everything of the form, never heart rates (those come from the profile and stay in the browser).
 const keepSettings = (s) => { const { maxHr, restHr, ...rest } = s; return rest; };
 
 // What each mode saves: { kind, title, summary, snap }, or null when nothing is loaded.
@@ -698,10 +553,7 @@ function saveItem(kind) {
   const rec = runRecord(r.run, r.name);
   return { kind, title: rec.name, summary: rec, snap: { mode: "run", label: r.name, track: packTrack(r.parsed), target: r.target || null } };
 }
-// Save the mode (`kind`) from button `b`, its message in `msg`. `a4` ({key, keep}, or none): an
-// A4 export saved to the account (Boss, 2026-10-23): the same save plus the export and its ticked
-// parts, so reopening it lays the sheet out again and opens the print dialog. The sheet is rebuilt
-// from the points, never stored as a page, so heart rate and weight never go online.
+// Save the mode (`kind`) from button `b`, its message in `msg`. `a4` ({key, keep}, or none): an A4 export saved to the account (Boss, 2026-10-23): the same save plus the export and its ticked parts, so reopening it lays the sheet out again and opens the print dialog.
 async function saveFrom(b, msg, kind, a4 = null) {
   let item = null;
   try { item = saveItem(kind); } catch (e) { item = null; }
@@ -739,8 +591,7 @@ acctOnReopen(async (it) => {
     restoreRun(trackToGpx(unpackTrack(s.track)), s.label, s.target);
   }
   trackEvent("saved-reopen", s.mode);
-  // A saved A4 export: once the mode has its data again (computed in the background, so ask every
-  // 200 ms, for 10 s at most), print its sheet with the parts ticked when it was saved.
+  // A saved A4 export: once the mode has its data again (computed in the background, so ask every 200 ms, for 10 s at most), print its sheet with the parts ticked when it was saved.
   const a4 = it.data.a4;
   if (a4 && P4_EXPORTS[a4.key]) {
     for (let i = 0; i < 50 && !printData(P4_EXPORTS[a4.key].mode); i++) await new Promise((ok) => setTimeout(ok, 200));
@@ -748,10 +599,7 @@ acctOnReopen(async (it) => {
   }
 });
 
-// Use a file from My files (account menu) in a mode, as if it had been dropped there:
-//   race    the race course of Prep my race
-//   prep    the route of a Prep my run session
-//   rewind  the run replayed in Rewind my run
+// Use a file from My files (account menu) in a mode, as if it had been dropped there: race the race course of Prep my race prep the route of a Prep my run session rewind the run replayed in Rewind my run
 acctOnUseFile((xml, label, use) => {
   if (use === "race") {
     setMode("plan");
@@ -769,11 +617,7 @@ acctOnUseFile((xml, label, use) => {
 /* ---------- export A4 (ui/print.js): the mode on screen, laid out for paper ---------- */
 // prepCtl: the controller returned by initPrepRun below; null until then.
 let prepCtl = null;
-/**
- * What the A4 export needs for a mode, or null when there is nothing to print yet.
- * run: the reviewed run plus the athlete details saved in this browser; prep: the run to come;
- * plan: the plan, the scenario shown, the race name, the runs and the settings.
- */
+/** What the A4 export needs for a mode, or null when there is nothing to print yet. run: the reviewed run plus the athlete details saved in this browser; prep: the run to come; plan: the plan, the scenario shown... */
 function printData(mode) {
   if (mode === "run") {
     const r = currentRun();
@@ -808,9 +652,7 @@ document.addEventListener("trp-profile", () => { if (state.race) compute(); });
 // Your references changed (My references card, ui/refs.js): plan again at the new level.
 document.addEventListener("trp-refs", () => { if (state.race) compute(); });
 
-// Start-up, in order: draw the empty sections, start Prep my run (it can reuse your reference
-// runs and settings, and draws its own cockpit through mountCockpit), apply the mode from the
-// address (?mode=...), then start anonymous analytics and the account menu.
+// Start-up, in order: draw the empty sections, start Prep my run (it can reuse your reference runs and settings, and draws its own cockpit through mountCockpit), apply the mode from the address (?mode=...)...
 initRefs();
 compute();
 prepCtl = initPrepRun({ getRuns: () => (state.effort ? state.effort.runs.map((r) => r.parsed) : []), getSettings: () => state.settings, onLoaded: () => renderNav(), cockpit: (box, plan, key, timeline) => mountCockpit(box, plan, "central", key, "Run", timeline),
@@ -822,9 +664,7 @@ prepCtl = initPrepRun({ getRuns: () => (state.effort ? state.effort.runs.map((r)
 setMode(new URLSearchParams(window.location.search).get("mode"), false);
 // Not in a copy opened as a file (the AI test copy): no outside script on a page holding a key.
 if (location.protocol !== "file:") startAnalytics();
-// The Ask the AI window (account.js) reads the race being prepared through this function: the
-// race GPX (name, km, climbing, sections once the plan exists, aid stations typed), how many GPX
-// files are in Your runs, the target time typed and the calculated central finish time.
+// The Ask the AI window (account.js) reads the race being prepared through this function: the race GPX (name, km, climbing, sections once the plan exists, aid stations typed), how many GPX files are in Your runs...
 initAccount({
   getRace: () => ({
     race: state.race ? {
@@ -850,10 +690,7 @@ initHelp();
 // English or French (flags next to the account button; i18n.js swaps the texts).
 i18nInit(document.querySelector(".acct"));
 
-// This is event delegation: one listener on the whole document handles every jump link, even
-// the ones drawn after start-up. closest() climbs from the clicked element to the nearest
-// ancestor (or itself) matching the selector; "a[href^='#']" means a link whose href starts with #.
-// A jump link to a folded section opens it first, so the link lands on something to read.
+// This is event delegation: one listener on the whole document handles every jump link, even the ones drawn after start-up. closest() climbs from the clicked element to the nearest ancestor...
 document.addEventListener("click", (ev) => {
   const a = ev.target.closest && ev.target.closest(".jumps a[href^='#']");
   if (!a) return;
@@ -862,10 +699,7 @@ document.addEventListener("click", (ev) => {
   if (fold) fold.open = true;
 });
 
-// Also delegated. Clicks on links, buttons and <summary> are left alone. The heading's following
-// siblings get "fold-hid" (hidden by src/ui/css): for a sub-title, up to the next sub-title, fold or
-// Pimp my GPX sticker; for a section banner, everything after it in the section.
-// Click a section banner or a sub-title (the red-bar headings) to fold what it heads, click again to unfold.
+// Also delegated.
 document.addEventListener("click", (ev) => {
   if (ev.target.closest("a, button, summary")) return;
   const h = ev.target.closest(".sec-head, .sub-h");

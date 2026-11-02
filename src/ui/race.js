@@ -1,6 +1,4 @@
-// race.js: sections 03 Your plan (renderDday), 04 Your race (renderReplay, the cockpit), 05 Your coach
-// (renderPimp), the sticky navigation (renderNav), plan vs actual and the export helpers.
-// Split out of main.js (2026-11-02).
+// race.js: sections 03 Your plan (renderDday), 04 Your race (renderReplay, the cockpit), 05 Your coach (renderPimp), the sticky navigation (renderNav), plan vs actual and the export helpers.
 
 import { judgeTarget, parseAidStations } from "../core/plan.js";
 import { SCENARIOS } from "../core/model.js";
@@ -20,15 +18,7 @@ import { empty, cell, kmRange, spark, jumps, tile, profileView, zoneList, rowsTa
 let ddayMap = null;
 
 /* ---------- 03 D-day ---------- */
-/**
- * Section 03 Plan: the race-day plan from state.plan (core/plan.js buildPlan). Writes into
- * #s3body: the scenario switch and finish time, the targeted-duration verdict, the profile with
- * gels and aid stations, a map, the key zones, the race card (checkpoints, aid stations, gels,
- * heart rate, hikes), the climb-by-climb table, the plan-versus-actual log and export buttons.
- * Times in the plan are seconds from the start; clock(startSec, sec) turns them into a time of
- * day and hm(sec) into a duration. Many values are stored per scenario: x.start[sid], x.dur[sid].
- * Side effects: replaces ddayMap, adds listeners, reads and writes localStorage.
- */
+/** Section 03 Plan: the race-day plan from state.plan (core/plan.js buildPlan). */
 export function renderDday() {
   const out = $("#s3body");
   const plan = state.plan;
@@ -45,8 +35,7 @@ export function renderDday() {
   const brief = { totalKm: plan.course.totalKm, climbs: plan.climbs, descents: plan.descents };
   const aidMarks = plan.aidStations.map((a) => ({ km: a.km, name: a.name, sec: a.arrive[sid] }));
 
-  // The HTML pieces of the race card, one list item per line. `||` gives a fallback line
-  // when a list comes out empty ("" is falsy).
+  // The HTML pieces of the race card, one list item per line.
   const seg = SCENARIOS.map((s) => `<button type="button" data-s="${s.id}" aria-pressed="${s.id === sid}">${s.label}<small>${hm(plan.scenarios[s.id].finishSec)}</small></button>`).join("");
   const ckList = sc.checkpoints.map((c) => `<li><span>${esc(c.label)}</span><b>${clock(st, c.sec)} · ${hm(c.sec)}</b></li>`).join("");
   // GEL_WHERE: how to describe where a gel was moved to, by the `where` code plan.js gives it.
@@ -54,12 +43,10 @@ export function renderDday() {
   const gelList = sc.gels.map((g) => `<li><span>km ${g.km.toFixed(1)}${g.at ? ` · ${esc(g.at)}` : g.where ? ` · ${GEL_WHERE[g.where]}` : ""}</span><b>${clock(st, g.sec)}</b></li>`).join("") || `<li><span>No gel needed for this length</span><b></b></li>`;
   const hrList = plan.hrGuide ? plan.hrGuide.map((h) => `<li><span>km ${h.fromKm.toFixed(0)} to ${h.toKm.toFixed(0)}</span><b>${esc(h.text)}</b></li>`).join("") : `<li><span>Add your max heart rate in your profile for a heart-rate guide</span><b><button class="to-profile" type="button" data-open-profile="heart">Add it</button></b></li>`;
   // The climbs (and climb sections) to hike: those whose tactic starts with "Hike".
-  // The regex /^Hike/ matches "Hike" at the start of the text; /steep part/ anywhere in it.
   const hikes = plan.climbs.flatMap((c) => [c, ...c.sections]).filter((c) => /^Hike/.test(c.tactic));
   const hikeList = hikes.map((c) => `<li><span>#${c.n} · km ${c.startKm.toFixed(1)}</span><b>${/steep part/.test(c.tactic) ? `${Math.round(c.steep)}% pitch` : `${c.avg.toFixed(0)}%`} · ${clock(st, c.start[sid])}</b></li>`).join("") || `<li><span>None at this threshold</span><b></b></li>`;
 
-  // One table row for a climb, section or descent: arrival clock time, time on it (at least
-  // 1 min), average pace in min/km (duration in s / length in km) and the tactic.
+  // One table row for a climb, section or descent: arrival clock time, time on it (at least 1 min), average pace in min/km (duration in s / length in km) and the tactic.
   const raceRow = (x, sec, chip) => `<div class="row v${x.level} ${sec ? "sec" : ""}">
       <div class="n">${x.n}</div>${cell("Km", kmRange(x))}${spark(plan.course.profile, x.startKm, x.endKm, x.avg)}${cell("Arrive", clock(st, x.start[sid]))}${cell("Time on it", `${Math.max(1, Math.round(x.dur[sid] / 60))} min`)}${cell("Pace", `${mmss(x.dur[sid] / (x.lenM / 1000))}/km`)}${cell("Tactic", esc(x.tactic), "w")}<div class="diff">${chip}</div>
     </div>`;
@@ -71,9 +58,7 @@ export function renderDday() {
   const logKey = `trp.log.${(state.race && state.race.name) || "race"}.${plan.course.totalKm.toFixed(1)}`;
   const logMode = store.get("trp.logMode") || "race";
 
-  // The targeted duration: parseDuration reads "h:mm" into seconds (null if it cannot), and
-  // judgeTarget compares it with the three scenarios. TARGET maps each verdict to
-  // [title, tone (colour class), explanation].
+  // The targeted duration: parseDuration reads "h:mm" into seconds (null if it cannot), and judgeTarget compares it with the three scenarios.
   const target = judgeTarget(plan, parseDuration(state.settings.targetTime));
   const TARGET = {
     "out-of-reach": ["Not backed by your runs", "bad", "More than 5% faster than your best-case scenario: nothing in your reference runs shows that speed on this course. Aim for a time inside the scenario range, or add a faster recent run."],
@@ -81,9 +66,7 @@ export function renderDday() {
     realistic: ["Realistic", "good", "Inside the range of your three scenarios: your runs say you can do it."],
     comfortable: ["Comfortable", "good", "Slower than your cautious scenario: you have margin. Keep it as a safe goal, or aim a little higher."],
   };
-  // (() => { ... })() is an arrow function called at once (an IIFE): a way to run a few
-  // statements where an expression is expected. A typed target that could not be read gets a
-  // format hint; no target, nothing.
+  // (() => { ... })() is an arrow function called at once (an IIFE): a way to run a few statements where an expression is expected.
   const targetHtml = target ? (() => {
     const [title, tone, why] = TARGET[target.verdict];
     const pct = target.vsCentralPct;
@@ -160,7 +143,6 @@ export function renderDday() {
   </div>`;
 
   // Wiring: the elements above are new, so their listeners are added after every redraw.
-  // A scenario click redraws all the sections whose times depend on it, and saves the choice.
   /* wiring */
   out.querySelectorAll("#scen button").forEach((b) => b.addEventListener("click", () => { state.scenario = b.dataset.s; trackEvent("scenario", state.scenario); store.set("trp.scenario", state.scenario); renderDday(); renderReplay(); renderPimp(); renderNav(); }));
   // Switching the Climbs / Descents tab redraws the section and keeps "Climb by climb" open.
@@ -172,13 +154,10 @@ export function renderDday() {
   $("#copyMd").addEventListener("click", () => { trackEvent("export", "markdown"); copyText(planToMarkdown(plan, sid)); });
   $("#copyJson").addEventListener("click", () => { trackEvent("export", "json"); copyText(JSON.stringify(slimPlan(plan, sid), null, 2)); });
   $("#printDday").addEventListener("click", () => { const box = $("#s3 .a4x"); box.open = true; box.scrollIntoView({ behavior: "smooth", block: "center" }); });
-  // `...mapStyle(...)` spreads paint and marks into the options. Without a route there is no map.
-  // The race on a map, coloured like the profile, with your aid stations and key zones.
+  // `...mapStyle(...)` spreads paint and marks into the options.
   if (state.race && state.race.route) ddayMap = courseMap($("#ddayMap"), { route: state.race.route, totalKm: plan.course.totalKm, ...mapStyle(brief, parseAidStations(state.settings.aidStations).filter((a) => a.km <= plan.course.totalKm), plan.keyZones) });
   else $("#ddayMap").remove();
-  // Key zone chips: one open at a time (state.kz, the index, or null). Opening one writes its card
-  // under the chips, shades its band on the profile (class "on") and lights it on the map with the
-  // rest of the route dimmed, without zooming; a second click on the same chip closes it.
+  // Key zone chips: one open at a time (state.kz, the index, or null).
   const openZone = (i) => {
     if (i !== null && !plan.keyZones[i]) i = null;
     state.kz = i;
@@ -200,11 +179,7 @@ export function renderDday() {
 }
 
 /* ---------- 05 pimp my GPX: the watch messages and the course for the watch ---------- */
-/**
- * Section 05 Your coach: the watch messages for this plan (built and edited by ui/watch.js) and the
- * buttons to download the course as a Garmin .fit or as a GPX with waypoints. Writes into
- * #sPimpBody. say(text) shows a short status next to the buttons.
- */
+/** Section 05 Your coach: the watch messages for this plan (built and edited by ui/watch.js) and the buttons to download the course as a Garmin .fit or as a GPX with waypoints. */
 export function renderPimp() {
   const box = $("#sPimpBody");
   const plan = state.plan;
@@ -220,13 +195,9 @@ export function renderPimp() {
 }
 
 /* ---------- 04 race day replay ---------- */
-/**
- * Section 04 Your race: the plan played back in time (ui/replay.js), in #s4body. Only drawn in
- * Prep my race mode. The key (race name | km) lets replay.js remember things per race.
- */
+/** Section 04 Your race: the plan played back in time (ui/replay.js), in #s4body. */
 export function renderReplay() {
-  // Only on screen in Prep my race: drawing it in another mode would take the one map and
-  // animation away from the cockpit that is showing (Prep my run). setMode draws it on the way back.
+  // Only on screen in Prep my race: drawing it in another mode would take the one map and animation away from the cockpit that is showing (Prep my run). setMode draws it on the way back.
   const mode = document.documentElement.dataset.mode;
   if (mode && mode !== "plan") return;
   const box = $("#s4body");
@@ -238,8 +209,7 @@ export function renderReplay() {
     return;
   }
   const sid = calc.scenarios[state.scenario] ? state.scenario : "central";
-  // The Calculated / AI switch (airace.js): with AI on and an AI plan that fits this plan, the
-  // cockpit plays the AI plan, rebuilt by code from the AI's answer; otherwise the calculated one.
+  // The Calculated / AI switch (airace.js): with AI on and an AI plan that fits this plan, the cockpit plays the AI plan, rebuilt by code from the AI's answer; otherwise the calculated one.
   const key = raceKey();
   const ai = arState(calc, key);
   const on = state.aiOn && ai.state === "ok";
@@ -251,10 +221,7 @@ export function renderReplay() {
 /** The race key ("name|km"): what replay.js and the AI answer are remembered by. */
 export const raceKey = () => `${state.race && state.race.name}|${state.plan.course.totalKm.toFixed(2)}`;
 /** The race-day cockpit (sections, map, profile, script) for any plan: a race, or a run to come. */
-// box: the element to draw into; plan: a plan from buildPlan; sid: scenario id; key: a text that
-// identifies the race; noun: "Race" or "Run", used in the cockpit's wording.
-// It prepares the compact profile (flat: true) and the map colours, then hands everything to
-// replay.js mountReplay, which runs the animation. Also used by Prep my run (see initPrepRun).
+// box: the element to draw into; plan: a plan from buildPlan; sid: scenario id; key: a text that identifies the race; noun: "Race" or "Run", used in the cockpit's wording.
 export function mountCockpit(box, plan, sid, key, noun = "Race", timeline = "") {
   const sc = plan.scenarios[sid];
   const brief = { totalKm: plan.course.totalKm, climbs: plan.climbs, descents: plan.descents };
@@ -265,14 +232,8 @@ export function mountCockpit(box, plan, sid, key, noun = "Race", timeline = "") 
 }
 
 /* ---------- sticky navigation ---------- */
-// Which section is on screen: an IntersectionObserver reports when each section crosses a thin
-// band across the middle of the viewport, without listening to every scroll event.
-/**
- * Update the top bar: mark as "ready" the links of sections that have something to show, and
- * show either a Your race button (once there is a plan) or a Try the demo button.
- * Sections s5, s6 and s-prep belong to other modules: they count as ready when an element those
- * modules draw (#rvCockpit, #inKpi, .prep-ready) exists. Also refreshes the A4 export button.
- */
+// Which section is on screen: an IntersectionObserver reports when each section crosses a thin band across the middle of the viewport, without listening to every scroll event.
+/** Update the top bar: mark as "ready" the links of sections that have something to show, and show either a Your race button (once there is a plan) or a Try the demo button. */
 export function renderNav() {
   const plan = state.plan;
   const ready = { s1: Boolean(state.effort), s2: Boolean(state.race), s3: Boolean(plan), s4: Boolean(plan), "s-pimp": Boolean(plan), s5: Boolean($("#rvCockpit")), s6: Boolean($("#inKpi")), "s-prep": Boolean($("#sPrepBody .prep-ready")) };
@@ -288,12 +249,7 @@ export function renderNav() {
 }
 
 /* ---------- plan vs actual ---------- */
-/**
- * The plan-versus-actual log in section 03: one row per checkpoint with the planned time, a box
- * for your real time and the gap (ahead or behind). plan: the plan; logKey: the storage key
- * prefix for this race. Two logs are kept, picked by the select: a training simulation and the
- * race result. Side effects: draws #logrows and saves what you type in localStorage.
- */
+/** The plan-versus-actual log in section 03: one row per checkpoint with the planned time, a box for your real time and the gap (ahead or behind). plan: the plan; logKey: the storage key prefix for this race. */
 function drawLog(plan, logKey) {
   const mode = $("#logsel").value;
   const key = `${logKey}.${mode}`;
@@ -305,8 +261,7 @@ function drawLog(plan, logKey) {
     const first = i === 0;
     return `<div class="logrow"><span class="lbl">${esc(c.label)}</span><span>${first && c.sec < 3600 ? mmss(c.sec) : hm(c.sec)}</span><input type="text" inputmode="numeric" autocomplete="off" data-i="${i}" placeholder="${first && c.sec < 3600 ? "mm:ss" : "h:mm"}" value="${esc(saved[i] || "")}" aria-label="${esc(c.label)} actual time"><span class="delta" id="gap${i}"></span></div>`;
   }).join("");
-  // update(): recompute every gap from what is typed. parseDuration(text, short) reads mm:ss when
-  // short is true, else h:mm, and returns seconds or null. Within 5 s counts as on plan.
+  // update(): recompute every gap from what is typed. parseDuration(text, short) reads mm:ss when short is true, else h:mm, and returns seconds or null.
   const update = () => {
     $("#logrows").querySelectorAll("input").forEach((inp) => {
       const i = Number(inp.dataset.i);
@@ -333,11 +288,7 @@ function drawLog(plan, logKey) {
 }
 
 /* ---------- export ---------- */
-/**
- * The plan as plain data for "Copy as JSON", without the heavy parts: the drawing profile, the
- * route and every scenario's timeline. JSON.stringify's second argument (a "replacer") is called
- * for each key: returning undefined drops that key. The text is parsed back to get a clean copy.
- */
+/** The plan as plain data for "Copy as JSON", without the heavy parts: the drawing profile, the route and every scenario's timeline. */
 function slimPlan(plan, sid) {
   return JSON.parse(JSON.stringify({ ...plan, scenarioShown: sid, course: { ...plan.course, profile: undefined, route: undefined } }, (k, v) => (k === "timeline" ? undefined : v)));
 }
@@ -349,8 +300,6 @@ const watchKey = (plan, sid) => `trp.watch.${(state.race && state.race.name) || 
 
 /** Save the plan as a watch course: FIT (Garmin) or GPX with waypoints (any brand). */
 // kind: "fit" or "gpx"; plan, sid: the plan and scenario; say(text): shows the result.
-// The original GPX points (track) are passed along so the course follows the real route.
-// downloadCourse (ui/watch.js) builds the file, starts the download and returns the file name.
 function exportCourse(kind, plan, sid, say) {
   const name = (state.race && state.race.name) || "Race";
   const track = state.race && state.race.parsed ? state.race.parsed.points : null;
@@ -360,11 +309,7 @@ function exportCourse(kind, plan, sid, say) {
   } catch (e) { say(`Could not make the course: ${e.message}`); }
 }
 
-/**
- * Copy text to the clipboard. The modern way is navigator.clipboard.writeText (needs a secure
- * page, https or localhost, and returns a promise). When it is missing or refused, the fallback
- * puts the text in an invisible <textarea>, selects it and runs the older "copy" command.
- */
+/** Copy text to the clipboard. */
 function copyText(text) {
   const done = () => setExportStatus("Copied.");
   const fallback = () => {

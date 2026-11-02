@@ -1,47 +1,15 @@
-// history.js: the run log behind the account menu. Each run you analyse becomes a small summary
-// (about 1 KB: date, distance, climbing, best efforts...), never the GPX itself. From the list
-// of summaries this file computes the menu: totals over the last 12 months, all-time bests, the
-// last runs, the achievements and the cairns they earn.
-//
-// Pure functions only: storing the summaries (IndexedDB in the browser, and the account database
-// when signed in) is the UI's job. runRecord (src/core/runrecord.js) builds a summary from a run.
+// history.js: the run log behind the account menu.
 
-// This file has NO imports on purpose: the server (supabase/functions/_shared/history.js, a copy
-// made by the build) runs the very same achievements and checks before it pays out a cairn.
-//
-// Main exports:
-//   HISTORY_VERSION     the summary format version
-//   ACHIEVEMENTS        the list of achievements (data, see below)
-//   historySummary      everything the account menu shows
-//   recordClean         a summary without heart data (older summaries had some)
-//   checkRecord         is a summary believable? (also run by the server)
-//   aiDigest            the compact table an AI analysis receives
-//
-// A summary ("record") is {id, v, date (ms since 1970), name, km, gain (m), movingSec,
-// elapsedSec, gapPace (s/km), fadePct, vam (m/h), best1k, best5k, best10k (seconds)}. Optional
-// fields are null when the run had no data for them. No heart rate: it is never read from a
-// file (owner's rule); older summaries that still carry hrAvg or decouplingPct are cleaned by
-// recordClean before they are kept or sent.
+// This file has NO imports on purpose: the server (supabase/functions/_shared/history.js, a copy made by the build) runs the very same achievements and checks before it pays out a cairn.
 
 export const HISTORY_VERSION = 1; // bump when a summary field changes meaning, to know which runs to recompute
 
 // One day in milliseconds (24 x 60 x 60 x 1000).
 const HI_DAY = 86400000;
-// Calendar months in UTC, so the browser and the server always agree on which month a run is in.
-// hiMonth(ms) = "2026-9" style key (year, month 0..11), used to group runs by month.
+// Calendar months in UTC, so the browser and the server always agree on which month a run is in. hiMonth(ms) = "2026-9" style key (year, month 0..11), used to group runs by month.
 const hiMonth = (ms) => { const d = new Date(ms); return `${d.getUTCFullYear()}-${d.getUTCMonth()}`; };
 
-/**
- * The achievements: each one has a test on the whole log and a progress from 0 to 1, so the
- * menu can show how close you are. `cairns` is what unlocking it earns (1 cairn = 1 AI analysis,
- * later). Kept as data so they are easy to add to or retune.
- *
- * Each achievement: {code (stable id, also used by the server), icon, label, hint (how to earn
- * it), cairns, progress(L)}. progress is a small function given the whole log L (an array of
- * summaries) that returns a number; 1 or more means unlocked (historySummary clamps it to 0..1).
- * Examples: "half" = longest run / 21.0975 km; "everest" adds up the climbing per calendar month
- * in a Map (month key -> metres) and takes the best month / 8849 m (the height of Everest).
- */
+/** The achievements: each one has a test on the whole log and a progress from 0 to 1, so the menu can show how close you are. */
 export const ACHIEVEMENTS = [
   { code: "first", icon: "👣", label: "First steps", hint: "Save your first run", cairns: 1,
     progress: (L) => Math.min(1, L.length) },
@@ -69,17 +37,10 @@ export const ACHIEVEMENTS = [
     progress: (L) => L.reduce((s, r) => s + r.km, 0) / 1000 },
 ];
 
-/**
- * The largest value of f(run) over the list, or 0 when the list is empty or has no number.
- * f is a function that picks a field, for example (r) => r.km.
- */
+/** The largest value of f(run) over the list, or 0 when the list is empty or has no number. f is a function that picks a field, for example (r) => r.km. */
 function hiMax(list, f) { let m = 0; for (const r of list) { const v = f(r); if (Number.isFinite(v) && v > m) m = v; } return m; }
 
-/**
- * The best (smallest or largest) value of a field over the log, with the run it comes from.
- * Inputs: the list, a field name ("best5k"), smaller = true when lower is better (times).
- * Returns {value, run} or null when no run has that field. `r[key]` reads a field by its name.
- */
+/** The best (smallest or largest) value of a field over the log, with the run it comes from. */
 function hiBest(list, key, smaller) {
   let best = null;
   for (const r of list) {
@@ -90,13 +51,7 @@ function hiBest(list, key, smaller) {
   return best;
 }
 
-/**
- * Everything the account menu shows, from the stored summaries. `now` is a date in ms.
- * Returns {count, year: {km, gain, movingSec, runs} over the last 365 days, bests (each {value,
- * run} or null), last (the 3 newest runs), achievements (each with progress 0..1 and done),
- * unlocked (how many are done), cairns (earned in all)}.
- * `[...records]` copies the array first, so sorting it does not reorder the caller's array.
- */
+/** Everything the account menu shows, from the stored summaries. */
 export function historySummary(records, now = Date.now()) {
   const list = [...records].sort((a, b) => b.date - a.date);
   const year = list.filter((r) => r.date >= now - 365 * HI_DAY);
@@ -127,27 +82,15 @@ export function historySummary(records, now = Date.now()) {
   };
 }
 
-/**
- * A copy of a summary without any heart data (hrAvg, decouplingPct): summaries saved before the
- * owner's "no heart rate from files" rule (2026-10-16) still carry them. Used by the account
- * menu when it reads the device log, and by the server before it stores a run. The rest
- * operator (...rest) collects every other field into `rest`.
- */
+/** A copy of a summary without any heart data (hrAvg, decouplingPct): summaries saved before the owner's "no heart rate from files" rule (2026-10-16) still carry them. */
 export function recordClean(r) {
   if (!r || typeof r !== "object") return r;
   const { hrAvg, decouplingPct, ...rest } = r;
   return rest;
 }
 
-/**
- * Is this summary believable? The server only counts runs that pass, so a hand-made summary
- * cannot unlock an achievement with impossible numbers. Limits sit just beyond world records
- * (1 km in 2:11, 5 km in 12:35, 10 km in 26:11) and human climbing speeds. Returns null when
- * the run is fine, or the reason it is not.
- */
-// How it works: num(k, lo, hi, optional) checks one field and returns an error text, or null when
-// it is fine. The checks are chained with `||`: the first one that returns a text stops the chain
-// and becomes `bad`. Then a few checks that combine fields (average pace, climbing rate).
+/** Is this summary believable? */
+// How it works: num(k, lo, hi, optional) checks one field and returns an error text, or null when it is fine.
 export function checkRecord(r, now = Date.now()) {
   if (!r || typeof r !== "object") return "not a run";
   const num = (k, lo, hi, optional) => {
@@ -170,16 +113,9 @@ export function checkRecord(r, now = Date.now()) {
   return null;
 }
 
-/**
- * What an AI analysis receives: the run summaries as a compact table (one line per run, newest
- * first, at most `max` runs) plus the athlete settings. No names, no GPS points, no email.
- * Shown to the user before they spend a cairn, and built the same way on the server.
- */
+/** What an AI analysis receives: the run summaries as a compact table (one line per run, newest first, at most `max` runs) plus the athlete settings. */
 export function aiDigest(records, athlete = {}, max = 300) {
-  // Keep only believable runs (checkRecord returns null for them), newest first, at most `max`.
-  // f(v, d): a number as text with d decimals, or "" when missing. Each run becomes one line of
-  // comma-separated values (CSV) under the header line; the date is cut to "YYYY-MM-DD".
-  // pick(k, lo, hi): an athlete setting, only when it is a plausible number.
+  // Keep only believable runs (checkRecord returns null for them), newest first, at most `max`. f(v, d): a number as text with d decimals, or "" when missing.
   const list = records.filter((r) => !checkRecord(r)).sort((a, b) => b.date - a.date).slice(0, max);
   const f = (v, d = 0) => (v === null || v === undefined || !Number.isFinite(v) ? "" : v.toFixed(d));
   const head = "date,km,gain_m,moving_min,elapsed_min,gap_pace_s_per_km,fade_pct,vam_m_per_h,best_1k_s,best_5k_s,best_10k_s";
@@ -204,11 +140,7 @@ export const AI_FOCUS = [
 ];
 export const AI_QUESTION_MAX = 300;
 
-/**
- * Clean what the runner asked for (shared by the app and the server, which never trusts the app):
- * { from, to } = a date range in ms, or ids = a list of chosen runs; focus = an AI_FOCUS code;
- * question = their own words, one line, at most AI_QUESTION_MAX characters.
- */
+/** Clean what the runner asked for (shared by the app and the server, which never trusts the app): { from, to } = a date range in ms, or ids = a list of chosen runs; focus = an AI_FOCUS code; question = their own words... */
 export function aiAsk(raw = {}) {
   const r = raw && typeof raw === "object" ? raw : {};
   const day = (v) => (typeof v === "number" && Number.isFinite(v) && v > 0 && v < 4102444800000 ? v : null);

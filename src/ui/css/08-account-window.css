@@ -37,9 +37,7 @@
   .pf-goals th,.pf-goals td{padding:4px 3px}
 }
 
-/* "Race" in the top bar: the heart of Prep my race, so it shines a little. The text is filled with a
-   moving gradient (background-clip:text), a soft glow sits behind it, and a light sweep runs every few
-   seconds. Turned off for people who ask their system for less motion. */
+/* "Race" in the top bar: the heart of Prep my race, so it shines a little. */
 .tn-links a.tn-star{color:transparent;background-image:linear-gradient(100deg,var(--sun) 0%,var(--sun) 38%,#fff6d0 50%,var(--sun) 62%,var(--accent) 100%);background-size:250% 100%;-webkit-background-clip:text;background-clip:text;filter:drop-shadow(0 0 6px rgba(255,201,40,.35));isolation:isolate;animation:tnShine 4.5s ease-in-out infinite}
 .tn-links a.tn-star b{color:var(--accent);-webkit-text-fill-color:var(--accent)}
 .tn-links a.tn-star:not(.ready){opacity:.8}
@@ -78,10 +76,7 @@ html[data-theme="sky"] .tn-links a.tn-star{color:transparent;filter:drop-shadow(
 .rp-ai-box{display:flex;gap:8px;align-items:flex-start;margin:6px 0;padding:8px 10px;border:1px solid rgba(185,140,255,.5);border-radius:10px;background:rgba(185,140,255,.1);font-size:13px;line-height:1.35}
 .rp-ai-box .ic{flex:none;display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:#b98cff;color:#1a0f2e;font-size:11px;font-weight:800}
 .rp-ai-box p{margin:0} .rp-ai-box p+p{margin-top:3px} .rp-ai-box small{color:var(--muted)} .rp-ai-box .muted{color:var(--muted)}
-/* AI plan on (html.ai-on, set by main.js renderReplay): the values the AI changed shine, in the
-   AI's violet, so they read at once as AI-computed. Distance, climbing and gradients stay plain:
-   the course is never the AI's. A gradient painted inside the letters (background-clip:text)
-   slides across them (aiShine); it stands still for people who ask for less motion. */
+/* AI plan on (html.ai-on, set by main.js renderReplay): the values the AI changed shine, in the AI's violet, so they read at once as AI-computed. */
 .ai-on #s4 .rp-tot:not(.geo) b,
 .ai-on #s4 #rpClock,
 .ai-on #s4 .rp-tg tbody tr:nth-child(1) td:not(.now),
@@ -100,9 +95,7 @@ html[data-theme="sky"] .tn-links a.tn-star{color:transparent;filter:drop-shadow(
 @media (prefers-reduced-motion:reduce){.ai-on #s4 .rp-tot b,.ai-on #s4 #rpClock,.ai-on #s4 .rp-tg td,.ai-on #s4 .rp-leg-info b,.ai-run-on #s-prep .rp-tot b,.ai-run-on #s-prep #rpClock,.ai-run-on #s-prep .rp-leg-info b,.ar-ex .ar-dose,.ai-badge,.ai-badge svg{animation:none}}
 /* Prep my run: the AI coach's exercises in the bar above the cockpit. */
 .ar-ex{margin:4px 0 6px;padding-left:20px;font-size:14px} .ar-ex li{margin:2px 0} .ar-ex small{color:var(--muted)} .ar-ex .ar-dose{font-weight:800}
-/* The small edelweiss sticker (account.js acctAiBadge) that opens Ask the AI, stacked under the
-   Pimp my GPX sticker on the side of Prep my race (03) and Prep my run. A light sweeps across it
-   (prepAiGlow) and the flower turns slowly (prepAiSpin), so it reads as "AI can help here". */
+/* The small edelweiss sticker (account.js acctAiBadge) that opens Ask the AI, stacked under the Pimp my GPX sticker on the side of Prep my race (03) and Prep my run. */
 .side-stack{display:flex;flex-direction:column;align-items:center;gap:4px;align-self:center}
 .side-stack .pimp-link.side{float:none;margin:10px 8px 6px 4px}
 .prep-sum .side-stack{float:right;margin:0 6px 10px 16px}

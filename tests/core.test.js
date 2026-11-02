@@ -57,8 +57,7 @@ test("bandIndex puts gradients in the right band", () => {
 
 test("analyseCourse finds the steep pitches and a plausible total gain", () => {
   const c = analyseCourse(resample(race, 10));
-  // The course holds 14%, 16% and 12% pitches; neighbouring stretches merge into longer climbs,
-  // so we check the steepest-100-m figure rather than the average.
+  // The course holds 14%, 16% and 12% pitches; neighbouring stretches merge into longer climbs, so we check the steepest-100-m figure rather than the average.
   const wall = c.climbs.find((x) => x.steep > 11);
   assert.ok(wall, "a steep climb should be found");
   assert.ok(Math.max(...c.climbs.map((x) => x.steep)) < 20, "no invented walls");
@@ -385,8 +384,7 @@ test("race legs: the whole course in numbered sections, end to end, with the bri
   assert.ok(t.hrAvg >= t.hrMin && t.hrAvg <= t.hrMax);
   assert.equal(raceTotals({ ...plan, hrGuide: null }, "central").hrAvg, null);
 
-  // Pace line: one speed per profile point, every one moving (aid stops taken out), and the
-  // moving time it implies matches the moving pace of the totals within a few percent.
+  // Pace line: one speed per profile point, every one moving (aid stops taken out), and the moving time it implies matches the moving pace of the totals within a few percent.
   const pl = racePaceLine(plan, "central");
   assert.equal(pl.length, plan.course.profile.length);
   assert.ok(pl.every((p) => p.v > 0.3 && p.v < 8), "no stop drops the line, no spike");

@@ -1,7 +1,4 @@
-/* ---------- Export A4 (ui/print.js) ----------
-   The printable document (#printDoc) is hidden on screen. When the page is printed, everything
-   else is hidden and only it shows, on A4 pages: black on white for ink, colours only where they
-   mean something. Sizes are in mm and pt, the units of paper. */
+/* ---------- Export A4 (ui/print.js) ---------- The printable document (#printDoc) is hidden on screen. */
 #printDoc{display:none}
 @media print{
   @page{size:A4 portrait;margin:11mm 11mm 13mm;
@@ -97,8 +94,7 @@ html[data-theme="sky"] .brand-desc{color:#fff;opacity:.92;border-color:rgba(255,
 .acct-row{font-size:13.5px;padding:2px 0}
 .acct-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .acct-medals.mini{gap:6px}
-/* Achievements: reached = lit, gold edge and a warm tint; not yet = grey, faded, with a thin bar
-   of progress at the bottom. "pick" marks the one shown in the caption line under them. */
+/* Achievements: reached = lit, gold edge and a warm tint; not yet = grey, faded, with a thin bar of progress at the bottom. */
 .acct-medals.mini button{position:relative;overflow:hidden;font:inherit;font-size:19px;line-height:1;padding:6px 8px;border-radius:10px;border:1px solid var(--acct-line);background:none;cursor:pointer;color:inherit}
 .acct-medals.mini button.on{border-color:#ffc928;background:rgba(255,201,40,.14)}
 .acct-medals.mini button span{border:0;padding:0;border-radius:0;font-size:inherit}
