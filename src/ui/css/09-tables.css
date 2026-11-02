@@ -1,0 +1,54 @@
+/* ---------- climbs and descents tables (v2.3): one header row, compact rows, a mini profile ----------
+   .rows.tbl is a CSS grid table: every row uses the same column template, so the columns line up
+   and the labels sit once in the header row (.rh) instead of in every row. The per-cell labels
+   (.c .k) stay in the HTML for screen readers but are hidden. .sp holds the small elevation line,
+   drawn in the row's difficulty colour (currentColor). */
+.rows.tbl .row{display:grid;align-items:center;gap:0 12px;padding:3px 10px;flex-wrap:nowrap}
+.rows.tbl.t-route .row{grid-template-columns:34px 80px minmax(92px,1.2fr) repeat(4,minmax(54px,.8fr)) minmax(96px,auto)}
+.rows.tbl.t-plan .row{grid-template-columns:34px 80px minmax(92px,1fr) repeat(3,minmax(54px,.7fr)) minmax(150px,2.6fr) minmax(96px,auto)}
+.rows.tbl .row .c,.rows.tbl .row .c.w,.rows.tbl .row .diff{flex:none;min-width:0}
+.rows.tbl .row .c .k{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.rows.tbl .row .c b{font-size:13.5px;white-space:nowrap}
+.rows.tbl.t-plan .row .c.w b{white-space:normal;font-weight:500;font-size:13px;line-height:1.3}
+.rows.tbl .row .n{font-size:17px;min-width:0}
+.rows.tbl .row.sec{margin-left:0;background:rgba(255,255,255,.025)}
+.rows.tbl .row.sec .n{font-size:14px;padding-left:10px;opacity:.85}
+.rows.tbl .row .diff .chip{font-size:10.5px;padding:2px 8px 2px 7px}
+.rows.tbl .rh{border-left-color:transparent;padding-block:4px;background:none}
+.rows.tbl .rh:hover{background:none}
+.rows.tbl .rh>div{font-family:var(--f-display);font-weight:700;text-transform:uppercase;letter-spacing:.1em;font-size:10.5px;color:var(--muted);font-style:normal}
+.rows.tbl .sp svg{display:block;width:80px;height:22px}
+.rows.tbl .sp path{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke}
+.rows.tbl .row.v1 .sp{color:var(--e-bar)} .rows.tbl .row.v2 .sp{color:var(--m-bar)} .rows.tbl .row.v3 .sp{color:var(--h-bar)} .rows.tbl .row.v4 .sp{color:var(--c-bar)}
+@media (max-width:760px){
+  .rows.tbl .row{gap:0 9px;padding:3px 4px}
+  .rows.tbl.t-route .row{grid-template-columns:26px minmax(64px,1.2fr) repeat(4,minmax(34px,.8fr)) auto}
+  .rows.tbl.t-plan .row{grid-template-columns:26px minmax(64px,1.2fr) repeat(3,minmax(38px,.8fr)) auto}
+  .rows.tbl .sp{display:none}
+  .rows.tbl.t-plan .row .c.w{grid-column:2 / -1;grid-row:2;padding-bottom:3px}
+  .rows.tbl.t-plan .rh .c.w{display:none}
+  .rows.tbl .row .c b{font-size:11.5px}
+  .rows.tbl .rh>div{font-size:9px;letter-spacing:.04em}
+  .rows.tbl .row .diff .chip{font-size:8.5px;padding:1px 5px;letter-spacing:.04em}
+}
+/* Your plan: the Ask the AI edelweiss sits right next to the Best / Balanced / Cautious switch. */
+.scen-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.scen-row .seg{flex:1 1 auto}
+.ar-note .ar-ask{margin-left:8px;vertical-align:middle}
+/* Your race panel: where you are, always on top of the section box (section % done, course %),
+   and a stronger key-figure list under the clock (D+ done first, then km, then the clock). */
+.rp-leg-pct{order:3;margin-left:auto;display:flex;align-items:baseline;gap:4px;white-space:nowrap;font-family:var(--f-display);font-style:italic;flex:none}
+.rp-leg-pct b{font-size:26px;font-weight:800;line-height:.9;color:var(--sun);font-variant-numeric:tabular-nums}
+.rp-leg-pct b.tot{font-size:18px;color:var(--fg);margin-left:8px}
+.rp-leg-pct small{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-style:normal;font-weight:700}
+.rp-run{font-size:14px;gap:1px}
+.rp-run b{font-family:var(--f-display);font-weight:800;font-style:italic;font-size:19px;color:var(--fg);font-variant-numeric:tabular-nums}
+.rp-run #rpUp b{color:var(--sun)}
+@media (max-width:640px){
+  .rp-leg-pct b{font-size:20px} .rp-leg-pct b.tot{font-size:15px;margin-left:4px} .rp-leg-pct small{font-size:9px}
+  .rp-cockpit .rp-run b{font-size:14px}
+  .rp-cockpit .rp-run span{white-space:nowrap}
+  .rp-cockpit #rpElapsed{display:none}
+}
+/* Watch messages: a count and Keep all / Keep none above the list. */
+

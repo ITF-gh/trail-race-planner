@@ -20,7 +20,7 @@ import { aiPrepMerge } from "../core/aiprep.js";
 import { aiRunMerge } from "../core/airun.js";
 import { hm } from "../core/format.js";
 import { raceLegs } from "../core/script.js";
-import { AC_SPARK } from "./account.js";
+import { AC_SPARK } from "./acparts.js";
 
 // Per mode: where its answer is kept and which referee rebuilds it.
 const AR_MODES = { prep_race: { key: "trp.ai.race", merge: aiPrepMerge }, prep_run: { key: "trp.ai.prep_run", merge: aiRunMerge } };

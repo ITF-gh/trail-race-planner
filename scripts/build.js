@@ -23,7 +23,7 @@
 // match at the start and end of every LINE (not only of the whole text), and the `g` flag
 // finds every match instead of the first one.
 
-import { readFileSync, writeFileSync, mkdirSync, cpSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, cpSync, existsSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { sitePages, headMeta } from "./site-pages.js";
@@ -102,9 +102,12 @@ const js = `(function(){\n"use strict";\n${parts.join("\n")}\n})();`.replace(/<\
 
 // The page's content: the stylesheet inline in <style>, the empty <div id="app"> that the
 // app fills in when it starts, and the bundled code inline in <script>.
-// The styles are the app's (src/ui/style.css), then the site's (footer, "?" bubbles, the static pages).
+// The styles are the app's (src/ui/css/*.css, one file per part, joined in name order: later files
+// override earlier ones), then the site's (footer, "?" bubbles, the static pages).
 // The fonts (Barlow and Barlow Condensed) are loaded from Google Fonts.
-const css = stripCss(readFileSync(join(root, "src/ui/style.css"), "utf8") + "\n" + readFileSync(join(root, "src/site/site.css"), "utf8"));
+const cssDir = join(root, "src/ui/css");
+const appCss = readdirSync(cssDir).filter((f) => f.endsWith(".css")).sort().map((f) => readFileSync(join(cssDir, f), "utf8")).join("");
+const css = stripCss(appCss + "\n" + readFileSync(join(root, "src/site/site.css"), "utf8"));
 const fonts = `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,700;1,800&family=Barlow:wght@400;500;600&display=swap">`;
 const body = `<style>\n${css}\n</style>\n<div class="wrap" id="app"></div>\n<script>\n${js}\n</script>\n`;
 
