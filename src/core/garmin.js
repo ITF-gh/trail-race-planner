@@ -39,19 +39,22 @@ function fitName(...tries) {
 }
 
 /** Strategy of a race section in a few characters. */
-function legShort(l, hikeGrade = 15, totalKm = Infinity) {
+function legShort(l, hikeGrade = 15) {
   if (l.kind === "climb") {
     // Very steep (5 points above your hiking gradient): hands on thighs.
     if (l.avg >= hikeGrade + 5) return "POWER HIKE";
     return CLIMB_SHORT[l.tactic] || l.tactic.split(/[ ,]/)[0].toUpperCase();
   }
   if (l.kind === "descent") {
-    // A long steep descent (500 m or more down) before the last third: the legs are needed later.
-    if (l.level >= 2 && l.down >= SAVE_QUADS_M && l.startKm < totalKm * 2 / 3) return "SAVE QUADS";
+    // A long steep descent (700 m or more down): it costs the legs for everything after.
+    if (l.level >= 2 && l.down >= SAVE_QUADS_M) return "SAVE QUADS";
     return DESCENT_SHORT[l.level] || "CONTROL";
   }
   // Runnable ground with bumps (60 m or more up or down): run the flat, hike the short rises.
-  return "ROLL";
+  if (l.up >= EASY_MAX_M || l.down >= EASY_MAX_M) return "ROLL";
+  // A gentle rise (30 m or more, 2% or more): hold the effort, let the pace drop.
+  if (l.up >= HOLD_M && l.avg >= 2) return "HOLD";
+  return "RUN";
 }
 
 /** What to do in a key zone, in a few characters (the long version is z.how). */
@@ -74,33 +77,34 @@ export const MIN_GAP_SEC = 60;
 // Strategy words counted as easy ground, merged into one plain "RUN" block when gentle.
 const EASY = ["RUN", "LET GO", "ROLL"];
 const EASY_MAX_M = 60; // an easy section climbing or dropping less than this is plain running
-const SAVE_QUADS_M = 500; // m down that turns QUICK or BRAKE into SAVE QUADS (before the last third)
+const SAVE_QUADS_M = 700; // m down that turns QUICK or BRAKE into SAVE QUADS
+const HOLD_M = 30; // m up that makes a runnable section HOLD
 const CRUISE_KM = 3; // a RUN block this long becomes CRUISE
-const RECOVER_UP_M = 300; // a hike this big makes the short RUN after it RECOVER
-const PUSH_SHARE = 0.9; // runnable blocks starting after 90% of the race become PUSH
+const BIG_HIKE_M = 300; // a hike this big: RECOVER after it, EASE UP before it (short RUN blocks)
 
 /** The race sections grouped by strategy: neighbouring sections with the same strategy word (three HIKE sections in a row) make one block, with their lengths, D+ and D- added up. */
 export function strategyBlocks(plan, sid) {
   const blocks = [];
   const hg = (plan.params && plan.params.hikeGrade) ?? (plan.effort && plan.effort.hikeGrade) ?? 15;
   for (const l of raceLegs(plan, sid)) {
-    let word = legShort(l, hg, plan.course.totalKm);
+    let word = legShort(l, hg);
     // Gentle ground (an easy run, a short let-it-run drop, a runnable stretch) is just "RUN": three of them in a row make one alert, not three.
     if (EASY.includes(word) && l.up < EASY_MAX_M && l.down < EASY_MAX_M) word = "RUN";
     const prev = blocks[blocks.length - 1];
     if (prev && prev.word === word) { prev.endKm = l.endKm; prev.km += l.km; prev.up += l.up; prev.down += l.down; prev.legs.push(l); }
     else blocks.push({ word, kind: l.kind, level: l.level, startKm: l.startKm, endKm: l.endKm, km: l.km, up: l.up, down: l.down, startSec: l.startSec, legs: [l] });
   }
-  // Where a RUN block sits changes what to do in it: start, after a big hike, long, or near the finish.
-  const total = plan.course.totalKm;
+  // What is around a RUN block changes what to do in it: an aid station just behind, a big hike just behind or just ahead, or a long stretch.
+  const aids = plan.aidStations || [];
+  // Metres up in the hike blocks next to block i, going back (dir -1) or forward (dir 1) until something else.
+  const hikeUp = (i, dir) => { let up = 0; for (let k = i + dir; blocks[k] && /HIKE/.test(blocks[k].word); k += dir) up += blocks[k].up; return up; };
   blocks.forEach((b, i) => {
-    if (b.word !== "RUN" && b.word !== "LET GO") return;
-    const prev = blocks[i - 1];
-    if (b.startKm >= total * PUSH_SHARE) b.word = "PUSH";
-    else if (b.word !== "RUN") return;
-    else if (i === 0) b.word = "GO SLOW";
-    else if (prev && /HIKE/.test(prev.word) && prev.up >= RECOVER_UP_M && b.km < CRUISE_KM) b.word = "RECOVER";
-    else if (b.km >= CRUISE_KM) b.word = "CRUISE";
+    if (b.word !== "RUN") return;
+    const short = b.km < CRUISE_KM;
+    if (aids.some((a) => a.km >= b.startKm - 0.3 && a.km <= b.startKm + 0.5)) b.word = "SETTLE";
+    else if (short && hikeUp(i, -1) >= BIG_HIKE_M) b.word = "RECOVER";
+    else if (short && hikeUp(i, 1) >= BIG_HIKE_M) b.word = "EASE UP";
+    else if (!short) b.word = "CRUISE";
   });
   return blocks;
 }
@@ -117,7 +121,7 @@ export function coursePoints(plan, sid) {
     // Three spellings are offered to fitName, from "HIKE 5.5k +726" down to "HIKE +726".
     const up = Math.round(b.up), down = Math.round(b.down);
     const len = kmShort(b.km);
-    const runnable = ["RUN", "CRUISE", "RECOVER", "PUSH", "GO SLOW"].includes(b.word);
+    const runnable = ["RUN", "CRUISE", "RECOVER", "SETTLE", "EASE UP", "HOLD", "ROLL"].includes(b.word);
     const elev = runnable ? (up >= 20 || down >= 20 ? `+${up}-${down}` : "") : b.kind === "climb" ? `+${up}` : b.kind === "descent" ? `-${down}` : "";
     const type = runnable ? CP.generic : b.kind === "climb" ? CP.summit : b.kind === "descent" ? (b.level === 4 ? CP.danger : CP.valley) : CP.generic;
     const name = elev ? (runnable ? fitName(`${b.word} ${len} ${elev}`, `${b.word} ${len}${elev}`, `${b.word} ${len}`) : fitName(`${b.word} ${len} ${elev}`, `${b.word} ${len}${elev}`, `${b.word} ${elev}`, `${b.word} ${len}`)) : fitName(`${b.word} ${len}`);

@@ -43,7 +43,7 @@ const KIND_NAME = { start: "Start", climb: "Climbs", top: "Tops", descent: "Desc
 const ICON = { start: "▶", climb: "▲", top: "⛰", descent: "▼", gel: "G", aid: "⛺", phase: "◐", key: "★", ai: "✦", finish: "🏁" };
 
 // Colour group of a watch word: run green, hike orange, descent blue, brake red.
-const RP_WORD_GRP = { "HIKE": "hike", "RUN/HIKE": "hike", "POWER HIKE": "hike", "BRAKE": "brake", "SAVE QUADS": "brake", "LET GO": "desc", "QUICK": "desc", "CONTROL": "desc", "PUSH": "fin", "REFILL": "aid" };
+const RP_WORD_GRP = { "HIKE": "hike", "RUN/HIKE": "hike", "POWER HIKE": "hike", "BRAKE": "brake", "SAVE QUADS": "brake", "LET GO": "desc", "QUICK": "desc", "CONTROL": "desc", "REFILL": "aid" };
 const rpGrp = (w) => RP_WORD_GRP[w] || "run";
 // Survives re-renders (a scenario switch, a settings change), so the replay keeps its place.
 const rp = { key: "", sec: 0, playing: false, speed: 360, pauseAt: false, follow: false, raf: 0, map: null, hideKinds: new Set(), sliding: false, focus: false };
