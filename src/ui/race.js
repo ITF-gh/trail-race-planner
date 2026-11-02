@@ -4,7 +4,8 @@ import { judgeTarget, parseAidStations } from "../core/plan.js";
 import { SCENARIOS } from "../core/model.js";
 import { planToMarkdown } from "../core/markdown.js";
 import { pimpBadge, watchPanelHtml, mountWatch, downloadCourse, watchPoints } from "./watch.js";
-import { starChip, descChip } from "./chips.js";
+import { starChip, descChip, wordChip } from "./chips.js";
+import { strategyWord } from "../core/garmin.js";
 import { hm, clock, mmss, parseDuration } from "../core/format.js";
 import { courseMap } from "./map.js";
 import { stopReplay, mountReplay } from "./replay.js";
@@ -47,11 +48,11 @@ export function renderDday() {
   const hikeList = hikes.map((c) => `<li><span>#${c.n} · km ${c.startKm.toFixed(1)}</span><b>${/steep part/.test(c.tactic) ? `${Math.round(c.steep)}% pitch` : `${c.avg.toFixed(0)}%`} · ${clock(st, c.start[sid])}</b></li>`).join("") || `<li><span>None at this threshold</span><b></b></li>`;
 
   // One table row for a climb, section or descent: arrival clock time, time on it (at least 1 min), average pace in min/km (duration in s / length in km) and the tactic.
-  const raceRow = (x, sec, chip) => `<div class="row v${x.level} ${sec ? "sec" : ""}">
-      <div class="n">${x.n}</div>${cell("Km", kmRange(x))}${spark(plan.course.profile, x.startKm, x.endKm, x.avg)}${cell("Arrive", clock(st, x.start[sid]))}${cell("Time on it", `${Math.max(1, Math.round(x.dur[sid] / 60))} min`)}${cell("Pace", `${mmss(x.dur[sid] / (x.lenM / 1000))}/km`)}${cell("Tactic", esc(x.tactic), "w")}<div class="diff">${chip}</div>
+  const raceRow = (x, sec, chip, isClimb = true) => `<div class="row v${x.level} ${sec ? "sec" : ""}">
+      <div class="n">${x.n}</div>${cell("Km", kmRange(x))}${spark(plan.course.profile, x.startKm, x.endKm, x.avg)}${cell("Arrive", clock(st, x.start[sid]))}${cell("Time on it", `${Math.max(1, Math.round(x.dur[sid] / 60))} min`)}${cell("Pace", `${mmss(x.dur[sid] / (x.lenM / 1000))}/km`)}${cell("Tactic", wordChip(strategyWord(plan, x, isClimb)), "w")}<div class="diff">${chip}</div>
     </div>`;
   const climbRows = plan.climbs.map((c) => raceRow(c, false, starChip(c.level)) + c.sections.map((x) => raceRow(x, true, starChip(x.level))).join("")).join("");
-  const descRows = plan.descents.map((d) => raceRow(d, false, descChip(d.level))).join("");
+  const descRows = plan.descents.map((d) => raceRow(d, false, descChip(d.level), false)).join("");
   const PLAN_COLS = ["Arrive", "Time on it", "Pace", { t: "Tactic", w: true }];
 
   // The plan-versus-actual times are saved per race name and distance, so two races do not mix.

@@ -4,6 +4,7 @@ export const CHANGELOG = [
   { v: "2.33", date: "2026-11-02", items: [
     "Cockpit panel redesigned for the runner: the watch word big and in colour (HIKE, RUN, BRAKE…), the next strategy change with a countdown, pace with its gap to target in colour, gradient, what is left in the section and to the finish, next gel and aid always on screen.",
     "More strategy words on the watch and in the cockpit, read from the terrain anywhere in the race: POWER HIKE, SAVE QUADS, SETTLE, RECOVER, EASE UP, CRUISE, ROLL, HOLD, and REFILL at aid stations.",
+    "The same strategy words everywhere: Your plan tables, A4 export, Prep my run timeline, cockpit, and every watch alert, key zones included.",
     "Calmer pace line on the profile, one thin line for the plan figures, no legend under the section bar.",
   ] },
   { v: "2.32", date: "2026-11-02", items: [

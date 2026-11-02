@@ -6,3 +6,8 @@ export const SHOE_SVG = `<svg viewBox="0 0 32 14" aria-hidden="true"><path d="M2
 export const descChip = (l) => { const k = l >= 4 ? 1 : l >= 2 ? 2 : 3; return `<span class="chip st dsc d${k}" title="${DESCENT_LABELS[l]}" aria-label="${DESCENT_LABELS[l]}">${SHOE_SVG.repeat(k)}</span>`; };
 // starChip(l): a climb's difficulty as 1 to 4 stars in its level colour (the unlit ones dimmed), with the word (Easy...Crux) kept for screen readers and the hover tooltip.
 export const starChip = (l) => `<span class="chip st l${l}" title="${LEVELS[l]}" aria-label="${l} of 4 stars, ${LEVELS[l]}">${STARS[l]}<i>${"★".repeat(4 - l)}</i></span>`;
+// Colour group of a strategy word: run green, hike orange, descent blue, brake red, aid violet.
+const WORD_GRP = { "HIKE": "hike", "RUN/HIKE": "hike", "POWER HIKE": "hike", "BRAKE": "brake", "SAVE QUADS": "brake", "LET GO": "desc", "QUICK": "desc", "CONTROL": "desc", "REFILL": "aid" };
+export const wordGrp = (w) => WORD_GRP[w] || "run";
+// wordChip(w): a strategy word (the watch words) as a coloured chip, the same everywhere.
+export const wordChip = (w) => `<span class="wchip g-${wordGrp(w)}" translate="no">${w}</span>`;

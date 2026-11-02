@@ -57,17 +57,31 @@ function legShort(l, hikeGrade = 15) {
   return "RUN";
 }
 
-/** What to do in a key zone, in a few characters (the long version is z.how). */
-function keyShort(z) {
+/** What to do in a key zone, with the same words as everywhere else (the long version is z.how). */
+function keyShort(z, blocks) {
   switch (z.kind) {
     case "climb": return /power-hike/.test(z.how) ? "POWER HIKE" : "RUN/HIKE";
-    case "start": return "GO SLOW";
-    case "approach": return "EAT+EASE";
+    case "approach": return "EASE UP";
     case "wall": return "HIKE";
-    case "restart": return "RUN AGAIN";
-    case "descent": return z.mode === "attack" ? "LET GO" : "SAVE QUADS";
-    default: return "RUN TALL";
+    case "restart": return "RECOVER";
+    default: return blockAt(blocks, z.fromKm + 0.05).word;
   }
+}
+
+/** The strategy block at km. */
+function blockAt(blocks, km) {
+  return blocks.find((b) => km >= b.startKm - 1e-6 && km < b.endKm) || blocks[blocks.length - 1] || { word: "RUN" };
+}
+
+/** The strategy word at km of scenario sid (Prep my run timeline, runnable stretches). */
+export function wordAt(plan, sid, km) {
+  return blockAt(strategyBlocks(plan, sid), km).word;
+}
+
+/** The strategy word of one climb, climb section or descent of plan.climbs / plan.descents (tables, A4). */
+export function strategyWord(plan, x, isClimb) {
+  const hg = (plan.params && plan.params.hikeGrade) ?? (plan.effort && plan.effort.hikeGrade) ?? 15;
+  return legShort({ kind: isClimb ? "climb" : "descent", avg: x.avg, tactic: x.tactic, level: x.level, up: x.gain || 0, down: x.loss || 0 }, hg);
 }
 
 // Two alerts need time to be read: each point comes at least 200 m and 1 minute (at plan pace) after the one before, pushed further along the course if needed.
@@ -129,9 +143,10 @@ export function coursePoints(plan, sid) {
     pts.push({ id: `b${b.startKm.toFixed(2)}`, km: b.startKm, type, name, text: `${secs}: ${b.word === "RUN" && b.legs.length > 1 ? "Gentle ground, just run" : b.legs[0].tactic}. ${b.km.toFixed(1)} km, +${up} m / -${down} m, arrive ${clock(st, b.startSec)}.` });
   });
   // One alert per key zone, with the danger icon and a "!" in front of its name.
+  const blocks = strategyBlocks(plan, sid);
   zones.forEach((z) => {
     const len = kmShort(z.toKm - z.fromKm);
-    pts.push({ id: `k${z.n}`, km: z.fromKm, type: CP.danger, name: fitName(`!${keyShort(z)} ${len}`, `!${keyShort(z)}${len}`, `!${keyShort(z)}`), text: `Key zone ${z.n} · ${z.modeLabel} · ${z.title}. ${z.how}` });
+    pts.push({ id: `k${z.n}`, km: z.fromKm, type: CP.danger, name: fitName(`!${keyShort(z, blocks)} ${len}`, `!${keyShort(z, blocks)}${len}`, `!${keyShort(z, blocks)}`), text: `Key zone ${z.n} · ${z.modeLabel} · ${z.title}. ${z.how}` });
   });
   return spacePoints(plan, sid, pts);
 }

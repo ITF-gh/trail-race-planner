@@ -4,7 +4,8 @@ import { parseGpx } from "../core/track.js";
 import { buildPlan } from "../core/plan.js";
 import { prepRunPlan } from "../core/preprun.js";
 import { hm, clock, parseDuration } from "../core/format.js";
-import { starChip, descChip } from "./chips.js";
+import { starChip, descChip, wordChip } from "./chips.js";
+import { strategyWord, wordAt } from "../core/garmin.js";
 import { makeDemoRaceGpx, DEMO_LONG_RUN_PROFILE } from "../demo.js";
 import { watchPanelHtml, mountWatch, watchPoints, downloadCourse, pimpBadge } from "./watch.js";
 import { trackEvent } from "./analytics.js";
@@ -61,13 +62,13 @@ function glanceHtml(plan) {
       <div class="gl-i">${icon}</div>
       <div class="gl-m"><div class="gl-h">${title}${zoneBit(z)}</div>${figs ? `<div class="gl-f">${figs}</div>` : ""}${tactic ? `<div class="gl-tac">${tactic}</div>` : ""}${zoneHow(z)}</div>
       <div class="gl-d">${clock(st, sec)}</div></li>`;
-  const out = [row("gl-start", hm(0), 0, "▶", "Start", `${T.toFixed(1)} km · +${Math.round(plan.course.gain)} m · ${steps.filter((s) => s.kind === "c").length} climbs ahead`, "Easy first km, let the body wake up", null, 0, Math.min(1, T))];
+  const out = [row("gl-start", hm(0), 0, "▶", "Start", `${T.toFixed(1)} km · +${Math.round(plan.course.gain)} m · ${steps.filter((s) => s.kind === "c").length} climbs ahead`, wordChip(wordAt(plan, "central", 0.05)), null, 0, Math.min(1, T))];
   // gap(a, b): the runnable stretch between two steps, shown from 1 km, or when a key zone sits on it.
   const gap = (a, b) => {
     const z = zoneOf(a, b);
     if (b - a < 1 && !z) return;
     const t0 = timeAt(a), t1 = timeAt(b);
-    out.push(row("gl-run", hm(t0), a, "", `Runnable · ${(b - a).toFixed(1)} km · ${mins(t1 - t0)}`, "", "", z, t0, b));
+    out.push(row("gl-run", hm(t0), a, "", `Runnable · ${(b - a).toFixed(1)} km · ${mins(t1 - t0)}`, "", wordChip(wordAt(plan, "central", (a + b) / 2)), z, t0, b));
   };
   let km = 0;
   steps.forEach(({ kind, x }) => {
@@ -76,9 +77,9 @@ function glanceHtml(plan) {
     const lenKm = `${(x.lenM / 1000).toFixed(1)} km`;
     if (kind === "c") {
       const parts = x.sections.length ? ` · ${x.sections.length} parts` : "";
-      out.push(row(`gl-c v${x.level}`, hm(at(x)), x.startKm, starChip(x.level), x.label || `Climb ${x.n}`, `${lenKm} · +${Math.round(x.gain)} m · ${x.avg.toFixed(0)}% avg${parts} · ${mins(x.dur.central)}`, prEsc(x.tactic), z, at(x), x.endKm));
+      out.push(row(`gl-c v${x.level}`, hm(at(x)), x.startKm, starChip(x.level), x.label || `Climb ${x.n}`, `${lenKm} · +${Math.round(x.gain)} m · ${x.avg.toFixed(0)}% avg${parts} · ${mins(x.dur.central)}`, wordChip(strategyWord(plan, x, true)), z, at(x), x.endKm));
     } else {
-      out.push(row(`gl-dsc v${x.level}`, hm(at(x)), x.startKm, descChip(x.level), `Descent ${x.n}`, `${lenKm} · −${Math.round(x.loss)} m · ${Math.abs(x.avg).toFixed(0)}% avg · ${mins(x.dur.central)}`, prEsc(x.tactic), z, at(x), x.endKm));
+      out.push(row(`gl-dsc v${x.level}`, hm(at(x)), x.startKm, descChip(x.level), `Descent ${x.n}`, `${lenKm} · −${Math.round(x.loss)} m · ${Math.abs(x.avg).toFixed(0)}% avg · ${mins(x.dur.central)}`, wordChip(strategyWord(plan, x, false)), z, at(x), x.endKm));
     }
     km = x.endKm;
   });
