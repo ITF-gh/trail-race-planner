@@ -43,7 +43,7 @@ const KIND_NAME = { start: "Start", climb: "Climbs", top: "Tops", descent: "Desc
 const ICON = { start: "▶", climb: "▲", top: "⛰", descent: "▼", gel: "G", aid: "⛺", phase: "◐", key: "★", ai: "✦", finish: "🏁" };
 
 // Colour group of a watch word: run green, hike orange, descent blue, brake red.
-const RP_WORD_GRP = { "HIKE": "hike", "RUN/HIKE": "hike", "BRAKE": "brake", "LET GO": "desc", "QUICK": "desc", "CONTROL": "desc" };
+const RP_WORD_GRP = { "HIKE": "hike", "RUN/HIKE": "hike", "POWER HIKE": "hike", "BRAKE": "brake", "SAVE QUADS": "brake", "LET GO": "desc", "QUICK": "desc", "CONTROL": "desc", "PUSH": "fin", "REFILL": "aid" };
 const rpGrp = (w) => RP_WORD_GRP[w] || "run";
 // Survives re-renders (a scenario switch, a settings change), so the replay keeps its place.
 const rp = { key: "", sec: 0, playing: false, speed: 360, pauseAt: false, follow: false, raf: 0, map: null, hideKinds: new Set(), sliding: false, focus: false };
@@ -346,13 +346,12 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
       const wp = [...watchPts].reverse().find((q) => q.km <= (l.startKm + l.endKm) / 2 && q.km >= (blk.startKm ?? l.startKm) - 0.3);
       const title = l.parent ? `${escR(l.parent.title)} · ${escR(l.title.replace(/^Climb section /, "section "))}` : escR(l.title);
       els.leg.innerHTML = `
-        <div class="hd-strat g-${grp}">
-          <span class="hd-word">${escR(blk.word)}</span>
+        <div class="hd-strat g-${grp}" id="hdStrat">
+          <span class="hd-word" id="hdWord">${escR(blk.word)}</span>
           <span class="hd-what"><b>${title}</b>${legChip(l)}${l.keyZone ? `<span class="chip keyc">★ Key zone ${l.keyZone.n}</span>` : ""}
             <small>${blk.km.toFixed(1)} km · +${Math.round(blk.up)} / −${Math.round(blk.down)} m${wp ? ` · <span class="hd-watch" title="Watch alert">⌚ ${escR(wp.name)}</span>` : ""}</small></span>
           <span class="hd-pct"><b id="rpLegPct"></b><small>${l.parent ? "of climb" : "done"}</small></span>
         </div>
-        ${l.tactic.toUpperCase() !== blk.word || l.keyZone ? `<p class="hd-tac"><span class="ic">${ICON[l.kind] || "➜"}</span><b>${escR(l.tactic)}</b>${l.keyZone && l.keyZone.how ? `<span class="kz">${escR(l.keyZone.how)}</span>` : ""}</p>` : ""}
         ${l.ai && l.ai.effort ? `<p class="rp-ai-note"><span class="ic">${ICON.ai}</span><b>Effort ${l.ai.effort}/5</b><span>${escR(l.ai.mode || "")}</span></p>` : ""}
         <div class="hd-gauges">
           <div class="hd-g"><span class="k">Pace</span><b id="hdPace"></b><small id="hdGap"></small></div>
@@ -361,7 +360,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
         <div class="hd-prog g-${grp}"><i id="hdBar"></i></div>
         <p class="hd-left"><span>Section <b>${l.i}</b> / ${legs.length}</span><span id="hdLeft"></span></p>
         <div class="hd-next ${nb ? `g-${rpGrp(nb.word)}` : "g-fin"}" id="hdNext"><span class="k">Next</span><span class="hd-word">${nb ? escR(nb.word) : "FINISH"}</span><small>${nb ? `${nb.km.toFixed(1)} km · +${Math.round(nb.up)} / −${Math.round(nb.down)} m` : ""}</small><span class="hd-in" id="hdIn"></span></div>`;
-      els.hd = { pace: els.leg.querySelector("#hdPace"), gap: els.leg.querySelector("#hdGap"), grade: els.leg.querySelector("#hdGrade"), bar: els.leg.querySelector("#hdBar"), left: els.leg.querySelector("#hdLeft"), next: els.leg.querySelector("#hdNext"), inn: els.leg.querySelector("#hdIn"), nb, word: blk.word, grp };
+      els.hd = { pace: els.leg.querySelector("#hdPace"), gap: els.leg.querySelector("#hdGap"), grade: els.leg.querySelector("#hdGrade"), bar: els.leg.querySelector("#hdBar"), left: els.leg.querySelector("#hdLeft"), next: els.leg.querySelector("#hdNext"), inn: els.leg.querySelector("#hdIn"), strat: els.leg.querySelector("#hdStrat"), wordEl: els.leg.querySelector("#hdWord"), nb, word: blk.word, grp };
       els.legPct = els.leg.querySelector("#rpLegPct");
       lastNextHtml = ""; // the card changed height: fit the list below it again
     }
@@ -380,6 +379,9 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     els.legPct.textContent = pa ? `${Math.round((Math.min(pa.endKm, Math.max(pa.startKm, s.km)) - pa.startKm) / (pa.endKm - pa.startKm) * 100)}%` : `${pct}%`;
     // Pace gauge: the gap to the section's target pace, green within 5%, orange to 10%, red beyond.
     const H = els.hd;
+    // Stopped at an aid station: the banner says REFILL until you leave.
+    const wNow = s.aid ? "REFILL" : H.word;
+    if (H.wordEl.textContent !== wNow) { H.wordEl.textContent = wNow; H.strat.className = `hd-strat g-${rpGrp(wNow)}`; }
     H.pace.textContent = s.aid ? "stopped" : s.pace ? `${mmss(s.pace)}/km` : "–";
     const gap = s.pace && l.pace && !s.aid ? s.pace - l.pace : null;
     H.gap.textContent = gap === null ? "" : `${gap >= 0 ? "+" : "−"}${Math.round(Math.abs(gap))} s vs ${mmss(l.pace)}/km`;
@@ -458,8 +460,8 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
       fo.pace.textContent = H.pace.textContent;
       fo.gap.textContent = H.gap.textContent;
       fo.gap.className = H.gap.className;
-      fo.word.textContent = H.word;
-      fo.word.className = `g-${H.grp}`;
+      fo.word.textContent = wNow;
+      fo.word.className = `g-${rpGrp(wNow)}`;
       fo.tg.textContent = l.pace ? `${mmss(l.pace)}/km` : "–";
       fo.gr.textContent = s.aid ? "–" : `${s.grade > 0 ? "+" : ""}${s.grade.toFixed(0)}%`;
       fo.clock.textContent = hms(s.sec);

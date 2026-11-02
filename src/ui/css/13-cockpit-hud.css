@@ -1,7 +1,7 @@
 /* Cockpit panel (review 2026-11-02): strategy banner, pace and gradient gauges, what is left, next change, gel and aid chips. */
 .rp-cockpit,.rp-focus{--g-run:#3fd06a;--g-hike:#ff8a2a;--g-desc:#5a8cff;--g-brake:#ff3048;--g-fin:#ffc928;--ok:#8ff0a8;--warn:#ffb06a;--bad:#ff6b7d}
 html[data-theme="sky"] .rp-cockpit,html[data-theme="sky"] .rp-focus{--g-run:#1f9e4a;--g-hike:#d9660f;--g-desc:#2f63d6;--g-brake:#d81f38;--g-fin:#b88a00;--ok:#1a8a3e;--warn:#b85a00;--bad:#c81e35}
-.g-run{--g:var(--g-run)} .g-hike{--g:var(--g-hike)} .g-desc{--g:var(--g-desc)} .g-brake{--g:var(--g-brake)} .g-fin{--g:var(--g-fin)}
+.g-run{--g:var(--g-run)} .g-hike{--g:var(--g-hike)} .g-desc{--g:var(--g-desc)} .g-brake{--g:var(--g-brake)} .g-fin{--g:var(--g-fin)} .g-aid{--g:#9b7bff}
 /* Plan figures on one thin line: they do not change during the replay. */
 .rp-cockpit .rp-tot>small{display:none}
 .rp-cockpit .rp-tot b{font-size:17px}
@@ -55,9 +55,3 @@ html[data-theme="sky"] .rp-cockpit,html[data-theme="sky"] .rp-focus{--g-run:#1f9
   .hd-word{font-size:32px} .hd-g b{font-size:26px} .hd-next .hd-word{font-size:20px}
   .rp-focus .fo-word b{font-size:30px}
 }
-/* The section's tactic sentence, and the key zone advice when there is one. */
-.hd-tac{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px;margin:-2px 0 0;font-size:13.5px;line-height:1.35}
-.hd-tac .ic{color:var(--muted);font-size:12px}
-.hd-tac b{font-weight:600}
-.hd-tac .kz{flex-basis:100%;color:var(--gold);font-size:12.5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.hd-tac .kz::before{content:"★ "}
