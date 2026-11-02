@@ -179,8 +179,8 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
       </div>
       <p class="hd-race" id="rpLeft"></p>
       <div class="rp-prog" aria-hidden="true"><i id="rpBar"></i></div>
-      <div class="rp-leg" id="rpLeg"></div>
       <div class="hd-chips" id="hdChips"></div>
+      <div class="rp-leg" id="rpLeg"></div>
       <div class="rp-now" id="rpNow" hidden></div>
       <ol class="rp-notifs" id="rpCue" aria-live="polite" aria-label="Latest moments"></ol>
       ${plan.ai ? `<div class="rp-ai-box" id="rpAi" aria-live="polite"></div>` : ""}
@@ -352,6 +352,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
             <small>${blk.km.toFixed(1)} km · +${Math.round(blk.up)} / −${Math.round(blk.down)} m${wp ? ` · <span class="hd-watch" title="Watch alert">⌚ ${escR(wp.name)}</span>` : ""}</small></span>
           <span class="hd-pct"><b id="rpLegPct"></b><small>${l.parent ? "of climb" : "done"}</small></span>
         </div>
+        ${l.tactic.toUpperCase() !== blk.word || l.keyZone ? `<p class="hd-tac"><span class="ic">${ICON[l.kind] || "➜"}</span><b>${escR(l.tactic)}</b>${l.keyZone && l.keyZone.how ? `<span class="kz">${escR(l.keyZone.how)}</span>` : ""}</p>` : ""}
         ${l.ai && l.ai.effort ? `<p class="rp-ai-note"><span class="ic">${ICON.ai}</span><b>Effort ${l.ai.effort}/5</b><span>${escR(l.ai.mode || "")}</span></p>` : ""}
         <div class="hd-gauges">
           <div class="hd-g"><span class="k">Pace</span><b id="hdPace"></b><small id="hdGap"></small></div>

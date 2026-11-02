@@ -55,3 +55,9 @@ html[data-theme="sky"] .rp-cockpit,html[data-theme="sky"] .rp-focus{--g-run:#1f9
   .hd-word{font-size:32px} .hd-g b{font-size:26px} .hd-next .hd-word{font-size:20px}
   .rp-focus .fo-word b{font-size:30px}
 }
+/* The section's tactic sentence, and the key zone advice when there is one. */
+.hd-tac{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px;margin:-2px 0 0;font-size:13.5px;line-height:1.35}
+.hd-tac .ic{color:var(--muted);font-size:12px}
+.hd-tac b{font-weight:600}
+.hd-tac .kz{flex-basis:100%;color:var(--gold);font-size:12.5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.hd-tac .kz::before{content:"★ "}
