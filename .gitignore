@@ -6,3 +6,4 @@ dist/
 !tests/fixtures/*.gpx
 .env.local
 ai-runs/
+supabase/functions/_shared/core/

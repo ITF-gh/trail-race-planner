@@ -85,7 +85,7 @@ supabase functions deploy claim-cairns --project-ref vjhzcuvxucpldhsjpqrl
 ```
 
 `ai-analyse` builds its OpenAI request with the app's own prompt code: `npm run build` copies
-`src/core` into `supabase/functions/_shared/core` (a test fails if the copy is out of date).
+`src/core` into `supabase/functions/_shared/core` (`scripts/core-copy.js`, run by `npm test` and `npm run build`; the copy is not kept in git).
 
 ## 6. Fill in the app (read-only)
 

@@ -5,6 +5,7 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "pretest": "node scripts/core-copy.js",
     "test": "node --test \"tests/**/*.test.js\"",
     "plan": "node cli.js",
     "build": "node scripts/build.js",

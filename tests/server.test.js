@@ -3,7 +3,7 @@
 // spends one edelweiss and gives it back only when OpenAI never answered.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { claimCairns } from "../supabase/functions/_shared/cairns.js";
 import { aiBegin, aiFinish, aiNoBody, AI_MODEL } from "../supabase/functions/_shared/aicall.js";
 import { aiPrepFake } from "../src/core/aiprep.js";
@@ -35,9 +35,6 @@ function fakeDb(runs, ledger = []) {
 }
 const balance = (db) => db.ledger.reduce((s, r) => s + r.delta, 0);
 
-test("server copy of src/core is up to date (run npm run build)", () => {
-  for (const f of readdirSync("src/core")) assert.equal(readFileSync(`supabase/functions/_shared/core/${f}`, "utf8"), readFileSync(`src/core/${f}`, "utf8"), f);
-});
 
 test("checkRecord accepts real runs and rejects impossible ones", () => {
   assert.equal(checkRecord(run(1), NOW), null);
