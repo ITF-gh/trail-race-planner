@@ -11,7 +11,7 @@
 // only once a reference is set (and no target time). A gauge fills from green to red and a round
 // knob slides to the level with a little bounce (a CSS transition whose timing curve overshoots:
 // cubic-bezier with a value above 1); its icon moves: a turtle bobs, a leaf sways, a heart
-// beats, a bolt flashes, a flame flickers. Pure CSS animation, see style.css ".lvl"; the CSS
+// beats, a bolt flashes, a flame flickers. Pure CSS animation, see src/ui/css ".lvl"; the CSS
 // variable --i (0 to 4) places the knob and the end of the fill.
 //
 // Main exports: refsCardHtml(mode), levelPickerHtml(level), initRefs().

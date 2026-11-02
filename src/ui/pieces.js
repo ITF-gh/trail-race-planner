@@ -22,7 +22,7 @@ export const empty = (html) => `<div class="empty">${html}</div>`;
 /**
  * The climbs and descents tables: one header row on top (the labels are not repeated in every
  * row), then the rows. cols: the column titles after the number and the mini profile; cls: the
- * table's kind ("t-route" or "t-plan"), which sets its column widths in style.css.
+ * table's kind ("t-route" or "t-plan"), which sets its column widths in src/ui/css.
  */
 // Column order (Boss, design review 2): #, Km, the mini profile with the average gradient, then cols.
 export const rowsTable = (cls, cols, body) => `<div class="rows tbl ${cls}" role="table"><div class="row rh" role="row"><div class="n">#</div><div class="c">Km</div><div class="c sph">Profile · avg</div>${cols.map((c) => `<div class="c${c.w ? " w" : ""}">${c.t || c}</div>`).join("")}<div class="diff"></div></div>${body}</div>`;

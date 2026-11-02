@@ -18,7 +18,7 @@
 //   GPX file (dropped or chosen) -> core/track.js parseGpx + resample (one sample every 10 m)
 //   -> core/terrain.js analyseCourse (race) and core/effort.js analyseEffort (your runs)
 //   -> core/plan.js buildPlan (both together, with the settings form)
-//   -> the render* functions below, which write HTML into the page.
+//   -> the render* functions of route.js and race.js, which write HTML into the page.
 // Other UI modules do the heavy drawing: map.js (Leaflet map), replay.js (the rehearsal
 // cockpit), watch.js (watch messages and course files), preprun.js, review.js, print.js.
 // This file is the conductor: it wires the buttons and inputs and calls compute() whenever
@@ -73,7 +73,7 @@ const PEAK = `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M2 27 12 9l5 
 // The logo, the name and the short line beside it, the same in every mode (the line is the site's tagline).
 const BRAND = `${PEAK}Prep my race <span class="brand-desc">${SITE.tagline.replace("&", "&amp;")}</span>`;
 // Photos come from Pexels (free licence: use and edit allowed, credit appreciated). The files sit
-// in src/ui/photos and are copied next to index.html at build; style.css points the slots at them.
+// in src/ui/photos and are copied next to index.html at build; src/ui/css points the slots at them.
 // Plan mode keeps the nature and adventure look; "Review a run" mode gets sport shots. No face is
 // recognisable in any of them: people are seen from behind, far away or as silhouettes.
 /* ---------- Sky mode: a bright theme, blue skies, white and sunrise tones ---------- */
@@ -101,7 +101,7 @@ function initialTheme() {
   return store.get(THEME_KEY) === "sky" ? "sky" : "night";
 }
 /**
- * Apply a theme ("sky" or "night"). Side effects: sets data-theme on <html> (style.css switches
+ * Apply a theme ("sky" or "night"). Side effects: sets data-theme on <html> (src/ui/css switches
  * its colours on that attribute) and updates the theme button's text, tooltip and aria-pressed
  * (aria-pressed tells screen readers whether a toggle button is on). The button does not exist
  * yet on the first call (the page is built further down), hence the `if (b)`.
@@ -376,7 +376,7 @@ $("#themeBtn").addEventListener("click", () => {
 /* ---------- files ---------- */
 /**
  * Show a status message under a drop box. which: "race" or anything else for the runs box.
- * html: the message (HTML text). ok: true adds the "done" class (style.css marks the box as filled).
+ * html: the message (HTML text). ok: true adds the "done" class (src/ui/css marks the box as filled).
  */
 function setStatus(which, html, ok) {
   $(which === "race" ? "#stRace" : "#stEffort").innerHTML = html;
@@ -596,7 +596,7 @@ document.addEventListener("trp-ai-use", (ev) => {
       // Progress in % = how far down / how far it can go (page height minus window height).
       const h = document.documentElement.scrollHeight - window.innerHeight;
       bar.style.width = `${h > 0 ? Math.min(100, (window.scrollY / h) * 100) : 0}%`;
-      // "stuck": the bar has reached the top of the window (it is position: sticky in style.css).
+      // "stuck": the bar has reached the top of the window (it is position: sticky in src/ui/css).
       $("#topnav").classList.toggle("stuck", $("#topnav").getBoundingClientRect().top <= 0);
     });
   };
@@ -863,7 +863,7 @@ document.addEventListener("click", (ev) => {
 });
 
 // Also delegated. Clicks on links, buttons and <summary> are left alone. The heading's following
-// siblings get "fold-hid" (hidden by style.css): for a sub-title, up to the next sub-title, fold or
+// siblings get "fold-hid" (hidden by src/ui/css): for a sub-title, up to the next sub-title, fold or
 // Pimp my GPX sticker; for a section banner, everything after it in the section.
 // Click a section banner or a sub-title (the red-bar headings) to fold what it heads, click again to unfold.
 document.addEventListener("click", (ev) => {

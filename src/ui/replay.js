@@ -13,7 +13,7 @@
 // the panel next to the map. Those only change when you enter a new section, so draw() compares
 // the section number with the last one and touches the DOM only then.
 //
-// Where it sits: main.js (Plan a race) and preprun.js (Prep my run, through main.js's cockpit)
+// Where it sits: race.js (Plan a race) and preprun.js (Prep my run, through race.js's mountCockpit)
 // call mountReplay() with a finished plan (from src/core/plan.js) and a drawn profile. All the
 // race facts come from src/core/script.js: raceScript (the list of moments), raceStateAt (where
 // the runner is at a given second), raceLegs (the sections). This file only shows them and
