@@ -1,6 +1,10 @@
 // changelog.js: the "What's new" list, newest first, in runner's words (the git log has the technical detail).
 
 export const CHANGELOG = [
+  { v: "2.33", date: "2026-11-02", items: [
+    "Cockpit panel redesigned for the runner: the watch word big and in colour (HIKE, RUN, BRAKE…), the next strategy change with a countdown, pace with its gap to target in colour, gradient, what is left in the section and to the finish, next gel and aid always on screen.",
+    "Calmer pace line on the profile, one thin line for the plan figures, no legend under the section bar.",
+  ] },
   { v: "2.32", date: "2026-11-02", items: [
     "Pace focus mode in Your race and Prep my run: tap ◎ Pace focus (or press F) under the replay to see the pace line and your section full screen, with the map behind. Esc or ✕ Exit focus brings the cockpit back.",
   ] },
