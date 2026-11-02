@@ -1,6 +1,9 @@
 // changelog.js: the "What's new" list, newest first, in runner's words (the git log has the technical detail).
 
 export const CHANGELOG = [
+  { v: "2.32", date: "2026-11-02", items: [
+    "Pace focus mode in Your race and Prep my run: tap ◎ Pace focus (or press F) under the replay to see the pace line and your section full screen, with the map behind. Esc or ✕ Exit focus brings the cockpit back.",
+  ] },
   { v: "2.29", date: "2026-10-29", items: [
     "Prep my race now plans your race from your runs only: the 10K and half-marathon boxes are gone from it (a road best can be old and says little about trail).",
     "New Form on race day setting in Your route: Normal, In shape (3% faster) or Top shape (5% faster).",

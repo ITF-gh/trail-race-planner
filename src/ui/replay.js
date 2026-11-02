@@ -42,7 +42,7 @@ const KIND_NAME = { start: "Start", climb: "Climbs", top: "Tops", descent: "Desc
 const ICON = { start: "▶", climb: "▲", top: "⛰", descent: "▼", gel: "G", aid: "⛺", phase: "◐", key: "★", ai: "✦", finish: "🏁" };
 
 // Survives re-renders (a scenario switch, a settings change), so the replay keeps its place.
-const rp = { key: "", sec: 0, playing: false, speed: 360, pauseAt: false, follow: false, raf: 0, map: null, hideKinds: new Set(), sliding: false };
+const rp = { key: "", sec: 0, playing: false, speed: 360, pauseAt: false, follow: false, raf: 0, map: null, hideKinds: new Set(), sliding: false, focus: false };
 
 /** Mount the replay in `box`. */
 /** Line the section bar up with the profile: pad `bar` so its km 0 and its finish sit right above the profile's own km 0 and finish. */
@@ -177,11 +177,19 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
       ${plan.ai ? `<div class="rp-ai-box" id="rpAi" aria-live="polite"></div>` : ""}
       <ul class="kv rp-next" id="rpNext"></ul>
     </div>
+  <div class="rp-focus" id="rpFocus" aria-live="off">
+    <div class="fo-sec"><span class="k">Section</span><b id="foN"></b><span class="fo-t" id="foT"></span></div>
+    <div class="fo-now"><span class="k">Pace</span><b id="foPace"></b></div>
+    <div><span class="k">Target</span><b id="foTg"></b></div>
+    <div><span class="k">Gradient</span><b id="foGr"></b></div>
+    <div><span class="k">Duration</span><b id="foClock"></b></div>
+  </div>
   <div class="prof-wrap rp-prof" id="rpProf">${prof.html}</div>
   <div class="rp-controls">
     <button class="btn icon" type="button" id="rpPrev" aria-label="Previous moment" title="Previous moment (←)">⏮</button>
     <button class="btn primary rp-play" type="button" id="rpPlay"></button>
     <button class="btn icon" type="button" id="rpNextBtn" aria-label="Next moment" title="Next moment (→)">⏭</button>
+    <button class="btn rp-focus-btn" type="button" id="rpFocusBtn" aria-pressed="false" title="Pace focus (F)"></button>
     <input type="range" id="rpSeek" min="0" max="${Math.round(sc.finishSec)}" step="10" aria-label="${noun} time">
     <label class="f inline">Speed<select id="rpSpeed" aria-label="Replay speed">${SPEEDS.map((s) => `<option value="${s.v}" ${s.v === rp.speed ? "selected" : ""}>${s.label}</option>`).join("")}</select></label>
     <label class="chk"><input type="checkbox" id="rpPause" ${rp.pauseAt ? "checked" : ""}> Stop at each moment</label>
@@ -231,6 +239,23 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     svgEl.querySelectorAll("title").forEach((t) => t.remove());
   }
   const pace = svgEl && els.cur ? mountPaceLine(svgEl, els.cur, prof, racePaceLine(plan, sid)) : null;
+  // Pace focus mode (review 2.2, item 23): full screen, pace line and section big, map behind.
+  const cockpit = $r("#rpCockpit");
+  const fo = { n: $r("#foN"), t: $r("#foT"), pace: $r("#foPace"), tg: $r("#foTg"), gr: $r("#foGr"), clock: $r("#foClock"), btn: $r("#rpFocusBtn") };
+  const setFocus = (on) => {
+    rp.focus = on;
+    cockpit.classList.toggle("focus", on);
+    document.documentElement.classList.toggle("rp-focus-on", on);
+    // Each section isolates its own layers: lift ours above the others and the top bar.
+    const sec = cockpit.closest("section");
+    if (sec) sec.style.zIndex = on ? "1003" : "";
+    fo.btn.setAttribute("aria-pressed", String(on));
+    fo.btn.textContent = on ? "✕ Exit focus" : "◎ Pace focus";
+    lastLeg = -1;
+    if (rp.map && !rp.follow) requestAnimationFrame(() => rp.map && rp.map.fit());
+  };
+  fo.btn.hidden = !pace;
+  fo.btn.addEventListener("click", () => { trackEvent("replay-focus", rp.focus ? "off" : "on"); setFocus(!rp.focus); draw(); });
   /** Light up section number `li` (index in `legs`) everywhere: band and glow on the profile, scroll of the profile on a phone, glow on the map, and on/past/next classes on the bar. */
   const drawLeg = (li) => {
     const l = legs[li];
@@ -406,6 +431,14 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     }
     // The pace line: the whole current section lit, the dot and the live pace at the runner.
     if (pace) pace.draw(s.km, l, s.sec, s.aid ? "stopped" : "");
+    if (rp.focus) {
+      fo.n.textContent = `${l.i}/${legs.length}`;
+      fo.t.textContent = l.parent ? `${l.parent.title} · ${l.title.replace(/^Climb section /, "Section ")}` : l.title;
+      fo.pace.textContent = s.aid ? "stopped" : s.pace ? `${mmss(s.pace)}/km` : "–";
+      fo.tg.textContent = l.pace ? `${mmss(l.pace)}/km` : "–";
+      fo.gr.textContent = s.aid ? "–" : `${s.grade > 0 ? "+" : ""}${s.grade.toFixed(0)}%`;
+      fo.clock.textContent = hms(s.sec);
+    }
     // Profile cursor: slide the group sideways to the km, then put its dot at the elevation.
     if (els.cur) {
       els.cur.style.display = "";
@@ -601,17 +634,20 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     const tag = (ev.target.tagName || "").toLowerCase();
     // Typing in a text box or a menu: leave the keys alone (the seek bar and tick boxes are fine).
     if (["input", "select", "textarea"].includes(tag) && ev.target.type !== "range" && ev.target.type !== "checkbox") return;
-    // Replay scrolled out of view (entirely above or below the window): do nothing.
+    if (ev.key === "Escape" && rp.focus) { setFocus(false); draw(); return; }
+    // Replay scrolled out of view (entirely above or below the window): do nothing, unless in focus mode.
     const r = box.getBoundingClientRect();
-    if (r.bottom < 0 || r.top > window.innerHeight) return;
+    if (!rp.focus && (r.bottom < 0 || r.top > window.innerHeight)) return;
     if ([" ", "ArrowLeft", "ArrowRight"].includes(ev.key)) trackOnce("replay-keyboard");
     // preventDefault() stops the browser's own action (space scrolls the page, arrows move the seek bar) so the key does only our action.
+    if ((ev.key === "f" || ev.key === "F") && pace && !ev.ctrlKey && !ev.metaKey && !ev.altKey) { trackEvent("replay-focus", rp.focus ? "off" : "on"); setFocus(!rp.focus); draw(); return; }
     if (ev.key === " " && tag !== "button") { ev.preventDefault(); rp.playing ? pause() : play(); }
     else if (ev.key === "ArrowRight" && tag !== "input") { ev.preventDefault(); jump(1); }
     else if (ev.key === "ArrowLeft" && tag !== "input") { ev.preventDefault(); jump(-1); }
   };
   document.addEventListener("keydown", rp.onKey);
   // First draw, so the cockpit shows the current position before anything is pressed.
+  setFocus(rp.focus && Boolean(pace));
   draw();
 }
 
@@ -621,6 +657,7 @@ export function stopReplay() {
   cancelAnimationFrame(rp.raf);
   if (rp.onKey) document.removeEventListener("keydown", rp.onKey);
   rp.onKey = null;
+  document.documentElement.classList.remove("rp-focus-on");
   if (rp.map) rp.map.destroy();
   rp.map = null;
 }

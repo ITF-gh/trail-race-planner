@@ -1682,7 +1682,12 @@
   "Top shape ({0}% faster)": "Au top ({0} % plus rapide)",
   "Your runs set the plan. Tell it if you feel sharper than in training.": "Tes runs fixent le plan. Dis-lui si tu te sens plus affûté qu'à l'entraînement.",
   "Prep my race now plans your race from your runs only: the 10K and half-marathon boxes are gone from it (a road best can be old and says little about trail).": "Prep my race prévoit maintenant ta course uniquement à partir de tes runs : les cases 10K et semi n'y sont plus (un record sur route peut être ancien et dit peu sur le trail).",
-  "New Form on race day setting in Your route: Normal, In shape ({0}% faster) or Top shape ({1}% faster).": "Nouveau réglage Forme le jour J dans Ton parcours : Normale, En forme ({0} % plus rapide) ou Au top ({1} % plus rapide)."
+  "New Form on race day setting in Your route: Normal, In shape ({0}% faster) or Top shape ({1}% faster).": "Nouveau réglage Forme le jour J dans Ton parcours : Normale, En forme ({0} % plus rapide) ou Au top ({1} % plus rapide).",
+  "◎ Pace focus": "◎ Focus allure",
+  "✕ Exit focus": "✕ Quitter le focus",
+  "Pace focus (F)": "Focus allure (F)",
+  "stopped": "à l'arrêt",
+  "Pace focus mode in Your race and Prep my run: tap ◎ Pace focus (or press F) under the replay to see the pace line and your section full screen, with the map behind. Esc or ✕ Exit focus brings the cockpit back.": "Mode Focus allure dans Ta course et Prep my run : touche ◎ Focus allure (ou la touche F) sous le replay pour voir la courbe d'allure et ta section en plein écran, avec la carte derrière. Échap ou ✕ Quitter le focus ramène le cockpit."
  },
  "h": {
   "Prep it up,<br><em>get it done.</em>": "Un brief<br><em>et c'est parti !</em>",

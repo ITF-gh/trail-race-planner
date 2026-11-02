@@ -1,0 +1,39 @@
+/* Pace focus mode: the cockpit full screen, map behind, pace line and section big (replay.js setFocus). */
+.rp-focus{display:none}
+html.rp-focus-on,html.rp-focus-on body{overflow:hidden}
+.rp-focus-btn[aria-pressed="true"]{border-color:var(--rv-pace);color:var(--rv-pace)}
+.rp-cockpit.focus{position:fixed;inset:0;z-index:1003;height:auto;min-height:0;margin:0;padding:12px 16px calc(12px + env(safe-area-inset-bottom));
+  background:var(--bg);grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto auto;grid-template-areas:"fo" "." "prof" "ctl";gap:10px}
+.rp-cockpit.focus>.rp-totals,.rp-cockpit.focus>.rp-legbar,.rp-cockpit.focus>.rp-hud{display:none}
+.rp-cockpit.focus>.rp-map{grid-area:auto;grid-row:1/-1;grid-column:1/-1;margin:-12px -16px;border:0;border-radius:0;opacity:.6;position:relative;z-index:0;min-height:0}
+.rp-cockpit.focus>.rp-focus,.rp-cockpit.focus>.rp-prof,.rp-cockpit.focus>.rp-controls{position:relative;z-index:1}
+.rp-cockpit.focus>.rp-focus{grid-area:fo;display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px 28px;justify-self:start;max-width:100%;
+  padding:10px 16px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.rp-focus>div{display:flex;flex-direction:column;min-width:0}
+.rp-focus .k{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.rp-focus b{font-family:var(--f-display);font-size:28px;line-height:1.05;font-variant-numeric:tabular-nums}
+.rp-focus .fo-now b{font-size:46px;color:var(--rv-pace)}
+.rp-focus .fo-sec{flex-direction:row;flex-wrap:wrap;align-items:baseline;gap:2px 8px;flex-basis:100%}
+.rp-focus .fo-sec b{font-size:22px}
+.rp-focus .fo-t{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60vw}
+.rp-cockpit.focus>.rp-prof{background:var(--surface);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+.rp-cockpit.focus .rp-prof .prof-scroll{overflow:hidden}
+.rp-cockpit.focus .rp-prof svg{min-width:0;width:100%;height:auto;max-height:48vh;display:block}
+.rp-cockpit.focus>.rp-controls{padding:8px 10px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.rp-cockpit.focus svg .area{opacity:.55}
+.rp-cockpit.focus svg .pl-cur{opacity:.22}
+.rp-cockpit.focus svg .rv-pl{stroke-width:2.2}
+.rp-cockpit.focus svg .rv-pl.ahead,.rp-cockpit.focus svg .rv-pl.past{opacity:.5}
+.rp-cockpit.focus svg .rv-pl.trail{stroke-width:3.6;opacity:1}
+.rp-cockpit.focus svg .rv-pl-dot{r:6}
+.rp-cockpit.focus svg .rv-pl-v{font-size:16px}
+.rp-cockpit.focus svg .rv-pl-t{font-size:12px}
+@media (max-width:700px){
+  .rp-cockpit.focus{padding:8px 8px calc(8px + env(safe-area-inset-bottom));gap:8px}
+  .rp-cockpit.focus>.rp-map{margin:-8px}
+  .rp-cockpit.focus>.rp-focus{gap:4px 16px;padding:8px 12px}
+  .rp-focus b{font-size:22px} .rp-focus .fo-now b{font-size:36px}
+  .rp-cockpit.focus .rp-prof .prof-scroll{overflow-x:auto}
+  .rp-cockpit.focus .rp-prof svg{min-width:900px;max-height:none}
+  .rp-cockpit.focus .rp-controls label.chk,.rp-cockpit.focus .rp-controls label.f{display:none}
+}
