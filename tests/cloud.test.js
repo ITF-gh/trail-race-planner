@@ -9,7 +9,7 @@ const store = new Map();
 globalThis.localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
 globalThis.location = { origin: "https://itf-gh.github.io", pathname: "/trail-race-planner/", hash: "" };
 
-const setCloud = (c) => Object.assign(CLOUD, { url: "https://x.supabase.co", anonKey: "anon", connect: false }, c);
+const setCloud = (c) => Object.assign(CLOUD, { url: "https://x.supabase.co", anonKey: "anon", connect: false, captcha: "" }, c);
 
 test("off until url, key and connect are all set", () => {
   setCloud({ url: "", connect: true });
@@ -89,4 +89,18 @@ test("2-step login: a password sign-in waits for the code, then keeps the 2-step
   assert.equal(cloudUser().id, "u1");
   assert.ok(calls.some((u) => /factors\/f1\/challenge$/.test(u)) && calls.some((u) => /factors\/f1\/verify$/.test(u)));
   globalThis.fetch = real;
+});
+
+test("with a site key, sign-up, sign-in link and reset carry a one-use bot-check token", async () => {
+  setCloud({ connect: true, captcha: "site-key" });
+  let n = 0;
+  globalThis.window = { turnstile: { render: (box, o) => { assert.equal(o.sitekey, "site-key"); o.callback(`tok${++n}`); return n; }, remove() {} } };
+  globalThis.document = { createElement: () => ({ remove() {} }), body: { appendChild() {} }, head: { appendChild() {} }, documentElement: { lang: "en" } };
+  sent.length = 0;
+  await cloudSignUp("me@example.com", "longenough1");
+  await cloudSendLink("me@example.com");
+  await cloudSendReset("me@example.com");
+  assert.deepEqual(sent.map((x) => x.body.gotrue_meta_security.captcha_token), ["tok1", "tok2", "tok3"]);
+  delete globalThis.window; delete globalThis.document;
+  setCloud({ connect: true });
 });

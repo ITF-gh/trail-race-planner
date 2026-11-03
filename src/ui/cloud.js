@@ -14,7 +14,7 @@ export const CLOUD = {
   // New accounts: true = open sign-ups (Boss, 2026-11-03), with email confirmation, bot check and 10 new accounts an hour (step 10 SQL).
   signup: true,
   // Cloudflare Turnstile site key (public). Set = every sign-up, sign-in and reset sends a bot-check token.
-  captcha: "",
+  captcha: "0x4AAAAAAFx3ksz20HjpY2fQ",
 };
 
 /** The message every write call throws while the account is read-only (account.js shows it). */
