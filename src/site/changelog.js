@@ -1,6 +1,9 @@
 // changelog.js: the "What's new" list, newest first, in runner's words (the git log has the technical detail).
 
 export const CHANGELOG = [
+  { v: "2.36", date: "2026-11-03", items: [
+    "A real race for the Prep my race demo: the Grand Trail des Templiers 80K course, planned from two sample runs on real mountain routes (11 km and 31 km, simulated runner, no personal data).",
+  ] },
   { v: "2.35", date: "2026-11-03", items: [
     "Easier import from Garmin and Strava: every drop box now also takes FIT, TCX and the .zip from Export Original, a short how-to sits under each run box, and on Android a file can be shared straight to the installed app (it lands in My files). Heart rate is never read.",
     "Create your own free online account: email and password, confirmed with a link we email you. A bot check (Cloudflare Turnstile) protects the account forms.",
