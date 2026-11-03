@@ -2,6 +2,7 @@
 
 export const CHANGELOG = [
   { v: "2.36", date: "2026-11-03", items: [
+    "Rewind my run sample: a real 20 km recorded run (no heart rate, start and finish cut).",
     "Prep my run sample: a real 16 km trail route instead of a made-up loop.",
     "A real race for the Prep my race demo: the Grand Trail des Templiers 80K course, planned from two sample runs on real mountain routes (11 km and 31 km, simulated runner, no personal data), with an aid station about every 10 km.",
   ] },
