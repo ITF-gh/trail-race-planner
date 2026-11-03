@@ -712,3 +712,6 @@ document.addEventListener("click", (ev) => {
   }
   trackEvent("fold-title", folded ? "close" : "open");
 });
+
+// Installable app: register the service worker (offline copy), only on the live https site.
+if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) navigator.serviceWorker.register("sw.js").catch(() => {});

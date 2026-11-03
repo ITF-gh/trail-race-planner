@@ -121,5 +121,17 @@ writeFileSync(join(root, "dist/i18n.js"), `(function(){\n"use strict";\n${i18nSr
 // Icons, the share-preview image and the guide screenshots (made once by scripts/site-images.mjs and scripts/guide-shots.mjs, kept in src/site).
 cpSync(join(root, "src/site/icons"), join(root, "dist"), { recursive: true });
 if (existsSync(join(root, "src/site/guide"))) cpSync(join(root, "src/site/guide"), join(root, "dist/guide"), { recursive: true });
+// Installable app (PWA, also the Play Store wrapper): manifest + service worker that keeps the last copy for offline use.
+writeFileSync(join(root, "dist/manifest.webmanifest"), JSON.stringify({
+  name: SITE.name, short_name: SITE.name, description: SITE.description, lang: "en",
+  id: "./", start_url: "./", scope: "./", display: "standalone", background_color: "#0a1530", theme_color: "#0a1530",
+  icons: [
+    { src: "icon-192.png", sizes: "192x192", type: "image/png" },
+    { src: "icon-512.png", sizes: "512x512", type: "image/png" },
+    { src: "icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+  ],
+}, null, 1));
+const swVer = createHash("sha256").update(readFileSync(join(root, "dist/index.html"))).digest("hex").slice(0, 10);
+writeFileSync(join(root, "dist/sw.js"), readFileSync(join(root, "scripts/sw.js"), "utf8").replace("__VER__", swVer));
 // Report the number of modules and the size of code in KB (characters / 1024).
 console.log(`built dist/index.html: ${order.length} modules, ${Math.round((css.length + js.length) / 1024)} KB of code`);

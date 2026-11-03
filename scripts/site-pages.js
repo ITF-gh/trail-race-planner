@@ -14,6 +14,7 @@ export function headMeta({ title, description = SITE.description, path = "" }) {
     `<link rel="icon" href="${path}favicon.svg" type="image/svg+xml">`,
     `<link rel="icon" href="${path}favicon-32.png" sizes="32x32" type="image/png">`,
     `<link rel="apple-touch-icon" href="${path}apple-touch-icon.png">`,
+    `<link rel="manifest" href="${path}manifest.webmanifest">`,
     `<meta property="og:type" content="website">`,
     `<meta property="og:site_name" content="${esc(SITE.name)}">`,
     `<meta property="og:title" content="${esc(title)}">`,
