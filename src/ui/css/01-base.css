@@ -66,6 +66,10 @@ button,.btn{font:inherit;cursor:pointer}
 .drop .status{font-size:14px;min-height:1.4em;color:var(--on-pine)}
 .drop .ok{color:#8fe0a0;font-weight:600}
 .drop .err{margin-top:4px}
+.how-export{font-size:13px;color:var(--on-pine-muted)}
+.how-export summary{cursor:pointer;color:var(--on-pine);font-weight:600;min-height:28px}
+.how-export ul{margin:6px 0;padding-left:18px;display:grid;gap:4px}
+.how-export small{display:block}
 
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:8px 18px;border-radius:999px;border:1.5px solid var(--line);background:var(--surface);color:var(--fg);font-family:var(--f-display);font-weight:700;font-size:16px;letter-spacing:.08em;text-transform:uppercase}
 .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}

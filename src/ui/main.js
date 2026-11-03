@@ -17,13 +17,14 @@ import { P4_EXPORTS, initPrint } from "./print.js";
 import { initHelp } from "./help.js";
 import { SITE, siteFooter } from "../site/site.js";
 import { refsCardHtml, initRefs } from "./refs.js";
-import { acctSaveGpx, acctOpenAsk, acctSaveRun, acctSaveItem, acctOnReopen, acctOnUseFile, initAccount } from "./account.js";
+import { acctSaveGpx, acctKeepFile, acctOpenProfile, acctOpenAsk, acctSaveRun, acctSaveItem, acctOnReopen, acctOnUseFile, initAccount } from "./account.js";
 import { arUse } from "./airace.js";
 import { i18nInit } from "./i18n.js";
 import { profileSetBands, profileTune } from "./profile.js";
 import { analyticsOn, analyticsName, trackEvent, trackOnce, startAnalytics } from "./analytics.js";
 import { makeDemoEffortGpx, DEMO_LONG_RUN_PROFILE, DEMO_ULTRA_AID, makeDemoRaceGpx, DEMO_ULTRA_PROFILE } from "../demo.js";
 import { store, $, esc, state } from "./appstate.js";
+import { TRACK_ACCEPT, readTrackSafe, exportHowHtml, initSharedFiles } from "./trackfile.js";
 import { segListHtml, wireSegTabs } from "./pieces.js";
 import { renderEngine, renderBriefing } from "./route.js";
 import { renderDday, renderReplay, renderPimp, renderNav, mountCockpit, raceKey } from "./race.js";
@@ -104,8 +105,9 @@ $("#app").innerHTML = `
       <div class="drop" id="dropRun">
         <h3><span class="tag">▶</span>Your run</h3>
         <p>The GPX your watch recorded (export it from Garmin Connect, Strava, Suunto, Coros...). Cadence is a bonus; heart rate in the file is ignored.</p>
+        ${exportHowHtml()}
         <div class="status" id="stRun" aria-live="polite"></div>
-        <div class="actions drop-act"><label class="btn ghost" for="fileRun">Add GPX</label><input type="file" id="fileRun" accept=".gpx,application/gpx+xml,text/xml"></div>
+        <div class="actions drop-act"><label class="btn ghost" for="fileRun">Add GPX</label><input type="file" id="fileRun" accept="${TRACK_ACCEPT}"></div>
       </div>
       ${refsCardHtml("run")}
     </div>
@@ -121,14 +123,15 @@ $("#app").innerHTML = `
       <div class="drop" id="dropEffort">
         <h3><span class="tag">01</span>Your runs</h3>
         <p>One or more recorded runs of 1.5 h or more at a steady effort, with some climbs. Recent runs count more. Cadence is a bonus; heart rate in the file is ignored.</p>
+        ${exportHowHtml()}
         <div class="status" id="stEffort" aria-live="polite"></div>
-        <div class="actions drop-act"><label class="btn ghost" for="fileEffort">Add GPX</label><input type="file" id="fileEffort" multiple accept=".gpx,application/gpx+xml,text/xml"><button class="btn ghost" id="clearRuns" type="button" hidden>Clear</button></div>
+        <div class="actions drop-act"><label class="btn ghost" for="fileEffort">Add GPX</label><input type="file" id="fileEffort" multiple accept="${TRACK_ACCEPT}"><button class="btn ghost" id="clearRuns" type="button" hidden>Clear</button></div>
       </div>
       <div class="drop" id="dropRace">
         <h3><span class="tag">02</span>The race</h3>
         <p>The official course GPX, with elevation. Drop it here or choose it.</p>
         <div class="status" id="stRace" aria-live="polite"></div>
-        <div class="actions drop-act"><label class="btn ghost" for="fileRace">Add GPX</label><input type="file" id="fileRace" accept=".gpx,application/gpx+xml,text/xml"></div>
+        <div class="actions drop-act"><label class="btn ghost" for="fileRace">Add GPX</label><input type="file" id="fileRace" accept="${TRACK_ACCEPT}"></div>
       </div>
     </div>
   </div>
@@ -354,7 +357,7 @@ function wireDrop(boxId, inputId, loader) {
     const files = [...(fileList || [])];
     if (!files.length) return;
     trackEvent("gpx-upload", boxId === "#dropRace" ? "race" : "run");
-    const read = await Promise.all(files.map(async (f) => ({ xml: await f.text().catch(() => ""), label: f.name.replace(/\.gpx$/i, "") })));
+    const read = await Promise.all(files.map(readTrackSafe));
     loader(read);
     // Each file also joins My files in the account menu (account.js listens to "trp-gpx").
     read.forEach((r) => document.dispatchEvent(new CustomEvent("trp-gpx", { detail: r })));
@@ -715,3 +718,12 @@ document.addEventListener("click", (ev) => {
 
 // Installable app: register the service worker (offline copy), only on the live https site.
 if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) navigator.serviceWorker.register("sw.js").catch(() => {});
+// A file shared to the app or opened with it joins My files, then the Account window opens there (Use buttons pick the mode).
+initSharedFiles(async (f) => {
+  const { xml, label } = await readTrackSafe(f);
+  const bad = /^<!--err (.*)-->$/.exec(xml);
+  if (bad) { alert(bad[1]); return; }
+  trackEvent("gpx-shared");
+  await acctKeepFile(xml, label);
+  acctOpenProfile("files");
+});

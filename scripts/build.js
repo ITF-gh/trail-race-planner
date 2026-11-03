@@ -133,6 +133,9 @@ writeFileSync(join(root, "dist/manifest.webmanifest"), JSON.stringify({
     { src: "icon-512.png", sizes: "512x512", type: "image/png" },
     { src: "icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
   ],
+  // Run files shared to the installed app (Android share menu) or opened with it (desktop): read in ui/trackfile.js.
+  share_target: { action: "./?share-target", method: "POST", enctype: "multipart/form-data", params: { files: [{ name: "track", accept: [".gpx", ".fit", ".tcx", ".zip", ".gz", "application/gpx+xml", "application/vnd.ant.fit", "application/vnd.garmin.tcx+xml", "application/zip", "application/gzip", "application/octet-stream", "text/xml"] }] } },
+  file_handlers: [{ action: "./", accept: { "application/gpx+xml": [".gpx"], "application/vnd.ant.fit": [".fit"], "application/vnd.garmin.tcx+xml": [".tcx"] } }],
 }, null, 1));
 const swVer = createHash("sha256").update(readFileSync(join(root, "dist/index.html"))).digest("hex").slice(0, 10);
 writeFileSync(join(root, "dist/sw.js"), readFileSync(join(root, "scripts/sw.js"), "utf8").replace("__VER__", swVer));

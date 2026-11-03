@@ -11,6 +11,7 @@ import { mmss, hm, hms, clock } from "../core/format.js";
 import { trackEvent, trackOnce } from "./analytics.js";
 import { makeDemoRunGpx } from "../demo.js";
 import { mountInsights, emptyInsights } from "./insights.js";
+import { readTrackSafe } from "./trackfile.js";
 
 /** Escape text before it goes into HTML: & < > and " become &amp; &lt; &gt; &quot;, so a run name like "Up & down <3" shows as typed instead of breaking the page (or injecting markup). */
 const rvEsc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -759,7 +760,7 @@ export function initRunMode({ onLoaded } = {}) {
     const f = [...(files || [])][0];
     if (!f) return;
     trackEvent("gpx-upload", "review");
-    const xml = await f.text().catch(() => ""), label = f.name.replace(/\.gpx$/i, "");
+    const { xml, label } = await readTrackSafe(f);
     load(xml, label, false);
     // The file also joins My files in the account menu (account.js listens to "trp-gpx").
     document.dispatchEvent(new CustomEvent("trp-gpx", { detail: { xml, label } }));
