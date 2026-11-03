@@ -1687,7 +1687,22 @@
   "✕ Exit focus": "✕ Quitter le focus",
   "Pace focus (F)": "Focus allure (F)",
   "stopped": "à l'arrêt",
-  "Pace focus mode in Your race and Prep my run: tap ◎ Pace focus (or press F) under the replay to see the pace line and your section full screen, with the map behind. Esc or ✕ Exit focus brings the cockpit back.": "Mode Focus allure dans Ta course et Prep my run : touche ◎ Focus allure (ou la touche F) sous le replay pour voir la courbe d'allure et ta section en plein écran, avec la carte derrière. Échap ou ✕ Quitter le focus ramène le cockpit."
+  "Pace focus mode in Your race and Prep my run: tap ◎ Pace focus (or press F) under the replay to see the pace line and your section full screen, with the map behind. Esc or ✕ Exit focus brings the cockpit back.": "Mode Focus allure dans Ta course et Prep my run : touche ◎ Focus allure (ou la touche F) sous le replay pour voir la courbe d'allure et ta section en plein écran, avec la carte derrière. Échap ou ✕ Quitter le focus ramène le cockpit.",
+  "FINISH": "ARRIVÉE",
+  "Watch alert": "Alerte montre",
+  "in {0} min": "dans {0} min",
+  "avg +{0}%": "moy. +{0} %",
+  "avg {0}%": "moy. {0} %",
+  "avg -{0}%": "moy. -{0} %",
+  "{0} km · {1} min · {2} m D+ left": "reste {0} km · {1} min · {2} m D+",
+  "{0} · {1} km · +{2} m left": "reste {0} · {1} km · +{2} m",
+  "+{0} s vs {1}/km": "+{0} s vs {1}/km",
+  "−{0} s vs {1}/km": "−{0} s vs {1}/km",
+  "{0} km · +{1} / −{2} m ·": "{0} km · +{1} / −{2} m ·",
+  "Cockpit panel redesigned for the runner: the watch word big and in colour (HIKE, RUN, BRAKE…), the next strategy change with a countdown, pace with its gap to target in colour, gradient, what is left in the section and to the finish, next gel and aid always on screen.": "Panneau du cockpit repensé pour le coureur : le mot de la montre en grand et en couleur (HIKE, RUN, BRAKE…), le prochain changement de stratégie avec un compte à rebours, l'allure avec son écart à l'objectif en couleur, la pente, ce qui reste dans la section et jusqu'à l'arrivée, prochain gel et ravito toujours affichés.",
+  "Calmer pace line on the profile, one thin line for the plan figures, no legend under the section bar.": "Courbe d'allure plus calme sur le profil, une seule ligne fine pour les chiffres du plan, plus de légende sous la barre des sections.",
+  "More strategy words on the watch and in the cockpit, read from the terrain anywhere in the race: POWER HIKE, SAVE QUADS, SETTLE, RECOVER, EASE UP, CRUISE, ROLL, HOLD, and REFILL at aid stations.": "Plus de mots de stratégie sur la montre et dans le cockpit, lus dans le terrain partout dans la course : POWER HIKE, SAVE QUADS, SETTLE, RECOVER, EASE UP, CRUISE, ROLL, HOLD, et REFILL aux ravitos.",
+  "The same strategy words everywhere: Your plan tables, A4 export, Prep my run timeline, cockpit, and every watch alert, key zones included.": "Les mêmes mots de stratégie partout : tableaux de Ton plan, export A4, timeline de Prep my run, cockpit, et toutes les alertes montre, zones clés comprises."
  },
  "h": {
   "Prep it up,<br><em>get it done.</em>": "Un brief<br><em>et c'est parti !</em>",

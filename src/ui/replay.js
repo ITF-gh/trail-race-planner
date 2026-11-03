@@ -2,6 +2,8 @@
 
 import { raceScript, raceStateAt, secAtKm, raceLegs, raceTotals, legAtKm, gainLoss, racePaceLine } from "../core/script.js";
 import { courseMap } from "./map.js";
+import { strategyBlocks, coursePoints } from "../core/garmin.js";
+import { wordGrp } from "./chips.js";
 import { slidable } from "./slide.js";
 import { mmss, hm, hms, clock } from "../core/format.js";
 import { trackEvent, trackOnce } from "./analytics.js";
@@ -75,7 +77,9 @@ function mountPaceLine(svg, cur, prof, pl) {
   const vlo = vs[Math.floor(vs.length * 0.05)] * 0.95, vhi = vs[Math.floor(vs.length * 0.95)] * 1.03;
   const yHi = top + 4, yLo = base - 10;
   const paceY = (v) => yLo - ((Math.max(vlo, Math.min(vhi, v)) - vlo) / Math.max(1e-6, vhi - vlo)) * (yLo - yHi);
-  const d = pl.filter((p) => p.v > 0).map((p, i) => `${i ? "L" : "M"}${x(p.km).toFixed(1)},${paceY(p.v).toFixed(1)}`).join("");
+  // Drawn over about 300 m (3 points) so it shows the trend; the live number stays exact.
+  const sm = pl.map((p, i) => { const w = pl.slice(Math.max(0, i - 1), i + 2).filter((q) => q.v > 0); return { km: p.km, v: w.length ? w.reduce((a, q) => a + q.v, 0) / w.length : 0 }; });
+  const d = sm.filter((p) => p.v > 0).map((p, i) => `${i ? "L" : "M"}${x(p.km).toFixed(1)},${paceY(p.v).toFixed(1)}`).join("");
   const id = `rpPc${++rpPaceN}`;
   const clip = (k) => `<clipPath id="${id}${k}"><rect x="${l}" y="0" width="0" height="${H}"/></clipPath>`;
   // insertAdjacentHTML on an SVG element parses the text as SVG (its parent sets the namespace), so these become real SVG elements.
@@ -90,7 +94,8 @@ function mountPaceLine(svg, cur, prof, pl) {
   const dot = g.querySelector(".rv-pl-dot");
   const txt = g.querySelector(".rv-pl-v");
   // Speed at km k, interpolated between the 100 m points (a short walk from the start: 1000 points at most, cheap enough once per frame).
-  const vAt = (k) => { let i = 1; while (i < pl.length - 1 && pl[i].km < k) i++; const a = pl[i - 1], b = pl[i]; const f = Math.max(0, Math.min(1, (k - a.km) / (b.km - a.km || 1))); return a.v + f * (b.v - a.v); };
+  const at = (L, k) => { let i = 1; while (i < L.length - 1 && L[i].km < k) i++; const a = L[i - 1], b = L[i]; const f = Math.max(0, Math.min(1, (k - a.km) / (b.km - a.km || 1))); return a.v + f * (b.v - a.v); };
+  const vAt = (k) => at(pl, k);
   return {
     draw(km, leg, sec, stopText) {
       const ax = x(leg.startKm), bx = x(leg.endKm), cx = x(km);
@@ -100,7 +105,7 @@ function mountPaceLine(svg, cur, prof, pl) {
       R.ahead.setAttribute("x", bx.toFixed(1));
       R.ahead.setAttribute("width", Math.max(0, W - r - bx).toFixed(1));
       const v = vAt(km);
-      const cy = paceY(v);
+      const cy = paceY(at(sm, km));
       dot.setAttribute("cx", cx.toFixed(1));
       dot.setAttribute("cy", cy.toFixed(1));
       g.classList.toggle("on", sec > 0);
@@ -132,6 +137,10 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
   const legs = raceLegs(plan, sid);
   // Totals for the four tiles at the top: duration (with the stops, or the finish time in Prep my run, noun "Run"), distance, paces and elevation.
   const tot = raceTotals(plan, sid);
+  // The watch's strategy blocks (Pimp my GPX words), the block of each section, and the watch alerts.
+  const blocks = strategyBlocks(plan, sid);
+  const legBlock = legs.map((l) => Math.max(0, blocks.findIndex((b) => l.startKm >= b.startKm - 1e-6 && l.startKm < b.endKm - 1e-6)));
+  const watchPts = coursePoints(plan, sid);
   const TOT_KM = plan.course.totalKm;
   // A km as a percentage of the course: used to place sections and aid stations on the bar.
   const pct = (km) => `${((km / TOT_KM) * 100).toFixed(3)}%`;
@@ -159,10 +168,6 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
       ${plan.aidStations.map((a) => `<i class="lg-aid" style="left:${pct(a.km)}" title="${escR(a.name)}"></i>`).join("")}
       <i class="lg-pos" id="rpLegPos"></i>
     </div>
-    <div class="rp-legfoot">
-      <div class="rp-legnow" id="rpLegNow" aria-live="polite"></div>
-      <div class="rp-legend" aria-label="Legend"><span><i class="sw fl"></i>Runnable</span><span><i class="sw ds"></i>Descent</span><span><i class="sw ds4"></i>Brake</span><span><i class="sw kz"></i>Key zone</span><span><i class="sw ad"></i>Aid</span><span><i class="sw rv-pl-sw"></i>Pace</span></div>
-    </div>
   </div>
     ${hasMap ? `<div class="rp-map" id="rpMap"></div>` : ""}
     <div class="panel rp-hud">
@@ -170,7 +175,9 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
         <div class="rp-clock"><span class="k">Duration</span><b id="rpClock"></b></div>
         <div class="rp-run"><span id="rpUp"></span><span id="rpKm"></span></div>
       </div>
+      <p class="hd-race" id="rpLeft"></p>
       <div class="rp-prog" aria-hidden="true"><i id="rpBar"></i></div>
+      <div class="hd-chips" id="hdChips"></div>
       <div class="rp-leg" id="rpLeg"></div>
       <div class="rp-now" id="rpNow" hidden></div>
       <ol class="rp-notifs" id="rpCue" aria-live="polite" aria-label="Latest moments"></ol>
@@ -179,7 +186,8 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     </div>
   <div class="rp-focus" id="rpFocus" aria-live="off">
     <div class="fo-sec"><span class="k">Section</span><b id="foN"></b><span class="fo-t" id="foT"></span></div>
-    <div class="fo-now"><span class="k">Pace</span><b id="foPace"></b></div>
+    <div class="fo-word"><span class="k">Now</span><b id="foWord"></b></div>
+    <div class="fo-now"><span class="k">Pace</span><b id="foPace"></b><small id="foGap"></small></div>
     <div><span class="k">Target</span><b id="foTg"></b></div>
     <div><span class="k">Gradient</span><b id="foGr"></b></div>
     <div><span class="k">Duration</span><b id="foClock"></b></div>
@@ -203,7 +211,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
 
   // 3.
   const $r = (s) => box.querySelector(s);
-  const els = { leg: $r("#rpLeg"), legNow: $r("#rpLegNow"), legPos: $r("#rpLegPos"), legBtns: [...box.querySelectorAll("#rpLegs .lg")], clock: $r("#rpClock"), bar: $r("#rpBar"), km: $r("#rpKm"), up: $r("#rpUp"), now: $r("#rpNow"), next: $r("#rpNext"), cue: $r("#rpCue"), ai: box.querySelector("#rpAi"), play: $r("#rpPlay"), seek: $r("#rpSeek"), cur: $r("#rpProf .pcur"), list: $r("#rpScript") };
+  const els = { leg: $r("#rpLeg"), left: $r("#rpLeft"), chips: $r("#hdChips"), legPos: $r("#rpLegPos"), legBtns: [...box.querySelectorAll("#rpLegs .lg")], clock: $r("#rpClock"), bar: $r("#rpBar"), km: $r("#rpKm"), up: $r("#rpUp"), now: $r("#rpNow"), next: $r("#rpNext"), cue: $r("#rpCue"), ai: box.querySelector("#rpAi"), play: $r("#rpPlay"), seek: $r("#rpSeek"), cur: $r("#rpProf .pcur"), list: $r("#rpScript") };
   // A window resize changes the room in the panel: fit the "coming next" list again.
   if (typeof ResizeObserver === "function") new ResizeObserver(() => { fitPanel(els.next); fitHud(); }).observe($r(".rp-hud"));
   alignBar($r(".rp-legbar"), $r("#rpProf svg"), prof.x(0), prof.x(plan.course.totalKm));
@@ -241,7 +249,7 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
   const pace = svgEl && els.cur ? mountPaceLine(svgEl, els.cur, prof, racePaceLine(plan, sid)) : null;
   // Pace focus mode (review 2.2, item 23): full screen, pace line and section big, map behind.
   const cockpit = $r("#rpCockpit");
-  const fo = { n: $r("#foN"), t: $r("#foT"), pace: $r("#foPace"), tg: $r("#foTg"), gr: $r("#foGr"), clock: $r("#foClock"), btn: $r("#rpFocusBtn") };
+  const fo = { word: $r("#foWord"), gap: $r("#foGap"), n: $r("#foN"), t: $r("#foT"), pace: $r("#foPace"), tg: $r("#foTg"), gr: $r("#foGr"), clock: $r("#foClock"), btn: $r("#rpFocusBtn") };
   const setFocus = (on) => {
     rp.focus = on;
     cockpit.classList.toggle("focus", on);
@@ -296,12 +304,13 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
   let lastTl = -1;
   let lastNowHtml = "";
   let lastNextHtml = "";
+  let lastChips = null;
   // The panel never scrolls: when the section card, the aid-station line and the moments do not all fit (a short laptop, a stop at an aid station), the older moments go first...
   let lastFit = "";
   const fitHud = () => {
     const hud = els.leg.closest(".rp-hud");
     if (!hud) return;
-    const extra = [...[...els.cue.children].slice(1).reverse(), ...[...els.leg.querySelectorAll(".rp-tg tbody tr")].reverse()];
+    const extra = [...[...els.cue.children].slice(1).reverse(), ...[...els.next.children].reverse()];
     extra.forEach((x) => x.classList.remove("fit-off"));
     for (const x of extra) {
       if (hud.scrollHeight <= hud.clientHeight + 1) break;
@@ -327,56 +336,70 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
       drawLeg(li);
       const n = legs[li + 1];
       els.leg.className = `rp-leg k-${l.kind} lv${l.level}`;
-      // Target (the plan for this section) next to Now (where the replay is): the Now column is filled on every frame, the rest only when the section changes. row(): one table row...
-      const row = (k, target, id) => `<tr><th>${k}</th><td>${target}</td><td class="now" ${id ? `id="${id}"` : ""}>${id ? "" : "–"}</td></tr>`;
-      // The section card: number, title, chips, tactic, what comes next, and the target table.
+      // The strategy banner (watch word), two gauges, what is left, then the next strategy change.
+      const bi = legBlock[li];
+      const blk = blocks[bi] || { word: "RUN", km: l.km, up: l.up, down: l.down };
+      const nb = blocks[bi + 1] || null;
+      const grp = wordGrp(blk.word);
+      const wp = [...watchPts].reverse().find((q) => q.km <= (l.startKm + l.endKm) / 2 && q.km >= (blk.startKm ?? l.startKm) - 0.3);
+      const title = l.parent ? `${escR(l.parent.title)} · ${escR(l.title.replace(/^Climb section /, "section "))}` : escR(l.title);
       els.leg.innerHTML = `
-        <div class="rp-leg-h"><span class="rp-leg-n"><small>Section</small><b>${l.i}</b><small>/ ${legs.length}</small></span>
-          <span class="rp-leg-pct" aria-live="off"><b id="rpLegPct"></b><small>${l.parent ? "of climb" : "done"}</small></span>
-          <span class="rp-leg-t${l.parent ? " has-sub" : ""}">${l.parent ? `<b>${escR(l.parent.title)}</b>${legChip({ kind: "climb", ...l.parent })}<span class="rp-sub-row"><span class="rp-sub"><b>${escR(l.title.replace(/^Climb section /, "Section "))}</b>${legChip(l)}</span><span class="rp-leg-len">${(l.endKm - l.startKm).toFixed(1)} km</span></span>` : `<b>${escR(l.title)}</b>${legChip(l)}<span class="rp-leg-len">${(l.endKm - l.startKm).toFixed(1)} km</span>`}${l.keyZone ? ` <span class="chip keyc">★ Key zone ${l.keyZone.n}</span>` : ""}
-          </span></div>
-        <div class="rp-leg-info">
-          <p class="k-${l.kind}"><span class="ic">${ICON[l.kind] || "➜"}</span><b title="${escR(l.tactic)}">${escR(l.tactic)}</b><span class="d">${legData(l)}</span></p>
-          ${l.ai && l.ai.effort ? `<p class="rp-ai-note"><span class="ic">${ICON.ai}</span><b>Effort ${l.ai.effort}/5</b><span>${escR(l.ai.mode || "")}</span></p>` : ""}
-          <p class="nx ${n ? `k-${n.kind}` : ""}"><span class="lab">Next</span>${n ? `<span class="ic">${ICON[n.kind] || "➜"}</span><b>${n.i}. ${escR(n.parent ? `${n.parent.title} · ${n.title.replace(/^Climb section/, "section")}` : n.title)}</b><span class="d">${legData(n)}</span>` : `<span class="ic">${ICON.finish}</span><b>Finish</b>`}</p>
+        <div class="hd-strat g-${grp}" id="hdStrat">
+          <span class="hd-word" id="hdWord">${escR(blk.word)}</span>
+          <span class="hd-what"><b>${title}</b>${legChip(l)}${l.keyZone ? `<span class="chip keyc">★ Key zone ${l.keyZone.n}</span>` : ""}
+            <small>${blk.km.toFixed(1)} km · +${Math.round(blk.up)} / −${Math.round(blk.down)} m${wp ? ` · <span class="hd-watch" title="Watch alert">⌚ ${escR(wp.name)}</span>` : ""}</small></span>
+          <span class="hd-pct"><b id="rpLegPct"></b><small>${l.parent ? "of climb" : "done"}</small></span>
         </div>
-        <table class="rp-tg">
-          <thead><tr><th></th><th>Target</th><th class="now">Now</th></tr></thead>
-          <tbody>
-            ${row("Pace", l.pace ? `${mmss(l.pace)}/km` : "–", "tnPace")}
-            ${row("Gradient", `${gradeTxt(l)} <small>avg</small>`, "tnGrade")}
-            ${row("Elevation done", `+${Math.round(l.up)} / −${Math.round(l.down)} m`, "tnEle")}
-            ${row("Section done", `${l.km.toFixed(2)} km`, "tnPct")}
-            ${row("Section time", hm(l.durSec), "tnTime")}
-          </tbody>
-        </table>`;
-      // The five Now cells, found once per section: { Pace: td, Grade: td, Ele: td, Pct: td, Time: td }.
-      els.tn = Object.fromEntries(["Pace", "Grade", "Ele", "Pct", "Time"].map((k) => [k, els.leg.querySelector(`#tn${k}`)]));
-      // Where you are, always on top of the box: % of this section done and % of the whole course.
+        ${l.ai && l.ai.effort ? `<p class="rp-ai-note"><span class="ic">${ICON.ai}</span><b>Effort ${l.ai.effort}/5</b><span>${escR(l.ai.mode || "")}</span></p>` : ""}
+        <div class="hd-gauges">
+          <div class="hd-g"><span class="k">Pace</span><b id="hdPace"></b><small id="hdGap"></small></div>
+          <div class="hd-g"><span class="k">Gradient</span><b id="hdGrade"></b><small>avg ${gradeTxt(l)}</small></div>
+        </div>
+        <div class="hd-prog g-${grp}"><i id="hdBar"></i></div>
+        <p class="hd-left"><span>Section <b>${l.i}</b> / ${legs.length}</span><span id="hdLeft"></span></p>
+        <div class="hd-next ${nb ? `g-${wordGrp(nb.word)}` : "g-fin"}" id="hdNext"><span class="k">Next</span><span class="hd-word">${nb ? escR(nb.word) : "FINISH"}</span><small>${nb ? `${nb.km.toFixed(1)} km · +${Math.round(nb.up)} / −${Math.round(nb.down)} m` : ""}</small><span class="hd-in" id="hdIn"></span></div>`;
+      els.hd = { pace: els.leg.querySelector("#hdPace"), gap: els.leg.querySelector("#hdGap"), grade: els.leg.querySelector("#hdGrade"), bar: els.leg.querySelector("#hdBar"), left: els.leg.querySelector("#hdLeft"), next: els.leg.querySelector("#hdNext"), inn: els.leg.querySelector("#hdIn"), strat: els.leg.querySelector("#hdStrat"), wordEl: els.leg.querySelector("#hdWord"), nb, word: blk.word, grp };
       els.legPct = els.leg.querySelector("#rpLegPct");
       lastNextHtml = ""; // the card changed height: fit the list below it again
     }
-    // Every frame: what is left in this section, in km and seconds (never below 0).
+    // Every frame: what is left in this section and in the race.
     const leftKm = Math.max(0, l.endKm - s.km);
     const leftSec = Math.max(0, l.endSec - s.sec);
-    els.legNow.innerHTML = `<b>Section ${l.i}/${legs.length}</b> · ${escR(l.title)} ${legChip(l)} <span class="left">${leftKm.toFixed(1)} km · ${leftSec >= 3600 ? hm(leftSec) : `${Math.round(leftSec / 60)} min`} to go in it</span>`;
+    const leftToFin = { km: Math.max(0, TOT_KM - s.km), sec: Math.max(0, sc.finishSec - s.sec) };
+    const upDone = gainLoss(P, 0, s.km).up;
+    els.left.textContent = `${hm(leftToFin.sec)} · ${leftToFin.km.toFixed(1)} km · +${Math.round(Math.max(0, tot.gain - upDone))} m left`;
     // The small position mark on the section bar.
     els.legPos.style.left = `${(s.frac * 100).toFixed(2)}%`;
-    // Minutes spent in this section so far.
-    const inMin = Math.max(0, Math.round((s.sec - l.startSec) / 60));
-    // The Now column. A pace of 0 means the runner is stopped (at an aid station).
-    els.tn.Pace.textContent = s.pace ? `${mmss(s.pace)}/km` : "stopped";
-    els.tn.Grade.textContent = s.aid ? "–" : `${s.grade > 0 ? "+" : ""}${s.grade.toFixed(0)}%`;
-    // Climbed and dropped since the section started, against what the whole section holds.
-    const done = gainLoss(P, l.startKm, Math.max(l.startKm, Math.min(l.endKm, s.km)));
-    els.tn.Ele.textContent = `+${Math.round(done.up)} / −${Math.round(done.down)} m`;
     // Share of the section's distance done, in %.
     const pct = l.km > 0 ? Math.round((Math.min(l.km, Math.max(0, s.km - l.startKm)) / l.km) * 100) : 100;
-    els.tn.Pct.innerHTML = `${pct}% <small>${leftKm.toFixed(1)} km left</small>`;
-    // The big % in the card header: on a section of a split climb it is the share of the WHOLE climb done (design review 2), the table row above keeps the section's own share.
+    // The big % on the banner: on a section of a split climb it is the share of the WHOLE climb done (design review 2).
     const pa = l.parent;
     els.legPct.textContent = pa ? `${Math.round((Math.min(pa.endKm, Math.max(pa.startKm, s.km)) - pa.startKm) / (pa.endKm - pa.startKm) * 100)}%` : `${pct}%`;
-    els.tn.Time.innerHTML = `${inMin} min <small>${leftSec >= 3600 ? hm(leftSec) : `${Math.round(leftSec / 60)} min`} left</small>`;
+    // Pace gauge: the gap to the section's target pace, green within 5%, orange to 10%, red beyond.
+    const H = els.hd;
+    // Stopped at an aid station: the banner says REFILL until you leave.
+    const wNow = s.aid ? "REFILL" : H.word;
+    if (H.wordEl.textContent !== wNow) { H.wordEl.textContent = wNow; H.strat.className = `hd-strat g-${wordGrp(wNow)}`; }
+    H.pace.textContent = s.aid ? "stopped" : s.pace ? `${mmss(s.pace)}/km` : "–";
+    const gap = s.pace && l.pace && !s.aid ? s.pace - l.pace : null;
+    H.gap.textContent = gap === null ? "" : `${gap >= 0 ? "+" : "−"}${Math.round(Math.abs(gap))} s vs ${mmss(l.pace)}/km`;
+    H.gap.className = gap === null ? "" : Math.abs(gap) / l.pace <= 0.05 ? "ok" : Math.abs(gap) / l.pace <= 0.1 ? "warn" : "bad";
+    H.grade.textContent = s.aid ? "–" : `${s.grade >= 0.5 ? "▲ " : s.grade <= -0.5 ? "▼ " : ""}${Math.abs(s.grade).toFixed(0)}%`;
+    // What is left in the section: km, minutes and metres up.
+    const upLeft = Math.max(0, l.up - gainLoss(P, l.startKm, Math.max(l.startKm, Math.min(l.endKm, s.km))).up);
+    H.bar.style.width = `${pct}%`;
+    H.left.textContent = `${leftKm.toFixed(1)} km · ${Math.round(leftSec / 60)} min · ${Math.round(upLeft)} m D+ left`;
+    // Countdown to the next strategy change; it pulses in the last 200 m.
+    const toKm = H.nb ? Math.max(0, H.nb.startKm - s.km) : leftToFin.km;
+    const toSec = H.nb ? Math.max(0, H.nb.startSec - s.sec) : leftToFin.sec;
+    H.inn.innerHTML = `${toKm.toFixed(1)} km<small>in ${toSec >= 3600 ? hm(toSec) : `${Math.round(toSec / 60)} min`}</small>`;
+    H.next.classList.toggle("soon", toKm < 0.2 && s.sec > 0 && s.sec < sc.finishSec);
+    // Next gel and aid: always on screen.
+    const chips = [
+      s.nextGel ? `<span class="hd-chip gel"><span class="ic">G</span>Gel <b>in ${Math.max(0, Math.round((s.nextGel.sec - s.sec) / 60))} min</b></span>` : "",
+      s.nextAid ? `<span class="hd-chip aid"><span class="ic">${ICON.aid}</span>${escR(s.nextAid.name)} <b>${(s.nextAid.km - s.km).toFixed(1)} km</b></span>` : "",
+    ].join("");
+    if (chips !== lastChips) { els.chips.innerHTML = chips; els.chips.hidden = !chips; lastChips = chips; }
     // The play button's label: Pause while playing, Replay at the finish, Resume part way, Play at 0.
     els.play.innerHTML = rp.playing ? "❚❚ Pause" : rp.sec >= sc.finishSec ? "↺ Replay" : rp.sec > 0 ? "▶ Resume" : `▶ Play ${noun === "Race" ? "race day" : "your run"}`;
 
@@ -390,8 +413,6 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     const until = (sec) => { const m = Math.max(0, Math.round((sec - s.sec) / 60)); return m >= 60 ? hm(m * 60) : `${m} min`; };
     const next = [
       s.keyZone ? `<li class="key"><span>★ Key zone ${s.keyZone.n}</span><b>until km ${s.keyZone.toKm.toFixed(1)}</b></li>` : s.nextKey ? `<li><span>Next key zone · ${s.nextKey.n}</span><b>km ${s.nextKey.fromKm.toFixed(1)} · ${clock(st, secAtKm(plan, sid, s.nextKey.fromKm))}</b></li>` : "",
-      s.nextGel ? `<li><span>Next gel</span><b>in ${until(s.nextGel.sec)} · km ${s.nextGel.km.toFixed(1)}</b></li>` : "",
-      s.nextAid ? `<li><span>Next aid · ${escR(s.nextAid.name)}</span><b>${(s.nextAid.km - s.km).toFixed(1)} km · ${clock(st, s.nextAid.arrive[sid])}</b></li>` : "",
       s.nextClimb ? `<li><span>Next climb · #${s.nextClimb.n}</span><b>${Math.round(s.nextClimb.gain)} m · in ${until(s.nextClimb.start[sid])}</b></li>` : "",
     ].join("") || `<li><span>Nothing left but the finish</span><b></b></li>`;
     if (next !== lastNextHtml) { els.next.innerHTML = next; lastNextHtml = next; fitPanel(els.next); }
@@ -434,7 +455,11 @@ export function mountReplay(box, { plan, sid, prof, mapPaint, mapMarks, key, nou
     if (rp.focus) {
       fo.n.textContent = `${l.i}/${legs.length}`;
       fo.t.textContent = l.parent ? `${l.parent.title} · ${l.title.replace(/^Climb section /, "Section ")}` : l.title;
-      fo.pace.textContent = s.aid ? "stopped" : s.pace ? `${mmss(s.pace)}/km` : "–";
+      fo.pace.textContent = H.pace.textContent;
+      fo.gap.textContent = H.gap.textContent;
+      fo.gap.className = H.gap.className;
+      fo.word.textContent = wNow;
+      fo.word.className = `g-${wordGrp(wNow)}`;
       fo.tg.textContent = l.pace ? `${mmss(l.pace)}/km` : "–";
       fo.gr.textContent = s.aid ? "–" : `${s.grade > 0 ? "+" : ""}${s.grade.toFixed(0)}%`;
       fo.clock.textContent = hms(s.sec);
