@@ -9,7 +9,7 @@ import { profileRefs } from "./profile.js";
 import { fitPanel, alignBar } from "./replay.js";
 import { mmss, hm, hms, clock } from "../core/format.js";
 import { trackEvent, trackOnce } from "./analytics.js";
-import { makeDemoRunGpx } from "../demo.js";
+import { exampleGpx } from "./appstate.js";
 import { mountInsights, emptyInsights } from "./insights.js";
 import { readTrackSafe } from "./trackfile.js";
 
@@ -771,10 +771,10 @@ export function initRunMode({ onLoaded } = {}) {
   drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
   drop.addEventListener("dragleave", () => drop.classList.remove("over"));
   drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("over"); handle(e.dataTransfer.files); });
-  // The sample run is made up in the browser (demo.js): no file needed.
+  // The sample run: a real 20 km recorded run (src/examples; no heart rate, first and last 300 m cut).
   document.querySelectorAll("[data-run-sample]").forEach((b) => b.addEventListener("click", () => {
     trackEvent("review-sample");
-    load(makeDemoRunGpx(), "Sample trail run (made up)", true);
+    exampleGpx("run-rewind.gpx").then((xml) => load(xml, "Sample run 20K", true), (e) => { body.innerHTML = `<div class="err">${rvEsc(e.message)}</div>`; });
   }));
   empty();
   // Reopen a run saved to the account (main.js): its target first, then the run, as if dropped. target undefined (a file from My files): the target already typed stays.

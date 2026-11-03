@@ -6,7 +6,6 @@ import { prepRunPlan } from "../core/preprun.js";
 import { hm, clock, parseDuration } from "../core/format.js";
 import { starChip, descChip, wordChip } from "./chips.js";
 import { strategyWord, wordAt } from "../core/garmin.js";
-import { makeDemoRaceGpx, DEMO_LONG_RUN_PROFILE } from "../demo.js";
 import { watchPanelHtml, mountWatch, watchPoints, downloadCourse, pimpBadge } from "./watch.js";
 import { trackEvent } from "./analytics.js";
 import { acctOpenRunAsk, acctAiBadge } from "./account.js";
@@ -15,6 +14,7 @@ import { runSpots } from "../core/airun.js";
 import { refsCardHtml, levelPickerHtml, refsCalibNow } from "./refs.js";
 import { TRACK_ACCEPT, readTrackSafe, exportHowHtml } from "./trackfile.js";
 import { profileRefs, profileTune } from "./profile.js";
+import { exampleGpx } from "./appstate.js";
 
 // Escape text for HTML: each of & < > " (the regex's character set) becomes its entity.
 const prEsc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -246,10 +246,10 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
     const f = e.dataTransfer.files && e.dataTransfer.files[0];
     if (f) readTrackSafe(f).then(({ xml, label }) => { load(xml, label); document.dispatchEvent(new CustomEvent("trp-gpx", { detail: { xml, label } })); });
   });
-  // Sample button: a made-up 30 km loop built in demo.js (starting at 650 m, centred near latitude 45.05, longitude 5.7), loaded exactly like a dropped file.
+  // Sample button: a real 16 km trail route (src/examples), loaded exactly like a dropped file.
   $p("#prepSample").addEventListener("click", () => {
-    trackEvent("prep-sample", "long run");
-    load(makeDemoRaceGpx(DEMO_LONG_RUN_PROFILE, { name: "Sample long run 30K", startEle: 650, loop: true, center: [45.05, 5.7] }), "Sample long run 30K (made up)");
+    trackEvent("prep-sample", "route");
+    exampleGpx("route-prep.gpx").then((xml) => load(xml, "Sample route 16K"), (e) => { $p("#stPrep").innerHTML = `<div class="err">${prEsc(e.message)}</div>`; });
   });
   // current(): what is on screen, for the A4 export (ui/print.js); null before a GPX is loaded. spots and key: for the Ask the AI coach window (account.js), which files its answer by key. restore()...
   const restore = (xml, label, targetSec) => {
