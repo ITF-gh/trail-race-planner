@@ -4,7 +4,8 @@
 export function parseGpx(xml) {
   // A cheap sanity check: every GPX file contains a <gpx ...> root tag.
   if (typeof xml !== "string" || !xml.includes("<gpx")) {
-    throw new Error("This does not look like a GPX file.");
+    const bad = typeof xml === "string" && /^<!--err (.*)-->$/.exec(xml); // a FIT/TCX/zip read error (ui/trackfile.js)
+    throw new Error(bad ? bad[1] : "This does not look like a GPX file.");
   }
   // The first <name>...</name> in the file, usually the track or route name.
   const nameMatch = /<name>([^<]*)<\/name>/.exec(xml);

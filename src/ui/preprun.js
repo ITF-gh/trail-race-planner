@@ -13,6 +13,7 @@ import { acctOpenRunAsk, acctAiBadge } from "./account.js";
 import { arUse, arState, arBarHtml } from "./airace.js";
 import { runSpots } from "../core/airun.js";
 import { refsCardHtml, levelPickerHtml, refsCalibNow } from "./refs.js";
+import { TRACK_ACCEPT, readTrackSafe, exportHowHtml } from "./trackfile.js";
 import { profileRefs, profileTune } from "./profile.js";
 
 // Escape text for HTML: each of & < > " (the regex's character set) becomes its entity.
@@ -34,8 +35,9 @@ export function prepHeroHtml(brand) {
       <div class="drop" id="dropPrep">
         <h3><span class="tag">GPX</span>Your run to come</h3>
         <p>The course you will follow, with elevation: from Garmin Connect, Strava, Komoot, a race website...</p>
+        ${exportHowHtml()}
         <div class="status" id="stPrep" aria-live="polite"></div>
-        <div class="actions drop-act"><label class="btn ghost" for="filePrep">Add GPX</label><input type="file" id="filePrep" accept=".gpx,application/gpx+xml,text/xml"></div>
+        <div class="actions drop-act"><label class="btn ghost" for="filePrep">Add GPX</label><input type="file" id="filePrep" accept="${TRACK_ACCEPT}"></div>
       </div>
       ${refsCardHtml("prep")}
     </div>`;
@@ -233,7 +235,7 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
   const file = $p("#filePrep");
   file.addEventListener("change", () => {
     const f = file.files && file.files[0];
-    if (f) f.text().then((xml) => { const label = f.name.replace(/\.gpx$/i, ""); load(xml, label); document.dispatchEvent(new CustomEvent("trp-gpx", { detail: { xml, label } })); });
+    if (f) readTrackSafe(f).then(({ xml, label }) => { load(xml, label); document.dispatchEvent(new CustomEvent("trp-gpx", { detail: { xml, label } })); });
   });
   const drop = $p("#dropPrep");
   // preventDefault() on dragover tells the browser this box accepts a drop (otherwise the browser would open the file itself).
@@ -242,7 +244,7 @@ export function initPrepRun({ getRuns = () => [], getSettings = () => ({}), onLo
   drop.addEventListener("drop", (e) => {
     e.preventDefault(); drop.classList.remove("over");
     const f = e.dataTransfer.files && e.dataTransfer.files[0];
-    if (f) f.text().then((xml) => { const label = f.name.replace(/\.gpx$/i, ""); load(xml, label); document.dispatchEvent(new CustomEvent("trp-gpx", { detail: { xml, label } })); });
+    if (f) readTrackSafe(f).then(({ xml, label }) => { load(xml, label); document.dispatchEvent(new CustomEvent("trp-gpx", { detail: { xml, label } })); });
   });
   // Sample button: a made-up 30 km loop built in demo.js (starting at 650 m, centred near latitude 45.05, longitude 5.7), loaded exactly like a dropped file.
   $p("#prepSample").addEventListener("click", () => {
