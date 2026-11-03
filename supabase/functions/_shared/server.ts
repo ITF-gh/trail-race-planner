@@ -64,7 +64,15 @@ export async function userOf(req: Request, sb: SupabaseClient): Promise<string |
   const token = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
   if (!token) return null;
   const { data, error } = await sb.auth.getUser(token);
-  return error || !data.user ? null : data.user.id;
+  if (error || !data.user) return null;
+  // 2-step login set up: only a 2-step session (aal2) counts.
+  const twoStep = (data.user.factors || []).some((f) => f.status === "verified");
+  return twoStep && tokenAal(token) !== "aal2" ? null : data.user.id;
+}
+
+// The "aal" claim of a token Supabase already checked (base64url JSON in its middle part).
+function tokenAal(token: string): string {
+  try { return JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).aal || ""; } catch { return ""; }
 }
 
 /**

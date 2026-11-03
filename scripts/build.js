@@ -79,11 +79,14 @@ const counterHosts = (() => {
   const { src, attrs } = p.script(ANALYTICS.site);
   return [origin(src), ...Object.values(attrs).filter((v) => /^https:/.test(v)).map(origin)];
 })();
+// Turnstile bot check (account forms), only once a site key is set in CLOUD.captcha.
+const botHosts = CLOUD.captcha ? ["https://challenges.cloudflare.com"] : [];
 function withCsp(html) {
   const hashes = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => `'sha256-${createHash("sha256").update(m[1]).digest("base64")}'`);
   const rules = [
     "default-src 'self'",
-    `script-src 'self' ${[...hashes, ...counterHosts.slice(0, 1)].join(" ")}`,
+    `script-src 'self' ${[...hashes, ...counterHosts.slice(0, 1), ...botHosts].join(" ")}`,
+    `frame-src 'self' ${botHosts.join(" ")}`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     `img-src 'self' data: blob: https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://*.basemaps.cartocdn.com https://*.tile.opentopomap.org ${counterHosts.join(" ")}`,

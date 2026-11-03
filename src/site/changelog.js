@@ -3,6 +3,9 @@
 export const CHANGELOG = [
   { v: "2.35", date: "2026-11-03", items: [
     "Easier import from Garmin and Strava: every drop box now also takes FIT, TCX and the .zip from Export Original, a short how-to sits under each run box, and on Android a file can be shared straight to the installed app (it lands in My files). Heart rate is never read.",
+    "Create your own free online account: email and password, confirmed with a link we email you. A bot check (Cloudflare Turnstile) protects the account forms.",
+    "Optional 2-step login: add a code from an authenticator app to your sign-in, in the Account window.",
+    "Stronger passwords (10 characters or more, with letters and digits) and 2 welcome edelweiss once your email is confirmed.",
   ] },
   { v: "2.34", date: "2026-11-03", items: [
     "Install Prep my race as an app on your phone or computer (Install app / Add to Home Screen in your browser): it opens full screen with its own icon, and the last version opens even without a connection.",

@@ -1,4 +1,5 @@
 // cloud.js: the online account, talking to Supabase with plain fetch() calls (no library, like the rest of the app). Two parts of Supabase are used, each through its HTTP API: Auth /auth/v1/... sign in with a one-time email link, refresh the session REST /rest/v1/<table> READ the user's rows only (Row Level Security in the database makes sure a token only reaches its own rows), and WRITE the user's own profile and saved items (Boss, 2026-10-18) The server functions (/functions/v1/...): delete-account, and ai-analyse (one AI request, one edelweiss) once CLOUD.ai is switched on (Boss, 2026-10-23).
+import { captchaToken } from "./captcha.js";
 
 
 export const CLOUD = {
@@ -10,8 +11,10 @@ export const CLOUD = {
   // the AI button is blocked and nothing is sent. Removing the App1 secret in Supabase stops the
   // server side too (it then answers "not switched on yet" and spends nothing).
   ai: false,
-  // New accounts: false = by invitation only (Boss, 2026-10-23: sign-ups stay off in Supabase), so the menu shows no "Create an account" button that could only fail.
-  signup: false,
+  // New accounts: true = open sign-ups (Boss, 2026-11-03), with email confirmation, bot check and 10 new accounts an hour (step 10 SQL).
+  signup: true,
+  // Cloudflare Turnstile site key (public). Set = every sign-up, sign-in and reset sends a bot-check token.
+  captcha: "0x4AAAAAAFx3ksz20HjpY2fQ",
 };
 
 /** The message every write call throws while the account is read-only (account.js shows it). */
@@ -53,6 +56,72 @@ export function cloudUser() {
   return clSession ? { id: clSession.userId, email: clSession.email } : null;
 }
 
+// A sign-in waiting for its 2-step code: { access, refresh, expiresIn, user, factorId }, never stored.
+let clPending = null;
+const clVerified = (user) => ((user && user.factors) || []).find((f) => f.factor_type === "totp" && f.status === "verified");
+/** Keep a new session, or hold it until the 2-step code when the user has set one up. Returns "mfa" or "ok". */
+function clStart(access, refresh, expiresIn, user) {
+  const f = clVerified(user);
+  if (f) { clPending = { access, refresh, expiresIn, user, factorId: f.id }; return "mfa"; }
+  clSession = { access, refresh, expiresAt: Date.now() + (Number(expiresIn) || 3600) * 1000, userId: user.id, email: user.email || "" };
+  clWrite(clSession);
+  return "ok";
+}
+/** True while a sign-in waits for its 2-step code. */
+export const cloudMfaPending = () => Boolean(clPending);
+/** Drop a sign-in waiting for its code. */
+export function cloudMfaCancel() {
+  const p = clPending;
+  clPending = null;
+  if (p) clFetch("/auth/v1/logout", { method: "POST", token: p.access }).catch(() => {});
+}
+// Challenge then verify one 6-digit code; Supabase answers with a 2-step (aal2) session.
+async function clMfaCheck(factorId, code, token) {
+  const ch = await clFetch(`/auth/v1/factors/${encodeURIComponent(factorId)}/challenge`, { method: "POST", body: {}, token });
+  return clFetch(`/auth/v1/factors/${encodeURIComponent(factorId)}/verify`, { method: "POST", body: { challenge_id: ch.id, code: String(code).replace(/\s/g, "") }, token });
+}
+/** Finish a waiting sign-in with the code of the authenticator app. */
+export async function cloudMfaVerify(code) {
+  if (!clPending) throw new Error("Sign in again");
+  const r = await clMfaCheck(clPending.factorId, code, clPending.access);
+  const user = r.user || clPending.user;
+  clPending = null;
+  clSession = { access: r.access_token, refresh: r.refresh_token, expiresAt: Date.now() + (r.expires_in || 3600) * 1000, userId: user.id, email: user.email || "" };
+  clWrite(clSession);
+}
+/** The verified 2-step factors of the signed-in user. */
+export async function cloudMfaList() {
+  const u = await clAuthed("/auth/v1/user");
+  return ((u && u.factors) || []).filter((f) => f.status === "verified");
+}
+/** Start 2-step login: drop half-made factors, then make one ({ id, qr, secret }). */
+export async function cloudMfaEnroll() {
+  const u = await clAuthed("/auth/v1/user");
+  for (const f of (u && u.factors) || []) if (f.status !== "verified") await clAuthed(`/auth/v1/factors/${encodeURIComponent(f.id)}`, { method: "DELETE" }).catch(() => {});
+  const r = await clAuthed("/auth/v1/factors", { method: "POST", body: { factor_type: "totp", friendly_name: `Prep my race ${Date.now()}` } });
+  return { id: r.id, qr: clQr(r.totp && r.totp.qr_code), secret: r.totp && r.totp.secret };
+}
+// Supabase's QR (an SVG data URI, raw or percent-encoded) as one clean encoded data URI.
+function clQr(qr) {
+  if (!qr || !/^data:image\/svg\+xml/.test(qr)) return "";
+  let svg = qr.slice(qr.indexOf(",") + 1);
+  if (/^%3C/i.test(svg)) try { svg = decodeURIComponent(svg); } catch (e) { return ""; }
+  return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+}
+/** Confirm the new factor with a first code: from then on, sign-in asks for a code. */
+export async function cloudMfaConfirm(factorId, code) {
+  const r = await clMfaCheck(factorId, code, await clToken());
+  clSession = { ...clSession, access: r.access_token, refresh: r.refresh_token, expiresAt: Date.now() + (r.expires_in || 3600) * 1000 };
+  clWrite(clSession);
+}
+/** Turn 2-step login off (needs the 2-step session the sign-in gave). */
+export async function cloudMfaRemove(factorId) {
+  await clAuthed(`/auth/v1/factors/${encodeURIComponent(factorId)}`, { method: "DELETE" });
+}
+
+// The bot-check part of an auth request body (empty while no site key is set).
+const clBot = async () => { const t = await captchaToken(CLOUD.captcha); return t ? { gotrue_meta_security: { captcha_token: t } } : {}; };
+
 /** Turn the tokens Supabase puts in the URL after a sign-in link into a session (then tidy the URL). */
 export async function cloudFromUrl() {
   if (!cloudOn() || !location.hash.includes("access_token=")) return false;
@@ -68,38 +137,35 @@ export async function cloudFromUrl() {
   const user = await clFetch("/auth/v1/user", { token: access }).catch(() => null);
   if (!user || !user.id) return false;
   // expires_in is in seconds (3600 when missing); expiresAt is the moment in milliseconds.
-  clSession = { access, refresh, expiresAt: Date.now() + (Number(p.get("expires_in")) || 3600) * 1000, userId: user.id, email: user.email || "" };
-  clWrite(clSession);
+  clStart(access, refresh, p.get("expires_in"), user);
   return kind;
 }
 
 /** Sign in with email and password (the password is set on the user in the Supabase dashboard). */
 export async function cloudSignInPassword(email, password) {
-  const r = await clFetch("/auth/v1/token?grant_type=password", { method: "POST", body: { email, password } });
+  const r = await clFetch("/auth/v1/token?grant_type=password", { method: "POST", body: { email, password, ...(await clBot()) } });
   if (!r || !r.access_token || !r.user) throw new Error("Sign-in failed");
-  clSession = { access: r.access_token, refresh: r.refresh_token, expiresAt: Date.now() + (r.expires_in || 3600) * 1000, userId: r.user.id, email: r.user.email || email };
-  clWrite(clSession);
-  return cloudUser();
+  return clStart(r.access_token, r.refresh_token, r.expires_in, r.user);
 }
 
 /** Ask Supabase to email a one-time sign-in link that brings the user back to this page. */
 export async function cloudSendLink(email) {
   const back = location.origin + location.pathname;
   // create_user false: a link goes only to an account that already exists, none is made.
-  await clFetch(`/auth/v1/otp?redirect_to=${encodeURIComponent(back)}`, { method: "POST", body: { email, create_user: false } });
+  await clFetch(`/auth/v1/otp?redirect_to=${encodeURIComponent(back)}`, { method: "POST", body: { email, create_user: false, ...(await clBot()) } });
 }
 
 // Where the emails' links bring the user back: this page, without its address extras.
 const clBack = () => encodeURIComponent(location.origin + location.pathname);
 
-/** Create an account with email and password. */
+/** Create an account with email and password; the consent date goes in the user's metadata. */
 export async function cloudSignUp(email, password) {
-  await clFetch(`/auth/v1/signup?redirect_to=${clBack()}`, { method: "POST", body: { email, password } });
+  await clFetch(`/auth/v1/signup?redirect_to=${clBack()}`, { method: "POST", body: { email, password, data: { consent: new Date().toISOString().slice(0, 10) }, ...(await clBot()) } });
 }
 
 /** Forgot password: Supabase emails a link that signs the user in to choose a new password. */
 export async function cloudSendReset(email) {
-  await clFetch(`/auth/v1/recover?redirect_to=${clBack()}`, { method: "POST", body: { email } });
+  await clFetch(`/auth/v1/recover?redirect_to=${clBack()}`, { method: "POST", body: { email, ...(await clBot()) } });
 }
 
 /** Set a new password for the signed-in user (after a Forgot password link, or to change it). */

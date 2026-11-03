@@ -106,3 +106,12 @@ html[data-theme="sky"] .acct-panel-in h4,html[data-theme="sky"] .acct-kicker{col
 #briefProf svg .axt{font-size:9px;font-weight:400;letter-spacing:.04em;opacity:.7}
 #briefProf svg .axis{stroke-width:.6;opacity:.6}
 
+
+/* Turnstile bot check: shows only when Cloudflare asks for a click. */
+.captcha-box { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 3000; }
+.captcha-box:empty { display: none; }
+.acct-consent { display: flex; gap: 8px; align-items: flex-start; font-size: .85em; line-height: 1.35; }
+.acct-signin .acct-consent input { margin-top: 2px; flex: none; min-height: 0; padding: 0; width: auto; }
+.acct-consent a { color: inherit; text-decoration: underline; }
+.acct-mfa-qr { display: block; width: 168px; height: 168px; background: #fff; padding: 8px; border-radius: 8px; margin: 8px 0; }
+.acct-mfa-secret { font-family: ui-monospace, monospace; word-break: break-all; font-size: .8em; }

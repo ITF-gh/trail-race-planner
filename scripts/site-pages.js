@@ -211,10 +211,13 @@ function privacyBody(counter) {
     </ul>
   </section>
   <section class="sp-block">
-    <h2>Online account (invited testers only)</h2>
-    <p>An optional online account is open to a few invited testers; sign-ups are closed. Without an account nothing is sent. With one:</p>
+    <h2>Online account</h2>
+    <p>An optional, free online account can be created by anyone aged 16 or older, with an email address and a password. Without an account nothing is sent. With one:</p>
     <ul>
-      <li>data is stored in the EU (Supabase, Frankfurt): your email address for signing in, your profile (name, flag, a few words, badges, goals and bests), and the plans, sessions or runs you choose to save with the Save button (track points, settings and target, up to 30 saves);</li>
+      <li>data is stored in the EU (Supabase, Frankfurt): your email address for signing in, the date you accepted this page, your profile (name, flag, a few words, badges, goals and bests), and the plans, sessions or runs you choose to save with the Save button (track points, settings and target, up to 30 saves and 15 MB);</li>
+      <li>the account forms (create, sign in, forgot password) run a bot check by Cloudflare Turnstile, which sees your IP address and a few browser signals to tell people from robots. It sets no tracking cookie and runs only when you send one of these forms;</li>
+      <li>the account emails (confirm your email, sign-in link, new password) are sent from our contact address through Google's Gmail;</li>
+      <li>you can turn on 2-step login (a code from an authenticator app) in the Account window;</li>
       <li>heart rate is never kept online, and neither are the max and resting heart rate or the weight of your profile: they stay in your browser;</li>
       <li>the AI is not switched on yet. When it is, an AI answer you ask for will send that plan or run's summary to the AI provider (OpenAI) to write it, and this page will say so first;</li>
       <li>you can download all your data (Export my data) and delete your account (Delete my account) at any time, in the Account window.</li>
