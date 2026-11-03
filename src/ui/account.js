@@ -16,8 +16,8 @@ import { aiOnlineRun, aiLocalHtml, aiLocalRun, aiLocalProbe } from "./ailocal.js
 import { AI_PREP_MODELS, aiPrepMerge } from "../core/aiprep.js";
 import { AI_RUN_EFFORT_DEFAULT, AI_RUN_EFFORTS } from "../core/airun.js";
 import { aiDocsAll, aiDocsPut, aiDocsGet, aiDocsDelete } from "./aidocs.js";
-import { cloudWritable, cloudUser, cloudPutRuns, cloudOn, CLOUD, cloudAiOn, cloudClaim, cloudLedger, cloudProfile, cloudPutProfile, cloudSaved, cloudRuns, cloudSave, cloudAi, cloudJob, cloudDeleteRuns, CL_READONLY, cloudSavedDelete, cloudSignOut, cloudDeleteAccount, cloudSendReset, cloudSetPassword, cloudSignUp, cloudSignInPassword, cloudSendLink, cloudFromUrl } from "./cloud.js";
-import { AC_BEST_NAMES, acMedalCap, ac, acBalance, AC_TOKEN, acEsc, AC_SPARK, acDocsHtml, acNum, acToday, acDate, acDay, AC_WAIT, acFilesHtml, acSavedHtml, acDataHtml, acFileView, acDocRow } from "./acparts.js";
+import { cloudWritable, cloudUser, cloudPutRuns, cloudOn, CLOUD, cloudAiOn, cloudClaim, cloudLedger, cloudProfile, cloudPutProfile, cloudSaved, cloudRuns, cloudSave, cloudAi, cloudJob, cloudDeleteRuns, CL_READONLY, cloudSavedDelete, cloudSignOut, cloudDeleteAccount, cloudSendReset, cloudSetPassword, cloudSignUp, cloudSignInPassword, cloudSendLink, cloudFromUrl, cloudMfaPending, cloudMfaVerify, cloudMfaCancel, cloudMfaList, cloudMfaEnroll, cloudMfaConfirm, cloudMfaRemove } from "./cloud.js";
+import { AC_BEST_NAMES, acMedalCap, ac, acBalance, AC_TOKEN, acEsc, AC_SPARK, acDocsHtml, acNum, acToday, acDate, acDay, AC_WAIT, acFilesHtml, acSavedHtml, acDataHtml, acFileView, acDocRow, acPassOk, AC_PASS_RULE } from "./acparts.js";
 
 // Database name and its one "object store" (IndexedDB's word for a table) of run summaries.
 const AC_DB = "trp-history", AC_STORE = "runs";
@@ -157,12 +157,18 @@ function acTokensHtml(S) {
   if (ac.msg) note = acEsc(ac.msg);
   else if (signedIn && ac.job) note = "The AI is reading your race and runs. It takes about a minute; you can close this menu.";
   // The sign-in form, only when the account exists but nobody is signed in. data-acct-form names it for the submit listener in initAccount. ac.signup switches the same form to "Create an account"...
-  const signin = cloudOn() && !signedIn ? `<form class="acct-signin" data-acct-form="signin">
+  const mfa = cloudOn() && !signedIn && cloudMfaPending() ? `<form class="acct-signin" data-acct-form="mfa">
+        <label for="acCode">2-step login: type the 6-digit code of your authenticator app</label>
+        <div><input id="acCode" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,7}" maxlength="7" required placeholder="123456"><button class="btn ghost" type="submit"${ac.busy ? " disabled" : ""}>Confirm</button></div>
+        <div class="acct-signin-alt"><button class="acct-linkbtn" type="button" data-acct="mfa-cancel">Cancel</button></div>
+      </form>` : "";
+  const signin = mfa || (cloudOn() && !signedIn ? `<form class="acct-signin" data-acct-form="signin">
         <label for="acEmail">${ac.signup ? "Create an account" : "Sign in to collect them"}</label>
         <input id="acEmail" type="email" required autocomplete="email" placeholder="you@example.com" value="${acEsc(ac.email || "")}">
-        <div><input id="acPass" type="password" ${ac.signup ? 'required minlength="8" autocomplete="new-password" placeholder="Password, 8 characters or more"' : 'autocomplete="current-password" placeholder="Password (empty: email me a link)"'}><button class="btn ghost" type="submit"${ac.busy ? " disabled" : ""}>${ac.signup ? "Create" : "Sign in"}</button></div>
+        <div><input id="acPass" type="password" ${ac.signup ? 'required minlength="10" autocomplete="new-password" placeholder="Password: 10+ characters, letters and digits"' : 'autocomplete="current-password" placeholder="Password (empty: email me a link)"'}><button class="btn ghost" type="submit"${ac.busy ? " disabled" : ""}>${ac.signup ? "Create" : "Sign in"}</button></div>
+        ${ac.signup ? `<label class="acct-consent"><input id="acConsent" type="checkbox" required><span>I am 16 or older and accept the privacy page. <a href="privacy.html" target="_blank" rel="noopener">Read it</a></span></label>` : ""}
         <div class="acct-signin-alt">${ac.signup ? `<button class="acct-linkbtn" type="button" data-acct="signin-mode">I have an account</button>` : `<button class="acct-linkbtn" type="button" data-acct="reset">Forgot password?</button>${CLOUD.signup ? `<button class="acct-linkbtn" type="button" data-acct="signup-mode">Create an account</button>` : `<span class="acct-invite">Accounts are by invitation for now.</span>`}`}</div>
-      </form>` : "";
+      </form>` : "");
   // The Ask the AI button opens the window of the mode on screen (data-mode on <html>, read at each redraw, and the menu is redrawn each time it opens): the race plan in Prep my race, the coach in Prep my run...
   const mode = document.documentElement.dataset.mode;
   const ask = mode === "run" || !acAiOn() ? "" : `<button class="btn primary acct-ai-ask" type="button" data-acct="${mode === "prep" ? "ai-run-ask" : "ai"}"${ac.job ? " disabled" : ""}>${ac.job ? "Analysing…" : `${AC_SPARK}${mode === "prep" ? "Ask the AI coach" : "Ask the AI"}`}</button>`;
@@ -618,6 +624,7 @@ function acProfile(keep = false) {
   const sel = f ? (f.dataset.pf ? `[data-pf="${f.dataset.pf}"]` : f.dataset.acct ? `[data-acct="${f.dataset.acct}"]` : "") : "";
   // My files (owner's rule: in this window, not in the small menu); read first if not cached yet.
   if (!acFiles) { acFilesAll().then(() => acProfile(true)); }
+  if (ac.mfa === null && cloudOn() && cloudUser()) { ac.mfa = "loading"; cloudMfaList().then((l) => { ac.mfa = l; }, () => { ac.mfa = []; }).then(() => { if (!acPanel.hidden) acProfile(true); }); }
   acShowPanel(profileHtml(acList, acDemo, acDemo ? DEMO_USER : "My account") + acFilesHtml(acFiles || []) + acSavedHtml() + acDataHtml(), "Account", "acct-profile");
   const nb = acPanel.querySelector(".acct-panel-in");
   if (nb) nb.scrollTop = top;
@@ -691,7 +698,7 @@ async function acAction(what) {
     await cloudSignOut();
     document.dispatchEvent(new CustomEvent("trp-refs")); // signed out: plans drop the tuning
     // Object.assign(target, values) sets several fields of `ac` at once.
-    Object.assign(ac, { ledger: null, job: null, msg: "", saved: null, recovery: false, dataMsg: "" });
+    Object.assign(ac, { ledger: null, job: null, msg: "", saved: null, recovery: false, dataMsg: "", mfa: null, mfaNew: null });
     acRender();
     if (!acPanel.hidden) acProfile(true);
   } else if (what === "delete") {
@@ -707,6 +714,21 @@ async function acAction(what) {
     try { await cloudSendReset(ac.email); ac.msg = `If ${ac.email} has an account, a link to choose a new password is on its way.`; trackEvent("password-reset"); }
     catch (e) { ac.msg = `Could not send the link: ${e.message}`; }
     acRender();
+  } else if (what === "mfa-cancel") {
+    cloudMfaCancel();
+    ac.msg = "";
+    acRender();
+  } else if (what === "mfa-on") {
+    try { ac.mfaNew = await cloudMfaEnroll(); ac.dataMsg = ""; } catch (e) { ac.dataMsg = `Could not start 2-step login: ${e.message}`; }
+    acProfile(true);
+  } else if (what === "mfa-stop") {
+    ac.mfaNew = null;
+    acProfile(true);
+  } else if (what === "mfa-off") {
+    if (!window.confirm("Turn off 2-step login? Sign-in will ask only for your password again.")) return;
+    try { for (const f of ac.mfa || []) await cloudMfaRemove(f.id); ac.mfa = []; ac.dataMsg = "2-step login is off."; trackEvent("mfa-off"); }
+    catch (e) { ac.dataMsg = `Could not turn it off: ${e.message}`; }
+    acProfile(true);
   } else if (what === "signup-mode" || what === "signin-mode") {
     ac.signup = what === "signup-mode";
     ac.email = ((acMenu.querySelector("#acEmail") || {}).value || ac.email || "").trim();
@@ -827,9 +849,30 @@ async function acAction(what) {
 /** The sign-in form was sent: with a password, sign in at once; without one, ask for a sign-in link for the typed email. */
 /** Save a new password for the signed-in user (Account window, Sign-in and data). */
 async function acNewPassword(pass) {
-  if (!pass || pass.length < 8) { ac.dataMsg = "The password needs 8 characters or more."; acProfile(true); return; }
+  if (!acPassOk(pass)) { ac.dataMsg = `The password needs ${AC_PASS_RULE}.`; acProfile(true); return; }
   try { await cloudSetPassword(pass); ac.recovery = false; ac.dataMsg = "Password saved."; trackEvent("password-set"); }
   catch (e) { ac.dataMsg = `Could not save the password: ${e.message}`; }
+  acProfile(true);
+}
+// Put the cursor in the 2-step code field.
+const acFocusCode = () => { const c = acMenu.querySelector("#acCode"); if (c) c.focus(); };
+/** The 2-step code of a waiting sign-in; after a password-reset link, open the new-password form. */
+async function acMfaCode(code) {
+  ac.busy = true;
+  acRender();
+  try {
+    await cloudMfaVerify(code);
+    ac.busy = false; ac.msg = ""; ac.mfa = null;
+    trackEvent("signin", "mfa");
+    acRender(); acSync();
+    if (ac.afterMfa === "recovery") { ac.recovery = true; acctOpenProfile("data"); }
+    ac.afterMfa = "";
+  } catch (e) { ac.busy = false; ac.msg = /invalid|expired/i.test(e.message) ? "Wrong or expired code: try the current one." : `Could not check the code: ${e.message}`; acRender(); acFocusCode(); }
+}
+/** Confirm a new authenticator app with its first code: 2-step login is then on. */
+async function acMfaEnrollCode(code) {
+  try { await cloudMfaConfirm(ac.mfaNew.id, code); ac.mfaNew = null; ac.mfa = null; ac.dataMsg = "2-step login is on: sign-in now asks for a code."; trackEvent("mfa-on"); }
+  catch (e) { ac.dataMsg = /invalid|expired/i.test(e.message) ? "Wrong or expired code: try the current one." : `Could not turn it on: ${e.message}`; }
   acProfile(true);
 }
 async function acSignIn(form) {
@@ -839,15 +882,16 @@ async function acSignIn(form) {
   ac.busy = true;
   acRender();
   if (ac.signup) {
+    if (!acPassOk(pass)) { ac.msg = `The password needs ${AC_PASS_RULE}.`; ac.busy = false; acRender(); return; }
     try { await cloudSignUp(email, pass); ac.signup = false; ac.msg = `Almost there: open the link sent to ${email} to confirm your account.`; trackEvent("signup"); }
-    catch (e) { ac.msg = /signups? not allowed/i.test(e.message) ? "Accounts are by invitation for now." : `Could not create the account: ${e.message}`; }
+    catch (e) { ac.msg = /signups? not allowed/i.test(e.message) ? "Accounts are by invitation for now." : /database error|signup_cap/i.test(e.message) ? "Many new accounts this hour: please try again later." : e.status === 429 ? "Too many tries: please wait a few minutes." : `Could not create the account: ${e.message}`; }
     ac.busy = false;
     acRender();
     return;
   }
   if (pass) {
-    try { await cloudSignInPassword(email, pass); ac.msg = ""; trackEvent("signin"); ac.busy = false; acRender(); acSync(); }
-    catch (e) { ac.busy = false; ac.msg = e.status === 400 ? "Wrong email or password." : `Could not sign in: ${e.message}`; acRender(); }
+    try { const r = await cloudSignInPassword(email, pass); ac.msg = ""; ac.busy = false; if (r === "mfa") { acRender(); acFocusCode(); return; } trackEvent("signin"); acRender(); acSync(); }
+    catch (e) { ac.busy = false; ac.msg = /email not confirmed/i.test(e.message) ? "Confirm your email first: open the link we sent you." : e.status === 429 ? "Too many tries: please wait a few minutes." : e.status === 400 ? "Wrong email or password." : `Could not sign in: ${e.message}`; acRender(); }
     return;
   }
   try { await cloudSendLink(email); ac.msg = `Link sent to ${email}: open it on this device to sign in.`; trackEvent("signin-link"); } catch (e) { ac.msg = /signups? not allowed/i.test(e.message) ? "Online accounts are not open yet: only invited testers can sign in for now." : `Could not send the link: ${e.message}`; }
@@ -899,6 +943,10 @@ export async function initAccount(opts = {}) {
     if (f) { e.preventDefault(); acSignIn(f); }
     const pw = e.target.closest("[data-acct-form=password]");
     if (pw) { e.preventDefault(); acNewPassword(pw.querySelector("#acNewPass").value); }
+    const mf = e.target.closest("[data-acct-form=mfa]");
+    if (mf) { e.preventDefault(); acMfaCode(mf.querySelector("#acCode").value); }
+    const me = e.target.closest("[data-acct-form=mfa-enroll]");
+    if (me) { e.preventDefault(); acMfaEnrollCode(me.querySelector("#acMfaCode").value); }
   });
   // A click on the dimmed backdrop itself (not on the panel's content) closes the pop-up.
   acPanel.addEventListener("click", (e) => { if (e.target === acPanel) acPanel.hidden = true; });
@@ -930,6 +978,7 @@ export async function initAccount(opts = {}) {
   acRender();
   // Back from a sign-in link: keep the session, sync, and show the menu so the user sees it worked.
   const link = await cloudFromUrl();
-  if (link === "recovery") { ac.recovery = true; trackEvent("signin", "recovery"); acctOpenProfile("data"); }
+  if (link && cloudMfaPending()) { ac.afterMfa = link; set(true); acFocusCode(); }
+  else if (link === "recovery") { ac.recovery = true; trackEvent("signin", "recovery"); acctOpenProfile("data"); }
   else if (link) { trackEvent("signin", link); set(true); }
 }

@@ -1,6 +1,11 @@
 // changelog.js: the "What's new" list, newest first, in runner's words (the git log has the technical detail).
 
 export const CHANGELOG = [
+  { v: "2.35", date: "2026-11-03", items: [
+    "Create your own free online account: email and password, confirmed with a link we email you. A bot check (Cloudflare Turnstile) protects the account forms.",
+    "Optional 2-step login: add a code from an authenticator app to your sign-in, in the Account window.",
+    "Stronger passwords (10 characters or more, with letters and digits) and 2 welcome edelweiss once your email is confirmed.",
+  ] },
   { v: "2.34", date: "2026-11-03", items: [
     "Install Prep my race as an app on your phone or computer (Install app / Add to Home Screen in your browser): it opens full screen with its own icon, and the last version opens even without a connection.",
   ] },

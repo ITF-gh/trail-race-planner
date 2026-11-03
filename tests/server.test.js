@@ -79,8 +79,8 @@ test("the profile and saved items are the only tables the app may write, without
   for (const op of ["select using", "insert with check", "update using"]) assert.match(sql, new RegExp(`on public\\.profiles for ${op} \\(user_id = auth\\.uid\\(\\)\\)`));
   assert.match(sql, /profiles_no_body check/);
   const js = readFileSync(new URL("../src/ui/cloud.js", import.meta.url), "utf8");
-  // 7 sign-in calls (password, link, sign-out, refresh, sign-up, forgot password, new password), the profile save, saving or deleting a saved item, deleting the account, and one AI request (only when CLOUD.ai is on)...
-  assert.equal([...js.matchAll(/method: "(POST|PATCH|PUT|DELETE)"/g)].length, 12);
+  // 7 sign-in calls, 6 for 2-step login (cancel, challenge, verify, clean-up, add, remove), the profile save, saving or deleting a saved item, deleting the account, one AI request.
+  assert.equal([...js.matchAll(/method: "(POST|PATCH|PUT|DELETE)"/g)].length, 18);
   assert.match(js, /CL_DELETE = "\/functions\/v1\/delete-account"/);
   const sv = readFileSync(new URL("../supabase/migrations/20261018170000_saved_items.sql", import.meta.url), "utf8");
   for (const op of ["select using", "insert with check", "delete using"]) assert.match(sv, new RegExp(`on public\\.saved_items for ${op} \\(user_id = auth\\.uid\\(\\)\\)`));
@@ -206,4 +206,20 @@ test("the AI step SQL: ledger and AI jobs open to the server only, runs stay clo
   assert.match(sql, /values \(new\.id, 4, 'welcome'\)/);
   assert.match(sql, /select id, 4, 'welcome' from auth\.users/);
   assert.doesNotMatch(sql.replace(/^\s*--.*$/gm, ""), /\$\$/, "the Supabase SQL editor breaks on double dollar signs");
+});
+
+test("open sign-ups: 10 new accounts an hour, 2 welcome edelweiss after email confirmation, 2-step enforced, storage caps", () => {
+  const sql = readFileSync(new URL("../supabase/migrations/20261103120000_open_signup.sql", import.meta.url), "utf8");
+  assert.match(sql, /interval '1 hour'\) >= 10/);
+  assert.match(sql, /before insert on auth\.users/);
+  assert.match(sql, /values \(new\.id, 2, 'welcome'\)/);
+  assert.match(sql, /if new\.email_confirmed_at is not null/);
+  assert.match(sql, /after update of email_confirmed_at on auth\.users/);
+  for (const t of ["profiles", "saved_items", "runs", "edelweiss_ledger", "ai_jobs"]) assert.ok(sql.includes(`'${t}'`));
+  assert.match(sql, /as restrictive for all to authenticated using \(public\.aal_ok\(\)\)/);
+  assert.match(sql, /> 15728640/);
+  assert.match(sql, /> 314572800/);
+  assert.doesNotMatch(sql, /--[^\n]*\$\$/, "the SQL editor breaks on $$ in comments");
+  const srv = readFileSync(new URL("../supabase/functions/_shared/server.ts", import.meta.url), "utf8");
+  assert.match(srv, /tokenAal\(token\) !== "aal2"/);
 });

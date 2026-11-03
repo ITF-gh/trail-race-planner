@@ -95,6 +95,21 @@ Set `connect: true`. Push to `main`: the account menu shows the
 sign-in form, and a signed-in account is marked "account read-only". Never put the database
 password or the `service_role` key in the app.
 
+## 7. Open sign-ups (Boss, 2026-11-03)
+
+Order matters: the app must send bot-check tokens before Supabase asks for them.
+
+1. Cloudflare (free account) > Turnstile > Add widget: name "Prep my race", hostnames `itf-gh.github.io` and `localhost`, mode Managed. Keep the Site key (public, goes in `CLOUD.captcha`) and the Secret key (Supabase only).
+2. SQL editor: run `migrations/20261103120000_open_signup.sql` (10 new accounts an hour, 2 welcome edelweiss after email confirmation, 2-step enforced, save caps).
+3. Google account of the contact address: turn on 2-Step Verification, then create an App password (Security > App passwords).
+4. Supabase > Authentication > Emails > SMTP Settings: enable custom SMTP, host `smtp.gmail.com`, port `465`, user = the Gmail address, password = the App password, sender = the same address, sender name "Prep my race".
+5. Supabase > Authentication > Sign In / Providers > Email: Confirm email ON, Minimum password length 10, Password requirements "Letters and digits".
+6. Supabase > Authentication > Rate Limits: emails per hour 30, sign-ups and sign-ins 30 per 5 min per IP (the database also caps 10 new accounts an hour for everyone).
+7. Supabase > Authentication > Multi-Factor: TOTP (App Authenticator) enabled.
+8. Merge the app PR with the Site key in `CLOUD.captcha` and `CLOUD.signup: true`; wait for the deploy.
+9. Supabase > Authentication > Attack Protection: Enable Captcha protection, provider Turnstile, paste the Secret key.
+10. Supabase > Authentication > Sign In / Providers: Allow new users to sign up ON.
+
 ## Opening the account (later, all three together)
 
 1. SQL editor:
