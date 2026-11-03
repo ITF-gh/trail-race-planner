@@ -1,6 +1,9 @@
 // changelog.js: the "What's new" list, newest first, in runner's words (the git log has the technical detail).
 
 export const CHANGELOG = [
+  { v: "2.34", date: "2026-11-03", items: [
+    "Install Prep my race as an app on your phone or computer (Install app / Add to Home Screen in your browser): it opens full screen with its own icon, and the last version opens even without a connection.",
+  ] },
   { v: "2.33", date: "2026-11-02", items: [
     "Cockpit panel redesigned for the runner: the watch word big and in colour (HIKE, RUN, BRAKE…), the next strategy change with a countdown, pace with its gap to target in colour, gradient, what is left in the section and to the finish, next gel and aid always on screen.",
     "More strategy words on the watch and in the cockpit, read from the terrain anywhere in the race: POWER HIKE, SAVE QUADS, SETTLE, RECOVER, EASE UP, CRUISE, ROLL, HOLD, and REFILL at aid stations.",
