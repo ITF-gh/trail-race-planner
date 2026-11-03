@@ -25,6 +25,6 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: latest
-      - run: supabase functions deploy delete-account --project-ref "$PROJECT_REF"
-      - run: supabase functions deploy ai-analyse --project-ref "$PROJECT_REF"
-      - run: supabase functions deploy claim-cairns --project-ref "$PROJECT_REF"
+      - run: supabase functions deploy delete-account --project-ref "$PROJECT_REF" --yes
+      - run: supabase functions deploy ai-analyse --project-ref "$PROJECT_REF" --yes
+      - run: supabase functions deploy claim-cairns --project-ref "$PROJECT_REF" --yes
