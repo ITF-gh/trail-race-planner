@@ -63,7 +63,10 @@ export const AC_SPARK = (() => {
 })();
 
 // What the account side knows (filled by acSync): the token ledger, the analysis running, a message. ledger [{ delta, reason, created_at }] from the server...
-export const ac = { ledger: null, job: null, msg: "", busy: false, docs: [], saved: null, signup: false, recovery: false, dataMsg: "" };
+export const ac = { ledger: null, job: null, msg: "", busy: false, docs: [], saved: null, signup: false, recovery: false, dataMsg: "", mfa: null, mfaNew: null, afterMfa: "" };
+// Password rule (Supabase checks the same): 10+ characters with letters and digits.
+export const AC_PASS_RULE = "10 characters or more, with letters and digits";
+export const acPassOk = (p) => typeof p === "string" && p.length >= 10 && /[A-Za-z]/.test(p) && /\d/.test(p);
 // Token balance = the sum of all ledger lines (+ earned, - spent). Nothing is read yet: 0.
 export const acBalance = () => (ac.ledger ? ac.ledger.reduce((s, r) => s + r.delta, 0) : 0);
 /** The caption under the achievement icons. */
@@ -97,6 +100,21 @@ export function acSavedHtml() {
     ${list.length ? `<p class="acct-note">Tap one to reopen it as you left it: change the target or the settings, everything is computed again. An A4 opens its print window too.</p>` : ""}`;
 }
 
+/** The 2-step login block (signed in): turn on with an authenticator app, or turn off. */
+function acMfaHtml() {
+  if (ac.mfaNew) return `<form class="acct-signin" data-acct-form="mfa-enroll">
+      <label for="acMfaCode">Scan this code with an authenticator app (Google Authenticator, Microsoft Authenticator, 2FAS…), then type the 6 digits it shows.</label>
+      ${ac.mfaNew.qr && /^data:image\/svg\+xml/.test(ac.mfaNew.qr) ? `<img class="acct-mfa-qr" src="${acEsc(ac.mfaNew.qr)}" alt="QR code for the authenticator app">` : ""}
+      <p class="acct-note">Or type this key in the app: <span class="acct-mfa-secret" translate="no">${acEsc(ac.mfaNew.secret || "")}</span></p>
+      <div><input id="acMfaCode" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,7}" maxlength="7" required placeholder="123456"><button class="btn ghost" type="submit">Turn on</button></div>
+      <div class="acct-signin-alt"><button class="acct-linkbtn" type="button" data-acct="mfa-stop">Cancel</button></div>
+    </form>`;
+  if (!Array.isArray(ac.mfa)) return "";
+  return ac.mfa.length
+    ? `<p class="acct-note">2-step login is on: sign-in asks for a code of your authenticator app. <button class="acct-linkbtn" type="button" data-acct="mfa-off">Turn off</button></p>`
+    : `<p class="acct-note">2-step login (optional): sign-in also asks for a code of an authenticator app. <button class="acct-linkbtn" type="button" data-acct="mfa-on">Turn on</button></p>`;
+}
+
 /** The last part of the Account window: sign-in and data. */
 export function acDataHtml() {
   const user = cloudOn() && cloudUser();
@@ -104,8 +122,8 @@ export function acDataHtml() {
     ${user ? `<p class="acct-note">Signed in as <b>${acEsc(user.email)}</b>.</p>
     <form class="acct-signin" data-acct-form="password">
       <label for="acNewPass">${ac.recovery ? "Choose your new password" : "Change password"}</label>
-      <div><input id="acNewPass" type="password" required minlength="8" autocomplete="new-password" placeholder="8 characters or more"><button class="btn ghost" type="submit">Save</button></div>
-    </form>` : `<p class="acct-note">Not signed in: everything stays on this device.</p>`}
+      <div><input id="acNewPass" type="password" required minlength="10" autocomplete="new-password" placeholder="10+ characters, letters and digits"><button class="btn ghost" type="submit">Save</button></div>
+    </form>${acMfaHtml()}` : `<p class="acct-note">Not signed in: everything stays on this device.</p>`}
     ${ac.dataMsg ? `<p class="acct-msg" role="status">${acEsc(ac.dataMsg)}</p>` : ""}
     <div class="acct-links"><button type="button" data-acct="export">Export my data</button>${user ? `<button type="button" data-acct="signout">Sign out</button><button type="button" class="acct-danger" data-acct="delete">Delete my account</button>` : ""}</div>
   </section>`;
