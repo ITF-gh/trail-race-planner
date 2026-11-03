@@ -66,6 +66,7 @@ mkdirSync(join(root, "dist"), { recursive: true });
 await import("./core-copy.js");
 // Photos are separate files (inlining them as base64 would make the page ~1.3x heavier and uncacheable).
 cpSync(join(root, "src/ui/photos"), join(root, "dist/photos"), { recursive: true });
+cpSync(join(root, "src/examples"), join(root, "dist/examples"), { recursive: true });
 // Leaflet (the map library, BSD-2 licence) ships next to the page and is loaded only when a map is shown, so the page stays light and the map code works offline.
 cpSync(join(root, "src/vendor/leaflet"), join(root, "dist/vendor/leaflet"), { recursive: true });
 // The page title comes from SITE (src/site/site.js). In HTML, "&" must be written "&amp;".

@@ -22,8 +22,8 @@ import { arUse } from "./airace.js";
 import { i18nInit } from "./i18n.js";
 import { profileSetBands, profileTune } from "./profile.js";
 import { analyticsOn, analyticsName, trackEvent, trackOnce, startAnalytics } from "./analytics.js";
-import { makeDemoEffortGpx, DEMO_LONG_RUN_PROFILE, DEMO_ULTRA_AID, makeDemoRaceGpx, DEMO_ULTRA_PROFILE } from "../demo.js";
-import { store, $, esc, state } from "./appstate.js";
+import { DEMO_ULTRA_AID } from "../demo.js";
+import { store, $, esc, state, exampleGpx } from "./appstate.js";
 import { TRACK_ACCEPT, readTrackSafe, exportHowHtml, initSharedFiles } from "./trackfile.js";
 import { segListHtml, wireSegTabs } from "./pieces.js";
 import { renderEngine, renderBriefing } from "./route.js";
@@ -375,25 +375,27 @@ wireDrop("#dropRace", "#fileRace", (files) => loadRace(files[0].xml, files[0].la
 wireDrop("#dropEffort", "#fileEffort", (files) => { state.ownRuns = true; loadEfforts(files); files.forEach((f) => acctSaveGpx(f.xml, f.label)); });
 $("#clearRuns").addEventListener("click", () => { trackEvent("runs-clear"); state.ownRuns = false; setRuns([]); });
 
-// "Try the demo": load made-up runs and a made-up race from src/demo.js, as if they were dropped.
-$("#demo").addEventListener("click", () => {
+const DEMO_RACE_AID = "10.4 Plateau aid 2\n23 Valley aid 5\n33.6 Plateau aid 2\n40.1 Hill aid 2\n47.6 Valley aid 5\n58.1 Valley aid 3\n68.8 Last aid 3";
+// "Try the demo": a real race course (Grand Trail des Templiers 80K) and two simulated runs on real routes (src/examples), as if they were dropped.
+$("#demo").addEventListener("click", async () => {
   trackEvent("demo");
-  // A made-up mountain ultra (78 km, 3,800 m up, seven aid stations) and two made-up 30 km mountain long runs six weeks apart, so the weighting shows.
   state.effort = null;
   state.ownRuns = false;
-  loadEfforts([
-    { xml: makeDemoEffortGpx({ profile: DEMO_LONG_RUN_PROFILE, startIso: "2026-10-11T07:00:00Z" }), label: "Demo mountain long run (made up)" },
-    { xml: makeDemoEffortGpx({ profile: DEMO_LONG_RUN_PROFILE, fatigue: 0.3, startIso: "2026-08-30T07:00:00Z" }), label: "Demo older long run (made up)" },
-  ]);
-  // Only fill the demo aid stations when the box is empty or still holds this example text (the same two stations as the placeholder), so stations you typed are never overwritten.
-  const aid = $("#aidStations").value.trim();
-  if (!aid || aid === "8.5 Refuge du Lac 2\n16 Ferme des Crêtes 3") {
-    $("#aidStations").value = DEMO_ULTRA_AID;
-    if ($("#startTime").value === PLAN_DEFAULTS.startTime) $("#startTime").value = "06:00";
+  try {
+    const [race, run1, run2] = await Promise.all(["race-templiers-80k.gpx", "run-11k.gpx", "run-31k.gpx"].map(exampleGpx));
+    loadEfforts([
+      { xml: run2, label: "Sample long run 31K (simulated)" },
+      { xml: run1, label: "Sample run 11K (simulated)" },
+    ]);
+    // Imagined aid stations about every 10 km, at reachable valley or plateau spots; only over an empty box, the placeholder or the old demo list.
+    const aid = $("#aidStations").value.trim();
+    if (!aid || aid === DEMO_ULTRA_AID.trim() || aid === "8.5 Refuge du Lac 2\n16 Ferme des Crêtes 3") $("#aidStations").value = DEMO_RACE_AID;
+    if ($("#startTime").value === PLAN_DEFAULTS.startTime) $("#startTime").value = "05:15";
     readSettings();
+    loadRace(race, "Grand Trail des Templiers 80K (example)");
+  } catch (e) {
+    setStatus("race", `<div class="err">${esc(e.message)}</div>`);
   }
-  // The course is drawn as a loop over the Vercors so the map has something to show; the profile does not match the real ground there.
-  loadRace(makeDemoRaceGpx(DEMO_ULTRA_PROFILE, { name: "Ultra des Crêtes 78K", startEle: 650, loop: true, center: [45.05, 5.7] }), "Ultra des Crêtes 78K (made up)");
   $("#s1").scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
@@ -406,8 +408,7 @@ function compute() {
     try {
       // Your runs alone set the level (Boss, 2026-10-29: a road best can be old and says nothing of the training around it); "Form on race day" (settings.form) is your own say.
       state.plan = buildPlan(state.race.parsed, state.effort.runs.map((r) => r.parsed), { ...state.settings, ...profileHeart(), tune: profileTune() });
-      // The regex /\(made up\)$/ matches "(made up)" at the end of the name: the demo's label.
-      trackOnce("plan-built", /\(made up\)$/.test(state.race.name) ? "demo" : "own");
+      trackOnce("plan-built", /\((made up|example)\)$/.test(state.race.name) ? "demo" : "own");
     } catch (e) {
       $("#planErr").innerHTML = `<div class="err">${esc(e.message)}</div>`;
     }

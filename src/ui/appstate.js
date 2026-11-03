@@ -5,6 +5,8 @@ import { PLAN_DEFAULTS } from "../core/plan.js";
 /** $(selector, root): a short name for root.querySelector(selector), which returns the first element matching a CSS selector ("#id", ".class", "div > a"...) or null if none matches. */
 export const $ = (s, r = document) => r.querySelector(s);
 /** esc(text): makes text safe to put inside HTML. */
+// A sample GPX shipped with the site (src/examples, real routes; runs simulated, no heart rate).
+export const exampleGpx = (file) => fetch(`examples/${file}`).then((r) => { if (!r.ok) throw new Error(`Example ${file} not found`); return r.text(); });
 export const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 /** store: a thin wrapper around localStorage (text-only storage kept by the browser for this site). */
