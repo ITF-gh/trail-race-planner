@@ -375,6 +375,7 @@ wireDrop("#dropRace", "#fileRace", (files) => loadRace(files[0].xml, files[0].la
 wireDrop("#dropEffort", "#fileEffort", (files) => { state.ownRuns = true; loadEfforts(files); files.forEach((f) => acctSaveGpx(f.xml, f.label)); });
 $("#clearRuns").addEventListener("click", () => { trackEvent("runs-clear"); state.ownRuns = false; setRuns([]); });
 
+const DEMO_RACE_AID = "10.4 Plateau aid 2\n23 Valley aid 5\n33.6 Plateau aid 2\n40.1 Hill aid 2\n47.6 Valley aid 5\n58.1 Valley aid 3\n68.8 Last aid 3";
 // "Try the demo": a real race course (Grand Trail des Templiers 80K) and two simulated runs on real routes (src/examples), as if they were dropped.
 $("#demo").addEventListener("click", async () => {
   trackEvent("demo");
@@ -386,8 +387,9 @@ $("#demo").addEventListener("click", async () => {
       { xml: run2, label: "Sample long run 31K (simulated)" },
       { xml: run1, label: "Sample run 11K (simulated)" },
     ]);
-    // The old made-up aid stations go; the example has none of its own.
-    if ($("#aidStations").value.trim() === DEMO_ULTRA_AID.trim()) $("#aidStations").value = "";
+    // Imagined aid stations about every 10 km, at reachable valley or plateau spots; only over an empty box, the placeholder or the old demo list.
+    const aid = $("#aidStations").value.trim();
+    if (!aid || aid === DEMO_ULTRA_AID.trim() || aid === "8.5 Refuge du Lac 2\n16 Ferme des Crêtes 3") $("#aidStations").value = DEMO_RACE_AID;
     if ($("#startTime").value === PLAN_DEFAULTS.startTime) $("#startTime").value = "05:15";
     readSettings();
     loadRace(race, "Grand Trail des Templiers 80K (example)");
