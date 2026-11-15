@@ -1,6 +1,6 @@
 // insights.js (ui): the "Deep dive" section of Check my run.
 
-import { bestEffort, bestCurve, gradeBands, runChunks, paceHistogram, paceHeatmap, fitLine, runKpis, climbTable } from "../core/insights.js";
+import { bestEffort, bestCurve, gradeBands, runChunks, paceHistogram, paceHeatmap, fitLine, runKpis, climbTable, avgPaceCurve } from "../core/insights.js";
 import { mmss, hm } from "../core/format.js";
 import { trackEvent } from "./analytics.js";
 
@@ -24,7 +24,7 @@ const IN_AXES = {
 const inState = (() => {
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem(IN_STORE) || "{}") || {}; } catch { saved = {}; }
-  return { athlete: { weight: 70, hrRest: 60, hrMax: 0, female: false, ...saved }, effortM: 0, band: 5, bin: 15, x: "grade", y: "pace" };
+  return { athlete: { weight: 70, hrRest: 60, hrMax: 0, female: false, ...saved }, effortM: 0, band: 5, bin: 15, x: "grade", y: "pace", avgX: "km" };
 })();
 // Save the weight.
 function inSave() {
@@ -172,6 +172,40 @@ function inBands(run) {
     <div class="in-tw"><table class="rp-tg in-t"><thead><tr><th>Gradient</th><th>Distance</th><th>Time</th><th>Pace</th><th>Grade-adj.</th>${run.hasHr ? "<th>HR</th>" : ""}${run.hasCad ? "<th>Cadence</th>" : ""}<th>Vertical</th></tr></thead><tbody>${bands.map(row).join("")}</tbody></table></div></details>`;
 }
 
+/** The "Average pace" card: the average pace so far along the run (avgPaceCurve), across distance or time (Boss, 2026-11-15). Faster is higher. */
+function inAvg(run) {
+  const pts = avgPaceCurve(run);
+  const byT = inState.avgX === "sec";
+  const ctl = `<div class="in-ctl"><label class="f inline">Across<select id="inAvgX"><option value="km" ${byT ? "" : "selected"}>Distance</option><option value="sec" ${byT ? "selected" : ""}>Time</option></select></label></div>`;
+  if (pts.length < 3) return `${ctl}<p class="note">This run is too short.</p>`;
+  const W = inW(), H = 240, l = 52, r = 16, t = 14, b = 30;
+  const xv = (p) => (byT ? p.sec : p.km);
+  const x0 = xv(pts[0]), x1 = xv(pts[pts.length - 1]);
+  const X = (v) => l + ((v - x0) / Math.max(1e-6, x1 - x0)) * (W - l - r);
+  const ps = pts.flatMap((p) => [p.pace, p.clock, p.gap].filter((v) => v && v < 1500));
+  const pLo = Math.min(...ps) * 0.98, pHi = Math.max(...ps) * 1.02;
+  const Y = (p) => t + ((Math.min(pHi, p) - pLo) / Math.max(1e-6, pHi - pLo)) * (H - t - b);
+  let s = "";
+  // Finer pace steps when the average barely moves (5 or 10 s).
+  const span = pHi - pLo, pst = span <= 40 ? 5 : span <= 90 ? 10 : 0;
+  const yt = pst ? (() => { const o = []; for (let v = Math.ceil(pLo / pst) * pst; v <= pHi; v += pst) o.push(v); return o; })() : inPaceTicks(pLo, pHi);
+  yt.forEach((v) => { s += `<line class="in-grid" x1="${l}" x2="${W - r}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}"/><text x="${l - 6}" y="${(Y(v) + 4).toFixed(1)}" text-anchor="end">${mmss(v)}</text>`; });
+  // Time ticks every 15 min to 2 h; distance ticks from inTicks.
+  const xt = byT ? (() => { const span = x1 - x0, st = [900, 1800, 3600, 7200].find((q) => span / q <= (W < 1000 ? 5 : 9)) || 7200, o = []; for (let v = Math.ceil(x0 / st) * st; v <= x1; v += st) o.push(v); return o; })() : inTicks(x0, x1, W < 1000 ? 5 : 9);
+  xt.filter((v) => X(v) < W - r - 40).forEach((v) => { s += `<text x="${X(v).toFixed(1)}" y="${H - 10}" text-anchor="middle">${byT ? hm(v) : +v.toFixed(1)}</text>`; });
+  s += `<text x="${W - r}" y="${H - 10}" text-anchor="end" class="in-axl">${byT ? "h" : "km"}</text>`;
+  const line = (key, cls) => `<path class="${cls}" d="${pts.filter((p) => p[key]).map((p, i) => `${i ? "L" : "M"}${X(xv(p)).toFixed(1)},${Y(p[key]).toFixed(1)}`).join("")}"/>`;
+  s += line("clock", "in-avg-clock") + line("gap", "in-avg-gap") + line("pace", "in-line");
+  // Hover / tap strips: one per point, each replays that moment.
+  const sw = (W - l - r) / pts.length;
+  pts.forEach((p) => { s += `<rect class="in-avg-hit" data-sec="${Math.round(p.sec)}" x="${(X(xv(p)) - sw / 2).toFixed(1)}" y="${t}" width="${(sw + 0.5).toFixed(1)}" height="${H - t - b}"><title>km ${p.km.toFixed(1)} · ${hm(p.sec)}: ${mmss(p.pace)}/km moving, ${mmss(p.clock)}/km with stops${p.gap ? `, ${mmss(p.gap)}/km grade-adjusted` : ""}</title></rect>`; });
+  const end = pts[pts.length - 1];
+  return `${ctl}<p class="in-res">At the finish: <b>${mmss(end.pace)}/km</b> moving · <b>${mmss(end.clock)}/km</b> with stops${end.gap ? ` · <b>${mmss(end.gap)}/km</b> grade-adjusted` : ""}</p>
+    <svg viewBox="0 0 ${W} ${H}" class="in-svg" role="img" aria-label="Average pace along the run">${s}</svg>
+    <div class="in-legend"><span><i class="in-avg-l"></i>Moving</span><span><i class="in-avg-l clock"></i>With stops</span><span><i class="in-avg-l gap"></i>Grade-adjusted</span></div>
+    <p class="note">Your average pace so far, at each point of the run (from the first km). Faster is higher. A falling line = you were slowing down. Tap the chart to replay that moment.</p>`;
+}
+
 /** The "Pace heat map" card: one row per gradient band (steepest climb on top), one column per 10% of the run (20% on a phone). */
 function inHeat(run, list) {
   const cols = inW() < 1000 ? 5 : 10;
@@ -291,6 +325,7 @@ export function mountInsights(box, run, { onSeek } = {}) {
     ${inCard("inKpi", "Key numbers", "tap or hover a number for what it means", `<div id="inKpiBody">${inKpis(run)}</div><details class="in-more"><summary>Your settings: weight</summary>${inSettings()}</details>`, true)}
     ${inCard("inBest", "Best efforts", "your fastest stretch for any distance", `<div id="inBestBody">${inBest(run)}</div><p class="note">Each point is your fastest stretch of that length on the clock (a stop inside it counts). Faster is higher. Tap a point to see that distance.</p>`)}
     ${inCard("inBandC", "Pace by gradient", "where your time went, and how fast you were there", `<div id="inBandBody">${inBands(run)}</div>`)}
+    ${inCard("inAvgC", "Average pace", "how your average pace evolved along the run", `<div id="inAvgBody">${inAvg(run)}</div>`, true)}
     ${inCard("inHeatC", "Pace heat map", "pace on each gradient, all along the run", `<div id="inHeatBody">${inHeat(run, list)}</div>`, true)}
     ${inCard("inHistC", "Pace distribution", "how much time at each pace", `<div id="inHistBody">${inHist(run, list)}</div>`)}
     ${inCard("inScat", "Explorer", "pick any two measures and see how they move together", `<div id="inScatBody">${inScatter(run, list)}</div>`, true)}
@@ -319,11 +354,12 @@ export function mountInsights(box, run, { onSeek } = {}) {
     const el = $i(sel);
     if (!el || el.dataset.wired) return; // a select that was not re-drawn keeps its listener
     el.dataset.wired = "1";
-    el.addEventListener("change", () => { inState[key] = key === "x" || key === "y" ? el.value : Number(el.value); trackEvent("insight-set", key); redraw(id, fn()); wireAll(); });
+    el.addEventListener("change", () => { inState[key] = key === "x" || key === "y" || key === "avgX" ? el.value : Number(el.value); trackEvent("insight-set", key); redraw(id, fn()); wireAll(); });
   };
   // Wire the four menus: band width, histogram bin, and the two explorer axes.
   const wireAll = () => {
     wireSel("#inBand", "band", "#inBandBody", () => inBands(run));
+    wireSel("#inAvgX", "avgX", "#inAvgBody", () => inAvg(run));
     wireSel("#inBin", "bin", "#inHistBody", () => inHist(run, list));
     wireSel("#inX", "x", "#inScatBody", () => inScatter(run, list));
     wireSel("#inY", "y", "#inScatBody", () => inScatter(run, list));
@@ -333,7 +369,7 @@ export function mountInsights(box, run, { onSeek } = {}) {
   const mountId = (box.dataset.inMount = String(Number(box.dataset.inMount || 0) + 1));
   if (IN_NARROW) IN_NARROW.addEventListener("change", () => {
     if (box.dataset.inMount !== mountId || !$i("#inBestBody")) return; // a newer run took this box
-    redraw("#inBestBody", inBest(run)); redraw("#inBandBody", inBands(run)); redraw("#inHeatBody", inHeat(run, list)); redraw("#inHistBody", inHist(run, list)); redraw("#inScatBody", inScatter(run, list));
+    redraw("#inBestBody", inBest(run)); redraw("#inBandBody", inBands(run)); redraw("#inAvgBody", inAvg(run)); redraw("#inHeatBody", inHeat(run, list)); redraw("#inHistBody", inHist(run, list)); redraw("#inScatBody", inScatter(run, list));
     wireAll();
   });
   // On a phone the explanations are hidden: a tap on a number shows its own.

@@ -5,6 +5,22 @@ import { minettiCost, effortFactor } from "./review.js";
 const IN_HIKE_CAD = 145; // steps per minute: below it you were hiking (same rule as the review)
 const IN_CHUNK_M = 100; // the scatter explorer and the pace histogram use 100 m chunks
 
+/** Average pace so far, at about `count` points along the run: moving, with stops (clock) and grade-adjusted. Starts after 1 km (5% on short runs), where the average settles. */
+export function avgPaceCurve(run, count = 200) {
+  const last = run.n - 1;
+  const from = Math.max(1, Math.round(Math.min(1000, ((last * run.step) * 0.05) || 1000) / run.step));
+  const out = [];
+  if (from >= last) return out;
+  const stepI = Math.max(1, (last - from) / count);
+  for (let f = from; ; f += stepI) {
+    const b = Math.min(last, Math.round(f));
+    const o = run.over(0, b);
+    if (o.pace) out.push({ km: (b * run.step) / 1000, sec: run.T[b], pace: o.pace, clock: (run.T[b] / (b * run.step)) * 1000, gap: o.gap });
+    if (b >= last) break;
+  }
+  return out;
+}
+
 /** Moving seconds, heart rate and cadence of sample i (the 10 m that end at i). */
 function inSample(run, i) {
   const mv = run.M[i] - run.M[i - 1];

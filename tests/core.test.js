@@ -519,7 +519,7 @@ test("review numbers: sliding-window records and splits that add up", () => {
   assert.ok(line.every((p) => p.v >= 0 && p.v < 10));
 });
 
-import { bestEffort, bestCurve, gradeBands, hrZones, runChunks, paceHistogram, paceHeatmap, fitLine, runKpis, climbTable } from "../src/core/insights.js";
+import { bestEffort, bestCurve, gradeBands, hrZones, runChunks, paceHistogram, paceHeatmap, fitLine, runKpis, climbTable, avgPaceCurve } from "../src/core/insights.js";
 
 test("deep dive: best efforts, gradient bands and KPIs add up", () => {
   const run = analyseRun(parseGpx(makeDemoRunGpx()));
@@ -642,4 +642,14 @@ test("calculation review: night, short races with a race reference, steep bands 
   assert.ok(Math.abs(fit.scenarios.central.finishSec / plain.scenarios.central.finishSec - 0.97) < 0.01);
   // Every band is either measured, from your climbs, or estimated; never slower fresh than tired.
   for (const b of plain.effort.bands) assert.ok(b.tired >= b.fresh && ["measured", "partly measured", "estimated", "from your climbs"].includes(b.source));
+});
+
+test("deep dive: average pace curve ends on the run's moving pace", () => {
+  const run = analyseRun(parseGpx(makeDemoRunGpx()));
+  const c = avgPaceCurve(run);
+  assert.ok(c.length >= 100 && c[0].km >= 0.9);
+  for (let i = 1; i < c.length; i++) assert.ok(c[i].km > c[i - 1].km && c[i].sec >= c[i - 1].sec);
+  const end = c[c.length - 1];
+  assert.ok(Math.abs(end.pace - run.movingPace) < 1, "last point = whole-run moving pace");
+  assert.ok(c.every((p) => p.clock >= p.pace - 0.01), "stops only slow the clock pace");
 });

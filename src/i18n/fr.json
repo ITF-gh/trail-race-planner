@@ -249,6 +249,14 @@
   "Follow the runner": "Suivre le coureur",
   "Recap": "Recap",
   "Average pace": "Allure moyenne",
+  "Rewind my run, Deep dive: a new Average pace chart shows how your average pace evolved along the run, across distance or time, moving, with stops and grade-adjusted. Tap it to replay that moment.": "Rewind my run, Deep data : un nouveau graphique Allure moyenne montre comment ton allure moyenne a évolué pendant le run, en fonction de la distance ou du temps, en mouvement, avec les arrêts et ajustée à la pente. Touche-le pour rejouer ce moment.",
+  "how your average pace evolved along the run": "comment ton allure moyenne a évolué pendant le run",
+  "With stops": "Avec les arrêts",
+  "This run is too short.": "Ce run est trop court.",
+  "Average pace along the run": "Allure moyenne pendant le run",
+  "{0}: {1}/km moving, {2}/km with stops, {3}/km grade-adjusted": "{0} : {1}/km en mouvement, {2}/km avec les arrêts, {3}/km ajustée à la pente",
+  "{0}: {1}/km moving, {2}/km with stops": "{0} : {1}/km en mouvement, {2}/km avec les arrêts",
+  "Your average pace so far, at each point of the run (from the first km). Faster is higher. A falling line = you were slowing down. Tap the chart to replay that moment.": "Ton allure moyenne jusque-là, à chaque point du run (à partir du premier km). Plus rapide = plus haut. Une ligne qui descend = tu ralentissais. Touche le graphique pour rejouer ce moment.",
   "moving {0} · grade-adj. {1}": "en mouvement {0} · ajust. pente {1}",
   "Best pace · {0} min": "Meilleure allure · {0} min",
   "Fastest {0} m": "{0} m le plus rapide",
@@ -1774,6 +1782,8 @@
   "Stronger passwords (10 characters or more, with letters and digits) and 2 welcome edelweiss once your email is confirmed.": "Mots de passe plus solides (10 caractères ou plus, avec lettres et chiffres) et 2 edelweiss de bienvenue une fois ton e-mail confirmé."
  },
  "h": {
+  "At the finish: <b>{0}/km</b> moving · <b>{1}/km</b> with stops · <b>{2}/km</b> grade-adjusted": "À l'arrivée : <b>{0}/km</b> en mouvement · <b>{1}/km</b> avec les arrêts · <b>{2}/km</b> ajustée à la pente",
+  "At the finish: <b>{0}/km</b> moving · <b>{1}/km</b> with stops": "À l'arrivée : <b>{0}/km</b> en mouvement · <b>{1}/km</b> avec les arrêts",
   "Prep it up,<br><em>get it done.</em>": "Un brief<br><em>et c'est parti !</em>",
   "<span class=\"tag\">GPX</span>Your run to come": "<span class=\"tag\">GPX</span>Ton run",
   "Relive the run.<br><em>Learn from it.</em>": "Débriefe ton run<br><em>et apprends à te connaître.</em>",

@@ -88,3 +88,7 @@ html[data-theme="sky"] .in-k b{color:var(--glow);text-shadow:0 0 12px rgba(255,1
 /* v0.29: section length right of the difficulty label in the SECTION card header */
 .rp-leg-len{display:inline-block;padding:.08em .5em;border-radius:999px;border:1px solid currentColor;font-weight:700;font-size:.82em;letter-spacing:.02em;font-variant-numeric:tabular-nums;white-space:nowrap;color:inherit;opacity:.9;vertical-align:middle}
 
+.in-avg-clock{fill:none;stroke:var(--muted);stroke-width:1.4;opacity:.8}
+.in-avg-gap{fill:none;stroke:var(--sun);stroke-width:1.6;stroke-dasharray:6 4}
+.in-avg-hit{fill:transparent;cursor:pointer} .in-avg-hit:hover{fill:color-mix(in srgb,var(--fg) 10%,transparent)}
+.in-avg-l{display:inline-block;width:18px;height:0;border-top:2.5px solid var(--rv-pace)} .in-avg-l.clock{border-top:1.5px solid var(--muted)} .in-avg-l.gap{border-top:2px dashed var(--sun)}

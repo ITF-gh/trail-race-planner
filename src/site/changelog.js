@@ -1,6 +1,9 @@
 // changelog.js: the "What's new" list, newest first, in runner's words (the git log has the technical detail).
 
 export const CHANGELOG = [
+  { v: "2.37", date: "2026-11-15", items: [
+    "Rewind my run, Deep dive: a new Average pace chart shows how your average pace evolved along the run, across distance or time, moving, with stops and grade-adjusted. Tap it to replay that moment.",
+  ] },
   { v: "2.36", date: "2026-11-03", items: [
     "Rewind my run sample: a real 20 km recorded run (no heart rate, start and finish cut).",
     "Prep my run sample: a real 16 km trail route instead of a made-up loop.",
