@@ -2,7 +2,7 @@
 
 export const CHANGELOG = [
   { v: "2.39", date: "2026-11-18", items: [
-    "Rewind my run and your runs: distance now matches your watch better. GPS jumps (signal lost under trees) are ignored and the small GPS wobble is smoothed, like the watch does.",
+    "Run distance: GPS jumps (signal lost for a second under trees) are no longer counted.",
   ] },
   { v: "2.37", date: "2026-11-15", items: [
     "Rewind my run, Deep dive: a new Average pace chart shows how your average pace evolved along the run, across distance or time, moving, with stops and grade-adjusted. Tap it to replay that moment.",
