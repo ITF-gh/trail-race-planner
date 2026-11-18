@@ -1,6 +1,9 @@
 // changelog.js: the "What's new" list, newest first, in runner's words (the git log has the technical detail).
 
 export const CHANGELOG = [
+  { v: "2.39", date: "2026-11-18", items: [
+    "Run distance: GPS jumps (signal lost for a second under trees) are no longer counted.",
+  ] },
   { v: "2.38", date: "2026-11-18", items: [
     "Deep dive charts: labels pop up under the mouse, a Full screen button on each chart, and a click on a moment (or On the map for a best effort) centres the map on that point.",
   ] },

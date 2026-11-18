@@ -56,7 +56,7 @@ export function haversine(a, b) {
 
 /** Re-sample a parsed track onto a regular distance grid. */
 export function resample(parsed, step = 10) {
-  const pts = parsed.points;
+  const pts = cleanGps(parsed.points);
   // 1.
   const cum = [0];
   const keep = [pts[0]];
@@ -102,6 +102,21 @@ export function resample(parsed, step = 10) {
     if (hasCad) out.cad[k] = lerpNullable(a.cad, b.cad, f);
   }
   return out;
+}
+
+// GPS clean-up for recorded runs (needs times): drop impossible jumps (signal lost under trees).
+export const GPS_MAX_SPEED = 8; // m/s, faster than any running step: a GPS jump
+
+/** Recorded track -> same points without GPS jumps; routes without times are kept as they are. */
+export function cleanGps(pts) {
+  if (pts.length < 3 || !pts.every((p) => p.time !== null)) return pts;
+  const keep = [pts[0]];
+  for (let i = 1; i < pts.length; i++) {
+    const k = keep[keep.length - 1];
+    const dt = Math.max(1, (pts[i].time - k.time) / 1000);
+    if (haversine(k, pts[i]) / dt <= GPS_MAX_SPEED) keep.push(pts[i]);
+  }
+  return keep;
 }
 
 /** Linear interpolation that tolerates missing values: a + f x (b - a), but when one end is null it returns the other end, and null when both are. */

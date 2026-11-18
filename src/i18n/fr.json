@@ -249,6 +249,7 @@
   "Follow the runner": "Suivre le coureur",
   "Recap": "Recap",
   "Average pace": "Allure moyenne",
+  "Run distance: GPS jumps (signal lost for a second under trees) are no longer counted.": "Distance du run : les sauts du GPS (signal perdu une seconde sous les arbres) ne sont plus comptés.",
   "⛶ Full screen": "⛶ Plein écran",
   "✕ Close": "✕ Fermer",
   "On the map": "Sur la carte",

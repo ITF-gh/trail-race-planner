@@ -653,3 +653,20 @@ test("deep dive: average pace curve ends on the run's moving pace", () => {
   assert.ok(Math.abs(end.pace - run.movingPace) < 1, "last point = whole-run moving pace");
   assert.ok(c.every((p) => p.clock >= p.pace - 0.01), "stops only slow the clock pace");
 });
+
+test("track: GPS jumps ignored on a recorded run", () => {
+  // 1 km north at 3 m/s, 1 point per second, +-1.5 m wobble and one 80 m jump.
+  const pts = [];
+  for (let i = 0; i <= 333; i++) {
+    const wob = (i % 2 ? 1.5 : -1.5) + (i === 150 ? 80 : 0);
+    pts.push({ lat: 45 + (i * 3) / 111195, lon: 6 + wob / (111195 * Math.cos(Math.PI / 4)), ele: 500, time: 1e12 + i * 1000, hr: null, cad: null });
+  }
+  let raw = 0;
+  for (let i = 1; i < pts.length; i++) raw += haversine(pts[i - 1], pts[i]);
+  const rs = resample({ name: "", points: pts }, 10);
+  assert.ok(raw > 1500, `raw ${raw}`);
+  assert.ok(raw - rs.totalM > 140 && raw - rs.totalM < 160, `clean ${rs.totalM}`); // the 80 m out and back is gone
+  // a planned route (no times) is left as it is
+  const route = resample({ name: "", points: pts.map((p) => ({ ...p, time: null })) }, 10);
+  assert.ok(Math.abs(route.totalM - raw) < 1e-6);
+});
