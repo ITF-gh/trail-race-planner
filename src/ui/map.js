@@ -65,6 +65,7 @@ export function courseMap(el, opts) {
     setRunner(km) { ctl.km = km; if (ctl.impl) ctl.impl.setRunner(km); },
     highlight(cur) { ctl.hl = [cur]; if (ctl.impl) ctl.impl.highlight(cur); },
     show(fromKm, toKm) { if (ctl.impl) ctl.impl.show(fromKm, toKm); },
+    center(km) { if (ctl.impl) ctl.impl.center(km); },
     focus(fromKm, toKm, { zoom = true } = {}) { ctl.fc = fromKm === null || fromKm === undefined ? null : [fromKm, toKm, zoom]; if (ctl.impl) ctl.impl.focus(ctl.fc); },
     follow(on) { ctl.following = on; if (ctl.impl) ctl.impl.follow(on); },
     fit() { if (ctl.impl) ctl.impl.fit(); },
@@ -214,6 +215,12 @@ function leafletMap(L, el, { route, totalKm, paint = [], marks = [] }) {
       // Following: re-centre only when the runner leaves the middle of the view, so the map holds still most of the time instead of sliding on every frame. pad(-0.25) shrinks the visible box by 25% on each side...
       if (following && !free && !map.getBounds().pad(-0.25).contains(p)) map.panTo(p, { animate: false });
     },
+    /** Centre the map on km (zoom 14 at least), like a drag: Recenter brings following back. */
+    center(km) {
+      if (following) { free = true; recenter.getContainer() && recenter.getContainer().classList.add("on"); }
+      map.invalidateSize({ pan: false });
+      map.setView(pointAt(route, totalKm, km), Math.max(map.getZoom(), 14), { animate: true });
+    },
     // Zoom the map onto a stretch of the course (a section picked on the bar of sections).
     show(fromKm, toKm) {
       const pts = slice(route, totalKm, fromKm, toKm);
@@ -294,6 +301,7 @@ function svgMap(el, { route, totalKm, paint = [], marks = [] }) {
     setRunner(km) { const [x, y] = pt(pointAt(route, totalKm, km)); dot.style.display = ""; dot.setAttribute("transform", `translate(${x.toFixed(1)},${y.toFixed(1)})`); },
     follow() {},
     show() {},
+    center() {},
     focus(fc) { this.highlight(fc ? { fromKm: fc[0], toKm: fc[1] } : null); },
     fit() {},
     destroy() {},
