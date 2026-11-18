@@ -557,7 +557,14 @@ export function mountRun(box, run) {
   const pause = () => { rv.playing = false; cancelAnimationFrame(rv.raf); draw(); };
   const seek = (sec) => { rv.sec = Math.max(0, Math.min(run.elapsedSec, sec)); els.cue.classList.remove("pulse"); draw(); };
   // The deep dive below asks the replay to jump to a moment through this.
-  rv.seekTo = (sec) => { pause(); seek(sec + 1); $v("#rvCockpit").scrollIntoView({ behavior: "smooth", block: "start" }); };
+  rv.seekTo = (sec) => {
+    pause(); seek(sec + 1);
+    // Leave full screen, scroll to the map and centre it on that point.
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    document.querySelectorAll(".in-card.in-fs .in-fsb").forEach((b) => b.click());
+    $v("#rvMap").scrollIntoView({ behavior: "smooth", block: "center" });
+    if (rv.map) rv.map.center(runStateAt(run, rv.sec).km);
+  };
   // Jump to the next (dir = 1) or previous (dir = -1) key moment.
   const jump = (dir) => {
     const list = dir > 0 ? moments.filter((e) => e.sec > rv.sec + 0.5) : moments.filter((e) => e.sec < rv.sec - 1.5).reverse();
