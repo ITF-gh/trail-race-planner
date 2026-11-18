@@ -249,6 +249,7 @@
   "Follow the runner": "Suivre le coureur",
   "Recap": "Recap",
   "Average pace": "Allure moyenne",
+  "Rewind my run and your runs: distance now matches your watch better. GPS jumps (signal lost under trees) are ignored and the small GPS wobble is smoothed, like the watch does.": "Rewind my run et tes runs : la distance colle mieux à ta montre. Les sauts du GPS (signal perdu sous les arbres) sont ignorés et le petit tremblement du GPS est lissé, comme le fait la montre.",
   "Rewind my run, Deep dive: a new Average pace chart shows how your average pace evolved along the run, across distance or time, moving, with stops and grade-adjusted. Tap it to replay that moment.": "Rewind my run, Deep data : un nouveau graphique Allure moyenne montre comment ton allure moyenne a évolué pendant le run, en fonction de la distance ou du temps, en mouvement, avec les arrêts et ajustée à la pente. Touche-le pour rejouer ce moment.",
   "how your average pace evolved along the run": "comment ton allure moyenne a évolué pendant le run",
   "With stops": "Avec les arrêts",

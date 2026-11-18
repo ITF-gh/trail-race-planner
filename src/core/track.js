@@ -56,7 +56,7 @@ export function haversine(a, b) {
 
 /** Re-sample a parsed track onto a regular distance grid. */
 export function resample(parsed, step = 10) {
-  const pts = parsed.points;
+  const pts = cleanGps(parsed.points);
   // 1.
   const cum = [0];
   const keep = [pts[0]];
@@ -100,6 +100,75 @@ export function resample(parsed, step = 10) {
     if (hasTime) out.time[k] = a.time + f * (b.time - a.time);
     if (hasHr) out.hr[k] = lerpNullable(a.hr, b.hr, f);
     if (hasCad) out.cad[k] = lerpNullable(a.cad, b.cad, f);
+  }
+  return out;
+}
+
+// Watch-like GPS clean-up for recorded runs (needs times): drop impossible jumps, then smooth the wobble.
+export const GPS_MAX_SPEED = 8; // m/s, faster than any running step: a GPS jump
+export const GPS_SMOOTH = { q: 0.5, r: 4 }; // Kalman: runner acceleration noise (m2/s3), GPS noise (m2)
+
+/** Recorded track -> same points with jumps removed and lat/lon smoothed; routes without times are kept as they are. */
+export function cleanGps(pts) {
+  if (pts.length < 3 || !pts.every((p) => p.time !== null)) return pts;
+  const keep = [pts[0]];
+  for (let i = 1; i < pts.length; i++) {
+    const k = keep[keep.length - 1];
+    const dt = Math.max(1, (pts[i].time - k.time) / 1000);
+    if (haversine(k, pts[i]) / dt <= GPS_MAX_SPEED) keep.push(pts[i]);
+  }
+  const lat0 = (keep[0].lat * Math.PI) / 180;
+  const ky = (6371000 * Math.PI) / 180;
+  const kx = ky * Math.cos(lat0);
+  const t = keep.map((p) => p.time / 1000);
+  const x = kalman1d(keep.map((p) => p.lon * kx), t);
+  const y = kalman1d(keep.map((p) => p.lat * ky), t);
+  const out = keep.map((p, i) => ({ ...p, lon: x[i] / kx, lat: y[i] / ky }));
+  // Standing still (raw step under 0.5 m): hold the position, the smoother would let it drift.
+  for (let i = 1; i < out.length; i++) {
+    if (haversine(keep[i - 1], keep[i]) < 0.5) Object.assign(out[i], { lat: out[i - 1].lat, lon: out[i - 1].lon });
+  }
+  return out;
+}
+
+/** Constant-velocity Kalman filter + Rauch-Tung-Striebel backward pass on one axis (metres). */
+function kalman1d(z, t) {
+  const { q, r } = GPS_SMOOTH;
+  const n = z.length;
+  const xs = [], ps = [], xp = [], pp = [];
+  let x0 = z[0], x1 = 0, a = r, b = 0, c = 25; // state (pos, speed), covariance [[a b][b c]]
+  for (let i = 0; i < n; i++) {
+    const dt = i ? Math.max(0.5, t[i] - t[i - 1]) : 0;
+    const px0 = x0 + dt * x1;
+    const pa = a + 2 * dt * b + dt * dt * c + (q * dt ** 3) / 3;
+    const pb = b + dt * c + (q * dt * dt) / 2;
+    const pc = c + q * dt;
+    xp.push([px0, x1]);
+    pp.push([pa, pb, pc]);
+    const k0 = pa / (pa + r), k1 = pb / (pa + r), e = z[i] - px0;
+    x0 = px0 + k0 * e;
+    x1 = x1 + k1 * e;
+    a = (1 - k0) * pa;
+    b = (1 - k0) * pb;
+    c = pc - k1 * pb;
+    xs.push([x0, x1]);
+    ps.push([a, b, c]);
+  }
+  const out = new Array(n);
+  let s0 = xs[n - 1][0], s1 = xs[n - 1][1];
+  out[n - 1] = s0;
+  for (let i = n - 2; i >= 0; i--) {
+    const dt = Math.max(0.5, t[i + 1] - t[i]);
+    const [fa, fb, fc] = ps[i];
+    const [qa, qb, qc] = pp[i + 1];
+    // gain C = P F' inv(Ppred)
+    const m00 = fa + dt * fb, m01 = fb, m10 = fb + dt * fc, m11 = fc;
+    const det = qa * qc - qb * qb;
+    const i00 = qc / det, i01 = -qb / det, i11 = qa / det;
+    const d0 = s0 - xp[i + 1][0], d1 = s1 - xp[i + 1][1];
+    s0 = xs[i][0] + (m00 * i00 + m01 * i01) * d0 + (m00 * i01 + m01 * i11) * d1;
+    s1 = xs[i][1] + (m10 * i00 + m11 * i01) * d0 + (m10 * i01 + m11 * i11) * d1;
+    out[i] = s0;
   }
   return out;
 }
